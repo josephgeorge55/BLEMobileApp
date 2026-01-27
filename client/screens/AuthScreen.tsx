@@ -12,11 +12,18 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useUser } from "@/context/UserContext";
 import { Spacing, BladeColors, BorderRadius, Gradients } from "@/constants/theme";
+
+const APP_VERSION = Constants.expoConfig?.version || "1.0.0";
+const BUILD_NUMBER = "2026.01.27";
+const FIRMWARE_PROTOCOL = "BLE 5.0";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -78,6 +85,10 @@ export default function AuthScreen() {
     setError(null);
     setPin("");
     setConfirmPin("");
+  };
+
+  const handleOpenSupport = async () => {
+    await WebBrowser.openBrowserAsync("https://support.bladeoutboards.com");
   };
 
   return (
@@ -202,10 +213,32 @@ export default function AuthScreen() {
             </View>
           </View>
 
-          <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-            <ThemedText type="caption" style={styles.footerText}>
-              Blade Marine Technologies Limited
-            </ThemedText>
+          <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+            <Pressable onPress={handleOpenSupport} style={styles.supportLink}>
+              <Feather name="life-buoy" size={14} color="#64748B" />
+              <ThemedText type="caption" style={styles.supportText}>
+                Support Center
+              </ThemedText>
+            </Pressable>
+            
+            <View style={styles.oemInfo}>
+              <ThemedText type="caption" style={styles.oemText}>
+                BLADE MARINE TECHNOLOGIES LTD
+              </ThemedText>
+              <View style={styles.versionRow}>
+                <ThemedText type="caption" style={styles.versionLabel}>
+                  App v{APP_VERSION}
+                </ThemedText>
+                <View style={styles.versionDot} />
+                <ThemedText type="caption" style={styles.versionLabel}>
+                  Build {BUILD_NUMBER}
+                </ThemedText>
+                <View style={styles.versionDot} />
+                <ThemedText type="caption" style={styles.versionLabel}>
+                  {FIRMWARE_PROTOCOL}
+                </ThemedText>
+              </View>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -309,8 +342,48 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: "center",
+    gap: Spacing.md,
   },
-  footerText: {
+  supportLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: "rgba(100, 116, 139, 0.1)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(100, 116, 139, 0.2)",
+  },
+  supportText: {
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  oemInfo: {
+    alignItems: "center",
+    marginTop: Spacing.sm,
+  },
+  oemText: {
+    color: "#334155",
+    letterSpacing: 2,
+    fontWeight: "600",
+    fontSize: 10,
+    marginBottom: 6,
+  },
+  versionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  versionLabel: {
     color: "#475569",
+    fontSize: 10,
+    fontVariant: ["tabular-nums"],
+  },
+  versionDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "#475569",
   },
 });

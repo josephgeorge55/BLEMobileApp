@@ -6,6 +6,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { SettingsRow, SettingsSection } from "@/components/SettingsRow";
@@ -14,6 +15,11 @@ import { useMotor } from "@/context/MotorContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useUser } from "@/context/UserContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+
+const APP_VERSION = Constants.expoConfig?.version || "1.0.0";
+const BUILD_NUMBER = "2026.01.27";
+const FIRMWARE_PROTOCOL = "BLE 5.0";
+const HARDWARE_REV = "HW-R3";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -51,11 +57,13 @@ export default function SettingsScreen() {
     await WebBrowser.openBrowserAsync("https://www.bladeoutboards.com/tandc");
   };
 
+  const handleOpenSupport = async () => {
+    await WebBrowser.openBrowserAsync("https://support.bladeoutboards.com");
+  };
+
   const handleDataSharingToggle = (value: boolean) => {
     setAnonymousDataSharing(value);
   };
-
-  const appVersion = Constants.expoConfig?.version || "1.0.0";
 
   return (
     <ScrollView
@@ -187,6 +195,28 @@ export default function SettingsScreen() {
         </View>
       </SettingsSection>
 
+      <SettingsSection title="Support">
+        <SettingsRow
+          icon="life-buoy"
+          title="Support Center"
+          subtitle="Get help with your Blade products"
+          onPress={handleOpenSupport}
+          iconColor={BladeColors.accent}
+        />
+        <SettingsRow
+          icon="book-open"
+          title="User Manual"
+          subtitle="Installation and operation guides"
+          onPress={handleOpenSupport}
+        />
+        <SettingsRow
+          icon="phone"
+          title="Contact Engineering"
+          subtitle="Technical support for OEM customers"
+          onPress={handleOpenSupport}
+        />
+      </SettingsSection>
+
       <SettingsSection title="Legal">
         <SettingsRow
           icon="shield"
@@ -200,26 +230,74 @@ export default function SettingsScreen() {
         />
       </SettingsSection>
 
-      <SettingsSection title="About">
+      <SettingsSection title="System Information">
         <SettingsRow
-          icon="globe"
-          title="Visit bladeoutboards.com"
-          onPress={handleOpenWebsite}
+          icon="smartphone"
+          title="App Version"
+          value={`v${APP_VERSION}`}
+          showChevron={false}
         />
         <SettingsRow
-          icon="info"
-          title="App Version"
-          value={appVersion}
+          icon="package"
+          title="Build"
+          value={BUILD_NUMBER}
           showChevron={false}
+        />
+        <SettingsRow
+          icon="bluetooth"
+          title="Protocol"
+          value={FIRMWARE_PROTOCOL}
+          showChevron={false}
+        />
+        <SettingsRow
+          icon="cpu"
+          title="Hardware Revision"
+          value={HARDWARE_REV}
+          showChevron={false}
+        />
+        <SettingsRow
+          icon="globe"
+          title="bladeoutboards.com"
+          onPress={handleOpenWebsite}
         />
       </SettingsSection>
 
       <View style={styles.footer}>
-        <ThemedText type="caption" style={[styles.footerText, { color: theme.textTertiary }]}>
-          Blade Marine Technologies Limited
-        </ThemedText>
-        <ThemedText type="caption" style={[styles.footerText, { color: theme.textTertiary }]}>
-          Made with precision for the open water
+        <View style={[styles.oemBadge, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+          <Feather name="anchor" size={16} color={theme.textTertiary} />
+          <View style={styles.oemBadgeText}>
+            <ThemedText type="caption" style={[styles.oemTitle, { color: theme.textSecondary }]}>
+              BLADE MARINE TECHNOLOGIES LTD
+            </ThemedText>
+            <ThemedText type="caption" style={[styles.oemSubtitle, { color: theme.textTertiary }]}>
+              Electric Propulsion Systems
+            </ThemedText>
+          </View>
+        </View>
+        <View style={styles.certifications}>
+          <View style={[styles.certBadge, { borderColor: theme.border }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+              CE
+            </ThemedText>
+          </View>
+          <View style={[styles.certBadge, { borderColor: theme.border }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+              FCC
+            </ThemedText>
+          </View>
+          <View style={[styles.certBadge, { borderColor: theme.border }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+              IP67
+            </ThemedText>
+          </View>
+          <View style={[styles.certBadge, { borderColor: theme.border }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+              ISO 9001
+            </ThemedText>
+          </View>
+        </View>
+        <ThemedText type="caption" style={[styles.copyright, { color: theme.textTertiary }]}>
+          {"\u00A9"} 2026 Blade Marine Technologies Ltd. All rights reserved.
         </ThemedText>
       </View>
     </ScrollView>
@@ -288,8 +366,47 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: "center",
     paddingVertical: Spacing["3xl"],
+    gap: Spacing.lg,
   },
-  footerText: {
-    marginBottom: 4,
+  oemBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+  },
+  oemBadgeText: {
+    alignItems: "flex-start",
+  },
+  oemTitle: {
+    letterSpacing: 1.5,
+    fontWeight: "600",
+    fontSize: 10,
+  },
+  oemSubtitle: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  certifications: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  certBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  certText: {
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  copyright: {
+    fontSize: 10,
+    marginTop: Spacing.sm,
   },
 });
