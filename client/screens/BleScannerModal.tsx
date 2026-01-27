@@ -15,8 +15,11 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { AntiTheftLinkModal } from "@/components/AntiTheftLinkModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
+import { useUser } from "@/context/UserContext";
+import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius, BladeColors } from "@/constants/theme";
 
 interface MockDevice {
@@ -37,10 +40,14 @@ export default function BleScannerModal() {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { connectToMotor, isConnecting, stopScan } = useMotor();
+  const { user } = useUser();
 
   const [isScanning, setIsScanning] = useState(true);
   const [devices, setDevices] = useState<MockDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [showAntiTheftModal, setShowAntiTheftModal] = useState(false);
+  const [pairedMotor, setPairedMotor] = useState<{ name: string; serialNumber: string } | null>(null);
+  const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
     const scanTimeout = setTimeout(() => {
@@ -61,11 +68,43 @@ export default function BleScannerModal() {
     try {
       await connectToMotor(device.serialNumber);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.goBack();
+      
+      if (user) {
+        setPairedMotor({ name: device.name, serialNumber: device.serialNumber });
+        setShowAntiTheftModal(true);
+      } else {
+        navigation.goBack();
+      }
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSelectedDevice(null);
     }
+  };
+
+  const handleLinkMotor = async () => {
+    if (!pairedMotor || !user) return;
+    
+    setIsLinking(true);
+    try {
+      await apiRequest("POST", "/api/motors/link", {
+        serialNumber: pairedMotor.serialNumber,
+        userId: user.id,
+      });
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowAntiTheftModal(false);
+      navigation.goBack();
+    } catch (error) {
+      console.error("Failed to link motor:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const handleSkipLink = () => {
+    setShowAntiTheftModal(false);
+    navigation.goBack();
   };
 
   const handleRescan = () => {
@@ -152,6 +191,7 @@ export default function BleScannerModal() {
   };
 
   return (
+    <>
     <View
       style={[
         styles.container,
@@ -229,6 +269,18 @@ export default function BleScannerModal() {
         />
       )}
     </View>
+
+    {pairedMotor ? (
+      <AntiTheftLinkModal
+        visible={showAntiTheftModal}
+        motorName={pairedMotor.name}
+        serialNumber={pairedMotor.serialNumber}
+        isLinking={isLinking}
+        onLink={handleLinkMotor}
+        onSkip={handleSkipLink}
+      />
+    ) : null}
+    </>
   );
 }
 
