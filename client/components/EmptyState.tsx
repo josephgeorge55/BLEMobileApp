@@ -1,14 +1,15 @@
 import React from "react";
 import { StyleSheet, View, Image, ImageSourcePropType } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface EmptyStateProps {
-  image: ImageSourcePropType;
+  image?: ImageSourcePropType;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -22,11 +23,17 @@ export function EmptyState({
   actionLabel,
   onAction,
 }: EmptyStateProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
 
   return (
-    <Animated.View entering={FadeIn.duration(400)} style={styles.container}>
-      <Image source={image} style={styles.image} resizeMode="contain" />
+    <Animated.View entering={FadeIn.duration(500)} style={styles.container}>
+      <View style={[styles.imageContainer, { backgroundColor: theme.backgroundSecondary }]}>
+        <Image
+          source={image || require("../../assets/images/halo-outboard.png")}
+          style={styles.image}
+          resizeMode="contain"
+        />
+      </View>
       <ThemedText type="h2" style={styles.title}>
         {title}
       </ThemedText>
@@ -40,7 +47,7 @@ export function EmptyState({
       ) : null}
       {actionLabel && onAction ? (
         <View style={styles.buttonContainer}>
-          <Button onPress={onAction}>{actionLabel}</Button>
+          <Button onPress={onAction} variant="accent">{actionLabel}</Button>
         </View>
       ) : null}
     </Animated.View>
@@ -55,11 +62,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing["3xl"],
     paddingVertical: Spacing["4xl"],
   },
+  imageContainer: {
+    width: 200,
+    height: 220,
+    borderRadius: BorderRadius.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing["2xl"],
+  },
   image: {
     width: 180,
-    height: 180,
-    marginBottom: Spacing["2xl"],
-    opacity: 0.9,
+    height: 200,
   },
   title: {
     textAlign: "center",
@@ -68,9 +81,10 @@ const styles = StyleSheet.create({
   description: {
     textAlign: "center",
     marginBottom: Spacing["2xl"],
+    lineHeight: 24,
   },
   buttonContainer: {
     width: "100%",
-    maxWidth: 240,
+    maxWidth: 260,
   },
 });

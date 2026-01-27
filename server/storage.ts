@@ -1,4 +1,5 @@
 import {
+  users,
   motors,
   motorLocations,
   firmwareVersions,
@@ -6,6 +7,8 @@ import {
   pushTokens,
   notifications,
   telemetryData,
+  type User,
+  type InsertUser,
   type Motor,
   type InsertMotor,
   type MotorLocation,
@@ -23,9 +26,15 @@ import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUserLastLogin(userId: string): Promise<void>;
+
   getMotorBySerial(serialNumber: string): Promise<Motor | undefined>;
+  getMotorsByUserId(userId: string): Promise<Motor[]>;
   createOrUpdateMotor(motor: InsertMotor): Promise<Motor>;
   updateMotorLastSeen(serialNumber: string): Promise<void>;
+  linkMotorToUser(serialNumber: string, userId: string): Promise<Motor | undefined>;
 
   getLatestLocation(serialNumber: string): Promise<MotorLocation | undefined>;
   createLocation(location: InsertLocation): Promise<MotorLocation>;
@@ -48,12 +57,42 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()));
+    return user || undefined;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [created] = await db
+      .insert(users)
+      .values({ ...user, email: user.email!.toLowerCase() })
+      .returning();
+    return created;
+  }
+
+  async updateUserLastLogin(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
   async getMotorBySerial(serialNumber: string): Promise<Motor | undefined> {
     const [motor] = await db
       .select()
       .from(motors)
       .where(eq(motors.serialNumber, serialNumber));
     return motor || undefined;
+  }
+
+  async getMotorsByUserId(userId: string): Promise<Motor[]> {
+    return db
+      .select()
+      .from(motors)
+      .where(eq(motors.userId, userId));
   }
 
   async createOrUpdateMotor(motor: InsertMotor): Promise<Motor> {
@@ -75,6 +114,15 @@ export class DatabaseStorage implements IStorage {
       .update(motors)
       .set({ lastSeenAt: new Date() })
       .where(eq(motors.serialNumber, serialNumber));
+  }
+
+  async linkMotorToUser(serialNumber: string, userId: string): Promise<Motor | undefined> {
+    const [updated] = await db
+      .update(motors)
+      .set({ userId })
+      .where(eq(motors.serialNumber, serialNumber))
+      .returning();
+    return updated || undefined;
   }
 
   async getLatestLocation(

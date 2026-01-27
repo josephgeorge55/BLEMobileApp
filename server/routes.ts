@@ -1,5 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { storage } from "./storage";
 import {
   locationReportSchema,
@@ -7,9 +9,28 @@ import {
   sendNotificationSchema,
   registerTokenSchema,
   telemetryReportSchema,
+  createAccountSchema,
+  loginSchema,
+  linkMotorSchema,
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+
+const LOG_DIR = join(process.cwd(), "logs");
+const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
+
+function ensureLogDirectory() {
+  if (!existsSync(LOG_DIR)) {
+    mkdirSync(LOG_DIR, { recursive: true });
+  }
+}
+
+function logAuthEvent(event: string, email: string, pin: string, success: boolean) {
+  ensureLogDirectory();
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] ${event} | Email: ${email} | PIN: ${pin} | Success: ${success}\n`;
+  appendFileSync(AUTH_LOG_FILE, logEntry);
+}
 
 function handleZodError(error: unknown, res: Response) {
   if (error instanceof ZodError) {
@@ -20,6 +41,103 @@ function handleZodError(error: unknown, res: Response) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const body = createAccountSchema.parse(req.body);
+
+      const existingUser = await storage.getUserByEmail(body.email);
+      if (existingUser) {
+        logAuthEvent("REGISTER_FAILED", body.email, body.pin, false);
+        return res.status(400).json({ error: "Email already registered" });
+      }
+
+      const user = await storage.createUser({
+        email: body.email,
+        pin: body.pin,
+      });
+
+      logAuthEvent("REGISTER_SUCCESS", body.email, body.pin, true);
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          createdAt: user.createdAt,
+        },
+      });
+    } catch (error) {
+      handleZodError(error, res);
+      console.error("Error registering user:", error);
+      res.status(500).json({ error: "Failed to create account" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const body = loginSchema.parse(req.body);
+
+      const user = await storage.getUserByEmail(body.email);
+      if (!user || user.pin !== body.pin) {
+        logAuthEvent("LOGIN_FAILED", body.email, body.pin, false);
+        return res.status(401).json({ error: "Invalid email or PIN" });
+      }
+
+      await storage.updateUserLastLogin(user.id);
+      logAuthEvent("LOGIN_SUCCESS", body.email, body.pin, true);
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          createdAt: user.createdAt,
+        },
+      });
+    } catch (error) {
+      handleZodError(error, res);
+      console.error("Error logging in:", error);
+      res.status(500).json({ error: "Failed to login" });
+    }
+  });
+
+  app.post("/api/motors/link", async (req, res) => {
+    try {
+      const body = linkMotorSchema.parse(req.body);
+
+      let motor = await storage.getMotorBySerial(body.serialNumber);
+      if (!motor) {
+        motor = await storage.createOrUpdateMotor({
+          serialNumber: body.serialNumber,
+          name: `Blade ${body.serialNumber.slice(-4)}`,
+          userId: body.userId,
+        });
+      } else {
+        motor = await storage.linkMotorToUser(body.serialNumber, body.userId);
+      }
+
+      res.json({
+        success: true,
+        motor,
+      });
+    } catch (error) {
+      handleZodError(error, res);
+      console.error("Error linking motor:", error);
+      res.status(500).json({ error: "Failed to link motor" });
+    }
+  });
+
+  app.get("/api/user/:userId/motors", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const userMotors = await storage.getMotorsByUserId(userId);
+      res.json(userMotors);
+    } catch (error) {
+      console.error("Error fetching user motors:", error);
+      res.status(500).json({ error: "Failed to fetch motors" });
+    }
+  });
+
   app.post("/api/motor/:serialNumber/location", async (req, res) => {
     try {
       const { serialNumber } = req.params;

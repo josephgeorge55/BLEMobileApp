@@ -11,6 +11,16 @@ import {
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const users = pgTable("users", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  pin: varchar("pin", { length: 6 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastLoginAt: timestamp("last_login_at"),
+});
+
 export const motors = pgTable("motors", {
   id: varchar("id")
     .primaryKey()
@@ -18,6 +28,7 @@ export const motors = pgTable("motors", {
   serialNumber: varchar("serial_number", { length: 50 }).notNull().unique(),
   name: varchar("name", { length: 100 }),
   firmwareVersion: varchar("firmware_version", { length: 20 }),
+  userId: varchar("user_id").references(() => users.id),
   registeredAt: timestamp("registered_at").defaultNow(),
   lastSeenAt: timestamp("last_seen_at"),
 });
@@ -100,6 +111,11 @@ export const telemetryData = pgTable("telemetry_data", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = z.infer<typeof selectUserSchema>;
+
 export const insertMotorSchema = createInsertSchema(motors);
 export const selectMotorSchema = createSelectSchema(motors);
 export type InsertMotor = z.infer<typeof insertMotorSchema>;
@@ -172,8 +188,26 @@ export const telemetryReportSchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
 });
 
+export const createAccountSchema = z.object({
+  email: z.string().email(),
+  pin: z.string().length(6).regex(/^\d{6}$/, "PIN must be 6 digits"),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  pin: z.string().length(6),
+});
+
+export const linkMotorSchema = z.object({
+  serialNumber: z.string().min(1),
+  userId: z.string().min(1),
+});
+
 export type LocationReport = z.infer<typeof locationReportSchema>;
 export type FirmwareCheck = z.infer<typeof firmwareCheckSchema>;
 export type SendNotification = z.infer<typeof sendNotificationSchema>;
 export type RegisterToken = z.infer<typeof registerTokenSchema>;
 export type TelemetryReport = z.infer<typeof telemetryReportSchema>;
+export type CreateAccount = z.infer<typeof createAccountSchema>;
+export type Login = z.infer<typeof loginSchema>;
+export type LinkMotor = z.infer<typeof linkMotorSchema>;

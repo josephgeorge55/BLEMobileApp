@@ -13,6 +13,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MotorProvider } from "@/context/MotorContext";
 import { SettingsProvider } from "@/context/SettingsContext";
+import { UserProvider } from "@/context/UserContext";
 
 export default function App() {
   return (
@@ -21,14 +22,16 @@ export default function App() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
-              <MotorProvider>
-                <SettingsProvider>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
-                  <StatusBar style="auto" />
-                </SettingsProvider>
-              </MotorProvider>
+              <UserProvider>
+                <MotorProvider>
+                  <SettingsProvider>
+                    <NavigationContainer>
+                      <RootStackNavigator />
+                    </NavigationContainer>
+                    <StatusBar style="light" />
+                  </SettingsProvider>
+                </MotorProvider>
+              </UserProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </SafeAreaProvider>
