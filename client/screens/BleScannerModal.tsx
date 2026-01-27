@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -6,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -19,20 +20,29 @@ import { AntiTheftLinkModal } from "@/components/AntiTheftLinkModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useUser } from "@/context/UserContext";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius, BladeColors } from "@/constants/theme";
+import {
+  initializeBle,
+  startScan as startRealScan,
+  stopScan as stopRealScan,
+  isBleAvailable,
+  requestBlePermissions,
+  checkBleState,
+  BleDevice,
+} from "@/lib/ble-service";
 
-interface MockDevice {
+interface ScanDevice {
   id: string;
   name: string;
   serialNumber: string;
   rssi: number;
 }
 
-const mockDevices: MockDevice[] = [
-  { id: "1", name: "Blade Pro 500", serialNumber: "BLD-2024-0001", rssi: -45 },
-  { id: "2", name: "Blade Sport 350", serialNumber: "BLD-2024-0042", rssi: -62 },
-  { id: "3", name: "Blade Elite 750", serialNumber: "BLD-2024-0187", rssi: -78 },
+const mockDevices: ScanDevice[] = [
+  { id: "mock-1", name: "Blade Pro 500", serialNumber: "BLD-2024-0001", rssi: -45 },
+  { id: "mock-2", name: "Blade Sport 350", serialNumber: "BLD-2024-0042", rssi: -62 },
+  { id: "mock-3", name: "Blade Elite 750", serialNumber: "BLD-2024-0187", rssi: -78 },
 ];
 
 export default function BleScannerModal() {
@@ -43,25 +53,110 @@ export default function BleScannerModal() {
   const { user } = useUser();
 
   const [isScanning, setIsScanning] = useState(true);
-  const [devices, setDevices] = useState<MockDevice[]>([]);
+  const [devices, setDevices] = useState<ScanDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
   const [showAntiTheftModal, setShowAntiTheftModal] = useState(false);
   const [pairedMotor, setPairedMotor] = useState<{ name: string; serialNumber: string } | null>(null);
   const [isLinking, setIsLinking] = useState(false);
+  const [useMockMode, setUseMockMode] = useState(false);
+  const [bleError, setBleError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const scanTimeout = setTimeout(() => {
+  const startMockScan = useCallback(() => {
+    setIsScanning(true);
+    setDevices([]);
+    setBleError(null);
+    
+    setTimeout(() => {
       setDevices(mockDevices);
       setIsScanning(false);
     }, 2000);
+  }, []);
+
+  const startBleScan = useCallback(async () => {
+    setIsScanning(true);
+    setDevices([]);
+    setBleError(null);
+
+    try {
+      const initialized = await initializeBle();
+      
+      if (!initialized) {
+        setUseMockMode(true);
+        startMockScan();
+        return;
+      }
+
+      const hasPermissions = await requestBlePermissions();
+      if (!hasPermissions) {
+        setBleError("Bluetooth permissions required");
+        setIsScanning(false);
+        return;
+      }
+
+      const bleState = await checkBleState();
+      if (bleState !== "PoweredOn") {
+        setBleError(
+          bleState === "PoweredOff"
+            ? "Please turn on Bluetooth"
+            : bleState === "Unauthorized"
+            ? "Bluetooth permission denied"
+            : "Bluetooth not supported"
+        );
+        setIsScanning(false);
+        return;
+      }
+
+      const foundDevices: Map<string, ScanDevice> = new Map();
+
+      startRealScan({
+        onDeviceFound: (device: BleDevice) => {
+          if (device.name && device.serialNumber) {
+            const scanDevice: ScanDevice = {
+              id: device.id,
+              name: device.name,
+              serialNumber: device.serialNumber,
+              rssi: device.rssi,
+            };
+            foundDevices.set(device.id, scanDevice);
+            setDevices(Array.from(foundDevices.values()));
+          }
+        },
+        onError: (error: Error) => {
+          console.error("BLE scan error:", error);
+          setBleError("Scan error: " + error.message);
+        },
+      });
+
+      setTimeout(() => {
+        stopRealScan();
+        setIsScanning(false);
+        
+        if (foundDevices.size === 0) {
+          setDevices([]);
+        }
+      }, 10000);
+    } catch (error: any) {
+      console.error("BLE initialization error:", error);
+      setUseMockMode(true);
+      startMockScan();
+    }
+  }, [startMockScan]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      setUseMockMode(true);
+      startMockScan();
+    } else {
+      startBleScan();
+    }
 
     return () => {
-      clearTimeout(scanTimeout);
+      stopRealScan();
       stopScan();
     };
   }, []);
 
-  const handleDevicePress = async (device: MockDevice) => {
+  const handleDevicePress = async (device: ScanDevice) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedDevice(device.id);
 
@@ -108,12 +203,11 @@ export default function BleScannerModal() {
   };
 
   const handleRescan = () => {
-    setIsScanning(true);
-    setDevices([]);
-    setTimeout(() => {
-      setDevices(mockDevices);
-      setIsScanning(false);
-    }, 2000);
+    if (useMockMode) {
+      startMockScan();
+    } else {
+      startBleScan();
+    }
   };
 
   const getSignalStrength = (rssi: number) => {
@@ -130,7 +224,7 @@ export default function BleScannerModal() {
     return BladeColors.error;
   };
 
-  const renderDevice = ({ item, index }: { item: MockDevice; index: number }) => {
+  const renderDevice = ({ item, index }: { item: ScanDevice; index: number }) => {
     const isSelected = selectedDevice === item.id;
     const isConnectingToThis = isSelected && isConnecting;
 
@@ -174,6 +268,14 @@ export default function BleScannerModal() {
             >
               {item.serialNumber}
             </ThemedText>
+            {useMockMode && item.id.startsWith("mock") ? (
+              <ThemedText
+                type="caption"
+                style={{ color: BladeColors.warning, marginTop: 4 }}
+              >
+                Demo device (Expo Go mode)
+              </ThemedText>
+            ) : null}
           </View>
 
           {isConnectingToThis ? (
@@ -186,6 +288,22 @@ export default function BleScannerModal() {
             />
           )}
         </Pressable>
+      </Animated.View>
+    );
+  };
+
+  const renderModeIndicator = () => {
+    if (!useMockMode) return null;
+
+    return (
+      <Animated.View 
+        entering={FadeIn.duration(300)}
+        style={[styles.modeIndicator, { backgroundColor: BladeColors.warning + "20" }]}
+      >
+        <Feather name="info" size={14} color={BladeColors.warning} />
+        <ThemedText type="caption" style={{ color: BladeColors.warning, marginLeft: 6, flex: 1 }}>
+          Running in demo mode. Real Bluetooth requires a custom native build.
+        </ThemedText>
       </Animated.View>
     );
   };
@@ -209,9 +327,13 @@ export default function BleScannerModal() {
         >
           {isScanning
             ? "Scanning for Blade motors..."
+            : bleError 
+            ? bleError
             : `Found ${devices.length} motor${devices.length !== 1 ? "s" : ""}`}
         </ThemedText>
       </View>
+
+      {renderModeIndicator()}
 
       {isScanning ? (
         <Animated.View entering={FadeIn.duration(300)} style={styles.scanning}>
@@ -223,6 +345,27 @@ export default function BleScannerModal() {
             Make sure your motor is powered on and within range
           </ThemedText>
         </Animated.View>
+      ) : bleError ? (
+        <View style={styles.emptyState}>
+          <Feather
+            name="alert-circle"
+            size={48}
+            color={BladeColors.warning}
+            style={{ marginBottom: Spacing.lg }}
+          />
+          <ThemedText type="h3" style={{ marginBottom: Spacing.sm }}>
+            Bluetooth Issue
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={{ color: theme.textSecondary, textAlign: "center" }}
+          >
+            {bleError}
+          </ThemedText>
+          <View style={styles.rescanButton}>
+            <Button onPress={handleRescan}>Try Again</Button>
+          </View>
+        </View>
       ) : devices.length === 0 ? (
         <View style={styles.emptyState}>
           <Feather
@@ -291,7 +434,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     paddingTop: Spacing.md,
-    paddingBottom: Spacing["2xl"],
+    paddingBottom: Spacing.lg,
     paddingHorizontal: Spacing.lg,
   },
   handle: {
@@ -306,6 +449,14 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: "center",
+  },
+  modeIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
   },
   scanning: {
     flex: 1,
