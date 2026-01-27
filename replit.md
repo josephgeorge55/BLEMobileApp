@@ -116,6 +116,57 @@ The app parses comma-separated data frames from the tiller board via Bluetooth C
 - **Metro Bundler**: React Native JavaScript bundler
 - **Drizzle Kit**: Database migrations (`drizzle-kit push`)
 
+### BLE Hardware Support
+The app includes real Bluetooth Low Energy support via `react-native-ble-plx`. This requires a custom native build.
+
+**Expo Go Limitations:**
+- Expo Go does NOT support native BLE modules
+- The app automatically falls back to demo mode in Expo Go
+- Demo mode shows simulated devices for UI/UX testing
+
+**Custom Build for Real BLE:**
+To test with actual Bluetooth hardware (Halo Tiller Board), you need a custom development build:
+
+1. **Clone the project locally**
+   ```bash
+   git clone <repository-url>
+   cd blade-outboards
+   npm install
+   ```
+
+2. **Install react-native-ble-plx**
+   ```bash
+   npm install react-native-ble-plx
+   ```
+
+3. **Create development build**
+   ```bash
+   # Generate native projects
+   npx expo prebuild
+   
+   # Build for Android
+   npx expo run:android
+   
+   # Build for iOS (requires Mac + Xcode)
+   npx expo run:ios
+   ```
+
+4. **Or use EAS Build (cloud)**
+   ```bash
+   npm install -g eas-cli
+   eas login
+   eas build --profile development --platform android
+   eas build --profile development --platform ios
+   ```
+
+**BLE Service UUIDs:**
+- Service: `0000ffe0-0000-1000-8000-00805f9b34fb`
+- Characteristic: `0000ffe1-0000-1000-8000-00805f9b34fb`
+
+**Supported Device Names:**
+- Devices starting with "Blade" or "Halo"
+- Serial number pattern: `BLD-XXXX-XXXX` or `HALO-XXXX-XXXX`
+
 ### Environment Variables Required
 - `DATABASE_URL`: PostgreSQL connection string
 - `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
