@@ -30,18 +30,19 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       initialRouteName="DashboardTab"
       screenOptions={{
-        tabBarActiveTintColor: BladeColors.primary,
+        tabBarActiveTintColor: isDark ? BladeColors.accent : BladeColors.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
             ios: "transparent",
             android: theme.backgroundRoot,
+            default: theme.backgroundRoot,
           }),
           borderTopWidth: 0,
           elevation: 0,
-          height: Platform.select({ ios: 88, android: 64 }),
-          paddingBottom: Platform.select({ ios: 28, android: 8 }),
+          height: Platform.select({ ios: 88, android: 68, default: 68 }),
+          paddingBottom: Platform.select({ ios: 28, android: 10, default: 10 }),
           paddingTop: Spacing.sm,
         },
         tabBarBackground: () =>
@@ -54,9 +55,15 @@ export default function MainTabNavigator() {
           ) : null,
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "500",
+          fontWeight: "600",
+          letterSpacing: 0.3,
         },
         ...screenOptions,
+        headerStyle: {
+          ...screenOptions.headerStyle,
+          backgroundColor: isDark ? BladeColors.primaryDark : BladeColors.primary,
+        },
+        headerTintColor: "#FFFFFF",
       }}
     >
       <Tab.Screen
@@ -64,7 +71,7 @@ export default function MainTabNavigator() {
         component={DashboardScreen}
         options={{
           title: "Dashboard",
-          headerTitle: () => <HeaderTitle title="Blade Outboards" />,
+          headerTitle: () => <HeaderTitle />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="activity" size={size} color={color} />
           ),
@@ -75,7 +82,7 @@ export default function MainTabNavigator() {
         component={LocationScreen}
         options={{
           title: "Location",
-          headerTitle: "Location",
+          headerTitle: () => <HeaderTitle />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="map-pin" size={size} color={color} />
           ),
@@ -86,7 +93,7 @@ export default function MainTabNavigator() {
         component={UpdatesScreen}
         options={{
           title: "Updates",
-          headerTitle: "Firmware Updates",
+          headerTitle: () => <HeaderTitle />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="download-cloud" size={size} color={color} />
           ),
@@ -97,7 +104,7 @@ export default function MainTabNavigator() {
         component={SettingsScreen}
         options={{
           title: "Settings",
-          headerTitle: "Settings",
+          headerTitle: () => <HeaderTitle />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="settings" size={size} color={color} />
           ),

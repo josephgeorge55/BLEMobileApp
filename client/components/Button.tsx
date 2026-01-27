@@ -1,5 +1,6 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp, View } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,14 +10,14 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, BladeColors } from "@/constants/theme";
+import { BorderRadius, Spacing, BladeColors, Gradients } from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "outline";
+  variant?: "primary" | "secondary" | "outline" | "accent";
 }
 
 const springConfig: WithSpringConfig = {
@@ -45,7 +46,7 @@ export function Button({
 
   const handlePressIn = () => {
     if (!disabled) {
-      scale.value = withSpring(0.98, springConfig);
+      scale.value = withSpring(0.97, springConfig);
     }
   };
 
@@ -55,13 +56,25 @@ export function Button({
     }
   };
 
+  const useGradient = variant === "primary" || variant === "accent";
+
+  const getGradientColors = (): [string, string] => {
+    if (disabled) return [theme.backgroundTertiary, theme.backgroundTertiary];
+    switch (variant) {
+      case "primary":
+        return Gradients.primary as [string, string];
+      case "accent":
+        return Gradients.accent as [string, string];
+      default:
+        return Gradients.primary as [string, string];
+    }
+  };
+
   const getBackgroundColor = () => {
     if (disabled) return theme.backgroundTertiary;
     switch (variant) {
-      case "primary":
-        return BladeColors.primary;
       case "secondary":
-        return BladeColors.accent;
+        return theme.backgroundSecondary;
       case "outline":
         return "transparent";
       default:
@@ -73,7 +86,7 @@ export function Button({
     if (variant === "outline") {
       return {
         borderWidth: 2,
-        borderColor: disabled ? theme.backgroundTertiary : BladeColors.primary,
+        borderColor: disabled ? theme.backgroundTertiary : theme.primary,
       };
     }
     return {};
@@ -81,7 +94,8 @@ export function Button({
 
   const getTextColor = () => {
     if (disabled) return theme.textSecondary;
-    if (variant === "outline") return BladeColors.primary;
+    if (variant === "outline") return theme.primary;
+    if (variant === "secondary") return theme.text;
     return "#FFFFFF";
   };
 
@@ -93,15 +107,23 @@ export function Button({
       disabled={disabled}
       style={[
         styles.button,
-        {
+        !useGradient && {
           backgroundColor: getBackgroundColor(),
-          opacity: disabled ? 0.6 : 1,
         },
         getBorderStyle(),
+        { opacity: disabled ? 0.6 : 1 },
         style,
         animatedStyle,
       ]}
     >
+      {useGradient ? (
+        <LinearGradient
+          colors={getGradientColors()}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradient}
+        />
+      ) : null}
       {typeof children === "string" ? (
         <ThemedText type="button" style={{ color: getTextColor() }}>
           {children}
@@ -116,9 +138,13 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     height: Spacing.buttonHeight,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: Spacing["2xl"],
+    paddingHorizontal: Spacing["3xl"],
+    overflow: "hidden",
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
   },
 });

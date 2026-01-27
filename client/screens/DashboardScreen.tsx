@@ -1,26 +1,26 @@
 import React, { useEffect, useCallback } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl } from "react-native";
+import { StyleSheet, View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
+import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { EmptyState } from "@/components/EmptyState";
-import { MetricCardSkeleton } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
-import { Spacing, BladeColors } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
+import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { motor, telemetry, isConnecting, startScan, setTelemetry, setLocation } =
     useMotor();
 
@@ -87,20 +87,28 @@ export default function DashboardScreen() {
   const power = telemetry?.powerConsumption ?? 0;
   const firmware = motor.firmwareVersion ?? "--";
 
+  const getBatteryColor = () => {
+    if (soc > 60) return BladeColors.success;
+    if (soc > 30) return BladeColors.accent;
+    if (soc > 15) return BladeColors.warning;
+    return BladeColors.error;
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.xl,
-        paddingBottom: tabBarHeight + Spacing["3xl"],
-        paddingHorizontal: Spacing.lg,
+        paddingTop: headerHeight + Spacing.lg,
+        paddingBottom: tabBarHeight + Spacing["4xl"],
+        paddingHorizontal: Spacing.screenPadding,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={BladeColors.primary}
+          tintColor={theme.primary}
         />
       }
     >
@@ -113,7 +121,7 @@ export default function DashboardScreen() {
 
       <View style={styles.metricsGrid}>
         <Animated.View
-          entering={FadeInUp.delay(100).duration(400)}
+          entering={FadeInUp.delay(100).duration(400).springify()}
           style={styles.metricRow}
         >
           <MetricCard
@@ -121,7 +129,8 @@ export default function DashboardScreen() {
             label="Speed"
             value={speed.toFixed(1)}
             unit="kts"
-            iconColor={BladeColors.primary}
+            iconColor={BladeColors.marine}
+            accentGlow={speed > 0}
           />
           <View style={{ width: Spacing.md }} />
           <MetricCard
@@ -129,18 +138,13 @@ export default function DashboardScreen() {
             label="Battery"
             value={Math.round(soc)}
             unit="%"
-            iconColor={
-              soc > 50
-                ? BladeColors.success
-                : soc > 20
-                  ? BladeColors.warning
-                  : BladeColors.error
-            }
+            iconColor={getBatteryColor()}
+            accentGlow={soc < 20}
           />
         </Animated.View>
 
         <Animated.View
-          entering={FadeInUp.delay(200).duration(400)}
+          entering={FadeInUp.delay(200).duration(400).springify()}
           style={styles.metricRow}
         >
           <MetricCard
@@ -158,7 +162,7 @@ export default function DashboardScreen() {
             value={firmware}
             badge={firmware !== "1.3.0" ? "Update" : undefined}
             badgeColor={BladeColors.warning}
-            iconColor={BladeColors.primary}
+            iconColor={theme.primary}
           />
         </Animated.View>
       </View>
@@ -169,22 +173,61 @@ export default function DashboardScreen() {
       >
         <ThemedText
           type="caption"
-          style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+          style={[styles.sectionLabel, { color: theme.textTertiary }]}
         >
           MOTOR STATUS
         </ThemedText>
-        <View style={[styles.statusCard, { backgroundColor: theme.surface }]}>
+        <View
+          style={[
+            styles.statusCard,
+            {
+              backgroundColor: theme.surfaceElevated,
+              borderColor: isDark ? theme.border : "transparent",
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={[theme.cardGradientStart, theme.cardGradientEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          
           <View style={styles.statusRow}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Serial Number
+            <View style={styles.statusLabel}>
+              <View style={[styles.statusIcon, { backgroundColor: theme.primary + "15" }]}>
+                <Feather name="hash" size={14} color={theme.primary} />
+              </View>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Serial Number
+              </ThemedText>
+            </View>
+            <ThemedText type="mono" style={styles.statusValue}>
+              {motor.serialNumber}
             </ThemedText>
-            <ThemedText type="mono">{motor.serialNumber}</ThemedText>
           </View>
-          <View style={[styles.statusRow, styles.statusRowBorder]}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Connection
-            </ThemedText>
-            <View style={styles.statusValue}>
+
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+          <View style={styles.statusRow}>
+            <View style={styles.statusLabel}>
+              <View
+                style={[
+                  styles.statusIcon,
+                  { backgroundColor: (isConnected ? BladeColors.success : BladeColors.offline) + "15" },
+                ]}
+              >
+                <Feather
+                  name="bluetooth"
+                  size={14}
+                  color={isConnected ? BladeColors.success : BladeColors.offline}
+                />
+              </View>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Connection
+              </ThemedText>
+            </View>
+            <View style={styles.connectionStatus}>
               <View
                 style={[
                   styles.statusDot,
@@ -195,18 +238,29 @@ export default function DashboardScreen() {
                   },
                 ]}
               />
-              <ThemedText type="small">
-                {isConnected ? "Connected via BLE" : "Disconnected"}
+              <ThemedText type="small" style={{ fontWeight: "500" }}>
+                {isConnected ? "Connected" : "Disconnected"}
               </ThemedText>
             </View>
           </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
           <View style={styles.statusRow}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Last Updated
-            </ThemedText>
-            <ThemedText type="small">
+            <View style={styles.statusLabel}>
+              <View style={[styles.statusIcon, { backgroundColor: theme.textSecondary + "15" }]}>
+                <Feather name="clock" size={14} color={theme.textSecondary} />
+              </View>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Last Updated
+              </ThemedText>
+            </View>
+            <ThemedText type="small" style={{ fontWeight: "500" }}>
               {telemetry?.timestamp
-                ? new Date(telemetry.timestamp).toLocaleTimeString()
+                ? new Date(telemetry.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
                 : "--"}
             </ThemedText>
           </View>
@@ -232,34 +286,52 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   statusSection: {
-    marginTop: Spacing["2xl"],
+    marginTop: Spacing["3xl"],
+  },
+  sectionLabel: {
+    marginBottom: Spacing.md,
+    letterSpacing: 1.5,
+    fontWeight: "600",
   },
   statusCard: {
-    borderRadius: 12,
-    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.cardPadding,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
+    overflow: "hidden",
   },
   statusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
   },
-  statusRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.05)",
-    marginVertical: Spacing.xs,
-  },
-  statusValue: {
+  statusLabel: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Spacing.sm,
+  },
+  statusIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusValue: {
+    fontWeight: "600",
+  },
+  connectionStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: Spacing.xs,
+  },
+  divider: {
+    height: 1,
+    marginVertical: Spacing.xs,
   },
 });
