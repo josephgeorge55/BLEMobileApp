@@ -120,9 +120,14 @@ export function AntiTheftLinkModal({
               <View style={[styles.benefitIcon, { backgroundColor: BladeColors.accent + "15" }]}>
                 <Feather name="map-pin" size={14} color={BladeColors.accent} />
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
-                Track location if stolen
-              </ThemedText>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Track location if stolen
+                </ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textTertiary, marginTop: 2 }}>
+                  Updates hourly for 30 days after power off
+                </ThemedText>
+              </View>
             </View>
             <View style={styles.benefitRow}>
               <View style={[styles.benefitIcon, { backgroundColor: BladeColors.accent + "15" }]}>
