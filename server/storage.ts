@@ -7,6 +7,8 @@ import {
   pushTokens,
   notifications,
   telemetryData,
+  trips,
+  tripDataPoints,
   type User,
   type InsertUser,
   type Motor,
@@ -21,9 +23,13 @@ import {
   type InsertNotification,
   type Telemetry,
   type InsertTelemetry,
+  type Trip,
+  type InsertTrip,
+  type TripDataPoint,
+  type InsertTripDataPoint,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -54,6 +60,17 @@ export interface IStorage {
   getNotifications(serialNumber?: string): Promise<Notification[]>;
 
   createTelemetry(telemetry: InsertTelemetry): Promise<Telemetry>;
+
+  createTrip(trip: InsertTrip): Promise<Trip>;
+  getActiveTrip(userId: string): Promise<Trip | undefined>;
+  getTripById(tripId: string): Promise<Trip | undefined>;
+  getTripsByUserId(userId: string): Promise<Trip[]>;
+  endTrip(tripId: string, data: Partial<InsertTrip>): Promise<Trip | undefined>;
+  updateTrip(tripId: string, data: Partial<InsertTrip>): Promise<Trip | undefined>;
+  deleteTrip(tripId: string): Promise<void>;
+  
+  addTripDataPoint(dataPoint: InsertTripDataPoint): Promise<TripDataPoint>;
+  getTripDataPoints(tripId: string): Promise<TripDataPoint[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -259,6 +276,70 @@ export class DatabaseStorage implements IStorage {
       .values(telemetry)
       .returning();
     return created;
+  }
+
+  async createTrip(trip: InsertTrip): Promise<Trip> {
+    const [created] = await db.insert(trips).values(trip).returning();
+    return created;
+  }
+
+  async getActiveTrip(userId: string): Promise<Trip | undefined> {
+    const [trip] = await db
+      .select()
+      .from(trips)
+      .where(and(eq(trips.userId, userId), eq(trips.isActive, true)))
+      .orderBy(desc(trips.startTime))
+      .limit(1);
+    return trip || undefined;
+  }
+
+  async getTripById(tripId: string): Promise<Trip | undefined> {
+    const [trip] = await db.select().from(trips).where(eq(trips.id, tripId));
+    return trip || undefined;
+  }
+
+  async getTripsByUserId(userId: string): Promise<Trip[]> {
+    return db
+      .select()
+      .from(trips)
+      .where(eq(trips.userId, userId))
+      .orderBy(desc(trips.startTime));
+  }
+
+  async endTrip(tripId: string, data: Partial<InsertTrip>): Promise<Trip | undefined> {
+    const [updated] = await db
+      .update(trips)
+      .set({ ...data, isActive: false, endTime: new Date() })
+      .where(eq(trips.id, tripId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async updateTrip(tripId: string, data: Partial<InsertTrip>): Promise<Trip | undefined> {
+    const [updated] = await db
+      .update(trips)
+      .set(data)
+      .where(eq(trips.id, tripId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTrip(tripId: string): Promise<void> {
+    await db.delete(tripDataPoints).where(eq(tripDataPoints.tripId, tripId));
+    await db.delete(trips).where(eq(trips.id, tripId));
+  }
+
+  async addTripDataPoint(dataPoint: InsertTripDataPoint): Promise<TripDataPoint> {
+    const [created] = await db.insert(tripDataPoints).values(dataPoint).returning();
+    return created;
+  }
+
+  async getTripDataPoints(tripId: string): Promise<TripDataPoint[]> {
+    return db
+      .select()
+      .from(tripDataPoints)
+      .where(eq(tripDataPoints.tripId, tripId))
+      .orderBy(asc(tripDataPoints.timestamp));
   }
 }
 

@@ -12,6 +12,9 @@ import {
   createAccountSchema,
   loginSchema,
   linkMotorSchema,
+  startTripSchema,
+  endTripSchema,
+  tripDataPointSchema,
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -38,6 +41,17 @@ function handleZodError(error: unknown, res: Response) {
     return res.status(400).json({ error: validationError.message });
   }
   throw error;
+}
+
+function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3440.065;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -404,6 +418,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/trips/start", async (req, res) => {
+    try {
+      const body = startTripSchema.parse(req.body);
+
+      const existingActive = await storage.getActiveTrip(body.userId);
+      if (existingActive) {
+        return res.status(400).json({ 
+          error: "Active trip exists",
+          activeTrip: existingActive
+        });
+      }
+
+      const trip = await storage.createTrip({
+        userId: body.userId,
+        motorSerialNumber: body.motorSerialNumber,
+        name: body.name,
+        startBatteryPercent: body.startBatteryPercent,
+        isActive: true,
+      });
+
+      res.json({ success: true, trip });
+    } catch (error) {
+      handleZodError(error, res);
+      console.error("Error starting trip:", error);
+      res.status(500).json({ error: "Failed to start trip" });
+    }
+  });
+
+  app.post("/api/trips/:tripId/end", async (req, res) => {
+    try {
+      const { tripId } = req.params;
+      const body = endTripSchema.parse({ tripId, ...req.body });
+
+      const trip = await storage.getTripById(tripId);
+      if (!trip) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      if (!trip.isActive) {
+        return res.status(400).json({ error: "Trip already ended" });
+      }
+
+      const dataPoints = await storage.getTripDataPoints(tripId);
+      
+      let totalDistanceNm = 0;
+      let maxSpeedKts = 0;
+      let speedSum = 0;
+      let speedCount = 0;
+      let totalEnergyWh = 0;
+
+      for (let i = 0; i < dataPoints.length; i++) {
+        const point = dataPoints[i];
+        
+        if (point.speedKts !== null && point.speedKts !== undefined) {
+          if (point.speedKts > maxSpeedKts) maxSpeedKts = point.speedKts;
+          speedSum += point.speedKts;
+          speedCount++;
+        }
+
+        if (point.vescWattage !== null && point.vescWattage !== undefined) {
+          totalEnergyWh += (point.vescWattage / 3600) * 0.5;
+        }
+
+        if (i > 0 && point.latitude && point.longitude) {
+          const prevPoint = dataPoints[i - 1];
+          if (prevPoint.latitude && prevPoint.longitude) {
+            const dist = haversineNm(
+              prevPoint.latitude, prevPoint.longitude,
+              point.latitude, point.longitude
+            );
+            totalDistanceNm += dist;
+          }
+        }
+      }
+
+      const avgSpeedKts = speedCount > 0 ? speedSum / speedCount : 0;
+      const totalEnergyKwh = totalEnergyWh / 1000;
+
+      const endedTrip = await storage.endTrip(tripId, {
+        endBatteryPercent: body.endBatteryPercent,
+        totalDistanceNm,
+        maxSpeedKts,
+        avgSpeedKts,
+        totalEnergyKwh,
+      });
+
+      res.json({ success: true, trip: endedTrip });
+    } catch (error) {
+      handleZodError(error, res);
+      console.error("Error ending trip:", error);
+      res.status(500).json({ error: "Failed to end trip" });
+    }
+  });
+
+  app.post("/api/trips/:tripId/data", async (req, res) => {
+    try {
+      const { tripId } = req.params;
+      const body = tripDataPointSchema.parse({ tripId, ...req.body });
+
+      const trip = await storage.getTripById(tripId);
+      if (!trip) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      if (!trip.isActive) {
+        return res.status(400).json({ error: "Cannot add data to ended trip" });
+      }
+
+      const dataPoint = await storage.addTripDataPoint(body);
+      res.json({ success: true, dataPoint });
+    } catch (error) {
+      handleZodError(error, res);
+      console.error("Error adding trip data:", error);
+      res.status(500).json({ error: "Failed to add trip data" });
+    }
+  });
+
+  app.get("/api/trips/user/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const userTrips = await storage.getTripsByUserId(userId);
+      res.json(userTrips);
+    } catch (error) {
+      console.error("Error fetching trips:", error);
+      res.status(500).json({ error: "Failed to fetch trips" });
+    }
+  });
+
+  app.get("/api/trips/user/:userId/active", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const activeTrip = await storage.getActiveTrip(userId);
+      res.json(activeTrip || null);
+    } catch (error) {
+      console.error("Error fetching active trip:", error);
+      res.status(500).json({ error: "Failed to fetch active trip" });
+    }
+  });
+
+  app.get("/api/trips/:tripId", async (req, res) => {
+    try {
+      const { tripId } = req.params;
+      const trip = await storage.getTripById(tripId);
+      
+      if (!trip) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      res.json(trip);
+    } catch (error) {
+      console.error("Error fetching trip:", error);
+      res.status(500).json({ error: "Failed to fetch trip" });
+    }
+  });
+
+  app.get("/api/trips/:tripId/data", async (req, res) => {
+    try {
+      const { tripId } = req.params;
+      const dataPoints = await storage.getTripDataPoints(tripId);
+      res.json(dataPoints);
+    } catch (error) {
+      console.error("Error fetching trip data:", error);
+      res.status(500).json({ error: "Failed to fetch trip data" });
+    }
+  });
+
+  app.put("/api/trips/:tripId", async (req, res) => {
+    try {
+      const { tripId } = req.params;
+      const { name } = req.body;
+
+      const trip = await storage.updateTrip(tripId, { name });
+      if (!trip) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      res.json({ success: true, trip });
+    } catch (error) {
+      console.error("Error updating trip:", error);
+      res.status(500).json({ error: "Failed to update trip" });
+    }
+  });
+
+  app.delete("/api/trips/:tripId", async (req, res) => {
+    try {
+      const { tripId } = req.params;
+      await storage.deleteTrip(tripId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting trip:", error);
+      res.status(500).json({ error: "Failed to delete trip" });
     }
   });
 
