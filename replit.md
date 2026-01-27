@@ -45,9 +45,36 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 ### Data Flow
 - Users authenticate with email and 6-digit PIN
 - Motors identified by serial number and linked to user accounts
-- Telemetry reported at 1-5 Hz when connected
+- Telemetry reported at 2 Hz (500ms intervals) when connected via BLE
 - Location data stored with live/historical status
 - Push notifications delivered via Expo Push service
+
+### BLE Protocol (Halo Outboards Tiller Board v1.3)
+The app parses comma-separated data frames from the tiller board via Bluetooth Classic serial:
+
+**Frame Types:**
+1. **GNSS** - GPS/GLONASS location data
+   - Format: `$GNSS,G1,<TimeUTC>,<Latitude>,<Longitude>,<Course>,<Speed>`
+   - Speed in km/h, converted to knots for display
+
+2. **BMS** - Battery Management System
+   - Format: `$BMS,G1,<Voltage>,<Capacity>,<Current>,<Wattage>,<Temperature>`
+   - Voltage (V), Capacity (%), Current (A), Wattage (W), Temp (°C)
+
+3. **MOTOR** - Motor telemetry
+   - Format: `$MOTOR,G1,<PhaseCurrent>,<MotorRPM>,<Temperature>`
+   - Phase Current (A), RPM, Temp (°C)
+
+4. **VESC** - Motor controller data
+   - Format: `$VESC,G1,<Voltage>,<Current>,<Wattage>,<Throttle>,<Temperature>`
+   - Voltage (V), Current (A), Wattage (W), Throttle (%), Temp (°C)
+
+**Parser Location:** `client/lib/ble-parser.ts`
+
+### Anti-Theft Location Tracking
+- Motors report GPS location via cellular every hour
+- Continues for up to 30 days after last power on
+- Enables recovery of stolen motors even when powered off
 
 ## Database Schema
 
