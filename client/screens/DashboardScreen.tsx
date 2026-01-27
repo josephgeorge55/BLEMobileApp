@@ -71,7 +71,7 @@ export default function DashboardScreen() {
           ]}
         >
           <EmptyState
-            image={require("../../assets/images/empty-dashboard.png")}
+            image={require("../../assets/images/halo-outboard.png")}
             title="Connect Your Outboard"
             description="Tap the Bluetooth button to scan for nearby Blade outboards and view real-time telemetry."
             actionLabel="Scan for Motors"
