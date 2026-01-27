@@ -1,0 +1,226 @@
+Replit Prompt — Blade Outboards Connected Mobile App + Backend (v1.1)
+
+Build a production-ready connected mobile application and lightweight backend architecture for Blade Outboards.
+The system must support BLE-connected electric outboards, backend-controlled firmware updates, anti-theft tracking, and push notifications.
+
+This product is designed for marine environments with intermittent connectivity and high reliability requirements.
+
+System Overview
+
+Mobile App (iOS + Android)
+
+Backend API (cloud-based)
+
+BLE-connected Blade Outboard
+
+The backend must be able to:
+
+Identify motors by serial number
+
+Target firmware updates to specific motors
+
+Push notifications to users
+
+Mobile App Technology
+
+Use React Native (Expo preferred) or Flutter
+
+Modular, scalable architecture
+
+Secure BLE handling
+
+Battery-efficient background tasks
+
+BLE Core Features
+
+Scan, connect, disconnect
+
+Auto-reconnect logic
+
+Real-time telemetry parsing (1–5 Hz)
+
+Telemetry includes:
+
+Speed (knots)
+
+GPS coordinates
+
+State of charge (%)
+
+Power consumption (W or kW)
+
+Firmware version
+
+Anti-Theft & Location Tracking
+
+Show live location when connected
+
+Persist last known location when disconnected
+
+Map view + timestamp
+
+Local storage for recovery after app restart
+
+Firmware Over-The-Air (OTA) Updates — Backend Controlled
+
+Implement a backend-driven firmware update system:
+
+Backend Requirements
+
+Store firmware versions
+
+Associate firmware eligibility by motor serial number
+
+Mark updates as:
+
+Mandatory
+
+Optional
+
+Expose API endpoints for:
+
+Checking available updates by serial number
+
+Downloading firmware binaries
+
+Mobile App OTA Flow
+
+Read motor serial number via BLE
+
+Query backend for available firmware
+
+Notify user when update is available
+
+Download firmware securely
+
+Transfer firmware to outboard over BLE
+
+Show progress bar and status
+
+Lock motor operation during update
+
+Handle failure and safe retry
+
+Firmware files may be mocked initially.
+
+Push Notifications
+
+Implement push notifications for iOS and Android:
+
+Notification types:
+
+Maintenance reminders
+
+Service intervals
+
+Firmware updates
+
+Product announcements
+
+Promotions and offers
+
+Requirements:
+
+Notifications triggered from backend
+
+Respect user notification permissions
+
+Clear user opt-in / opt-out
+
+No spam behavior
+
+Use:
+
+Expo Push Notifications or
+
+Firebase Cloud Messaging (FCM)
+
+Anonymous Data Sharing (Opt-In)
+
+User-controlled toggle (OFF by default)
+
+Sends anonymized telemetry to backend
+
+No personal data
+
+Transparent explanation
+
+App Screens
+
+Dashboard
+
+Speed
+
+SOC
+
+Power consumption
+
+Connection status
+
+Map / Anti-Theft
+
+Live or last known location
+
+Timestamp
+
+Firmware Updates
+
+Current firmware
+
+Available updates
+
+Update status
+
+Settings
+
+BLE device
+
+Data sharing toggle
+
+Notification preferences
+
+About
+
+Link to https://bladeoutboards.com
+
+Backend Architecture (Lightweight)
+
+REST API
+
+Firmware storage
+
+Serial-number-based targeting
+
+Notification trigger endpoints
+
+Basic security and validation
+
+Constraints
+
+No user accounts for v1
+
+Serial number acts as primary motor identity
+
+App must function offline where possible
+
+Deliverables
+
+Mobile app scaffold
+
+BLE service layer
+
+OTA update module
+
+Backend API example
+
+Push notification integration
+
+Clear run and deployment instructions
+
+Focus on robustness, safety, and scalability, not just UI.
+
+🔥 Killer follow-up prompt (do this next)
+
+Paste this immediately after generation:
+
+“Extend this architecture so Blade can later add LTE-connected motors, fleet dashboards, and dealer service tools without rewriting the app.”
