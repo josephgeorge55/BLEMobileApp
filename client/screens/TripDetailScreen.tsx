@@ -157,72 +157,153 @@ export default function TripDetailScreen() {
           <meta charset="utf-8">
           <title>Trip Report - ${trip.name || "Trip"}</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a1a; }
-            .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #0A4B83; padding-bottom: 20px; }
-            .header h1 { color: #0A4B83; margin: 0 0 10px 0; font-size: 28px; }
-            .header p { color: #666; margin: 0; }
-            .section { margin-bottom: 30px; }
-            .section h2 { color: #0A4B83; font-size: 18px; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
-            .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-            .stat-box { background: #f5f7fa; border-radius: 8px; padding: 15px; text-align: center; }
-            .stat-value { font-size: 24px; font-weight: 700; color: #0A4B83; }
-            .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
-            .footer { text-align: center; margin-top: 40px; color: #999; font-size: 11px; }
+            * { box-sizing: border-box; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+              padding: 0; 
+              margin: 0;
+              color: #1a1a1a; 
+              background: #ffffff;
+            }
+            .page { padding: 50px; max-width: 800px; margin: 0 auto; }
+            .header { 
+              background: linear-gradient(135deg, #0A4D6E 0%, #063549 100%);
+              color: white;
+              padding: 40px;
+              margin: -50px -50px 40px -50px;
+              text-align: center;
+            }
+            .header-logo { font-size: 14px; letter-spacing: 3px; opacity: 0.9; margin-bottom: 8px; }
+            .header h1 { color: white; margin: 0 0 12px 0; font-size: 32px; font-weight: 700; }
+            .header-date { color: rgba(255,255,255,0.85); font-size: 14px; }
+            .section { margin-bottom: 35px; }
+            .section-title { 
+              color: #0A4D6E; 
+              font-size: 16px; 
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 20px; 
+              padding-bottom: 10px;
+              border-bottom: 2px solid #8DC63F;
+            }
+            .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+            .stats-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+            .stat-box { 
+              background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+              border: 1px solid #e2e8f0;
+              border-radius: 12px; 
+              padding: 24px 16px; 
+              text-align: center; 
+            }
+            .stat-value { font-size: 28px; font-weight: 700; color: #0A4D6E; line-height: 1.2; }
+            .stat-value-accent { font-size: 28px; font-weight: 700; color: #8DC63F; line-height: 1.2; }
+            .stat-label { font-size: 11px; color: #64748b; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .motor-info {
+              background: #f8fafc;
+              border-radius: 8px;
+              padding: 16px 20px;
+              margin-bottom: 30px;
+              display: flex;
+              justify-content: space-between;
+              border: 1px solid #e2e8f0;
+            }
+            .motor-info-item { text-align: center; }
+            .motor-info-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+            .motor-info-value { font-size: 14px; color: #334155; font-weight: 600; margin-top: 4px; }
+            .footer { 
+              text-align: center; 
+              margin-top: 50px; 
+              padding-top: 30px;
+              border-top: 1px solid #e2e8f0;
+            }
+            .footer-brand { color: #0A4D6E; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+            .footer-company { color: #94a3b8; font-size: 11px; }
+            .footer-links { margin-top: 12px; font-size: 10px; color: #94a3b8; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>${trip.name || "Trip Report"}</h1>
-            <p>${formatDateTime(trip.startTime)} - ${trip.endTime ? formatDateTime(trip.endTime) : "In Progress"}</p>
-          </div>
-          
-          <div class="section">
-            <h2>Trip Summary</h2>
-            <div class="stats-grid">
-              <div class="stat-box">
-                <div class="stat-value">${(trip.totalDistanceNm || 0).toFixed(2)}</div>
-                <div class="stat-label">Distance (nm)</div>
+          <div class="page">
+            <div class="header">
+              <div class="header-logo">BLADE OUTBOARDS</div>
+              <h1>${trip.name || "Trip Report"}</h1>
+              <div class="header-date">${formatDateTime(trip.startTime)} ${trip.endTime ? "- " + formatDateTime(trip.endTime) : "(In Progress)"}</div>
+            </div>
+            
+            <div class="motor-info">
+              <div class="motor-info-item">
+                <div class="motor-info-label">Motor</div>
+                <div class="motor-info-value">${trip.motorSerialNumber || "Unknown"}</div>
               </div>
-              <div class="stat-box">
-                <div class="stat-value">${formatDuration(trip.startTime, trip.endTime)}</div>
-                <div class="stat-label">Duration</div>
+              <div class="motor-info-item">
+                <div class="motor-info-label">Duration</div>
+                <div class="motor-info-value">${formatDuration(trip.startTime, trip.endTime)}</div>
               </div>
-              <div class="stat-box">
-                <div class="stat-value">${(trip.maxSpeedKts || 0).toFixed(1)}</div>
-                <div class="stat-label">Max Speed (kts)</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-value">${(trip.avgSpeedKts || 0).toFixed(1)}</div>
-                <div class="stat-label">Avg Speed (kts)</div>
+              <div class="motor-info-item">
+                <div class="motor-info-label">Data Points</div>
+                <div class="motor-info-value">${dataPoints.length}</div>
               </div>
             </div>
-          </div>
-          
-          <div class="section">
-            <h2>Energy Consumption</h2>
-            <div class="stats-grid">
-              <div class="stat-box">
-                <div class="stat-value">${((trip.totalEnergyKwh || 0) * 1000).toFixed(0)}</div>
-                <div class="stat-label">Total Energy (Wh)</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-value">${batteryUsed}</div>
-                <div class="stat-label">Battery Used (%)</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-value">${efficiency.toFixed(1)}</div>
-                <div class="stat-label">Efficiency (Wh/nm)</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-value">${dataPoints.length}</div>
-                <div class="stat-label">Data Points</div>
+            
+            <div class="section">
+              <div class="section-title">Trip Summary</div>
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-value">${(trip.totalDistanceNm || 0).toFixed(2)}</div>
+                  <div class="stat-label">Distance (nm)</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value-accent">${(trip.maxSpeedKts || 0).toFixed(1)}</div>
+                  <div class="stat-label">Max Speed (kts)</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value">${(trip.avgSpeedKts || 0).toFixed(1)}</div>
+                  <div class="stat-label">Avg Speed (kts)</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value">${formatDuration(trip.startTime, trip.endTime)}</div>
+                  <div class="stat-label">Duration</div>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div class="footer">
-            <p>Generated by Blade Outboards App</p>
-            <p>Blade Marine Technologies Limited</p>
+            
+            <div class="section">
+              <div class="section-title">Energy Consumption</div>
+              <div class="stats-grid-3">
+                <div class="stat-box">
+                  <div class="stat-value">${((trip.totalEnergyKwh || 0) * 1000).toFixed(0)}</div>
+                  <div class="stat-label">Total Energy (Wh)</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value">${batteryUsed}%</div>
+                  <div class="stat-label">Battery Used</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value-accent">${efficiency.toFixed(1)}</div>
+                  <div class="stat-label">Efficiency (Wh/nm)</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="section">
+              <div class="section-title">Battery Status</div>
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-value">${trip.startBatteryPercent || 0}%</div>
+                  <div class="stat-label">Start Level</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-value">${trip.endBatteryPercent || 0}%</div>
+                  <div class="stat-label">End Level</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <div class="footer-brand">BLADE OUTBOARDS</div>
+              <div class="footer-company">Blade Marine Technologies Limited</div>
+              <div class="footer-links">www.bladeoutboards.com</div>
+            </div>
           </div>
         </body>
       </html>
