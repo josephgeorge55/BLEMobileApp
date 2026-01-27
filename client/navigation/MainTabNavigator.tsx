@@ -6,6 +6,7 @@ import { Platform, StyleSheet, View } from "react-native";
 
 import DashboardScreen from "@/screens/DashboardScreen";
 import LocationScreen from "@/screens/LocationScreen";
+import TripsScreen from "@/screens/TripsScreen";
 import UpdatesScreen from "@/screens/UpdatesScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
@@ -16,6 +17,7 @@ import { BladeColors, Spacing } from "@/constants/theme";
 export type MainTabParamList = {
   DashboardTab: undefined;
   LocationTab: undefined;
+  TripsTab: undefined;
   UpdatesTab: undefined;
   SettingsTab: undefined;
 };
@@ -85,6 +87,17 @@ export default function MainTabNavigator() {
           headerTitle: () => <HeaderTitle />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="map-pin" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="TripsTab"
+        component={TripsScreen}
+        options={{
+          title: "My Trips",
+          headerTitle: () => <HeaderTitle />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="navigation" size={size} color={color} />
           ),
         }}
       />

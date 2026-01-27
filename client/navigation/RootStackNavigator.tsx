@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import BleScannerModal from "@/screens/BleScannerModal";
 import AuthScreen from "@/screens/AuthScreen";
+import TripDetailScreen from "@/screens/TripDetailScreen";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useMotor } from "@/context/MotorContext";
@@ -16,6 +17,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   BleScanner: undefined;
+  TripDetail: { tripId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -85,6 +87,14 @@ export default function RootStackNavigator() {
             options={{
               presentation: "modal",
               headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="TripDetail"
+            component={TripDetailScreen}
+            options={{
+              headerTitle: "Trip Details",
+              headerBackTitle: "Back",
             }}
           />
         </>

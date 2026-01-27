@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MotorProvider } from "@/context/MotorContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { UserProvider } from "@/context/UserContext";
+import { TripProvider } from "@/context/TripContext";
 
 export default function App() {
   return (
@@ -24,12 +25,14 @@ export default function App() {
             <KeyboardProvider>
               <UserProvider>
                 <MotorProvider>
-                  <SettingsProvider>
-                    <NavigationContainer>
-                      <RootStackNavigator />
-                    </NavigationContainer>
-                    <StatusBar style="light" />
-                  </SettingsProvider>
+                  <TripProvider>
+                    <SettingsProvider>
+                      <NavigationContainer>
+                        <RootStackNavigator />
+                      </NavigationContainer>
+                      <StatusBar style="light" />
+                    </SettingsProvider>
+                  </TripProvider>
                 </MotorProvider>
               </UserProvider>
             </KeyboardProvider>
