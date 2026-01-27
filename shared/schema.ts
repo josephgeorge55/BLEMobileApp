@@ -111,6 +111,51 @@ export const telemetryData = pgTable("telemetry_data", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
+export const trips = pgTable("trips", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
+  motorSerialNumber: varchar("motor_serial_number", { length: 50 }).notNull(),
+  name: varchar("name", { length: 200 }),
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  isActive: boolean("is_active").default(true),
+  totalDistanceNm: doublePrecision("total_distance_nm").default(0),
+  maxSpeedKts: doublePrecision("max_speed_kts").default(0),
+  avgSpeedKts: doublePrecision("avg_speed_kts").default(0),
+  totalEnergyKwh: doublePrecision("total_energy_kwh").default(0),
+  startBatteryPercent: integer("start_battery_percent"),
+  endBatteryPercent: integer("end_battery_percent"),
+});
+
+export const tripDataPoints = pgTable("trip_data_points", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  tripId: varchar("trip_id")
+    .notNull()
+    .references(() => trips.id),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  speedKts: doublePrecision("speed_kts"),
+  course: doublePrecision("course"),
+  batteryPercent: integer("battery_percent"),
+  batteryVoltage: doublePrecision("battery_voltage"),
+  batteryCurrent: doublePrecision("battery_current"),
+  batteryTemp: integer("battery_temp"),
+  motorRpm: integer("motor_rpm"),
+  motorCurrent: doublePrecision("motor_current"),
+  motorTemp: integer("motor_temp"),
+  vescWattage: integer("vesc_wattage"),
+  vescCurrent: doublePrecision("vesc_current"),
+  vescTemp: integer("vesc_temp"),
+  throttlePercent: integer("throttle_percent"),
+});
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -145,6 +190,16 @@ export const insertTelemetrySchema = createInsertSchema(telemetryData);
 export const selectTelemetrySchema = createSelectSchema(telemetryData);
 export type InsertTelemetry = z.infer<typeof insertTelemetrySchema>;
 export type Telemetry = z.infer<typeof selectTelemetrySchema>;
+
+export const insertTripSchema = createInsertSchema(trips);
+export const selectTripSchema = createSelectSchema(trips);
+export type InsertTrip = z.infer<typeof insertTripSchema>;
+export type Trip = z.infer<typeof selectTripSchema>;
+
+export const insertTripDataPointSchema = createInsertSchema(tripDataPoints);
+export const selectTripDataPointSchema = createSelectSchema(tripDataPoints);
+export type InsertTripDataPoint = z.infer<typeof insertTripDataPointSchema>;
+export type TripDataPoint = z.infer<typeof selectTripDataPointSchema>;
 
 export const locationReportSchema = z.object({
   serialNumber: z.string().min(1),
@@ -203,6 +258,37 @@ export const linkMotorSchema = z.object({
   userId: z.string().min(1),
 });
 
+export const startTripSchema = z.object({
+  userId: z.string().min(1),
+  motorSerialNumber: z.string().min(1),
+  name: z.string().optional(),
+  startBatteryPercent: z.number().min(0).max(100).optional(),
+});
+
+export const endTripSchema = z.object({
+  tripId: z.string().min(1),
+  endBatteryPercent: z.number().min(0).max(100).optional(),
+});
+
+export const tripDataPointSchema = z.object({
+  tripId: z.string().min(1),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  speedKts: z.number().optional(),
+  course: z.number().optional(),
+  batteryPercent: z.number().min(0).max(100).optional(),
+  batteryVoltage: z.number().optional(),
+  batteryCurrent: z.number().optional(),
+  batteryTemp: z.number().optional(),
+  motorRpm: z.number().optional(),
+  motorCurrent: z.number().optional(),
+  motorTemp: z.number().optional(),
+  vescWattage: z.number().optional(),
+  vescCurrent: z.number().optional(),
+  vescTemp: z.number().optional(),
+  throttlePercent: z.number().min(0).max(100).optional(),
+});
+
 export type LocationReport = z.infer<typeof locationReportSchema>;
 export type FirmwareCheck = z.infer<typeof firmwareCheckSchema>;
 export type SendNotification = z.infer<typeof sendNotificationSchema>;
@@ -211,3 +297,6 @@ export type TelemetryReport = z.infer<typeof telemetryReportSchema>;
 export type CreateAccount = z.infer<typeof createAccountSchema>;
 export type Login = z.infer<typeof loginSchema>;
 export type LinkMotor = z.infer<typeof linkMotorSchema>;
+export type StartTrip = z.infer<typeof startTripSchema>;
+export type EndTrip = z.infer<typeof endTripSchema>;
+export type TripDataPointInput = z.infer<typeof tripDataPointSchema>;
