@@ -1,7 +1,8 @@
 import React from "react";
-import { StyleSheet, View, Pressable } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   FadeInDown,
   FadeOutUp,
@@ -10,7 +11,12 @@ import Animated, {
   withRepeat,
   withTiming,
   withSequence,
+  withSpring,
+  runOnJS,
+  interpolate,
+  Extrapolation,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, BladeColors, Gradients } from "@/constants/theme";
@@ -22,6 +28,13 @@ interface ConnectionBannerProps {
   onPress?: () => void;
 }
 
+const springConfig = {
+  damping: 16,
+  mass: 0.4,
+  stiffness: 200,
+  overshootClamping: false,
+};
+
 export function ConnectionBanner({
   isConnected,
   isConnecting,
@@ -29,6 +42,8 @@ export function ConnectionBanner({
   onPress,
 }: ConnectionBannerProps) {
   const pulseValue = useSharedValue(1);
+  const pressed = useSharedValue(0);
+  const translateX = useSharedValue(0);
 
   React.useEffect(() => {
     if (isConnecting) {
@@ -49,6 +64,72 @@ export function ConnectionBanner({
     opacity: pulseValue.value,
   }));
 
+  const triggerHaptic = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const tap = Gesture.Tap()
+    .enabled(!!onPress)
+    .onBegin(() => {
+      pressed.value = withSpring(1, springConfig);
+    })
+    .onEnd(() => {
+      runOnJS(triggerHaptic)();
+      if (onPress) {
+        runOnJS(onPress)();
+      }
+    })
+    .onFinalize(() => {
+      pressed.value = withSpring(0, springConfig);
+    });
+
+  const pan = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .onUpdate((event) => {
+      translateX.value = event.translationX * 0.3;
+    })
+    .onEnd(() => {
+      translateX.value = withSpring(0, springConfig);
+    });
+
+  const composed = Gesture.Simultaneous(tap, pan);
+
+  const bannerAnimatedStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      pressed.value,
+      [0, 1],
+      [1, 0.98],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [
+        { scale },
+        { translateX: translateX.value },
+      ],
+    };
+  });
+
+  const arrowAnimatedStyle = useAnimatedStyle(() => {
+    const translateArrowX = interpolate(
+      pressed.value,
+      [0, 1],
+      [0, 6],
+      Extrapolation.CLAMP
+    );
+    const opacity = interpolate(
+      pressed.value,
+      [0, 1],
+      [0.8, 1],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [{ translateX: translateArrowX }],
+      opacity,
+    };
+  });
+
   if (isConnected && !isConnecting) {
     return null;
   }
@@ -62,8 +143,8 @@ export function ConnectionBanner({
       entering={FadeInDown.duration(300).springify()}
       exiting={FadeOutUp.duration(200)}
     >
-      <Pressable onPress={onPress}>
-        <View style={styles.bannerWrapper}>
+      <GestureDetector gesture={composed}>
+        <Animated.View style={[styles.bannerWrapper, bannerAnimatedStyle]}>
           <LinearGradient
             colors={gradientColors as [string, string]}
             start={{ x: 0, y: 0 }}
@@ -92,12 +173,12 @@ export function ConnectionBanner({
                   : "Tap to scan for nearby outboards"}
               </ThemedText>
             </View>
-            <View style={styles.arrowContainer}>
-              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.8)" />
-            </View>
+            <Animated.View style={[styles.arrowContainer, arrowAnimatedStyle]}>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.9)" />
+            </Animated.View>
           </View>
-        </View>
-      </Pressable>
+        </Animated.View>
+      </GestureDetector>
     </Animated.View>
   );
 }

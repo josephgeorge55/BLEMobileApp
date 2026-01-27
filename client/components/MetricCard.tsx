@@ -2,16 +2,21 @@ import React from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  WithSpringConfig,
+  withTiming,
+  runOnJS,
+  interpolate,
+  Extrapolation,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, BladeColors, Typography } from "@/constants/theme";
+import { Spacing, BorderRadius, BladeColors, Typography, Shadows } from "@/constants/theme";
 
 interface MetricCardProps {
   icon: keyof typeof Feather.glyphMap;
@@ -24,12 +29,21 @@ interface MetricCardProps {
   style?: ViewStyle;
   iconColor?: string;
   accentGlow?: boolean;
+  onPress?: () => void;
+  onLongPress?: () => void;
 }
 
-const springConfig: WithSpringConfig = {
-  damping: 15,
+const springConfig = {
+  damping: 16,
+  mass: 0.4,
+  stiffness: 220,
+  overshootClamping: false,
+};
+
+const quickSpring = {
+  damping: 22,
   mass: 0.3,
-  stiffness: 150,
+  stiffness: 300,
   overshootClamping: true,
 };
 
@@ -44,13 +58,95 @@ export function MetricCard({
   style,
   iconColor,
   accentGlow = false,
+  onPress,
+  onLongPress,
 }: MetricCardProps) {
   const { theme, isDark } = useTheme();
-  const scale = useSharedValue(1);
+  const pressed = useSharedValue(0);
+  const cardRotateX = useSharedValue(0);
+  const cardRotateY = useSharedValue(0);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const triggerHaptic = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const tap = Gesture.Tap()
+    .enabled(!!onPress)
+    .onBegin(() => {
+      pressed.value = withSpring(1, quickSpring);
+    })
+    .onEnd(() => {
+      runOnJS(triggerHaptic)();
+      if (onPress) {
+        runOnJS(onPress)();
+      }
+    })
+    .onFinalize(() => {
+      pressed.value = withSpring(0, springConfig);
+    });
+
+  const longPress = Gesture.LongPress()
+    .enabled(!!onLongPress)
+    .minDuration(500)
+    .onStart(() => {
+      runOnJS(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      })();
+      if (onLongPress) {
+        runOnJS(onLongPress)();
+      }
+    });
+
+  const pan = Gesture.Pan()
+    .onUpdate((event) => {
+      const maxTilt = 8;
+      cardRotateY.value = interpolate(
+        event.translationX,
+        [-50, 50],
+        [-maxTilt, maxTilt],
+        Extrapolation.CLAMP
+      );
+      cardRotateX.value = interpolate(
+        event.translationY,
+        [-50, 50],
+        [maxTilt, -maxTilt],
+        Extrapolation.CLAMP
+      );
+    })
+    .onEnd(() => {
+      cardRotateX.value = withSpring(0, springConfig);
+      cardRotateY.value = withSpring(0, springConfig);
+    });
+
+  const composed = Gesture.Simultaneous(tap, longPress, pan);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      pressed.value,
+      [0, 1],
+      [1, 0.96],
+      Extrapolation.CLAMP
+    );
+    
+    return {
+      transform: [
+        { perspective: 800 },
+        { scale },
+        { rotateX: `${cardRotateX.value}deg` },
+        { rotateY: `${cardRotateY.value}deg` },
+      ],
+    };
+  });
+
+  const glowAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      pressed.value,
+      [0, 1],
+      [1, 0.6],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
 
   const getTrendIcon = () => {
     switch (trend) {
@@ -78,94 +174,96 @@ export function MetricCard({
   const effectiveIconColor = iconColor || theme.primary;
 
   return (
-    <Animated.View
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.surfaceElevated,
-          borderColor: isDark ? theme.border : "transparent",
-        },
-        style,
-        animatedStyle,
-      ]}
-    >
-      <LinearGradient
-        colors={
-          isDark
-            ? [theme.cardGradientStart, theme.cardGradientEnd]
-            : [theme.cardGradientStart, theme.cardGradientEnd]
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+    <GestureDetector gesture={composed}>
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.surfaceElevated,
+            borderColor: isDark ? theme.border : "transparent",
+          },
+          style,
+          animatedStyle,
+        ]}
+      >
+        <LinearGradient
+          colors={[theme.cardGradientStart, theme.cardGradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
-      <View style={styles.header}>
-        <View
-          style={[
-            styles.iconContainer,
-            {
-              backgroundColor: effectiveIconColor + "15",
-              borderColor: effectiveIconColor + "20",
-            },
-          ]}
-        >
-          <Feather name={icon} size={22} color={effectiveIconColor} />
-        </View>
-        {badge ? (
+        <View style={styles.header}>
           <View
             style={[
-              styles.badge,
+              styles.iconContainer,
               {
-                backgroundColor: badgeColor || BladeColors.accent,
+                backgroundColor: effectiveIconColor + "15",
+                borderColor: effectiveIconColor + "20",
               },
             ]}
           >
-            <ThemedText type="caption" style={styles.badgeText}>
-              {badge}
-            </ThemedText>
+            <Feather name={icon} size={22} color={effectiveIconColor} />
           </View>
-        ) : null}
-      </View>
-
-      <View style={styles.content}>
-        <ThemedText
-          type="caption"
-          style={[styles.label, { color: theme.textTertiary }]}
-        >
-          {label.toUpperCase()}
-        </ThemedText>
-        <View style={styles.valueRow}>
-          <ThemedText style={[styles.value, { color: theme.text }]}>
-            {value}
-          </ThemedText>
-          {unit ? (
-            <ThemedText
-              type="body"
-              style={[styles.unit, { color: theme.textSecondary }]}
-            >
-              {unit}
-            </ThemedText>
-          ) : null}
-          {trendIcon ? (
+          {badge ? (
             <View
               style={[
-                styles.trendContainer,
-                { backgroundColor: getTrendColor() + "15" },
+                styles.badge,
+                {
+                  backgroundColor: badgeColor || BladeColors.accent,
+                },
               ]}
             >
-              <Feather name={trendIcon} size={14} color={getTrendColor()} />
+              <ThemedText type="caption" style={styles.badgeText}>
+                {badge}
+              </ThemedText>
             </View>
           ) : null}
         </View>
-      </View>
 
-      {accentGlow ? (
-        <View
-          style={[styles.glowBar, { backgroundColor: effectiveIconColor }]}
-        />
-      ) : null}
-    </Animated.View>
+        <View style={styles.content}>
+          <ThemedText
+            type="caption"
+            style={[styles.label, { color: theme.textTertiary }]}
+          >
+            {label.toUpperCase()}
+          </ThemedText>
+          <View style={styles.valueRow}>
+            <ThemedText style={[styles.value, { color: theme.text }]}>
+              {value}
+            </ThemedText>
+            {unit ? (
+              <ThemedText
+                type="body"
+                style={[styles.unit, { color: theme.textSecondary }]}
+              >
+                {unit}
+              </ThemedText>
+            ) : null}
+            {trendIcon ? (
+              <Animated.View
+                style={[
+                  styles.trendContainer,
+                  { backgroundColor: getTrendColor() + "15" },
+                ]}
+              >
+                <Feather name={trendIcon} size={14} color={getTrendColor()} />
+              </Animated.View>
+            ) : null}
+          </View>
+        </View>
+
+        {accentGlow ? (
+          <Animated.View
+            style={[
+              styles.glowBar,
+              { backgroundColor: effectiveIconColor },
+              glowAnimatedStyle,
+            ]}
+          />
+        ) : null}
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

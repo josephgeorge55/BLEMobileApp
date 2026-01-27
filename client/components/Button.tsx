@@ -1,12 +1,17 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
+import { StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  WithSpringConfig,
+  withSequence,
+  runOnJS,
+  interpolate,
+  Extrapolation,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -20,15 +25,19 @@ interface ButtonProps {
   variant?: "primary" | "secondary" | "outline" | "accent";
 }
 
-const springConfig: WithSpringConfig = {
-  damping: 15,
-  mass: 0.3,
-  stiffness: 150,
-  overshootClamping: true,
-  energyThreshold: 0.001,
+const springConfig = {
+  damping: 14,
+  mass: 0.35,
+  stiffness: 200,
+  overshootClamping: false,
 };
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const quickSpring = {
+  damping: 20,
+  mass: 0.3,
+  stiffness: 350,
+  overshootClamping: true,
+};
 
 export function Button({
   onPress,
@@ -38,23 +47,70 @@ export function Button({
   variant = "primary",
 }: ButtonProps) {
   const { theme } = useTheme();
-  const scale = useSharedValue(1);
+  const pressed = useSharedValue(0);
+  const shine = useSharedValue(0);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    if (!disabled) {
-      scale.value = withSpring(0.97, springConfig);
-    }
+  const triggerHaptic = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  const handlePressOut = () => {
-    if (!disabled) {
-      scale.value = withSpring(1, springConfig);
-    }
-  };
+  const tap = Gesture.Tap()
+    .enabled(!disabled)
+    .onBegin(() => {
+      pressed.value = withSpring(1, quickSpring);
+    })
+    .onEnd(() => {
+      runOnJS(triggerHaptic)();
+      shine.value = withSequence(
+        withSpring(1, { damping: 15, stiffness: 400 }),
+        withSpring(0, { damping: 20, stiffness: 200 })
+      );
+      if (onPress) {
+        runOnJS(onPress)();
+      }
+    })
+    .onFinalize(() => {
+      pressed.value = withSpring(0, springConfig);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      pressed.value,
+      [0, 1],
+      [1, 0.96],
+      Extrapolation.CLAMP
+    );
+    const translateY = interpolate(
+      pressed.value,
+      [0, 1],
+      [0, 2],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [{ scale }, { translateY }],
+    };
+  });
+
+  const shineStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      shine.value,
+      [0, 0.5, 1],
+      [0, 0.3, 0],
+      Extrapolation.CLAMP
+    );
+    const translateX = interpolate(
+      shine.value,
+      [0, 1],
+      [-100, 100],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      opacity,
+      transform: [{ translateX }],
+    };
+  });
 
   const useGradient = variant === "primary" || variant === "accent";
 
@@ -100,38 +156,37 @@ export function Button({
   };
 
   return (
-    <AnimatedPressable
-      onPress={disabled ? undefined : onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      disabled={disabled}
-      style={[
-        styles.button,
-        !useGradient && {
-          backgroundColor: getBackgroundColor(),
-        },
-        getBorderStyle(),
-        { opacity: disabled ? 0.6 : 1 },
-        style,
-        animatedStyle,
-      ]}
-    >
-      {useGradient ? (
-        <LinearGradient
-          colors={getGradientColors()}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradient}
-        />
-      ) : null}
-      {typeof children === "string" ? (
-        <ThemedText type="button" style={{ color: getTextColor() }}>
-          {children}
-        </ThemedText>
-      ) : (
-        children
-      )}
-    </AnimatedPressable>
+    <GestureDetector gesture={tap}>
+      <Animated.View
+        style={[
+          styles.button,
+          !useGradient && {
+            backgroundColor: getBackgroundColor(),
+          },
+          getBorderStyle(),
+          { opacity: disabled ? 0.6 : 1 },
+          style,
+          animatedStyle,
+        ]}
+      >
+        {useGradient ? (
+          <LinearGradient
+            colors={getGradientColors()}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradient}
+          />
+        ) : null}
+        <Animated.View style={[styles.shine, shineStyle]} />
+        {typeof children === "string" ? (
+          <ThemedText type="button" style={{ color: getTextColor() }}>
+            {children}
+          </ThemedText>
+        ) : (
+          children
+        )}
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -146,5 +201,13 @@ const styles = StyleSheet.create({
   },
   gradient: {
     ...StyleSheet.absoluteFillObject,
+  },
+  shine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 60,
+    backgroundColor: "rgba(255,255,255,0.4)",
+    transform: [{ skewX: "-20deg" }],
   },
 });

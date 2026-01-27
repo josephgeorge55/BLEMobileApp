@@ -1,11 +1,20 @@
 import React from "react";
-import { StyleSheet, View, Pressable, Switch } from "react-native";
+import { StyleSheet, View, Switch } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  runOnJS,
+  interpolate,
+  Extrapolation,
+} from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BladeColors } from "@/constants/theme";
+import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 
 interface SettingsRowProps {
   icon?: keyof typeof Feather.glyphMap;
@@ -21,6 +30,13 @@ interface SettingsRowProps {
   destructive?: boolean;
 }
 
+const springConfig = {
+  damping: 18,
+  mass: 0.3,
+  stiffness: 250,
+  overshootClamping: true,
+};
+
 export function SettingsRow({
   icon,
   title,
@@ -34,7 +50,9 @@ export function SettingsRow({
   iconColor,
   destructive,
 }: SettingsRowProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const pressed = useSharedValue(0);
+  const translateX = useSharedValue(0);
 
   const handleToggle = (newValue: boolean) => {
     Haptics.selectionAsync();
@@ -43,18 +61,72 @@ export function SettingsRow({
 
   const handlePress = () => {
     if (onPress) {
-      Haptics.selectionAsync();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       onPress();
     }
   };
 
+  const tap = Gesture.Tap()
+    .enabled(!!onPress && !isToggle)
+    .onBegin(() => {
+      pressed.value = withSpring(1, springConfig);
+      translateX.value = withSpring(4, springConfig);
+    })
+    .onEnd(() => {
+      runOnJS(handlePress)();
+    })
+    .onFinalize(() => {
+      pressed.value = withSpring(0, springConfig);
+      translateX.value = withSpring(0, springConfig);
+    });
+
+  const animatedRowStyle = useAnimatedStyle(() => {
+    const backgroundColor = interpolate(
+      pressed.value,
+      [0, 1],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    const scale = interpolate(
+      pressed.value,
+      [0, 1],
+      [1, 0.99],
+      Extrapolation.CLAMP
+    );
+    return {
+      backgroundColor: pressed.value > 0.5 
+        ? isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"
+        : "transparent",
+      transform: [{ scale }, { translateX: translateX.value }],
+    };
+  });
+
+  const animatedChevronStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          pressed.value,
+          [0, 1],
+          [0, 4],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+    opacity: interpolate(
+      pressed.value,
+      [0, 1],
+      [0.6, 1],
+      Extrapolation.CLAMP
+    ),
+  }));
+
   const content = (
-    <View style={styles.row}>
+    <Animated.View style={[styles.row, animatedRowStyle]}>
       {icon ? (
         <View
           style={[
             styles.iconContainer,
-            { backgroundColor: theme.backgroundSecondary },
+            { backgroundColor: isDark ? theme.backgroundSecondary : theme.backgroundTertiary },
           ]}
         >
           <Feather
@@ -99,22 +171,18 @@ export function SettingsRow({
           {value}
         </ThemedText>
       ) : showChevron && onPress ? (
-        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+        <Animated.View style={animatedChevronStyle}>
+          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+        </Animated.View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 
   if (onPress && !isToggle) {
     return (
-      <Pressable
-        onPress={handlePress}
-        style={({ pressed }) => [
-          styles.container,
-          { backgroundColor: pressed ? theme.backgroundSecondary : "transparent" },
-        ]}
-      >
-        {content}
-      </Pressable>
+      <GestureDetector gesture={tap}>
+        <View style={styles.container}>{content}</View>
+      </GestureDetector>
     );
   }
 
@@ -128,7 +196,7 @@ export function SettingsSection({
   title: string;
   children: React.ReactNode;
 }) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
 
   return (
     <View style={styles.section}>
@@ -141,7 +209,10 @@ export function SettingsSection({
       <View
         style={[
           styles.sectionContent,
-          { backgroundColor: theme.surface, borderColor: theme.border },
+          {
+            backgroundColor: theme.surface,
+            borderColor: isDark ? theme.border : "transparent",
+          },
         ]}
       >
         {children}
@@ -154,18 +225,20 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: -Spacing.md,
     paddingHorizontal: Spacing.md,
+    overflow: "hidden",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(0,0,0,0.05)",
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginHorizontal: -Spacing.xs,
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -179,11 +252,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: Spacing.sm,
     marginLeft: Spacing.md,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    fontWeight: "600",
   },
   sectionContent: {
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
     borderWidth: 1,
   },
 });
