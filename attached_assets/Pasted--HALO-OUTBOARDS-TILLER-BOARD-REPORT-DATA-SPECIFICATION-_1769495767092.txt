@@ -1,0 +1,197 @@
+
+
+
+
+
+
+
+HALO OUTBOARDS
+
+TILLER BOARD REPORT DATA SPECIFICATION
+Version 1.3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Revision History
+
+Version	Date	Notes
+1.0	06/14/25	Initial version
+1.1	09/13/2025	Change the frame format to the new standard
+1.2	10/12/2025	Add wattage parameter to BMS data group
+1.3	10/23/2025	1. Change index of BMS data group
+2. Add voltage and power wattage parameter of VESC data group
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Contents
+
+I.	Overview	4
+II.	Data frame description	4
+1.	GNSS data	4
+2.	BMS data	5
+3.	MOTOR data	6
+4.	VESC data	6
+III.	Note for Developer	7
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+I.	Overview
+This document describe data frame formats used for bluetooth serial comunication between tiller board and another device (like android or other bluetooth type device). The data is transmitted as plain text using comma-separated values and begins with a frame header.
+II.	Data frame description
+1.	GNSS data 
+Data direction:
+•	From: Tiller Board
+•	To: App (Android or similar platform)
+•	Purpose: Report real-time GNSS (GPS, GLONASS, Baidu….) data
+
+Frame format:
+$GNSS, Gx, [data...]
+•	$: Start of Frame
+•	GNSS: Data Frame type
+•	Gx: Message group type, which defines the structure of the remaining data fields.
+
+GNSS Group 1 Format:
+$GNSS,G1,<TimeUTC>,<Latitude>,<Longitude>,<Course>,<Speed>
+
+GNSS Group 1 frame description:
+Name	Type	Data example	Description
+TimeUTC	int	123519	Time in UTC (hhmmss format), GMT 0
+Latitude	float	10.762622	Latitude in decimal degrees
+Longitude	float	106.660172	Longitude in decimal degrees
+Course	float	219.2	Course over ground in degrees from North
+Speed	float	45.5	Speed over ground in kilometers per hour (km/h)
+
+Frame example 
+$GNSS,G1,123519,10.762622,106.660172,84.2,45.5
+
+2.	BMS data
+Data direction:
+•	From: Tiller Board
+•	To: App (Android or similar platform)
+•	Purpose: Report real-time BMS data
+
+Frame format:
+$BMS, Gx, [data...]
+•	$: Start of Frame
+•	BMS: Data Frame type
+•	Gx: Message group type, which defines the structure of the remaining data fields.
+
+BMS Group 1 Format:
+$BMS,G1, < Voltage >,< Capacity >,Current>,< Wattage >,< Temperature >
+
+BMS Group 1 frame description:
+Name	Type	Data example	Description
+Voltage 	float	48.7	Battery voltage in volts (V)
+
+Capacity	int	92	Battery capacity in percent (%)
+Current	float	12.5	Battery current in amps (A)
+
+Wattage	Int	1460	Battery power consumption (W)
+Temperature	Int	36	Battery temperature in Celsius (°C)
+
+Frame example 
+$BMS,G1,48.7,92, 12.5,1460,36
+	
+
+
+
+3.	MOTOR data
+Data direction:
+•	From: Tiller Board
+•	To: App (Android or similar platform)
+•	Purpose: Report real-time Motor data
+
+Frame format:
+$MOTOR, Gx, [data...]
+•	$: Start of Frame
+•	MOTOR: Data Frame type
+•	Gx: Message group type, which defines the structure of the remaining data fields.
+
+MOTOR Group 1 Format:
+$MOTOR,G1,<Phase Current>,< MotorRPM >,<Temperature>
+
+MOTOR Group 1 Frame description:
+Name	Type	Data example	Description
+Phase Current	float	16.7	Motor current in amps (A)
+MotorRPM	int	1420	Motor speed in revolutions per minute (RPM)
+
+Temperature	int	36	Motor temperature in Celsius (°C)
+
+
+Frame example 
+$MOTOR,G1,16.7,1420,36
+
+
+
+
+4.	VESC data
+Data direction:
+•	From: Tiller Board
+•	To: App (Android or similar platform)
+•	Purpose: Report real-time VESC data
+
+Frame format:
+$ VESC, Gx, [data...]
+•	$: Start of Frame
+•	VESC: Data Frame type
+•	Gx: Message group type, which defines the structure of the remaining data fields.
+
+VESC Group 1 Format:
+$VESC,G1,<Voltage>,<Current>,<Wattage>,<Throttle>,<Temperature>
+
+VESC Group 1 frame description:
+Name	Type	Data example	Description
+Voltage	float	48.5	VESC voltage in volts (V)
+Current	float	28.5	VESC current in amps (A)
+Wattage	Int	3280	VESC power consumption (W)
+Throttle	int	50	Throttle level in percent (%)
+Temperature	int	40	VESC temperature in Celsius (°C)
+
+
+Frame example 
+$VESC,G1,48.5,28.5,3280,50,40
+
+
+
+
+
+III.	Note for Developer
+•	Separator: Fields are separated by commas < , >
+•	Line Ending: Each frame is sent as a single line (\r\n)
+•	Suggest parsing: On Android or similar platform, user can get data by splitting string frame by comma < , > after confirming the header prefix (e.g., starts with $GNSS, $BMS….).
+•	Transmission Protocol: Using bluetooth classic serial communication.
+
