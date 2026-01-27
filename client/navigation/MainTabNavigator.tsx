@@ -2,26 +2,35 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet } from "react-native";
-import HomeStackNavigator from "@/navigation/HomeStackNavigator";
-import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
+import { Platform, StyleSheet, View } from "react-native";
+
+import DashboardScreen from "@/screens/DashboardScreen";
+import LocationScreen from "@/screens/LocationScreen";
+import UpdatesScreen from "@/screens/UpdatesScreen";
+import SettingsScreen from "@/screens/SettingsScreen";
+import { HeaderTitle } from "@/components/HeaderTitle";
 import { useTheme } from "@/hooks/useTheme";
+import { useScreenOptions } from "@/hooks/useScreenOptions";
+import { BladeColors, Spacing } from "@/constants/theme";
 
 export type MainTabParamList = {
-  HomeTab: undefined;
-  ProfileTab: undefined;
+  DashboardTab: undefined;
+  LocationTab: undefined;
+  UpdatesTab: undefined;
+  SettingsTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
+  const screenOptions = useScreenOptions();
 
   return (
     <Tab.Navigator
-      initialRouteName="HomeTab"
+      initialRouteName="DashboardTab"
       screenOptions={{
-        tabBarActiveTintColor: theme.tabIconSelected,
+        tabBarActiveTintColor: BladeColors.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
@@ -31,6 +40,9 @@ export default function MainTabNavigator() {
           }),
           borderTopWidth: 0,
           elevation: 0,
+          height: Platform.select({ ios: 88, android: 64 }),
+          paddingBottom: Platform.select({ ios: 28, android: 8 }),
+          paddingTop: Spacing.sm,
         },
         tabBarBackground: () =>
           Platform.OS === "ios" ? (
@@ -40,26 +52,54 @@ export default function MainTabNavigator() {
               style={StyleSheet.absoluteFill}
             />
           ) : null,
-        headerShown: false,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "500",
+        },
+        ...screenOptions,
       }}
     >
       <Tab.Screen
-        name="HomeTab"
-        component={HomeStackNavigator}
+        name="DashboardTab"
+        component={DashboardScreen}
         options={{
-          title: "Home",
+          title: "Dashboard",
+          headerTitle: () => <HeaderTitle title="Blade Outboards" />,
           tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size} color={color} />
+            <Feather name="activity" size={size} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="ProfileTab"
-        component={ProfileStackNavigator}
+        name="LocationTab"
+        component={LocationScreen}
         options={{
-          title: "Profile",
+          title: "Location",
+          headerTitle: "Location",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+            <Feather name="map-pin" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="UpdatesTab"
+        component={UpdatesScreen}
+        options={{
+          title: "Updates",
+          headerTitle: "Firmware Updates",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="download-cloud" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="SettingsTab"
+        component={SettingsScreen}
+        options={{
+          title: "Settings",
+          headerTitle: "Settings",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="settings" size={size} color={color} />
           ),
         }}
       />

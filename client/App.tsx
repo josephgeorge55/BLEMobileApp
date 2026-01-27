@@ -11,6 +11,8 @@ import { queryClient } from "@/lib/query-client";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MotorProvider } from "@/context/MotorContext";
+import { SettingsProvider } from "@/context/SettingsContext";
 
 export default function App() {
   return (
@@ -19,10 +21,14 @@ export default function App() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
-              <NavigationContainer>
-                <RootStackNavigator />
-              </NavigationContainer>
-              <StatusBar style="auto" />
+              <MotorProvider>
+                <SettingsProvider>
+                  <NavigationContainer>
+                    <RootStackNavigator />
+                  </NavigationContainer>
+                  <StatusBar style="auto" />
+                </SettingsProvider>
+              </MotorProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </SafeAreaProvider>

@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, StyleProp, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,13 +9,14 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing } from "@/constants/theme";
+import { BorderRadius, Spacing, BladeColors } from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  variant?: "primary" | "secondary" | "outline";
 }
 
 const springConfig: WithSpringConfig = {
@@ -33,6 +34,7 @@ export function Button({
   children,
   style,
   disabled = false,
+  variant = "primary",
 }: ButtonProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -53,6 +55,36 @@ export function Button({
     }
   };
 
+  const getBackgroundColor = () => {
+    if (disabled) return theme.backgroundTertiary;
+    switch (variant) {
+      case "primary":
+        return BladeColors.primary;
+      case "secondary":
+        return BladeColors.accent;
+      case "outline":
+        return "transparent";
+      default:
+        return BladeColors.primary;
+    }
+  };
+
+  const getBorderStyle = () => {
+    if (variant === "outline") {
+      return {
+        borderWidth: 2,
+        borderColor: disabled ? theme.backgroundTertiary : BladeColors.primary,
+      };
+    }
+    return {};
+  };
+
+  const getTextColor = () => {
+    if (disabled) return theme.textSecondary;
+    if (variant === "outline") return BladeColors.primary;
+    return "#FFFFFF";
+  };
+
   return (
     <AnimatedPressable
       onPress={disabled ? undefined : onPress}
@@ -62,19 +94,21 @@ export function Button({
       style={[
         styles.button,
         {
-          backgroundColor: theme.link,
-          opacity: disabled ? 0.5 : 1,
+          backgroundColor: getBackgroundColor(),
+          opacity: disabled ? 0.6 : 1,
         },
+        getBorderStyle(),
         style,
         animatedStyle,
       ]}
     >
-      <ThemedText
-        type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
-      >
-        {children}
-      </ThemedText>
+      {typeof children === "string" ? (
+        <ThemedText type="button" style={{ color: getTextColor() }}>
+          {children}
+        </ThemedText>
+      ) : (
+        children
+      )}
     </AnimatedPressable>
   );
 }
@@ -82,11 +116,9 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     height: Spacing.buttonHeight,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.sm,
     alignItems: "center",
     justifyContent: "center",
-  },
-  buttonText: {
-    fontWeight: "600",
+    paddingHorizontal: Spacing["2xl"],
   },
 });
