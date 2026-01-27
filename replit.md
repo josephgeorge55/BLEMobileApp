@@ -134,9 +134,21 @@ To test with actual Bluetooth hardware (Halo Tiller Board), you need a custom de
    npm install
    ```
 
-2. **Install react-native-ble-plx**
+2. **Install react-native-ble-plx and add plugin to app.json**
    ```bash
    npm install react-native-ble-plx
+   ```
+   
+   Then add to app.json plugins array:
+   ```json
+   [
+     "react-native-ble-plx",
+     {
+       "isBackgroundEnabled": false,
+       "modes": ["peripheral", "central"],
+       "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor."
+     }
+   ]
    ```
 
 3. **Create development build**
