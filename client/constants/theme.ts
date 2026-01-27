@@ -110,6 +110,16 @@ export const BorderRadius = {
 };
 
 export const Typography = {
+  sizes: {
+    xs: 10,
+    sm: 12,
+    md: 14,
+    lg: 16,
+    xl: 20,
+    "2xl": 24,
+    "3xl": 32,
+    "4xl": 40,
+  },
   hero: {
     fontSize: 44,
     lineHeight: 52,

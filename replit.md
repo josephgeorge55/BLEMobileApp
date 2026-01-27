@@ -37,10 +37,18 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 1. **Authentication**: User account creation with email and 6-digit PIN, login/logout
 2. **Dashboard**: Real-time telemetry display (speed, battery, power consumption)
 3. **Location**: GPS tracking with map visualization for anti-theft monitoring
-4. **Updates**: OTA firmware management with version targeting
-5. **Settings**: Device management, user account info, notification preferences, legal links
-6. **BLE Scanner**: Bluetooth device discovery and motor pairing
-7. **Anti-Theft**: Motors linked to user accounts for ownership protection
+4. **My Trips**: Trip recording with automatic telemetry capture, history, and PDF export
+5. **Updates**: OTA firmware management with version targeting
+6. **Settings**: Device management, user account info, notification preferences, legal links
+7. **BLE Scanner**: Bluetooth device discovery and motor pairing
+8. **Anti-Theft**: Motors linked to user accounts for ownership protection
+
+### Trip Recording System
+- **Automatic Data Capture**: Records 17 telemetry parameters every 2 seconds during active trips
+- **Metrics Tracked**: Speed (kts), GPS coordinates, battery level/voltage/current/temp, motor RPM/current/temp, VESC power/current/temp, throttle position
+- **Trip Calculations**: Total distance (nm), max/avg speed, energy consumption (Wh), efficiency (Wh/nm)
+- **PDF Export**: Generate and share professional trip reports via expo-print and expo-sharing
+- **Context**: TripContext manages active trip state and automatic recording when motor is connected
 
 ### Data Flow
 - Users authenticate with email and 6-digit PIN
@@ -82,6 +90,8 @@ The app parses comma-separated data frames from the tiller board via Bluetooth C
 - **users**: User accounts with email, PIN, timestamps
 - **motors**: Motor records with serialNumber, userId (for anti-theft), firmware info
 - **motor_locations**: GPS location history
+- **trips**: Trip records with start/end times, battery levels, calculated metrics (distance, speed, energy)
+- **trip_data_points**: Individual telemetry snapshots captured during trips (17 parameters per point)
 - **firmware_versions**: Available firmware updates
 - **firmware_eligibility**: Serial-specific firmware targeting
 - **push_tokens**: Expo push notification tokens
