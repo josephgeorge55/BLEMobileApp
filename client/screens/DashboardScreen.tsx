@@ -80,6 +80,15 @@ export default function DashboardScreen() {
             },
           ]}
         >
+          <View style={styles.logoHeader}>
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require("../../assets/images/blade-logo-white.png")} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
           <EmptyState
             image={require("../../assets/images/halo-outboard.png")}
             title="Connect Your Outboard"
@@ -135,12 +144,13 @@ export default function DashboardScreen() {
       }
     >
       <View style={styles.logoHeader}>
-        <Image 
-          source={require("../../assets/images/blade-logo-white.png")} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <ThemedText type="h2" style={styles.brandText}>BLADE</ThemedText>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={require("../../assets/images/blade-logo-white.png")} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
       </View>
 
       <Pressable
@@ -510,23 +520,26 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
+    paddingHorizontal: Spacing.screenPadding,
   },
   logoHeader: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xl,
   },
+  logoContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: BladeColors.darkGray,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   logo: {
     width: 32,
     height: 32,
-    marginRight: Spacing.sm,
-  },
-  brandText: {
-    letterSpacing: 4,
-    fontWeight: "700",
   },
   metricsGrid: {
     gap: Spacing.md,
