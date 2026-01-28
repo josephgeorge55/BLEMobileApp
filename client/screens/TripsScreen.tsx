@@ -182,20 +182,14 @@ export default function TripsScreen() {
         data={trips}
         keyExtractor={(item) => item.id}
         renderItem={renderTripItem}
-        style={styles.list}
         contentContainerStyle={[
           styles.listContent,
-          { 
-            paddingTop: headerHeight + Spacing.md, 
-            paddingBottom: insets.bottom + 100,
-            flexGrow: 1,
-          },
+          { paddingTop: headerHeight + Spacing.md, paddingBottom: insets.bottom + 100 },
         ]}
         ListEmptyComponent={isLoading ? null : renderEmptyState}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
-        showsVerticalScrollIndicator={true}
         testID="trips-list"
       />
 
@@ -257,9 +251,6 @@ export default function TripsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  list: {
     flex: 1,
   },
   listContent: {

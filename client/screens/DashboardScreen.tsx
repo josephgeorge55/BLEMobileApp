@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Pressable, Image } from "react-native";
+import { StyleSheet, View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -10,6 +10,7 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { EmptyState } from "@/components/EmptyState";
 import { DebugLogModal } from "@/components/DebugLogModal";
 import { useTheme } from "@/hooks/useTheme";
@@ -80,15 +81,6 @@ export default function DashboardScreen() {
             },
           ]}
         >
-          <View style={styles.logoHeader}>
-            <View style={styles.logoContainer}>
-              <Image 
-                source={require("../../assets/images/blade-logo-white.png")} 
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </View>
-          </View>
           <EmptyState
             image={require("../../assets/images/halo-outboard.png")}
             title="Connect Your Outboard"
@@ -143,15 +135,12 @@ export default function DashboardScreen() {
         />
       }
     >
-      <View style={styles.logoHeader}>
-        <View style={styles.logoContainer}>
-          <Image 
-            source={require("../../assets/images/blade-logo-white.png")} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-      </View>
+      <ConnectionBanner
+        isConnected={isConnected}
+        isConnecting={isConnecting}
+        motorName={motor.name}
+        onPress={handleConnect}
+      />
 
       <Pressable
         onPress={() => setShowDebugModal(true)}
@@ -520,26 +509,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "center",
-    paddingHorizontal: Spacing.screenPadding,
-  },
-  logoHeader: {
-    alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.xl,
-  },
-  logoContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: BladeColors.darkGray,
     alignItems: "center",
-    justifyContent: "center",
-  },
-  logo: {
-    width: 32,
-    height: 32,
   },
   metricsGrid: {
     gap: Spacing.md,
