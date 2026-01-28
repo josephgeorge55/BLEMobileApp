@@ -71,6 +71,13 @@
           "modes": ["peripheral", "central"],
           "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor."
         }
+      ],
+      [
+        "react-native-bluetooth-classic",
+        {
+          "peripheralUsageDescription": "Blade Outboards uses Bluetooth to connect to your outboard motor.",
+          "alwaysUsageDescription": "Blade Outboards uses Bluetooth to connect to your outboard motor."
+        }
       ]
     ],
     "experiments": {
