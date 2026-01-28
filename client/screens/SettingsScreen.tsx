@@ -69,6 +69,7 @@ export default function SettingsScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
@@ -313,12 +314,13 @@ export default function SettingsScreen() {
           {"\u00A9"} 2026 Blade Marine Technologies Ltd. All rights reserved.
         </ThemedText>
       </View>
-      
-      <FirmwareUpdateModal
-        visible={firmwareModalVisible}
-        onClose={() => setFirmwareModalVisible(false)}
-      />
     </ScrollView>
+      
+    <FirmwareUpdateModal
+      visible={firmwareModalVisible}
+      onClose={() => setFirmwareModalVisible(false)}
+    />
+    </>
   );
 }
 

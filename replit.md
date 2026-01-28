@@ -42,6 +42,31 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 6. **Settings**: Device management, user account info, notification preferences, legal links
 7. **BLE Scanner**: Bluetooth device discovery and motor pairing
 8. **Anti-Theft**: Motors linked to user accounts for ownership protection
+9. **Custom Firmware Update**: User can upload .hex firmware files directly from their phone and flash to the Tiller board via Bluetooth OTA
+
+### Custom Firmware OTA System
+The app includes a complete STM32 bootloader FOTA implementation for flashing custom firmware to the Tiller board:
+
+**Location:** Settings > Connected Outboard > Custom Firmware Update
+
+**Components:**
+- `client/lib/hex-parser.ts` - Intel HEX file parser that converts .hex files into 256-byte memory blocks
+- `client/lib/firmware-ota-service.ts` - STM32 bootloader protocol implementation
+- `client/components/FirmwareUpdateModal.tsx` - Full-featured UI with file picker, progress bar, log console
+
+**STM32 Bootloader Protocol:**
+- Communication: UART over Bluetooth SPP (115200 baud, 8N1, Even parity)
+- Init: Send 0x7F, expect ACK (0x79)
+- GET: 0x00 + 0xFF → 13-byte response with protocol version
+- GET ID: 0x02 + 0xFD → 5-byte response with chip ID
+- ERASE: 0x43 + 0xBC → ACK → 0xFF + 0x00 → ACK (mass erase)
+- WRITE: 0x31 + 0xCE → address+checksum → data+checksum (256-byte blocks)
+- GO: 0x21 + 0xDE → start address+checksum (start firmware)
+
+**Requirements:**
+- Tiller board must be in bootloader mode (hardware switch or software command)
+- Bluetooth must be connected via the Scanner first
+- Firmware files must be in Intel HEX format (.hex)
 
 ### Trip Recording System
 - **Automatic Data Capture**: Records 17 telemetry parameters every 2 seconds during active trips
