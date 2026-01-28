@@ -31,18 +31,28 @@ import {
   checkBleState,
   BleDevice,
 } from "@/lib/ble-service";
+import {
+  initializeClassic,
+  isClassicEnabled,
+  getBondedDevices,
+  startDiscovery,
+  cancelDiscovery,
+  getClassicDiagnostics,
+  ClassicDevice,
+} from "@/lib/bluetooth-classic-service";
 
 interface ScanDevice {
   id: string;
   name: string;
   serialNumber: string;
   rssi: number;
+  type: "ble" | "classic";
 }
 
 const mockDevices: ScanDevice[] = [
-  { id: "mock-1", name: "Blade Pro 500", serialNumber: "BLD-2024-0001", rssi: -45 },
-  { id: "mock-2", name: "Blade Sport 350", serialNumber: "BLD-2024-0042", rssi: -62 },
-  { id: "mock-3", name: "Blade Elite 750", serialNumber: "BLD-2024-0187", rssi: -78 },
+  { id: "mock-1", name: "Blade Pro 500", serialNumber: "BLD-2024-0001", rssi: -45, type: "ble" },
+  { id: "mock-2", name: "Blade Sport 350", serialNumber: "BLD-2024-0042", rssi: -62, type: "classic" },
+  { id: "mock-3", name: "Blade Elite 750", serialNumber: "BLD-2024-0187", rssi: -78, type: "ble" },
 ];
 
 export default function BleScannerModal() {
@@ -61,11 +71,22 @@ export default function BleScannerModal() {
   const [useMockMode, setUseMockMode] = useState(false);
   const [bleError, setBleError] = useState<string | null>(null);
   const [bleDiagnostics, setBleDiagnostics] = useState<{
-    initialized: boolean;
+    bleInitialized: boolean;
+    classicInitialized: boolean;
     permissions: boolean;
-    state: string;
-    deviceCount: number;
-  }>({ initialized: false, permissions: false, state: "Unknown", deviceCount: 0 });
+    bleState: string;
+    classicEnabled: boolean;
+    bleDeviceCount: number;
+    classicDeviceCount: number;
+  }>({ 
+    bleInitialized: false, 
+    classicInitialized: false, 
+    permissions: false, 
+    bleState: "Unknown", 
+    classicEnabled: false,
+    bleDeviceCount: 0,
+    classicDeviceCount: 0,
+  });
 
   const startMockScan = useCallback(() => {
     setIsScanning(true);
@@ -82,13 +103,32 @@ export default function BleScannerModal() {
     setIsScanning(true);
     setDevices([]);
     setBleError(null);
-    setBleDiagnostics(prev => ({ ...prev, deviceCount: 0 }));
+    setBleDiagnostics(prev => ({ 
+      ...prev, 
+      bleDeviceCount: 0, 
+      classicDeviceCount: 0 
+    }));
+
+    const foundDevices: Map<string, ScanDevice> = new Map();
+    let bleInitSuccess = false;
+    let classicInitSuccess = false;
 
     try {
-      const initialized = await initializeBle();
-      setBleDiagnostics(prev => ({ ...prev, initialized }));
+      const [bleInitialized, classicInitialized] = await Promise.all([
+        initializeBle(),
+        initializeClassic(),
+      ]);
       
-      if (!initialized) {
+      bleInitSuccess = bleInitialized;
+      classicInitSuccess = classicInitialized;
+      
+      setBleDiagnostics(prev => ({ 
+        ...prev, 
+        bleInitialized,
+        classicInitialized,
+      }));
+      
+      if (!bleInitialized && !classicInitialized) {
         setUseMockMode(true);
         startMockScan();
         return;
@@ -103,53 +143,87 @@ export default function BleScannerModal() {
         return;
       }
 
-      const bleState = await checkBleState();
-      setBleDiagnostics(prev => ({ ...prev, state: bleState }));
-      
-      if (bleState !== "PoweredOn") {
-        setBleError(
-          bleState === "PoweredOff"
-            ? "Please turn on Bluetooth"
-            : bleState === "Unauthorized"
-            ? "Bluetooth permission denied"
-            : "Bluetooth not supported"
-        );
-        setIsScanning(false);
-        return;
+      if (bleInitSuccess) {
+        const bleState = await checkBleState();
+        setBleDiagnostics(prev => ({ ...prev, bleState }));
+        
+        if (bleState === "PoweredOn") {
+          startRealScan({
+            onDeviceFound: (device: BleDevice) => {
+              const scanDevice: ScanDevice = {
+                id: device.id,
+                name: device.name || `Device ${device.id.substring(0, 8)}`,
+                serialNumber: device.serialNumber || device.id,
+                rssi: device.rssi,
+                type: "ble",
+              };
+              foundDevices.set(`ble-${device.id}`, scanDevice);
+              updateDeviceList(foundDevices);
+            },
+            onError: (error: Error) => {
+              console.error("BLE scan error:", error);
+            },
+          });
+        }
       }
 
-      const foundDevices: Map<string, ScanDevice> = new Map();
+      if (classicInitSuccess) {
+        const classicEnabled = await isClassicEnabled();
+        setBleDiagnostics(prev => ({ ...prev, classicEnabled }));
+        
+        if (classicEnabled) {
+          const bondedDevices = await getBondedDevices();
+          bondedDevices.forEach((device: ClassicDevice) => {
+            const scanDevice: ScanDevice = {
+              id: device.address,
+              name: device.name,
+              serialNumber: device.address,
+              rssi: device.rssi || -50,
+              type: "classic",
+            };
+            foundDevices.set(`classic-${device.address}`, scanDevice);
+          });
+          updateDeviceList(foundDevices);
+          
+          startDiscovery({
+            onDeviceFound: (device: ClassicDevice) => {
+              const scanDevice: ScanDevice = {
+                id: device.address,
+                name: device.name,
+                serialNumber: device.address,
+                rssi: device.rssi || -70,
+                type: "classic",
+              };
+              foundDevices.set(`classic-${device.address}`, scanDevice);
+              updateDeviceList(foundDevices);
+            },
+            onError: (error: Error) => {
+              console.error("Classic scan error:", error);
+            },
+          });
+        }
+      }
 
-      startRealScan({
-        onDeviceFound: (device: BleDevice) => {
-          const scanDevice: ScanDevice = {
-            id: device.id,
-            name: device.name || `Unknown (${device.id.substring(0, 8)})`,
-            serialNumber: device.serialNumber || device.id,
-            rssi: device.rssi,
-          };
-          foundDevices.set(device.id, scanDevice);
-          const deviceList = Array.from(foundDevices.values()).sort((a, b) => b.rssi - a.rssi);
-          setDevices(deviceList);
-          setBleDiagnostics(prev => ({ ...prev, deviceCount: deviceList.length }));
-        },
-        onError: (error: Error) => {
-          console.error("BLE scan error:", error);
-          setBleError("Scan error: " + error.message);
-        },
-      });
+      function updateDeviceList(devices: Map<string, ScanDevice>) {
+        const deviceList = Array.from(devices.values()).sort((a, b) => b.rssi - a.rssi);
+        setDevices(deviceList);
+        const bleCount = deviceList.filter(d => d.type === "ble").length;
+        const classicCount = deviceList.filter(d => d.type === "classic").length;
+        setBleDiagnostics(prev => ({ 
+          ...prev, 
+          bleDeviceCount: bleCount,
+          classicDeviceCount: classicCount,
+        }));
+      }
 
       setTimeout(() => {
         stopRealScan();
+        cancelDiscovery();
         setIsScanning(false);
-        
-        if (foundDevices.size === 0) {
-          setDevices([]);
-        }
       }, 15000);
     } catch (error: any) {
-      console.error("BLE initialization error:", error);
-      setBleDiagnostics(prev => ({ ...prev, state: "Error: " + error.message }));
+      console.error("Bluetooth initialization error:", error);
+      setBleDiagnostics(prev => ({ ...prev, bleState: "Error: " + error.message }));
       setUseMockMode(true);
       startMockScan();
     }
@@ -281,14 +355,27 @@ export default function BleScannerModal() {
             >
               {item.serialNumber}
             </ThemedText>
-            {useMockMode && item.id.startsWith("mock") ? (
-              <ThemedText
-                type="caption"
-                style={{ color: BladeColors.warning, marginTop: 4 }}
-              >
-                Demo device (Expo Go mode)
-              </ThemedText>
-            ) : null}
+            <View style={styles.deviceBadges}>
+              <View style={[
+                styles.typeBadge, 
+                { backgroundColor: item.type === "ble" ? BladeColors.accent + "20" : BladeColors.primary + "20" }
+              ]}>
+                <ThemedText 
+                  type="caption" 
+                  style={{ color: item.type === "ble" ? BladeColors.accent : BladeColors.primary }}
+                >
+                  {item.type === "ble" ? "BLE 4.0+" : "Classic 2.0"}
+                </ThemedText>
+              </View>
+              {useMockMode && item.id.startsWith("mock") ? (
+                <ThemedText
+                  type="caption"
+                  style={{ color: BladeColors.warning }}
+                >
+                  Demo
+                </ThemedText>
+              ) : null}
+            </View>
           </View>
 
           {isConnectingToThis ? (
@@ -332,12 +419,22 @@ export default function BleScannerModal() {
         <View style={styles.diagnosticsRow}>
           <View style={styles.diagnosticsItem}>
             <Feather 
-              name={bleDiagnostics.initialized ? "check-circle" : "x-circle"} 
+              name={bleDiagnostics.bleInitialized ? "check-circle" : "x-circle"} 
               size={14} 
-              color={bleDiagnostics.initialized ? BladeColors.success : BladeColors.error} 
+              color={bleDiagnostics.bleInitialized ? BladeColors.success : BladeColors.error} 
             />
             <ThemedText type="caption" style={{ marginLeft: 4 }}>
-              BLE Init
+              BLE
+            </ThemedText>
+          </View>
+          <View style={styles.diagnosticsItem}>
+            <Feather 
+              name={bleDiagnostics.classicInitialized ? "check-circle" : "x-circle"} 
+              size={14} 
+              color={bleDiagnostics.classicInitialized ? BladeColors.success : BladeColors.error} 
+            />
+            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+              Classic
             </ThemedText>
           </View>
           <View style={styles.diagnosticsItem}>
@@ -347,22 +444,22 @@ export default function BleScannerModal() {
               color={bleDiagnostics.permissions ? BladeColors.success : BladeColors.error} 
             />
             <ThemedText type="caption" style={{ marginLeft: 4 }}>
-              Permissions
+              Perms
             </ThemedText>
           </View>
           <View style={styles.diagnosticsItem}>
             <Feather 
-              name={bleDiagnostics.state === "PoweredOn" ? "bluetooth" : "alert-circle"} 
+              name={bleDiagnostics.bleState === "PoweredOn" ? "bluetooth" : "alert-circle"} 
               size={14} 
-              color={bleDiagnostics.state === "PoweredOn" ? BladeColors.success : BladeColors.warning} 
+              color={bleDiagnostics.bleState === "PoweredOn" ? BladeColors.success : BladeColors.warning} 
             />
             <ThemedText type="caption" style={{ marginLeft: 4 }}>
-              {bleDiagnostics.state}
+              {bleDiagnostics.bleState}
             </ThemedText>
           </View>
         </View>
         <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 4 }}>
-          Devices found: {bleDiagnostics.deviceCount}
+          BLE: {bleDiagnostics.bleDeviceCount} | Classic: {bleDiagnostics.classicDeviceCount}
         </ThemedText>
       </View>
     );
@@ -601,6 +698,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  deviceBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 6,
+  },
+  typeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
   },
   signalBadge: {
     flexDirection: "row",
