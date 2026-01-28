@@ -24,7 +24,6 @@
         "foregroundImage": "./assets/images/icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -64,10 +63,23 @@
           "icon": "./assets/images/icon.png",
           "color": "#0A4D6E"
         }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor."
+        }
       ]
     ],
     "experiments": {
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "af7bf828-b9cd-4654-8fcd-06e80d8dbed0"
+      }
     }
   }
 }
