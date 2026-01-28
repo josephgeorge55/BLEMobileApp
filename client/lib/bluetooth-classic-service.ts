@@ -223,36 +223,45 @@ export async function connectToClassicDevice(
   }
 }
 
-function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): void {
-  callbacks.onDebugLog?.("DATA", `Raw chunk (${data.length} chars): "${data.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}"`);
-  
-  // Add data to buffer
-  dataBuffer += data;
-  callbacks.onDebugLog?.("DATA", `Buffer now (${dataBuffer.length} chars): "${dataBuffer.substring(0, 100).replace(/\r/g, '\\r').replace(/\n/g, '\\n')}"`);
+function cleanFrame(data: string): string {
+  // Remove invisible/control characters (null bytes, etc.) but keep printable ASCII
+  // Keep: $ , . - digits, letters, spaces
+  return data.replace(/[^\x20-\x7E]/g, '').trim();
+}
 
-  // Normalize line endings: \r\n -> \n, \r -> \n
-  let normalizedBuffer = dataBuffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): void {
+  // Clean the incoming data first - remove invisible characters
+  const cleanedData = cleanFrame(data);
   
-  // Also handle multiple frames concatenated without newlines: $BMS,...$MOTOR,...
-  // Insert newlines before each $ (except the first)
-  normalizedBuffer = normalizedBuffer.replace(/\$(?!^)/g, "\n$");
+  callbacks.onDebugLog?.("DATA", `Raw chunk (${data.length} chars, cleaned: ${cleanedData.length}): "${cleanedData.substring(0, 80)}"`);
   
-  const lines = normalizedBuffer.split("\n").filter(line => line.trim().length > 0);
-  callbacks.onDebugLog?.("DATA", `Split into ${lines.length} potential frames`);
+  if (cleanedData.length === 0) {
+    callbacks.onDebugLog?.("DATA", `Empty data after cleaning, skipping`);
+    return;
+  }
+  
+  // Add cleaned data to buffer
+  dataBuffer += cleanedData;
+  callbacks.onDebugLog?.("DATA", `Buffer now (${dataBuffer.length} chars): "${dataBuffer.substring(0, 100)}"`);
+
+  // Split on $ to handle multiple frames - each frame starts with $
+  // This handles: "$BMS,...$MOTOR,..." -> ["", "BMS,...", "MOTOR,..."]
+  const parts = dataBuffer.split('$');
+  callbacks.onDebugLog?.("DATA", `Split by $ into ${parts.length} parts`);
 
   let processedCount = 0;
-  const unprocessedLines: string[] = [];
+  const unprocessedFrames: string[] = [];
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line.startsWith("$")) {
-      callbacks.onDebugLog?.("DATA", `Skipped non-$ line [${i}]: "${line.substring(0, 30)}"`);
-      continue;
-    }
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i].trim();
+    if (part.length === 0) continue;
+    
+    // Reconstruct the frame with $
+    const frame = '$' + part;
     
     // Check if this frame has enough data to be complete
-    const commaCount = (line.match(/,/g) || []).length;
-    const frameType = line.split(",")[0]?.substring(1);
+    const commaCount = (frame.match(/,/g) || []).length;
+    const frameType = frame.split(",")[0]?.substring(1); // Remove $
     
     // Frame comma requirements:
     // $MOTOR,G1,phaseCurrent,rpm,temp = 4 commas (5 parts)
@@ -261,26 +270,35 @@ function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): 
     // $VESC,G1,voltage,current,wattage,throttle,temp = 6 commas (7 parts)
     const minCommas = frameType === "MOTOR" ? 4 : 6;
     
+    callbacks.onDebugLog?.("DATA", `Frame [${i}]: type=${frameType}, commas=${commaCount}/${minCommas}, data="${frame}"`);
+    
     if (commaCount >= minCommas) {
-      callbacks.onDebugLog?.("DATA", `Processing frame [${i}]: "${line}" (${commaCount} commas)`);
-      const parsed = parseBLEFrame(line);
+      callbacks.onDebugLog?.("DATA", `Attempting parse for: "${frame}"`);
+      const parsed = parseBLEFrame(frame);
       if (parsed) {
         callbacks.onDebugLog?.("PARSE", `SUCCESS: type=${parsed.type}, data=${JSON.stringify(parsed.data)}`);
         callbacks.onDataReceived(parsed);
         processedCount++;
       } else {
-        callbacks.onDebugLog?.("ERROR", `Parse FAILED for: "${line}"`);
+        callbacks.onDebugLog?.("ERROR", `Parse FAILED for: "${frame}"`);
+        // Still consider it processed to avoid re-parsing
       }
     } else {
-      // Incomplete frame - keep for next chunk
-      callbacks.onDebugLog?.("DATA", `Incomplete frame [${i}] (${commaCount}/${minCommas} commas): "${line}"`);
-      unprocessedLines.push(line);
+      // Incomplete frame - might be the last one, keep for next chunk
+      // But only keep the LAST incomplete frame
+      if (i === parts.length - 1) {
+        callbacks.onDebugLog?.("DATA", `Keeping incomplete frame for next chunk: "${frame}"`);
+        unprocessedFrames.push(part); // Store without $ so we can reconstruct later
+      } else {
+        callbacks.onDebugLog?.("DATA", `Discarding incomplete mid-stream frame: "${frame}"`);
+      }
     }
   }
   
-  // Keep unprocessed (incomplete) frames in buffer
-  dataBuffer = unprocessedLines.join("");
-  callbacks.onDebugLog?.("DATA", `Processed ${processedCount} frames, buffer remainder (${dataBuffer.length} chars): "${dataBuffer.substring(0, 50)}"`);
+  // Keep only unprocessed (incomplete) frames in buffer  
+  // If there are unprocessed frames, they need $ prefix when next data arrives
+  dataBuffer = unprocessedFrames.length > 0 ? '$' + unprocessedFrames.join('$') : '';
+  callbacks.onDebugLog?.("DATA", `Processed ${processedCount} frames. Buffer: "${dataBuffer}"`);
 }
 
 export async function disconnectClassic(): Promise<void> {

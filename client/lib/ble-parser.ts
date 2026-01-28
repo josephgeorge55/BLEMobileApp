@@ -110,12 +110,14 @@ export function parseBLEFrame(frame: string): ParseResult | null {
   const trimmed = frame.trim();
   
   if (!trimmed.startsWith("$")) {
+    console.log(`[BLE-Parser] Frame doesn't start with $: "${trimmed.substring(0, 20)}"`);
     return null;
   }
   
   const parts = trimmed.split(",").map((p) => p.trim());
   
   if (parts.length < 3) {
+    console.log(`[BLE-Parser] Not enough parts (${parts.length}): "${trimmed}"`);
     return null;
   }
   
@@ -123,27 +125,47 @@ export function parseBLEFrame(frame: string): ParseResult | null {
   const group = parts[1];
   const dataFields = parts.slice(2);
   
+  console.log(`[BLE-Parser] Parsing: type=${frameType}, group=${group}, fields=[${dataFields.join(', ')}]`);
+  
   switch (frameType) {
     case "GNSS": {
       const data = parseGNSSFrame(dataFields);
-      if (data) return { type: "GNSS", group, data };
+      if (data) {
+        console.log(`[BLE-Parser] GNSS parsed OK:`, data);
+        return { type: "GNSS", group, data };
+      }
+      console.log(`[BLE-Parser] GNSS parse failed for fields:`, dataFields);
       break;
     }
     case "BMS": {
       const data = parseBMSFrame(dataFields);
-      if (data) return { type: "BMS", group, data };
+      if (data) {
+        console.log(`[BLE-Parser] BMS parsed OK:`, data);
+        return { type: "BMS", group, data };
+      }
+      console.log(`[BLE-Parser] BMS parse failed for fields:`, dataFields);
       break;
     }
     case "MOTOR": {
       const data = parseMotorFrame(dataFields);
-      if (data) return { type: "MOTOR", group, data };
+      if (data) {
+        console.log(`[BLE-Parser] MOTOR parsed OK:`, data);
+        return { type: "MOTOR", group, data };
+      }
+      console.log(`[BLE-Parser] MOTOR parse failed for fields:`, dataFields);
       break;
     }
     case "VESC": {
       const data = parseVESCFrame(dataFields);
-      if (data) return { type: "VESC", group, data };
+      if (data) {
+        console.log(`[BLE-Parser] VESC parsed OK:`, data);
+        return { type: "VESC", group, data };
+      }
+      console.log(`[BLE-Parser] VESC parse failed for fields:`, dataFields);
       break;
     }
+    default:
+      console.log(`[BLE-Parser] Unknown frame type: "${frameType}"`);
   }
   
   return null;
