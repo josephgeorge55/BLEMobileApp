@@ -10,6 +10,15 @@ import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { BladeColors } from "@/constants/theme";
 
+interface LocationQueryData {
+  latitude: number;
+  longitude: number;
+  speed: number;
+  heading: number;
+  timestamp: string;
+  isLive: boolean;
+}
+
 export default function LocationScreen() {
   const { theme } = useTheme();
   const { motor, location, setLocation } = useMotor();
@@ -17,7 +26,7 @@ export default function LocationScreen() {
 
   const serialNumber = motor?.serialNumber;
 
-  const { data: locationData } = useQuery({
+  const { data: locationData } = useQuery<LocationQueryData>({
     queryKey: ["/api/motor", serialNumber, "location"],
     enabled: !!serialNumber,
     refetchInterval: 10000,

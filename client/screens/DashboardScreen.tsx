@@ -17,6 +17,15 @@ import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 
+interface LocationQueryData {
+  latitude: number;
+  longitude: number;
+  speed: number;
+  heading: number;
+  timestamp: string;
+  isLive: boolean;
+}
+
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -29,7 +38,7 @@ export default function DashboardScreen() {
   const isConnected = motor?.isConnected ?? false;
   const serialNumber = motor?.serialNumber;
 
-  const { data: locationData, refetch: refetchLocation } = useQuery({
+  const { data: locationData, refetch: refetchLocation } = useQuery<LocationQueryData>({
     queryKey: ["/api/motor", serialNumber, "location"],
     enabled: !!serialNumber && !isConnected,
     refetchInterval: isConnected ? false : 30000,
@@ -186,7 +195,7 @@ export default function DashboardScreen() {
             value={vesc?.throttle ?? 0}
             unit="%"
             iconColor={BladeColors.marine}
-            accentGlow={vesc && vesc.throttle > 80}
+            accentGlow={(vesc?.throttle ?? 0) > 80}
           />
         </Animated.View>
       </View>
@@ -340,80 +349,6 @@ export default function DashboardScreen() {
               </View>
             </View>
           </Animated.View>
-
-          <Animated.View
-            entering={FadeIn.delay(500).duration(400)}
-            style={styles.statusSection}
-          >
-            <ThemedText
-              type="caption"
-              style={[styles.sectionLabel, { color: theme.textTertiary }]}
-            >
-              CONTROLLER (VESC)
-            </ThemedText>
-            <View
-              style={[
-                styles.statusCard,
-                {
-                  backgroundColor: theme.surfaceElevated,
-                  borderColor: isDark ? theme.border : "transparent",
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={[theme.cardGradientStart, theme.cardGradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "15" }]}>
-                    <Feather name="zap" size={14} color={BladeColors.accent} />
-                  </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Power Output
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={styles.statusValue}>
-                  {vesc?.wattage ?? "--"} W
-                </ThemedText>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "15" }]}>
-                    <Feather name="activity" size={14} color={BladeColors.marine} />
-                  </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Current Draw
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={styles.statusValue}>
-                  {vesc?.current.toFixed(1) ?? "--"} A
-                </ThemedText>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(vesc?.temperature ?? 0) + "15" }]}>
-                    <Feather name="thermometer" size={14} color={getTemperatureColor(vesc?.temperature ?? 0)} />
-                  </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Temperature
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={styles.statusValue}>
-                  {vesc?.temperature ?? "--"}°C
-                </ThemedText>
-              </View>
-            </View>
-          </Animated.View>
         </>
       ) : null}
 
@@ -454,6 +389,22 @@ export default function DashboardScreen() {
             </View>
             <ThemedText type="mono" style={styles.statusValue}>
               {motor.serialNumber}
+            </ThemedText>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+          <View style={styles.statusRow}>
+            <View style={styles.statusLabel}>
+              <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "15" }]}>
+                <Feather name="clock" size={14} color={BladeColors.marine} />
+              </View>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Odometer
+              </ThemedText>
+            </View>
+            <ThemedText type="mono" style={styles.statusValue}>
+              {telemetry?.odometer ?? "--"} hrs
             </ThemedText>
           </View>
 

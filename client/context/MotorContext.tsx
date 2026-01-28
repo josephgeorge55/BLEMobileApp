@@ -30,6 +30,7 @@ interface TelemetryData {
   bms: BMSData | null;
   motor: BLEMotorData | null;
   vesc: VESCData | null;
+  odometer: number | null;
   timestamp: Date;
 }
 
@@ -175,7 +176,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     const gnss = gnssRef.current;
     const motor = motorDataRef.current;
 
-    const newTelemetry = {
+    const newTelemetry: TelemetryData = {
       speed: gnss ? kphToKnots(gnss.speed) : 0,
       stateOfCharge: bms?.capacity ?? 0,
       powerConsumption: (vesc?.wattage ?? bms?.wattage ?? 0) / 1000,
@@ -183,6 +184,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
       bms: bmsRef.current,
       motor: motorDataRef.current,
       vesc: vescRef.current,
+      odometer: null,
       timestamp: now,
     };
 

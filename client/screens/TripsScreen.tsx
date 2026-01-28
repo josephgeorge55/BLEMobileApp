@@ -18,7 +18,7 @@ import { useUser } from "@/context/UserContext";
 import { useTrip } from "@/context/TripContext";
 import { useMotor } from "@/context/MotorContext";
 import { getApiUrl } from "@/lib/query-client";
-import Card from "@/components/Card";
+import { Card } from "@/components/Card";
 import { BladeColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import type { Trip } from "@shared/schema";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -108,7 +108,7 @@ export default function TripsScreen() {
     
     return (
       <Pressable onPress={() => handleTripPress(item)} testID={`trip-item-${item.id}`}>
-        <Card style={[styles.tripCard, isActive && styles.activeTripCard]}>
+        <Card style={{...styles.tripCard, ...(isActive ? styles.activeTripCard : {})}}>
           <View style={styles.tripHeader}>
             <View style={styles.tripTitleRow}>
               <Feather 
