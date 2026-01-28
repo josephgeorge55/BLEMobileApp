@@ -538,6 +538,13 @@ export default function BleScannerModal() {
     >
       <View style={styles.header}>
         <View style={styles.handle} />
+        <Pressable 
+          onPress={() => navigation.goBack()} 
+          style={styles.closeButton}
+          testID="close-scanner-button"
+        >
+          <Feather name="x" size={24} color={theme.text} />
+        </Pressable>
         <ThemedText type="h2" style={styles.title}>
           Nearby Outboards
         </ThemedText>
@@ -678,7 +685,18 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 2.5,
     backgroundColor: "rgba(0,0,0,0.2)",
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.sm,
+  },
+  closeButton: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
   },
   title: {
     marginBottom: Spacing.xs,
