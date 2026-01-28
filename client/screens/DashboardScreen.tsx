@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Pressable } from "react-native";
+import { StyleSheet, View, ScrollView, RefreshControl, Pressable, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -10,7 +10,6 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
-import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { EmptyState } from "@/components/EmptyState";
 import { DebugLogModal } from "@/components/DebugLogModal";
 import { useTheme } from "@/hooks/useTheme";
@@ -135,12 +134,14 @@ export default function DashboardScreen() {
         />
       }
     >
-      <ConnectionBanner
-        isConnected={isConnected}
-        isConnecting={isConnecting}
-        motorName={motor.name}
-        onPress={handleConnect}
-      />
+      <View style={styles.logoHeader}>
+        <Image 
+          source={require("../../assets/images/blade-logo-white.png")} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <ThemedText type="h2" style={styles.brandText}>BLADE</ThemedText>
+      </View>
 
       <Pressable
         onPress={() => setShowDebugModal(true)}
@@ -511,6 +512,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  logoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    marginRight: Spacing.sm,
+  },
+  brandText: {
+    letterSpacing: 4,
+    fontWeight: "700",
   },
   metricsGrid: {
     gap: Spacing.md,
