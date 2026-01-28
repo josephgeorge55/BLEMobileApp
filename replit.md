@@ -79,6 +79,25 @@ The app parses comma-separated data frames from the tiller board via Bluetooth C
 
 **Parser Location:** `client/lib/ble-parser.ts`
 
+### Bluetooth Data Flow
+The app supports both real Bluetooth connections and simulation mode:
+
+**Real Connection (Custom Build):**
+1. BleScannerModal discovers devices via `bluetooth-classic-service.ts` or `ble-service.ts`
+2. When user connects, `connectToClassicDevice` is called with callbacks
+3. The `onConnected` callback calls `MotorContext.connectToMotor(serialNumber, false)` - the `false` prevents simulation
+4. The `onDataReceived` callback passes parsed data directly to `MotorContext.processParsedData()`
+5. Telemetry updates flow to the Dashboard in real-time
+
+**Simulation Mode (Expo Go):**
+1. BleScannerModal shows mock devices when Bluetooth is unavailable
+2. `connectToMotor(serialNumber, true)` starts the BLE simulation
+3. Mock frames are generated at 2Hz and processed by `processBLEFrame()`
+
+**Key Context Functions:**
+- `processBLEFrame(frame: string)` - Parses raw frame string and updates telemetry
+- `processParsedData(data: ParseResult)` - Directly accepts already-parsed data from Bluetooth services
+
 ### Anti-Theft Location Tracking
 - Motors report GPS location via cellular every hour
 - Continues for up to 30 days after last power on
