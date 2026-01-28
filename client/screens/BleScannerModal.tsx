@@ -38,8 +38,11 @@ import {
   startDiscovery,
   cancelDiscovery,
   getClassicDiagnostics,
+  connectToClassicDevice,
+  disconnectClassic,
   ClassicDevice,
 } from "@/lib/bluetooth-classic-service";
+import { ParseResult } from "@/lib/ble-parser";
 
 interface ScanDevice {
   id: string;
@@ -59,7 +62,7 @@ export default function BleScannerModal() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { theme } = useTheme();
-  const { connectToMotor, isConnecting, stopScan } = useMotor();
+  const { connectToMotor, isConnecting, stopScan, processParsedData, disconnectMotor } = useMotor();
   const { user } = useUser();
 
   const [isScanning, setIsScanning] = useState(true);
@@ -248,8 +251,37 @@ export default function BleScannerModal() {
     setSelectedDevice(device.id);
 
     try {
-      await connectToMotor(device.serialNumber);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (useMockMode) {
+        await connectToMotor(device.serialNumber, true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (device.type === "classic") {
+        const success = await connectToClassicDevice(device.id, {
+          onDeviceFound: () => {},
+          onConnected: async (connectedDevice) => {
+            console.log("Bluetooth Classic connected:", connectedDevice.name);
+            await connectToMotor(device.serialNumber, false);
+          },
+          onDisconnected: (deviceId) => {
+            console.log("Bluetooth Classic disconnected:", deviceId);
+            disconnectMotor();
+          },
+          onDataReceived: (data: ParseResult) => {
+            processParsedData(data);
+          },
+          onError: (error) => {
+            console.error("Bluetooth Classic error:", error);
+            Alert.alert("Connection Error", error.message);
+          },
+        });
+
+        if (!success) {
+          throw new Error("Failed to connect via Bluetooth Classic");
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        await connectToMotor(device.serialNumber, true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
       
       if (user) {
         setPairedMotor({ name: device.name, serialNumber: device.serialNumber });
