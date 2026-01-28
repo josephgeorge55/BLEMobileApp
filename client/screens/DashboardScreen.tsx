@@ -1,5 +1,5 @@
-import React, { useEffect, useCallback } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl } from "react-native";
+import React, { useEffect, useCallback, useState } from "react";
+import { StyleSheet, View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { EmptyState } from "@/components/EmptyState";
+import { DebugLogModal } from "@/components/DebugLogModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
@@ -21,9 +22,10 @@ export default function DashboardScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
-  const { motor, telemetry, isConnecting, startScan, setLocation } =
+  const { motor, telemetry, isConnecting, startScan, setLocation, debugLogs } =
     useMotor();
 
+  const [showDebugModal, setShowDebugModal] = useState(false);
   const isConnected = motor?.isConnected ?? false;
   const serialNumber = motor?.serialNumber;
 
@@ -106,6 +108,7 @@ export default function DashboardScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
@@ -129,6 +132,16 @@ export default function DashboardScreen() {
         motorName={motor.name}
         onPress={handleConnect}
       />
+
+      <Pressable
+        onPress={() => setShowDebugModal(true)}
+        style={[styles.debugButton, { backgroundColor: theme.surface }]}
+      >
+        <Feather name="terminal" size={14} color={theme.textSecondary} />
+        <ThemedText type="caption" style={{ marginLeft: Spacing.xs, color: theme.textSecondary }}>
+          Debug Log ({debugLogs.length})
+        </ThemedText>
+      </Pressable>
 
       <View style={styles.metricsGrid}>
         <Animated.View
@@ -530,6 +543,12 @@ export default function DashboardScreen() {
         </View>
       </Animated.View>
     </ScrollView>
+    
+    <DebugLogModal 
+      visible={showDebugModal} 
+      onClose={() => setShowDebugModal(false)} 
+    />
+  </>
   );
 }
 
@@ -601,5 +620,14 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginVertical: Spacing.xs,
+  },
+  debugButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.md,
   },
 });

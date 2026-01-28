@@ -16,6 +16,7 @@ export interface ClassicServiceCallbacks {
   onDisconnected: (deviceId: string) => void;
   onDataReceived: (data: ParseResult) => void;
   onError: (error: Error) => void;
+  onDebugLog?: (level: "INFO" | "DATA" | "PARSE" | "ERROR", message: string) => void;
 }
 
 let RNBluetoothClassic: any = null;
@@ -156,32 +157,43 @@ export async function connectToClassicDevice(
   address: string,
   callbacks: ClassicServiceCallbacks
 ): Promise<boolean> {
+  callbacks.onDebugLog?.("INFO", `connectToClassicDevice called: address=${address}`);
+  
   if (!RNBluetoothClassic || !isInitialized) {
+    callbacks.onDebugLog?.("ERROR", "Bluetooth Classic not initialized");
     callbacks.onError(new Error("Bluetooth Classic not initialized"));
     return false;
   }
 
   try {
+    callbacks.onDebugLog?.("INFO", "Cancelling discovery...");
     await cancelDiscovery();
 
+    callbacks.onDebugLog?.("INFO", `Attempting to connect to device: ${address}`);
     const device = await RNBluetoothClassic.connectToDevice(address, {
       delimiter: "\n",
       charset: "utf-8",
     });
 
     if (!device) {
+      callbacks.onDebugLog?.("ERROR", "Device connection returned null");
       callbacks.onError(new Error("Failed to connect to device"));
       return false;
     }
 
+    callbacks.onDebugLog?.("INFO", `Device connected successfully: ${device.name || address}`);
     connectedDevice = device;
 
+    callbacks.onDebugLog?.("INFO", "Setting up data subscription...");
     dataSubscription = device.onDataReceived((data: any) => {
+      callbacks.onDebugLog?.("DATA", `onDataReceived triggered, data.data length: ${data?.data?.length || 0}`);
       processIncomingData(data.data, callbacks);
     });
+    callbacks.onDebugLog?.("INFO", "Data subscription active - listening for incoming data");
 
     disconnectSubscription = RNBluetoothClassic.onDeviceDisconnected((disconnectedDevice: any) => {
       if (disconnectedDevice && disconnectedDevice.address === address) {
+        callbacks.onDebugLog?.("INFO", `Device disconnected: ${address}`);
         connectedDevice = null;
         if (dataSubscription) {
           dataSubscription.remove();
@@ -204,6 +216,7 @@ export async function connectToClassicDevice(
 
     return true;
   } catch (error: any) {
+    callbacks.onDebugLog?.("ERROR", `Connection error: ${error.message}`);
     console.error("Connection error:", error);
     callbacks.onError(error);
     return false;
@@ -211,17 +224,25 @@ export async function connectToClassicDevice(
 }
 
 function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): void {
+  callbacks.onDebugLog?.("DATA", `Raw data chunk received (${data.length} chars): ${data.substring(0, 100)}${data.length > 100 ? '...' : ''}`);
   dataBuffer += data;
 
   const lines = dataBuffer.split("\n");
+  callbacks.onDebugLog?.("DATA", `Buffer split into ${lines.length} lines`);
 
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i].trim();
     if (line.startsWith("$")) {
+      callbacks.onDebugLog?.("DATA", `Processing frame: ${line}`);
       const parsed = parseBLEFrame(line);
       if (parsed) {
+        callbacks.onDebugLog?.("PARSE", `Parse SUCCESS: type=${parsed.type}, data=${JSON.stringify(parsed.data)}`);
         callbacks.onDataReceived(parsed);
+      } else {
+        callbacks.onDebugLog?.("ERROR", `Parse FAILED for frame: ${line}`);
       }
+    } else if (line.length > 0) {
+      callbacks.onDebugLog?.("DATA", `Skipped non-frame line: ${line.substring(0, 50)}`);
     }
   }
 

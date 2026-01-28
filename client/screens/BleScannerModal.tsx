@@ -64,7 +64,7 @@ export default function BleScannerModal() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { theme } = useTheme();
-  const { connectToMotor, isConnecting, stopScan, processParsedData, disconnectMotor } = useMotor();
+  const { connectToMotor, isConnecting, stopScan, processParsedData, disconnectMotor, addDebugLog } = useMotor();
   const { user } = useUser();
 
   const [isScanning, setIsScanning] = useState(true);
@@ -257,22 +257,30 @@ export default function BleScannerModal() {
         await connectToMotor(device.serialNumber, true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else if (device.type === "classic") {
+        addDebugLog("INFO", `Connecting to Classic device: ${device.name} (${device.id})`);
         const success = await connectToClassicDevice(device.id, {
           onDeviceFound: () => {},
           onConnected: async (connectedDevice) => {
+            addDebugLog("INFO", `Bluetooth Classic connected callback: ${connectedDevice.name}`);
             console.log("Bluetooth Classic connected:", connectedDevice.name);
             await connectToMotor(device.serialNumber, false);
           },
           onDisconnected: (deviceId) => {
+            addDebugLog("INFO", `Bluetooth Classic disconnected callback: ${deviceId}`);
             console.log("Bluetooth Classic disconnected:", deviceId);
             disconnectMotor();
           },
           onDataReceived: (data: ParseResult) => {
+            addDebugLog("DATA", `onDataReceived callback called: type=${data.type}`);
             processParsedData(data);
           },
           onError: (error) => {
+            addDebugLog("ERROR", `Bluetooth Classic error: ${error.message}`);
             console.error("Bluetooth Classic error:", error);
             Alert.alert("Connection Error", error.message);
+          },
+          onDebugLog: (level, message) => {
+            addDebugLog(level, `[BT-Classic] ${message}`);
           },
         });
 

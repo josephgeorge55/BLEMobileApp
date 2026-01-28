@@ -42,6 +42,12 @@ interface LocationData {
   isLive: boolean;
 }
 
+interface DebugLogEntry {
+  timestamp: string;
+  level: "INFO" | "DATA" | "PARSE" | "STATE" | "ERROR";
+  message: string;
+}
+
 interface MotorContextType {
   motor: MotorInfo | null;
   telemetry: TelemetryData | null;
@@ -49,6 +55,7 @@ interface MotorContextType {
   isConnecting: boolean;
   isScanning: boolean;
   isRealConnection: boolean;
+  debugLogs: DebugLogEntry[];
   setMotor: (motor: MotorInfo | null) => void;
   setTelemetry: (telemetry: TelemetryData | null) => void;
   setLocation: (location: LocationData | null) => void;
@@ -60,6 +67,8 @@ interface MotorContextType {
   stopScan: () => void;
   processBLEFrame: (frame: string) => void;
   processParsedData: (data: ParseResult) => void;
+  addDebugLog: (level: DebugLogEntry["level"], message: string) => void;
+  clearDebugLogs: () => void;
 }
 
 const MotorContext = createContext<MotorContextType | undefined>(undefined);
@@ -70,6 +79,8 @@ const LOCATION_STORAGE_KEY = "@blade_last_location";
 const BASE_LAT = 25.7617;
 const BASE_LNG = -80.1918;
 
+const MAX_DEBUG_LOGS = 200;
+
 export function MotorProvider({ children }: { children: React.ReactNode }) {
   const [motor, setMotorState] = useState<MotorInfo | null>(null);
   const [telemetry, setTelemetryState] = useState<TelemetryData | null>(null);
@@ -77,12 +88,32 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isRealConnection, setIsRealConnection] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<DebugLogEntry[]>([]);
   
   const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gnssRef = useRef<GNSSData | null>(null);
   const bmsRef = useRef<BMSData | null>(null);
   const motorDataRef = useRef<BLEMotorData | null>(null);
   const vescRef = useRef<VESCData | null>(null);
+
+  const addDebugLog = useCallback((level: DebugLogEntry["level"], message: string) => {
+    const entry: DebugLogEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+    };
+    setDebugLogs(prev => {
+      const newLogs = [...prev, entry];
+      if (newLogs.length > MAX_DEBUG_LOGS) {
+        return newLogs.slice(-MAX_DEBUG_LOGS);
+      }
+      return newLogs;
+    });
+  }, []);
+
+  const clearDebugLogs = useCallback(() => {
+    setDebugLogs([]);
+  }, []);
 
   useEffect(() => {
     loadStoredData();
@@ -142,8 +173,9 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     const bms = bmsRef.current;
     const vesc = vescRef.current;
     const gnss = gnssRef.current;
+    const motor = motorDataRef.current;
 
-    setTelemetryState({
+    const newTelemetry = {
       speed: gnss ? kphToKnots(gnss.speed) : 0,
       stateOfCharge: bms?.capacity ?? 0,
       powerConsumption: (vesc?.wattage ?? bms?.wattage ?? 0) / 1000,
@@ -152,15 +184,30 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
       motor: motorDataRef.current,
       vesc: vescRef.current,
       timestamp: now,
-    });
-  }, []);
+    };
+
+    addDebugLog("STATE", `Telemetry update: SOC=${newTelemetry.stateOfCharge}%, Speed=${newTelemetry.speed.toFixed(1)}kts, Power=${newTelemetry.powerConsumption.toFixed(2)}kW`);
+    if (bms) {
+      addDebugLog("STATE", `BMS ref: V=${bms.voltage}, Cap=${bms.capacity}%, I=${bms.current}A`);
+    }
+    if (vesc) {
+      addDebugLog("STATE", `VESC ref: Throttle=${vesc.throttle}%, W=${vesc.wattage}W`);
+    }
+    if (motor) {
+      addDebugLog("STATE", `Motor ref: RPM=${motor.motorRPM}, Temp=${motor.temperature}C`);
+    }
+
+    setTelemetryState(newTelemetry);
+  }, [addDebugLog]);
 
   const processParsedData = useCallback((result: ParseResult) => {
     const now = new Date();
+    addDebugLog("PARSE", `Received parsed data type=${result.type}, group=${result.group}`);
 
     switch (result.type) {
       case "GNSS": {
         const data = result.data as GNSSData;
+        addDebugLog("PARSE", `GNSS: lat=${data.latitude}, lng=${data.longitude}, speed=${data.speed}kph`);
         gnssRef.current = data;
         setLocation({
           latitude: data.latitude,
@@ -173,21 +220,27 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         break;
       }
       case "BMS": {
-        bmsRef.current = result.data as BMSData;
+        const data = result.data as BMSData;
+        addDebugLog("PARSE", `BMS: voltage=${data.voltage}V, capacity=${data.capacity}%, current=${data.current}A, wattage=${data.wattage}W, temp=${data.temperature}C`);
+        bmsRef.current = data;
         break;
       }
       case "MOTOR": {
-        motorDataRef.current = result.data as BLEMotorData;
+        const data = result.data as BLEMotorData;
+        addDebugLog("PARSE", `MOTOR: phaseCurrent=${data.phaseCurrent}A, rpm=${data.motorRPM}, temp=${data.temperature}C`);
+        motorDataRef.current = data;
         break;
       }
       case "VESC": {
-        vescRef.current = result.data as VESCData;
+        const data = result.data as VESCData;
+        addDebugLog("PARSE", `VESC: voltage=${data.voltage}V, current=${data.current}A, wattage=${data.wattage}W, throttle=${data.throttle}%, temp=${data.temperature}C`);
+        vescRef.current = data;
         break;
       }
     }
 
     updateTelemetryFromRefs(now);
-  }, [updateTelemetryFromRefs]);
+  }, [updateTelemetryFromRefs, addDebugLog]);
 
   const processBLEFrame = useCallback((frame: string) => {
     const result = parseBLEFrame(frame);
@@ -257,11 +310,15 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const connectToMotor = async (serialNumber: string, useSimulation: boolean = true) => {
+    addDebugLog("INFO", `connectToMotor called: serialNumber=${serialNumber}, useSimulation=${useSimulation}`);
     setIsConnecting(true);
     setIsScanning(false);
 
     if (useSimulation) {
+      addDebugLog("INFO", "Using simulation mode, waiting 2s...");
       await new Promise((resolve) => setTimeout(resolve, 2000));
+    } else {
+      addDebugLog("INFO", "Real connection mode - expecting data from Bluetooth callbacks");
     }
 
     const newMotor: MotorInfo = {
@@ -275,8 +332,10 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     await setMotor(newMotor);
     setIsConnecting(false);
     setIsRealConnection(!useSimulation);
+    addDebugLog("INFO", `Motor connected: isRealConnection=${!useSimulation}`);
     
     if (useSimulation) {
+      addDebugLog("INFO", "Starting BLE simulation...");
       startBLESimulation();
     }
   };
@@ -306,6 +365,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         isConnecting,
         isScanning,
         isRealConnection,
+        debugLogs,
         setMotor,
         setTelemetry,
         setLocation,
@@ -317,6 +377,8 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         stopScan,
         processBLEFrame,
         processParsedData,
+        addDebugLog,
+        clearDebugLogs,
       }}
     >
       {children}
