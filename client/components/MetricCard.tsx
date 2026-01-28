@@ -1,7 +1,6 @@
 import React from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
@@ -179,27 +178,20 @@ export function MetricCard({
         style={[
           styles.card,
           {
-            backgroundColor: theme.surfaceElevated,
-            borderColor: isDark ? theme.border : "transparent",
+            backgroundColor: BladeColors.darkGray,
+            borderColor: "transparent",
           },
           style,
           animatedStyle,
         ]}
       >
-        <LinearGradient
-          colors={[theme.cardGradientStart, theme.cardGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
         <View style={styles.header}>
           <View
             style={[
               styles.iconContainer,
               {
-                backgroundColor: effectiveIconColor + "15",
-                borderColor: effectiveIconColor + "20",
+                backgroundColor: effectiveIconColor + "25",
+                borderColor: effectiveIconColor + "40",
               },
             ]}
           >
@@ -224,18 +216,18 @@ export function MetricCard({
         <View style={styles.content}>
           <ThemedText
             type="caption"
-            style={[styles.label, { color: theme.textTertiary }]}
+            style={[styles.label, { color: BladeColors.lightGray }]}
           >
             {label.toUpperCase()}
           </ThemedText>
           <View style={styles.valueRow}>
-            <ThemedText style={[styles.value, { color: theme.text }]}>
+            <ThemedText style={[styles.value, { color: BladeColors.white }]}>
               {value}
             </ThemedText>
             {unit ? (
               <ThemedText
                 type="body"
-                style={[styles.unit, { color: theme.textSecondary }]}
+                style={[styles.unit, { color: BladeColors.lightGray }]}
               >
                 {unit}
               </ThemedText>
@@ -244,7 +236,7 @@ export function MetricCard({
               <Animated.View
                 style={[
                   styles.trendContainer,
-                  { backgroundColor: getTrendColor() + "15" },
+                  { backgroundColor: getTrendColor() + "25" },
                 ]}
               >
                 <Feather name={trendIcon} size={14} color={getTrendColor()} />
