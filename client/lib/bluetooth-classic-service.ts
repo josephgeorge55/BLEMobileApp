@@ -224,29 +224,63 @@ export async function connectToClassicDevice(
 }
 
 function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): void {
-  callbacks.onDebugLog?.("DATA", `Raw data chunk received (${data.length} chars): ${data.substring(0, 100)}${data.length > 100 ? '...' : ''}`);
+  callbacks.onDebugLog?.("DATA", `Raw chunk (${data.length} chars): "${data.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}"`);
+  
+  // Add data to buffer
   dataBuffer += data;
+  callbacks.onDebugLog?.("DATA", `Buffer now (${dataBuffer.length} chars): "${dataBuffer.substring(0, 100).replace(/\r/g, '\\r').replace(/\n/g, '\\n')}"`);
 
-  const lines = dataBuffer.split("\n");
-  callbacks.onDebugLog?.("DATA", `Buffer split into ${lines.length} lines`);
+  // Normalize line endings: \r\n -> \n, \r -> \n
+  let normalizedBuffer = dataBuffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  
+  // Also handle multiple frames concatenated without newlines: $BMS,...$MOTOR,...
+  // Insert newlines before each $ (except the first)
+  normalizedBuffer = normalizedBuffer.replace(/\$(?!^)/g, "\n$");
+  
+  const lines = normalizedBuffer.split("\n").filter(line => line.trim().length > 0);
+  callbacks.onDebugLog?.("DATA", `Split into ${lines.length} potential frames`);
 
-  for (let i = 0; i < lines.length - 1; i++) {
+  let processedCount = 0;
+  const unprocessedLines: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (line.startsWith("$")) {
-      callbacks.onDebugLog?.("DATA", `Processing frame: ${line}`);
+    if (!line.startsWith("$")) {
+      callbacks.onDebugLog?.("DATA", `Skipped non-$ line [${i}]: "${line.substring(0, 30)}"`);
+      continue;
+    }
+    
+    // Check if this frame has enough data to be complete
+    const commaCount = (line.match(/,/g) || []).length;
+    const frameType = line.split(",")[0]?.substring(1);
+    
+    // Frame comma requirements:
+    // $MOTOR,G1,phaseCurrent,rpm,temp = 4 commas (5 parts)
+    // $BMS,G1,voltage,capacity,current,wattage,temp = 6 commas (7 parts)
+    // $GNSS,G1,time,lat,lng,course,speed = 6 commas (7 parts)  
+    // $VESC,G1,voltage,current,wattage,throttle,temp = 6 commas (7 parts)
+    const minCommas = frameType === "MOTOR" ? 4 : 6;
+    
+    if (commaCount >= minCommas) {
+      callbacks.onDebugLog?.("DATA", `Processing frame [${i}]: "${line}" (${commaCount} commas)`);
       const parsed = parseBLEFrame(line);
       if (parsed) {
-        callbacks.onDebugLog?.("PARSE", `Parse SUCCESS: type=${parsed.type}, data=${JSON.stringify(parsed.data)}`);
+        callbacks.onDebugLog?.("PARSE", `SUCCESS: type=${parsed.type}, data=${JSON.stringify(parsed.data)}`);
         callbacks.onDataReceived(parsed);
+        processedCount++;
       } else {
-        callbacks.onDebugLog?.("ERROR", `Parse FAILED for frame: ${line}`);
+        callbacks.onDebugLog?.("ERROR", `Parse FAILED for: "${line}"`);
       }
-    } else if (line.length > 0) {
-      callbacks.onDebugLog?.("DATA", `Skipped non-frame line: ${line.substring(0, 50)}`);
+    } else {
+      // Incomplete frame - keep for next chunk
+      callbacks.onDebugLog?.("DATA", `Incomplete frame [${i}] (${commaCount}/${minCommas} commas): "${line}"`);
+      unprocessedLines.push(line);
     }
   }
-
-  dataBuffer = lines[lines.length - 1];
+  
+  // Keep unprocessed (incomplete) frames in buffer
+  dataBuffer = unprocessedLines.join("");
+  callbacks.onDebugLog?.("DATA", `Processed ${processedCount} frames, buffer remainder (${dataBuffer.length} chars): "${dataBuffer.substring(0, 50)}"`);
 }
 
 export async function disconnectClassic(): Promise<void> {
