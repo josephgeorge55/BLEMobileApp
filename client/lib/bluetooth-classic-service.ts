@@ -22,6 +22,7 @@ let RNBluetoothClassic: any = null;
 let isInitialized = false;
 let connectedDevice: any = null;
 let dataSubscription: any = null;
+let disconnectSubscription: any = null;
 let dataBuffer = "";
 
 export async function initializeClassic(): Promise<boolean> {
@@ -179,13 +180,19 @@ export async function connectToClassicDevice(
       processIncomingData(data.data, callbacks);
     });
 
-    device.onDisconnected(() => {
-      connectedDevice = null;
-      if (dataSubscription) {
-        dataSubscription.remove();
-        dataSubscription = null;
+    disconnectSubscription = RNBluetoothClassic.onDeviceDisconnected((disconnectedDevice: any) => {
+      if (disconnectedDevice && disconnectedDevice.address === address) {
+        connectedDevice = null;
+        if (dataSubscription) {
+          dataSubscription.remove();
+          dataSubscription = null;
+        }
+        if (disconnectSubscription) {
+          disconnectSubscription.remove();
+          disconnectSubscription = null;
+        }
+        callbacks.onDisconnected(address);
       }
-      callbacks.onDisconnected(address);
     });
 
     callbacks.onConnected({
@@ -225,6 +232,11 @@ export async function disconnectClassic(): Promise<void> {
   if (dataSubscription) {
     dataSubscription.remove();
     dataSubscription = null;
+  }
+
+  if (disconnectSubscription) {
+    disconnectSubscription.remove();
+    disconnectSubscription = null;
   }
 
   if (connectedDevice) {
