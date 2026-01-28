@@ -8,7 +8,8 @@ export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+    // Fallback for standalone builds - use your production API URL
+    host = "blade-outboards.replit.app";
   }
 
   let url = new URL(`https://${host}`);

@@ -8,6 +8,7 @@ import {
   Platform,
   Pressable,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -27,7 +28,7 @@ const FIRMWARE_PROTOCOL = "BLE 5.0";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
-  const { login, register } = useUser();
+  const { login, register, loginAsGuest } = useUser();
   
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -102,7 +103,11 @@ export default function AuthScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
-        <View style={[styles.content, { paddingTop: insets.top + Spacing["4xl"] }]}>
+        <ScrollView 
+          contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing["4xl"] }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.logoSection}>
             <Image
               source={require("../../assets/images/halo-outboard.png")}
@@ -210,6 +215,19 @@ export default function AuthScreen() {
                   </ThemedText>
                 </ThemedText>
               </Pressable>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <ThemedText type="caption" style={styles.dividerText}>OR</ThemedText>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Pressable onPress={loginAsGuest} style={styles.guestButton}>
+                <Feather name="user" size={18} color="#94A3B8" />
+                <ThemedText type="body" style={styles.guestButtonText}>
+                  Continue as Guest
+                </ThemedText>
+              </Pressable>
             </View>
           </View>
 
@@ -240,7 +258,7 @@ export default function AuthScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -255,7 +273,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "space-between",
   },
   logoSection: {
@@ -339,6 +357,36 @@ const styles = StyleSheet.create({
   toggleLink: {
     color: BladeColors.accent,
     fontWeight: "600",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: Spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  dividerText: {
+    color: "#64748B",
+    marginHorizontal: Spacing.md,
+  },
+  guestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    backgroundColor: "rgba(100, 116, 139, 0.15)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(100, 116, 139, 0.3)",
+  },
+  guestButtonText: {
+    color: "#94A3B8",
+    fontWeight: "500",
   },
   footer: {
     alignItems: "center",

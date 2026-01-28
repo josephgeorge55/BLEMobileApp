@@ -1,0 +1,61 @@
+C:\Users\georg\OneDrive\Desktop\Blade-Outboards-Connect>npx eas-cli build --platform android
+Using EAS CLI without version control system is not recommended, use this mode only if you know what you are doing.
+Failed to get Git root path with `git rev-parse --show-toplevel`. Error: spawn git ENOENT
+Falling back to using current working directory as project root.
+You can set `EAS_PROJECT_ROOT` environment variable to let eas-cli know where your project is located.
+Failed to read the app config from the project using "npx expo config" command: npx expo config --json exited with non-zero code: 1.
+Falling back to the version of "@expo/config" shipped with the EAS CLI.
+Error parsing JSON: {
+  "expo": {
+    "name": "Blade Outboards",
+    "slug": "blade-outboards",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "bladeoutboards",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bladeoutboards.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Blade Outboards uses your location to show your position relative to your outboard motor.",
+        "NSBluetoothAlwaysUsageDescription": "Blade Outboards uses Bluetooth to connect to your outboard motor for real-time telemetry.",
+        "NSBluetoothPeripheralUsageDescription": "Blade Outboards uses Bluetooth to communicate with your outboard motor."
+      }
+    },
+    "android": {
+      "package": "com.bladeoutboards.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A4D6E",
+        "foregroundImage": "./assets/images/icon.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-splash
+├─ File: C:\Users\georg\OneDrive\Desktop\Blade-Outboards-Connect\app.json
+└─ Cause: SyntaxError: JSON5: invalid end of input at 45:21
+  43 |     "plugins": [
+  44 |       [
+> 45 |         "expo-splash
+     |                     ^
+    Error: build command failed.
+
+C:\Users\georg\OneDrive\Desktop\Blade-Outboards-Connect>

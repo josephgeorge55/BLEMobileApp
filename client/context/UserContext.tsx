@@ -12,8 +12,10 @@ interface UserContextType {
   user: UserData | null;
   isLoading: boolean;
   isLoggedIn: boolean;
+  isGuestMode: boolean;
   login: (email: string, pin: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, pin: string) => Promise<{ success: boolean; error?: string }>;
+  loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -21,9 +23,12 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 const USER_STORAGE_KEY = "@blade_user";
 
+const GUEST_STORAGE_KEY = "@blade_guest_mode";
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGuestMode, setIsGuestMode] = useState(false);
 
   useEffect(() => {
     loadStoredUser();
@@ -31,6 +36,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const loadStoredUser = async () => {
     try {
+      const storedGuest = await AsyncStorage.getItem(GUEST_STORAGE_KEY);
+      if (storedGuest === "true") {
+        setIsGuestMode(true);
+        setUser({
+          id: "guest",
+          email: "guest@bladeoutboards.com",
+          createdAt: new Date(),
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
       if (storedUser) {
         const userData = JSON.parse(storedUser);
@@ -89,9 +106,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginAsGuest = async () => {
+    await AsyncStorage.setItem(GUEST_STORAGE_KEY, "true");
+    setIsGuestMode(true);
+    setUser({
+      id: "guest",
+      email: "guest@bladeoutboards.com",
+      createdAt: new Date(),
+    });
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem(USER_STORAGE_KEY);
+    await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
     setUser(null);
+    setIsGuestMode(false);
   };
 
   return (
@@ -100,8 +129,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         isLoggedIn: !!user,
+        isGuestMode,
         login,
         register,
+        loginAsGuest,
         logout,
       }}
     >
