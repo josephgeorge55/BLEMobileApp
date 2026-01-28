@@ -69,13 +69,18 @@ export async function requestBlePermissions(): Promise<boolean> {
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
       ]);
 
-      return (
+      const hasBluetooth = 
         granted["android.permission.BLUETOOTH_SCAN"] === PermissionsAndroid.RESULTS.GRANTED &&
-        granted["android.permission.BLUETOOTH_CONNECT"] === PermissionsAndroid.RESULTS.GRANTED &&
-        granted["android.permission.ACCESS_FINE_LOCATION"] === PermissionsAndroid.RESULTS.GRANTED
-      );
+        granted["android.permission.BLUETOOTH_CONNECT"] === PermissionsAndroid.RESULTS.GRANTED;
+      
+      const hasLocation = 
+        granted["android.permission.ACCESS_FINE_LOCATION"] === PermissionsAndroid.RESULTS.GRANTED ||
+        granted["android.permission.ACCESS_COARSE_LOCATION"] === PermissionsAndroid.RESULTS.GRANTED;
+
+      return hasBluetooth && hasLocation;
     } catch (error) {
       console.error("Error requesting BLE permissions:", error);
       return false;
@@ -92,7 +97,11 @@ export function startScan(callbacks: Pick<BleServiceCallbacks, "onDeviceFound" |
 
   bleManager.startDeviceScan(
     null,
-    { allowDuplicates: false },
+    { 
+      allowDuplicates: false,
+      scanMode: 2,
+      legacyScan: true,
+    },
     (error: any, device: any) => {
       if (error) {
         callbacks.onError(error);
@@ -100,11 +109,13 @@ export function startScan(callbacks: Pick<BleServiceCallbacks, "onDeviceFound" |
       }
 
       if (device) {
-        const deviceName = device.name || device.localName || `Unknown (${device.id.substring(0, 8)})`;
-        const serialNumber = extractSerialNumber(deviceName);
+        const deviceName = device.name || device.localName || null;
+        const displayName = deviceName || `Device ${device.id.substring(0, 8)}`;
+        const serialNumber = deviceName ? extractSerialNumber(deviceName) : device.id;
+        
         callbacks.onDeviceFound({
           id: device.id,
-          name: deviceName,
+          name: displayName,
           rssi: device.rssi || -100,
           serialNumber,
         });
