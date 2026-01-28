@@ -176,6 +176,62 @@ export default function TripsScreen() {
 
   const canStartTrip = motor?.isConnected && !isRecording;
 
+  const renderHeader = () => (
+    <View style={styles.headerSection}>
+      {isRecording ? (
+        <Pressable
+          onPress={handleEndTrip}
+          disabled={tripLoading}
+          testID="stop-trip-button"
+          style={styles.tripButton}
+        >
+          <LinearGradient
+            colors={[BladeColors.error, "#C0392B"]}
+            style={styles.tripButtonGradient}
+          >
+            {tripLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Feather name="stop-circle" size={24} color="#FFFFFF" />
+                <Text style={styles.tripButtonText}>End Trip</Text>
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={handleStartTrip}
+          disabled={!canStartTrip || tripLoading}
+          style={[styles.tripButton, { opacity: canStartTrip ? 1 : 0.5 }]}
+          testID="start-trip-button"
+        >
+          <LinearGradient
+            colors={canStartTrip ? [BladeColors.success, "#27AE60"] : [theme.textSecondary, theme.textSecondary]}
+            style={styles.tripButtonGradient}
+          >
+            {tripLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Feather name="play-circle" size={24} color="#FFFFFF" />
+                <Text style={styles.tripButtonText}>
+                  {canStartTrip ? "Start Trip" : "Connect Motor"}
+                </Text>
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+      )}
+      
+      {trips.length > 0 ? (
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+          TRIP HISTORY
+        </Text>
+      ) : null}
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <FlatList
@@ -191,6 +247,7 @@ export default function TripsScreen() {
             flexGrow: 1,
           },
         ]}
+        ListHeaderComponent={renderHeader}
         ListEmptyComponent={isLoading ? null : renderEmptyState}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
@@ -204,53 +261,6 @@ export default function TripsScreen() {
           <ActivityIndicator size="large" color={BladeColors.primary} />
         </View>
       ) : null}
-
-      <View style={[styles.fabContainer, { bottom: insets.bottom + 20 }]}>
-        {isRecording ? (
-          <Pressable
-            onPress={handleEndTrip}
-            disabled={tripLoading}
-            testID="stop-trip-button"
-          >
-            <LinearGradient
-              colors={[BladeColors.error, "#C0392B"]}
-              style={styles.fab}
-            >
-              {tripLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Feather name="stop-circle" size={24} color="#FFFFFF" />
-                  <Text style={styles.fabText}>End Trip</Text>
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={handleStartTrip}
-            disabled={!canStartTrip || tripLoading}
-            style={{ opacity: canStartTrip ? 1 : 0.5 }}
-            testID="start-trip-button"
-          >
-            <LinearGradient
-              colors={canStartTrip ? [BladeColors.success, "#27AE60"] : [theme.textSecondary, theme.textSecondary]}
-              style={styles.fab}
-            >
-              {tripLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Feather name="play-circle" size={24} color="#FFFFFF" />
-                  <Text style={styles.fabText}>
-                    {canStartTrip ? "Start Trip" : "Connect Motor"}
-                  </Text>
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
-        )}
-      </View>
     </View>
   );
 }
@@ -347,26 +357,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.1)",
   },
-  fabContainer: {
-    position: "absolute",
-    right: Spacing.md,
+  headerSection: {
+    marginBottom: Spacing.lg,
   },
-  fab: {
+  tripButton: {
+    marginBottom: Spacing.md,
+  },
+  tripButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
     elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
-  fabText: {
+  tripButtonText: {
     color: "#FFFFFF",
-    fontSize: Typography.sizes.md,
+    fontSize: Typography.sizes.lg,
     fontWeight: "600",
+  },
+  sectionTitle: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: "600",
+    letterSpacing: 1,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
   },
 });
