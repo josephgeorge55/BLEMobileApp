@@ -1,0 +1,85 @@
+{
+  "expo": {
+    "name": "Blade Outboards",
+    "slug": "blade-outboards",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "bladeoutboards",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bladeoutboards.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Blade Outboards uses your location to show your position relative to your outboard motor.",
+        "NSBluetoothAlwaysUsageDescription": "Blade Outboards uses Bluetooth to connect to your outboard motor for real-time telemetry.",
+        "NSBluetoothPeripheralUsageDescription": "Blade Outboards uses Bluetooth to communicate with your outboard motor."
+      }
+    },
+    "android": {
+      "package": "com.bladeoutboards.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A4D6E",
+        "foregroundImage": "./assets/images/icon.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN"
+      ]
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0A4D6E",
+          "dark": {
+            "backgroundColor": "#063549"
+          }
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Blade Outboards to use your location to show your position relative to your motor."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#0A4D6E"
+        }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor."
+        }
+      ]
+    ],
+    "experiments": {
+      "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "af7bf828-b9cd-4654-8fcd-06e80d8dbed0"
+      }
+    }
+  }
+}
