@@ -11,6 +11,7 @@ import {
   BMSData,
   MotorData as BLEMotorData,
   VESCData,
+  ParseResult,
 } from "@/lib/ble-parser";
 
 interface MotorInfo {
@@ -47,16 +48,18 @@ interface MotorContextType {
   location: LocationData | null;
   isConnecting: boolean;
   isScanning: boolean;
+  isRealConnection: boolean;
   setMotor: (motor: MotorInfo | null) => void;
   setTelemetry: (telemetry: TelemetryData | null) => void;
   setLocation: (location: LocationData | null) => void;
   setIsConnecting: (connecting: boolean) => void;
   setIsScanning: (scanning: boolean) => void;
-  connectToMotor: (serialNumber: string) => Promise<void>;
+  connectToMotor: (serialNumber: string, useSimulation?: boolean) => Promise<void>;
   disconnectMotor: () => void;
   startScan: () => void;
   stopScan: () => void;
   processBLEFrame: (frame: string) => void;
+  processParsedData: (data: ParseResult) => void;
 }
 
 const MotorContext = createContext<MotorContextType | undefined>(undefined);
@@ -73,6 +76,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocationState] = useState<LocationData | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isRealConnection, setIsRealConnection] = useState(false);
   
   const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gnssRef = useRef<GNSSData | null>(null);
@@ -134,10 +138,24 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const processBLEFrame = useCallback((frame: string) => {
-    const result = parseBLEFrame(frame);
-    if (!result) return;
+  const updateTelemetryFromRefs = useCallback((now: Date) => {
+    const bms = bmsRef.current;
+    const vesc = vescRef.current;
+    const gnss = gnssRef.current;
 
+    setTelemetryState({
+      speed: gnss ? kphToKnots(gnss.speed) : 0,
+      stateOfCharge: bms?.capacity ?? 0,
+      powerConsumption: (vesc?.wattage ?? bms?.wattage ?? 0) / 1000,
+      gnss: gnssRef.current,
+      bms: bmsRef.current,
+      motor: motorDataRef.current,
+      vesc: vescRef.current,
+      timestamp: now,
+    });
+  }, []);
+
+  const processParsedData = useCallback((result: ParseResult) => {
     const now = new Date();
 
     switch (result.type) {
@@ -168,21 +186,14 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const bms = bmsRef.current;
-    const vesc = vescRef.current;
-    const gnss = gnssRef.current;
+    updateTelemetryFromRefs(now);
+  }, [updateTelemetryFromRefs]);
 
-    setTelemetryState({
-      speed: gnss ? kphToKnots(gnss.speed) : 0,
-      stateOfCharge: bms?.capacity ?? 0,
-      powerConsumption: (vesc?.wattage ?? bms?.wattage ?? 0) / 1000,
-      gnss: gnssRef.current,
-      bms: bmsRef.current,
-      motor: motorDataRef.current,
-      vesc: vescRef.current,
-      timestamp: now,
-    });
-  }, []);
+  const processBLEFrame = useCallback((frame: string) => {
+    const result = parseBLEFrame(frame);
+    if (!result) return;
+    processParsedData(result);
+  }, [processParsedData]);
 
   const startBLESimulation = useCallback(() => {
     if (simulationRef.current) {
@@ -245,11 +256,13 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     vescRef.current = null;
   }, []);
 
-  const connectToMotor = async (serialNumber: string) => {
+  const connectToMotor = async (serialNumber: string, useSimulation: boolean = true) => {
     setIsConnecting(true);
     setIsScanning(false);
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (useSimulation) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
 
     const newMotor: MotorInfo = {
       serialNumber,
@@ -261,8 +274,11 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
 
     await setMotor(newMotor);
     setIsConnecting(false);
+    setIsRealConnection(!useSimulation);
     
-    startBLESimulation();
+    if (useSimulation) {
+      startBLESimulation();
+    }
   };
 
   const disconnectMotor = () => {
@@ -289,6 +305,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         location,
         isConnecting,
         isScanning,
+        isRealConnection,
         setMotor,
         setTelemetry,
         setLocation,
@@ -299,6 +316,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         startScan,
         stopScan,
         processBLEFrame,
+        processParsedData,
       }}
     >
       {children}
