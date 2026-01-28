@@ -172,13 +172,17 @@ export function MetricCard({
   const trendIcon = getTrendIcon();
   const effectiveIconColor = iconColor || theme.primary;
 
+  const darkCardBg = "#181F27";
+  const lightText = "#EBEFF3";
+  const grayText = "#596F7C";
+
   return (
     <GestureDetector gesture={composed}>
       <Animated.View
         style={[
           styles.card,
           {
-            backgroundColor: BladeColors.darkGray,
+            backgroundColor: darkCardBg,
             borderColor: "transparent",
           },
           style,
@@ -216,18 +220,18 @@ export function MetricCard({
         <View style={styles.content}>
           <ThemedText
             type="caption"
-            style={[styles.label, { color: BladeColors.lightGray }]}
+            style={[styles.label, { color: grayText }]}
           >
             {label.toUpperCase()}
           </ThemedText>
           <View style={styles.valueRow}>
-            <ThemedText style={[styles.value, { color: BladeColors.white }]}>
+            <ThemedText style={[styles.value, { color: lightText }]}>
               {value}
             </ThemedText>
             {unit ? (
               <ThemedText
                 type="body"
-                style={[styles.unit, { color: BladeColors.lightGray }]}
+                style={[styles.unit, { color: grayText }]}
               >
                 {unit}
               </ThemedText>

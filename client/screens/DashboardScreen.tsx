@@ -5,7 +5,6 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -227,60 +226,53 @@ export default function DashboardScreen() {
               style={[
                 styles.statusCard,
                 {
-                  backgroundColor: theme.surfaceElevated,
-                  borderColor: isDark ? theme.border : "transparent",
+                  backgroundColor: "#181F27",
+                  borderColor: "transparent",
                 },
               ]}
             >
-              <LinearGradient
-                colors={[theme.cardGradientStart, theme.cardGradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "15" }]}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "25" }]}>
                     <Feather name="zap" size={14} color={BladeColors.accent} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText type="small" style={{ color: "#596F7C" }}>
                     Voltage
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={styles.statusValue}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
                   {bms?.voltage.toFixed(1) ?? "--"} V
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "15" }]}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
                     <Feather name="activity" size={14} color={BladeColors.marine} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText type="small" style={{ color: "#596F7C" }}>
                     Current
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={styles.statusValue}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
                   {bms?.current.toFixed(1) ?? "--"} A
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(bms?.temperature ?? 0) + "15" }]}>
+                  <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(bms?.temperature ?? 0) + "25" }]}>
                     <Feather name="thermometer" size={14} color={getTemperatureColor(bms?.temperature ?? 0)} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText type="small" style={{ color: "#596F7C" }}>
                     Temperature
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={styles.statusValue}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
                   {bms?.temperature ?? "--"}°C
                 </ThemedText>
               </View>
@@ -301,60 +293,53 @@ export default function DashboardScreen() {
               style={[
                 styles.statusCard,
                 {
-                  backgroundColor: theme.surfaceElevated,
-                  borderColor: isDark ? theme.border : "transparent",
+                  backgroundColor: "#181F27",
+                  borderColor: "transparent",
                 },
               ]}
             >
-              <LinearGradient
-                colors={[theme.cardGradientStart, theme.cardGradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "15" }]}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
                     <Feather name="rotate-cw" size={14} color={BladeColors.marine} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText type="small" style={{ color: "#596F7C" }}>
                     RPM
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={styles.statusValue}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
                   {motorData?.motorRPM ?? "--"}
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "15" }]}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "25" }]}>
                     <Feather name="activity" size={14} color={BladeColors.accent} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText type="small" style={{ color: "#596F7C" }}>
                     Phase Current
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={styles.statusValue}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
                   {motorData?.phaseCurrent.toFixed(1) ?? "--"} A
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(motorData?.temperature ?? 0) + "15" }]}>
+                  <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(motorData?.temperature ?? 0) + "25" }]}>
                     <Feather name="thermometer" size={14} color={getTemperatureColor(motorData?.temperature ?? 0)} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText type="small" style={{ color: "#596F7C" }}>
                     Temperature
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={styles.statusValue}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
                   {motorData?.temperature ?? "--"}°C
                 </ThemedText>
               </View>
@@ -377,61 +362,54 @@ export default function DashboardScreen() {
           style={[
             styles.statusCard,
             {
-              backgroundColor: theme.surfaceElevated,
-              borderColor: isDark ? theme.border : "transparent",
+              backgroundColor: "#181F27",
+              borderColor: "transparent",
             },
           ]}
         >
-          <LinearGradient
-            colors={[theme.cardGradientStart, theme.cardGradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: theme.primary + "15" }]}>
+              <View style={[styles.statusIcon, { backgroundColor: theme.primary + "25" }]}>
                 <Feather name="hash" size={14} color={theme.primary} />
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              <ThemedText type="small" style={{ color: "#596F7C" }}>
                 Serial Number
               </ThemedText>
             </View>
-            <ThemedText type="mono" style={styles.statusValue}>
+            <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
               {motor.serialNumber}
             </ThemedText>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "15" }]}>
+              <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
                 <Feather name="clock" size={14} color={BladeColors.marine} />
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              <ThemedText type="small" style={{ color: "#596F7C" }}>
                 Odometer
               </ThemedText>
             </View>
-            <ThemedText type="mono" style={styles.statusValue}>
+            <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
               {telemetry?.odometer ?? "--"} hrs
             </ThemedText>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: theme.primary + "15" }]}>
+              <View style={[styles.statusIcon, { backgroundColor: theme.primary + "25" }]}>
                 <Feather name="cpu" size={14} color={theme.primary} />
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              <ThemedText type="small" style={{ color: "#596F7C" }}>
                 Firmware
               </ThemedText>
             </View>
             <View style={styles.connectionStatus}>
-              <ThemedText type="mono" style={styles.statusValue}>
+              <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
                 v{firmware}
               </ThemedText>
               {firmware !== "1.3.0" ? (
@@ -444,14 +422,14 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
               <View
                 style={[
                   styles.statusIcon,
-                  { backgroundColor: (isConnected ? BladeColors.success : BladeColors.offline) + "15" },
+                  { backgroundColor: (isConnected ? BladeColors.success : BladeColors.offline) + "25" },
                 ]}
               >
                 <Feather
@@ -460,7 +438,7 @@ export default function DashboardScreen() {
                   color={isConnected ? BladeColors.success : BladeColors.offline}
                 />
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              <ThemedText type="small" style={{ color: "#596F7C" }}>
                 Connection
               </ThemedText>
             </View>
@@ -475,24 +453,24 @@ export default function DashboardScreen() {
                   },
                 ]}
               />
-              <ThemedText type="small" style={{ fontWeight: "500" }}>
+              <ThemedText type="small" style={{ fontWeight: "500", color: "#EBEFF3" }}>
                 {isConnected ? "Connected" : "Disconnected"}
               </ThemedText>
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: theme.textSecondary + "15" }]}>
-                <Feather name="clock" size={14} color={theme.textSecondary} />
+              <View style={[styles.statusIcon, { backgroundColor: "#596F7C" + "25" }]}>
+                <Feather name="clock" size={14} color="#596F7C" />
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              <ThemedText type="small" style={{ color: "#596F7C" }}>
                 Last Updated
               </ThemedText>
             </View>
-            <ThemedText type="small" style={{ fontWeight: "500" }}>
+            <ThemedText type="small" style={{ fontWeight: "500", color: "#EBEFF3" }}>
               {telemetry?.timestamp
                 ? new Date(telemetry.timestamp).toLocaleTimeString([], {
                     hour: "2-digit",
@@ -533,7 +511,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: BladeColors.darkGray,
+    backgroundColor: "#181F27",
     alignItems: "center",
     justifyContent: "center",
   },
