@@ -1,8 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { AppState, AppStateStatus } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 import type { Trip, TripDataPoint } from "@shared/schema";
+
+const ACTIVE_TRIP_KEY = "@blade_active_trip";
+const TRIP_INTERVAL_MS = 15000;
 
 interface TripContextType {
   activeTrip: Trip | null;
@@ -21,12 +26,48 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const recordingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
     if (user?.id) {
       fetchActiveTrip();
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [activeTrip]);
+
+  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+    if (
+      appStateRef.current === "active" &&
+      (nextAppState === "background" || nextAppState === "inactive") &&
+      activeTrip &&
+      isRecording
+    ) {
+      await endTripSilently();
+    }
+    appStateRef.current = nextAppState;
+  };
+
+  const endTripSilently = async () => {
+    if (!activeTrip) return;
+    
+    stopDataRecording();
+    try {
+      await apiRequest("POST", `/api/trips/${activeTrip.id}/end`, {
+        endBatteryPercent: telemetry?.bms?.capacity,
+      });
+      await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+      setActiveTrip(null);
+      setIsRecording(false);
+    } catch (error) {
+      console.error("Error auto-ending trip:", error);
+    }
+  };
 
   useEffect(() => {
     if (activeTrip && isRecording && motor?.isConnected) {
@@ -61,12 +102,17 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     recordingRef.current = setInterval(async () => {
       if (!activeTrip || !telemetry) return;
 
+      const latitude = telemetry.gnss?.latitude || location?.latitude;
+      const longitude = telemetry.gnss?.longitude || location?.longitude;
+      const speedKmh = telemetry.gnss?.speed || 0;
+
       try {
         await apiRequest("POST", `/api/trips/${activeTrip.id}/data`, {
-          latitude: location?.latitude,
-          longitude: location?.longitude,
-          speedKts: telemetry.gnss?.speed ? telemetry.gnss.speed * 0.539957 : undefined,
-          course: location?.heading,
+          latitude,
+          longitude,
+          speedKts: speedKmh * 0.539957,
+          speedKmh,
+          course: telemetry.gnss?.course || location?.heading,
           batteryPercent: telemetry.bms?.capacity,
           batteryVoltage: telemetry.bms?.voltage,
           batteryCurrent: telemetry.bms?.current,
@@ -82,7 +128,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("Error recording trip data:", error);
       }
-    }, 2000);
+    }, TRIP_INTERVAL_MS);
   }, [activeTrip, telemetry, location]);
 
   const stopDataRecording = useCallback(() => {

@@ -30,6 +30,7 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 ### Key Design Patterns
 - **Shared Schema**: Database schemas and validation types are shared between client and server via the `shared/` directory
 - **Platform-Specific Files**: Location screen uses `.native.tsx` and `.web.tsx` suffixes for platform-specific implementations
+- **OpenStreetMap Integration**: Uses WebView-based Leaflet.js maps for cross-platform compatibility (no Google API required)
 - **Marine-First Design**: High-contrast UI optimized for outdoor/sunlight visibility with deep ocean blue color palette
 - **User-Motor Linking**: Motors are linked to user accounts via userId for anti-theft protection
 
@@ -69,10 +70,13 @@ The app includes a complete STM32 bootloader FOTA implementation for flashing cu
 - Firmware files must be in Intel HEX format (.hex)
 
 ### Trip Recording System
-- **Automatic Data Capture**: Records 17 telemetry parameters every 2 seconds during active trips
-- **Metrics Tracked**: Speed (kts), GPS coordinates, battery level/voltage/current/temp, motor RPM/current/temp, VESC power/current/temp, throttle position
-- **Trip Calculations**: Total distance (nm), max/avg speed, energy consumption (Wh), efficiency (Wh/nm)
-- **PDF Export**: Generate and share professional trip reports via expo-print and expo-sharing
+- **Automatic Data Capture**: Records 17 telemetry parameters every 15 seconds during active trips
+- **Metrics Tracked**: Speed (km/h), GPS coordinates, battery level/voltage/current/temp, motor RPM/current/temp, VESC power/current/temp, throttle position
+- **Trip Calculations**: Total distance (nm), max/avg speed (km/h), energy consumption (Wh), efficiency (Wh/nm)
+- **PDF Export**: Generate and share professional trip reports with route map visualization via expo-print and expo-sharing
+- **Route Visualization**: OpenStreetMap displays recorded GPS route with start/end markers
+- **Auto-End on App Close**: Trips automatically end when app goes to background or is closed (via AppState listener)
+- **Offline Persistence**: Active trip state persisted to AsyncStorage for recovery on app restart
 - **Context**: TripContext manages active trip state and automatic recording when motor is connected
 
 ### Data Flow

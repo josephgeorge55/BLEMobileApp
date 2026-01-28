@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,10 +19,13 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useTheme } from "@/hooks/useTheme";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
-import Card from "@/components/Card";
+import { Card } from "@/components/Card";
+import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { BladeColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import type { Trip, TripDataPoint } from "@shared/schema";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const ktsToKmh = (kts: number) => kts * 1.852;
 
 type TripDetailRouteProp = RouteProp<RootStackParamList, "TripDetail">;
 
@@ -125,7 +128,7 @@ export default function TripDetailScreen() {
           </View>
         </View>
         <View style={styles.chartContainer}>
-          <View style={[styles.chartBackground, { backgroundColor: theme.backgroundElevated }]}>
+          <View style={[styles.chartBackground, { backgroundColor: theme.surfaceElevated }]}>
             <svg width={CHART_WIDTH} height={CHART_HEIGHT}>
               <polyline
                 points={points.join(" ")}
@@ -253,12 +256,12 @@ export default function TripDetailScreen() {
                   <div class="stat-label">Distance (nm)</div>
                 </div>
                 <div class="stat-box">
-                  <div class="stat-value-accent">${(trip.maxSpeedKts || 0).toFixed(1)}</div>
-                  <div class="stat-label">Max Speed (kts)</div>
+                  <div class="stat-value-accent">${((trip.maxSpeedKts || 0) * 1.852).toFixed(1)}</div>
+                  <div class="stat-label">Max Speed (km/h)</div>
                 </div>
                 <div class="stat-box">
-                  <div class="stat-value">${(trip.avgSpeedKts || 0).toFixed(1)}</div>
-                  <div class="stat-label">Avg Speed (kts)</div>
+                  <div class="stat-value">${((trip.avgSpeedKts || 0) * 1.852).toFixed(1)}</div>
+                  <div class="stat-label">Avg Speed (km/h)</div>
                 </div>
                 <div class="stat-box">
                   <div class="stat-value">${formatDuration(trip.startTime, trip.endTime)}</div>
@@ -342,7 +345,7 @@ export default function TripDetailScreen() {
     
     try {
       await Share.share({
-        message: `Blade Outboards Trip Report\n\nTrip: ${trip.name || "Trip"}\nDistance: ${(trip.totalDistanceNm || 0).toFixed(2)} nm\nDuration: ${formatDuration(trip.startTime, trip.endTime)}\nMax Speed: ${(trip.maxSpeedKts || 0).toFixed(1)} kts\nEnergy Used: ${((trip.totalEnergyKwh || 0) * 1000).toFixed(0)} Wh`,
+        message: `Blade Outboards Trip Report\n\nTrip: ${trip.name || "Trip"}\nDistance: ${(trip.totalDistanceNm || 0).toFixed(2)} nm\nDuration: ${formatDuration(trip.startTime, trip.endTime)}\nMax Speed: ${ktsToKmh(trip.maxSpeedKts || 0).toFixed(1)} km/h\nEnergy Used: ${((trip.totalEnergyKwh || 0) * 1000).toFixed(0)} Wh`,
         title: "Trip Report",
       });
     } catch (error) {
@@ -371,6 +374,35 @@ export default function TripDetailScreen() {
   const batteryData = dataPoints.filter(p => p.batteryPercent != null).map(p => p.batteryPercent!);
   const powerData = dataPoints.filter(p => p.vescWattage != null).map(p => p.vescWattage!);
   const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
+
+  const routeCoordinates = useMemo(() => {
+    return dataPoints
+      .filter(p => p.latitude != null && p.longitude != null)
+      .map(p => ({
+        latitude: p.latitude!,
+        longitude: p.longitude!,
+      }));
+  }, [dataPoints]);
+
+  const mapRegion = useMemo(() => {
+    if (routeCoordinates.length === 0) return null;
+    const lats = routeCoordinates.map(c => c.latitude);
+    const lngs = routeCoordinates.map(c => c.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+    const latDelta = Math.max(0.01, (maxLat - minLat) * 1.3);
+    const lngDelta = Math.max(0.01, (maxLng - minLng) * 1.3);
+    return {
+      latitude: centerLat,
+      longitude: centerLng,
+      latitudeDelta: latDelta,
+      longitudeDelta: lngDelta,
+    };
+  }, [routeCoordinates]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -414,18 +446,47 @@ export default function TripDetailScreen() {
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statValue, { color: BladeColors.accent }]}>
-                {(trip.maxSpeedKts || 0).toFixed(1)}
+                {ktsToKmh(trip.maxSpeedKts || 0).toFixed(1)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Max kts</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Max km/h</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statValue, { color: BladeColors.accent }]}>
-                {(trip.avgSpeedKts || 0).toFixed(1)}
+                {ktsToKmh(trip.avgSpeedKts || 0).toFixed(1)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg kts</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg km/h</Text>
             </View>
           </View>
         </Card>
+
+        {mapRegion && routeCoordinates.length > 1 ? (
+          <Card style={styles.mapCard}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Route</Text>
+            <View style={styles.mapContainer}>
+              <OpenStreetMap
+                style={styles.routeMap}
+                initialRegion={mapRegion}
+                polyline={{
+                  coordinates: routeCoordinates,
+                  strokeColor: BladeColors.primary,
+                  strokeWidth: 3,
+                }}
+                markers={[
+                  {
+                    coordinate: routeCoordinates[0],
+                    title: "Start",
+                    color: BladeColors.success,
+                  },
+                  {
+                    coordinate: routeCoordinates[routeCoordinates.length - 1],
+                    title: "End",
+                    color: BladeColors.error,
+                  },
+                ]}
+              />
+            </View>
+          </Card>
+        ) : null}
 
         <Card style={styles.energyCard}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Energy Consumption</Text>
@@ -453,7 +514,7 @@ export default function TripDetailScreen() {
               </View>
             </View>
             <View style={styles.energyStat}>
-              <Feather name="trending-up" size={20} color={BladeColors.info} />
+              <Feather name="trending-up" size={20} color={BladeColors.primary} />
               <View style={styles.energyStatText}>
                 <Text style={[styles.energyValue, { color: theme.text }]}>
                   {trip.totalDistanceNm && trip.totalEnergyKwh
@@ -560,7 +621,7 @@ export default function TripDetailScreen() {
       <View style={[styles.actionBar, { paddingBottom: insets.bottom + Spacing.md }]}>
         <Pressable
           onPress={handleShare}
-          style={[styles.actionButton, { backgroundColor: theme.backgroundElevated }]}
+          style={[styles.actionButton, { backgroundColor: theme.surfaceElevated }]}
           testID="share-button"
         >
           <Feather name="share" size={20} color={theme.text} />
@@ -658,6 +719,19 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: Typography.sizes.xs,
     marginTop: 2,
+  },
+  mapCard: {
+    marginBottom: Spacing.md,
+    padding: Spacing.lg,
+  },
+  mapContainer: {
+    height: 200,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    marginTop: Spacing.sm,
+  },
+  routeMap: {
+    flex: 1,
   },
   energyCard: {
     marginBottom: Spacing.md,

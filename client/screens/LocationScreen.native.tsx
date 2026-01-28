@@ -1,9 +1,8 @@
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import { StyleSheet, View } from "react-native";
-import MapView, { Marker } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
-import { Feather } from "@expo/vector-icons";
 
+import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { LocationInfoCard } from "@/components/LocationInfoCard";
 import { EmptyState } from "@/components/EmptyState";
 import { useTheme } from "@/hooks/useTheme";
@@ -21,19 +20,18 @@ interface LocationQueryData {
 
 export default function LocationScreen() {
   const { theme } = useTheme();
-  const { motor, location, setLocation } = useMotor();
-  const mapRef = useRef<MapView>(null);
+  const { motor, location, setLocation, telemetry } = useMotor();
 
   const serialNumber = motor?.serialNumber;
 
   const { data: locationData } = useQuery<LocationQueryData>({
     queryKey: ["/api/motor", serialNumber, "location"],
-    enabled: !!serialNumber,
+    enabled: !!serialNumber && !motor?.isConnected,
     refetchInterval: 10000,
   });
 
-  useEffect(() => {
-    if (locationData) {
+  React.useEffect(() => {
+    if (locationData && !motor?.isConnected) {
       setLocation({
         latitude: locationData.latitude,
         longitude: locationData.longitude,
@@ -43,21 +41,18 @@ export default function LocationScreen() {
         isLive: locationData.isLive,
       });
     }
-  }, [locationData]);
+  }, [locationData, motor?.isConnected]);
 
-  useEffect(() => {
-    if (location && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        },
-        500,
-      );
-    }
-  }, [location]);
+  const currentLocation = motor?.isConnected && telemetry?.gnss
+    ? {
+        latitude: telemetry.gnss.latitude,
+        longitude: telemetry.gnss.longitude,
+        speed: telemetry.gnss.speed,
+        heading: telemetry.gnss.course,
+        timestamp: new Date(),
+        isLive: true,
+      }
+    : location;
 
   if (!motor) {
     return (
@@ -71,7 +66,7 @@ export default function LocationScreen() {
     );
   }
 
-  if (!location) {
+  if (!currentLocation) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
         <EmptyState
@@ -85,62 +80,34 @@ export default function LocationScreen() {
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
+      <OpenStreetMap
         style={styles.map}
         initialRegion={{
-          latitude: location.latitude,
-          longitude: location.longitude,
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
-        showsUserLocation
-        showsMyLocationButton={false}
-        showsCompass
-      >
-        <Marker
-          coordinate={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-          }}
-          title={motor.name}
-          description={
-            location.isLive ? "Live location" : "Last known location"
-          }
-        >
-          <View style={styles.markerContainer}>
-            <View
-              style={[
-                styles.marker,
-                {
-                  backgroundColor: location.isLive
-                    ? BladeColors.accent
-                    : BladeColors.primary,
-                },
-              ]}
-            >
-              <Feather name="anchor" size={20} color="#FFFFFF" />
-            </View>
-            <View
-              style={[
-                styles.markerTail,
-                {
-                  borderTopColor: location.isLive
-                    ? BladeColors.accent
-                    : BladeColors.primary,
-                },
-              ]}
-            />
-          </View>
-        </Marker>
-      </MapView>
+        markers={[
+          {
+            coordinate: {
+              latitude: currentLocation.latitude,
+              longitude: currentLocation.longitude,
+            },
+            title: motor.name || "Blade Outboard",
+            color: currentLocation.isLive ? BladeColors.accent : BladeColors.primary,
+            isLive: currentLocation.isLive,
+          },
+        ]}
+        showUserLocation
+      />
 
       <LocationInfoCard
-        latitude={location.latitude}
-        longitude={location.longitude}
-        timestamp={location.timestamp}
-        isLive={location.isLive}
-        speed={location.speed}
+        latitude={currentLocation.latitude}
+        longitude={currentLocation.longitude}
+        timestamp={currentLocation.timestamp}
+        isLive={currentLocation.isLive}
+        speed={currentLocation.speed}
       />
     </View>
   );
@@ -152,32 +119,5 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  markerContainer: {
-    alignItems: "center",
-  },
-  marker: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  markerTail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 10,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    marginTop: -2,
   },
 });
