@@ -91,7 +91,7 @@ export function startScan(callbacks: Pick<BleServiceCallbacks, "onDeviceFound" |
   }
 
   bleManager.startDeviceScan(
-    [BLADE_SERVICE_UUID],
+    null,
     { allowDuplicates: false },
     (error: any, device: any) => {
       if (error) {
@@ -99,20 +99,15 @@ export function startScan(callbacks: Pick<BleServiceCallbacks, "onDeviceFound" |
         return;
       }
 
-      if (device && device.name) {
-        const isBladeDevice =
-          device.name.startsWith(BLADE_DEVICE_NAME_PREFIX) ||
-          device.name.startsWith(HALO_DEVICE_NAME_PREFIX);
-
-        if (isBladeDevice) {
-          const serialNumber = extractSerialNumber(device.name);
-          callbacks.onDeviceFound({
-            id: device.id,
-            name: device.name,
-            rssi: device.rssi || -100,
-            serialNumber,
-          });
-        }
+      if (device) {
+        const deviceName = device.name || device.localName || `Unknown (${device.id.substring(0, 8)})`;
+        const serialNumber = extractSerialNumber(deviceName);
+        callbacks.onDeviceFound({
+          id: device.id,
+          name: deviceName,
+          rssi: device.rssi || -100,
+          serialNumber,
+        });
       }
     }
   );

@@ -60,6 +60,12 @@ export default function BleScannerModal() {
   const [isLinking, setIsLinking] = useState(false);
   const [useMockMode, setUseMockMode] = useState(false);
   const [bleError, setBleError] = useState<string | null>(null);
+  const [bleDiagnostics, setBleDiagnostics] = useState<{
+    initialized: boolean;
+    permissions: boolean;
+    state: string;
+    deviceCount: number;
+  }>({ initialized: false, permissions: false, state: "Unknown", deviceCount: 0 });
 
   const startMockScan = useCallback(() => {
     setIsScanning(true);
@@ -76,9 +82,11 @@ export default function BleScannerModal() {
     setIsScanning(true);
     setDevices([]);
     setBleError(null);
+    setBleDiagnostics(prev => ({ ...prev, deviceCount: 0 }));
 
     try {
       const initialized = await initializeBle();
+      setBleDiagnostics(prev => ({ ...prev, initialized }));
       
       if (!initialized) {
         setUseMockMode(true);
@@ -87,6 +95,8 @@ export default function BleScannerModal() {
       }
 
       const hasPermissions = await requestBlePermissions();
+      setBleDiagnostics(prev => ({ ...prev, permissions: hasPermissions }));
+      
       if (!hasPermissions) {
         setBleError("Bluetooth permissions required");
         setIsScanning(false);
@@ -94,6 +104,8 @@ export default function BleScannerModal() {
       }
 
       const bleState = await checkBleState();
+      setBleDiagnostics(prev => ({ ...prev, state: bleState }));
+      
       if (bleState !== "PoweredOn") {
         setBleError(
           bleState === "PoweredOff"
@@ -110,16 +122,16 @@ export default function BleScannerModal() {
 
       startRealScan({
         onDeviceFound: (device: BleDevice) => {
-          if (device.name && device.serialNumber) {
-            const scanDevice: ScanDevice = {
-              id: device.id,
-              name: device.name,
-              serialNumber: device.serialNumber,
-              rssi: device.rssi,
-            };
-            foundDevices.set(device.id, scanDevice);
-            setDevices(Array.from(foundDevices.values()));
-          }
+          const scanDevice: ScanDevice = {
+            id: device.id,
+            name: device.name || `Unknown (${device.id.substring(0, 8)})`,
+            serialNumber: device.serialNumber || device.id,
+            rssi: device.rssi,
+          };
+          foundDevices.set(device.id, scanDevice);
+          const deviceList = Array.from(foundDevices.values()).sort((a, b) => b.rssi - a.rssi);
+          setDevices(deviceList);
+          setBleDiagnostics(prev => ({ ...prev, deviceCount: deviceList.length }));
         },
         onError: (error: Error) => {
           console.error("BLE scan error:", error);
@@ -134,9 +146,10 @@ export default function BleScannerModal() {
         if (foundDevices.size === 0) {
           setDevices([]);
         }
-      }, 10000);
+      }, 15000);
     } catch (error: any) {
       console.error("BLE initialization error:", error);
+      setBleDiagnostics(prev => ({ ...prev, state: "Error: " + error.message }));
       setUseMockMode(true);
       startMockScan();
     }
@@ -308,6 +321,53 @@ export default function BleScannerModal() {
     );
   };
 
+  const renderDiagnostics = () => {
+    if (useMockMode) return null;
+
+    return (
+      <View style={[styles.diagnosticsContainer, { backgroundColor: theme.surface }]}>
+        <ThemedText type="caption" style={[styles.diagnosticsTitle, { color: theme.textSecondary }]}>
+          Bluetooth Diagnostics
+        </ThemedText>
+        <View style={styles.diagnosticsRow}>
+          <View style={styles.diagnosticsItem}>
+            <Feather 
+              name={bleDiagnostics.initialized ? "check-circle" : "x-circle"} 
+              size={14} 
+              color={bleDiagnostics.initialized ? BladeColors.success : BladeColors.error} 
+            />
+            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+              BLE Init
+            </ThemedText>
+          </View>
+          <View style={styles.diagnosticsItem}>
+            <Feather 
+              name={bleDiagnostics.permissions ? "check-circle" : "x-circle"} 
+              size={14} 
+              color={bleDiagnostics.permissions ? BladeColors.success : BladeColors.error} 
+            />
+            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+              Permissions
+            </ThemedText>
+          </View>
+          <View style={styles.diagnosticsItem}>
+            <Feather 
+              name={bleDiagnostics.state === "PoweredOn" ? "bluetooth" : "alert-circle"} 
+              size={14} 
+              color={bleDiagnostics.state === "PoweredOn" ? BladeColors.success : BladeColors.warning} 
+            />
+            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+              {bleDiagnostics.state}
+            </ThemedText>
+          </View>
+        </View>
+        <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 4 }}>
+          Devices found: {bleDiagnostics.deviceCount}
+        </ThemedText>
+      </View>
+    );
+  };
+
   return (
     <>
     <View
@@ -334,6 +394,7 @@ export default function BleScannerModal() {
       </View>
 
       {renderModeIndicator()}
+      {renderDiagnostics()}
 
       {isScanning ? (
         <Animated.View entering={FadeIn.duration(300)} style={styles.scanning}>
@@ -342,8 +403,23 @@ export default function BleScannerModal() {
             type="body"
             style={[styles.scanningText, { color: theme.textSecondary }]}
           >
-            Make sure your motor is powered on and within range
+            Scanning for all Bluetooth devices...
           </ThemedText>
+          <ThemedText
+            type="caption"
+            style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+          >
+            Found {devices.length} device{devices.length !== 1 ? "s" : ""} so far
+          </ThemedText>
+          <Pressable 
+            onPress={handleRescan} 
+            style={[styles.refreshButton, { backgroundColor: theme.surface }]}
+          >
+            <Feather name="refresh-cw" size={16} color={BladeColors.primary} />
+            <ThemedText type="link" style={{ marginLeft: Spacing.xs }}>
+              Restart Scan
+            </ThemedText>
+          </Pressable>
         </Animated.View>
       ) : bleError ? (
         <View style={styles.emptyState}>
@@ -454,9 +530,36 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+  },
+  diagnosticsContainer: {
+    marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
+  },
+  diagnosticsTitle: {
+    marginBottom: Spacing.sm,
+    fontWeight: "600",
+  },
+  diagnosticsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  diagnosticsItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
   },
   scanning: {
     flex: 1,
