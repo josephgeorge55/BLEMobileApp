@@ -29,6 +29,8 @@ import {
   isBleAvailable,
   requestBlePermissions,
   checkBleState,
+  connectToDevice as connectToBleDevice,
+  disconnect as disconnectBle,
   BleDevice,
 } from "@/lib/ble-service";
 import {
@@ -279,7 +281,28 @@ export default function BleScannerModal() {
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        await connectToMotor(device.serialNumber, true);
+        const success = await connectToBleDevice(device.id, {
+          onDeviceFound: () => {},
+          onConnected: async (connectedDevice) => {
+            console.log("BLE connected:", connectedDevice.name);
+            await connectToMotor(device.serialNumber, false);
+          },
+          onDisconnected: (deviceId) => {
+            console.log("BLE disconnected:", deviceId);
+            disconnectMotor();
+          },
+          onDataReceived: (data: ParseResult) => {
+            processParsedData(data);
+          },
+          onError: (error) => {
+            console.error("BLE error:", error);
+            Alert.alert("Connection Error", error.message);
+          },
+        });
+
+        if (!success) {
+          throw new Error("Failed to connect via BLE");
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
