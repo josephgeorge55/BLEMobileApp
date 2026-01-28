@@ -367,3 +367,77 @@ export async function getClassicDiagnostics(): Promise<{
     bondedCount: bonded.length,
   };
 }
+
+let pendingDataResolve: ((data: Uint8Array | null) => void) | null = null;
+let pendingDataBuffer: number[] = [];
+
+export async function sendBinaryData(data: Uint8Array): Promise<void> {
+  if (!connectedDevice) {
+    throw new Error("No Classic device connected");
+  }
+
+  try {
+    const base64 = arrayBufferToBase64(data);
+    await connectedDevice.write(base64, "base64");
+  } catch (error) {
+    console.error("Error sending binary data:", error);
+    throw error;
+  }
+}
+
+export async function receiveBinaryData(timeout: number): Promise<Uint8Array | null> {
+  if (!connectedDevice) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    pendingDataResolve = resolve;
+    pendingDataBuffer = [];
+
+    const timeoutId = setTimeout(() => {
+      pendingDataResolve = null;
+      if (pendingDataBuffer.length > 0) {
+        resolve(new Uint8Array(pendingDataBuffer));
+        pendingDataBuffer = [];
+      } else {
+        resolve(null);
+      }
+    }, timeout);
+
+    const checkForData = async () => {
+      try {
+        const available = await connectedDevice.available();
+        if (available > 0) {
+          const data = await connectedDevice.read();
+          if (data) {
+            clearTimeout(timeoutId);
+            pendingDataResolve = null;
+            
+            const bytes = stringToBytes(data);
+            resolve(new Uint8Array(bytes));
+          }
+        }
+      } catch (error) {
+        console.error("Error reading binary data:", error);
+      }
+    };
+
+    checkForData();
+  });
+}
+
+function arrayBufferToBase64(buffer: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  return btoa(binary);
+}
+
+function stringToBytes(str: string): number[] {
+  const bytes: number[] = [];
+  for (let i = 0; i < str.length; i++) {
+    bytes.push(str.charCodeAt(i) & 0xFF);
+  }
+  return bytes;
+}

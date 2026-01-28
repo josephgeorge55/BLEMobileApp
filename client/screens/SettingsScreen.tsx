@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, View, ScrollView, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -10,6 +10,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { SettingsRow, SettingsSection } from "@/components/SettingsRow";
+import { FirmwareUpdateModal } from "@/components/FirmwareUpdateModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useSettings } from "@/context/SettingsContext";
@@ -34,6 +35,8 @@ export default function SettingsScreen() {
     setAnonymousDataSharing,
     toggleNotification,
   } = useSettings();
+  
+  const [firmwareModalVisible, setFirmwareModalVisible] = useState(false);
 
   const handleDisconnect = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -127,6 +130,16 @@ export default function SettingsScreen() {
             title="Anti-Theft Protection"
             subtitle="Your outboard is linked to your account"
             showChevron={false}
+          />
+          <SettingsRow
+            icon="upload-cloud"
+            title="Custom Firmware Update"
+            subtitle="Upload and flash custom .hex firmware"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setFirmwareModalVisible(true);
+            }}
+            iconColor={BladeColors.accent}
           />
           <SettingsRow
             icon="power"
@@ -300,6 +313,11 @@ export default function SettingsScreen() {
           {"\u00A9"} 2026 Blade Marine Technologies Ltd. All rights reserved.
         </ThemedText>
       </View>
+      
+      <FirmwareUpdateModal
+        visible={firmwareModalVisible}
+        onClose={() => setFirmwareModalVisible(false)}
+      />
     </ScrollView>
   );
 }
