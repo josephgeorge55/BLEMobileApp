@@ -9,6 +9,7 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
+import { SpeedCard } from "@/components/SpeedCard";
 import { EmptyState } from "@/components/EmptyState";
 import { DebugLogModal } from "@/components/DebugLogModal";
 import { useTheme } from "@/hooks/useTheme";
@@ -216,17 +217,17 @@ export default function DashboardScreen() {
       <View style={styles.metricsGrid}>
         <Animated.View
           entering={FadeInUp.delay(100).duration(400).springify()}
+        >
+          <SpeedCard 
+            motorSpeed={speed} 
+            isConnected={isConnected} 
+          />
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInUp.delay(150).duration(400).springify()}
           style={styles.metricRow}
         >
-          <MetricCard
-            icon="navigation"
-            label="Speed"
-            value={speed.toFixed(1)}
-            unit="kts"
-            iconColor={BladeColors.marine}
-            accentGlow={speed > 0}
-          />
-          <View style={{ width: Spacing.md }} />
           <MetricCard
             icon="battery-charging"
             label="Battery"
@@ -235,12 +236,7 @@ export default function DashboardScreen() {
             iconColor={getBatteryColor()}
             accentGlow={soc < 20}
           />
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(200).duration(400).springify()}
-          style={styles.metricRow}
-        >
+          <View style={{ width: Spacing.md }} />
           <MetricCard
             icon="zap"
             label="Power"
@@ -249,7 +245,12 @@ export default function DashboardScreen() {
             trend={power > 0 ? "up" : "stable"}
             iconColor={BladeColors.accent}
           />
-          <View style={{ width: Spacing.md }} />
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInUp.delay(200).duration(400).springify()}
+          style={styles.metricRow}
+        >
           <MetricCard
             icon="percent"
             label="Throttle"
@@ -257,6 +258,14 @@ export default function DashboardScreen() {
             unit="%"
             iconColor={BladeColors.marine}
             accentGlow={(vesc?.throttle ?? 0) > 80}
+          />
+          <View style={{ width: Spacing.md }} />
+          <MetricCard
+            icon="clock"
+            label="Runtime"
+            value={odometer != null ? odometer.toFixed(0) : "--"}
+            unit="hrs"
+            iconColor={BladeColors.marine}
           />
         </Animated.View>
       </View>

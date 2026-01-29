@@ -6,7 +6,6 @@ import {
   generateMockBMSFrame,
   generateMockMotorFrame,
   generateMockVESCFrame,
-  kphToKnots,
   GNSSData,
   BMSData,
   MotorData as BLEMotorData,
@@ -188,7 +187,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     const inforG2 = inforG2Ref.current;
 
     const newTelemetry: TelemetryData = {
-      speed: gnss ? kphToKnots(gnss.speed) : 0,
+      speed: gnss?.speed ?? 0,
       stateOfCharge: bms?.capacity ?? 0,
       powerConsumption: (vesc?.wattage ?? bms?.wattage ?? 0) / 1000,
       gnss: gnssRef.current,
@@ -204,7 +203,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
       timestamp: now,
     };
 
-    addDebugLog("STATE", `Telemetry update: SOC=${newTelemetry.stateOfCharge}%, Speed=${newTelemetry.speed.toFixed(1)}kts, Power=${newTelemetry.powerConsumption.toFixed(2)}kW`);
+    addDebugLog("STATE", `Telemetry update: SOC=${newTelemetry.stateOfCharge}%, Speed=${newTelemetry.speed.toFixed(1)}km/h, Power=${newTelemetry.powerConsumption.toFixed(2)}kW`);
     if (bms) {
       addDebugLog("STATE", `BMS ref: V=${bms.voltage}, Cap=${bms.capacity}%, I=${bms.current}A`);
     }
@@ -230,7 +229,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         setLocation({
           latitude: data.latitude,
           longitude: data.longitude,
-          speed: kphToKnots(data.speed),
+          speed: data.speed,
           heading: data.course,
           timestamp: now,
           isLive: true,
