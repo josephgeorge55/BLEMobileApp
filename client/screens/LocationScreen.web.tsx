@@ -3,11 +3,11 @@ import { StyleSheet, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 
 import { OpenStreetMap } from "@/components/OpenStreetMap";
-import { LocationInfoCard } from "@/components/LocationInfoCard";
+import { FindMyPanel } from "@/components/FindMyPanel";
 import { EmptyState } from "@/components/EmptyState";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
-import { BladeColors } from "@/constants/theme";
+import { BladeColors, Spacing } from "@/constants/theme";
 
 interface LocationQueryData {
   latitude: number;
@@ -24,7 +24,7 @@ export default function LocationScreen() {
 
   const serialNumber = motor?.serialNumber;
 
-  const { data: locationData } = useQuery<LocationQueryData>({
+  const { data: locationData, refetch } = useQuery<LocationQueryData>({
     queryKey: ["/api/motor", serialNumber, "location"],
     enabled: !!serialNumber && !motor?.isConnected,
     refetchInterval: 10000,
@@ -54,6 +54,10 @@ export default function LocationScreen() {
       }
     : location;
 
+  const handleFind = () => {
+    refetch();
+  };
+
   if (!motor) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -79,36 +83,42 @@ export default function LocationScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <OpenStreetMap
-        style={styles.map}
-        initialRegion={{
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        markers={[
-          {
-            coordinate: {
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <View style={styles.mapContainer}>
+        <OpenStreetMap
+          style={styles.map}
+          initialRegion={{
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          markers={[
+            {
+              coordinate: {
+                latitude: currentLocation.latitude,
+                longitude: currentLocation.longitude,
+              },
+              title: motor.name || "Blade Outboard",
+              color: currentLocation.isLive ? BladeColors.success : BladeColors.marine,
+              isLive: currentLocation.isLive,
             },
-            title: motor.name || "Blade Outboard",
-            color: currentLocation.isLive ? BladeColors.accent : BladeColors.primary,
-            isLive: currentLocation.isLive,
-          },
-        ]}
-        showUserLocation
-      />
+          ]}
+          showUserLocation
+        />
+      </View>
 
-      <LocationInfoCard
-        latitude={currentLocation.latitude}
-        longitude={currentLocation.longitude}
-        timestamp={currentLocation.timestamp}
-        isLive={currentLocation.isLive}
-        speed={currentLocation.speed}
-      />
+      <View style={styles.panelContainer}>
+        <FindMyPanel
+          motorName={motor.name || "Blade Outboard"}
+          serialNumber={motor.serialNumber}
+          latitude={currentLocation.latitude}
+          longitude={currentLocation.longitude}
+          timestamp={currentLocation.timestamp}
+          isLive={currentLocation.isLive}
+          onFind={handleFind}
+        />
+      </View>
     </View>
   );
 }
@@ -117,7 +127,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  mapContainer: {
+    flex: 1,
+  },
   map: {
     flex: 1,
+  },
+  panelContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });
