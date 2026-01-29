@@ -263,7 +263,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         } else if (result.group === "G2") {
           const data = result.data as INFORG2Data;
           const errorInfo = data.errorCode ? `Error=${data.errorCode} (${data.errorDescription})` : "No errors";
-          addDebugLog("PARSE", `INFOR G2: odometer=${data.odometer}km, mode=${data.driverMode}, ${errorInfo}`);
+          addDebugLog("PARSE", `INFOR G2: odometer=${data.odometer}hrs, mode=${data.driverMode}, ${errorInfo}`);
           inforG2Ref.current = data;
         }
         break;
@@ -331,8 +331,8 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         generateMockBMSFrame(voltage, batteryCapacity, bmsCurrent, bmsWattage, Math.floor(bmsTemp)),
         generateMockMotorFrame(motorCurrent, rpm, Math.floor(motorTemp)),
         generateMockVESCFrame(voltage, vescCurrent, vescWattage, Math.floor(throttle), Math.floor(vescTemp)),
-        `$INFOR,G1,1.3.0,BLD-2024-0001`,
-        `$INFOR,G2,${odometerHours.toFixed(1)},${driveMode},`,
+        `$INFOR,G1,BLD-2024-0001,1.3.0`,
+        `$INFOR,G2,${odometerHours.toFixed(1)},${driveMode},E0`,
       ];
 
       frames.forEach((frame) => processBLEFrame(frame));

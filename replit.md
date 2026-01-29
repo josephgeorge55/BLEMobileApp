@@ -121,13 +121,13 @@ The app parses comma-separated data frames from the tiller board via Bluetooth C
    - Voltage (V), Current (A), Wattage (W), Throttle (%), Temp (°C)
 
 5. **INFOR** - System information (firmware, odometer, errors)
-   - **G1 Format**: `$INFOR,G1,<FirmwareVersion>,<SerialNumber>`
+   - **G1 Format**: `$INFOR,G1,<SerialNumber>,<FirmwareVersion>`
+     - SerialNumber: String (e.g., "JK8839421")
      - FirmwareVersion: String (e.g., "1.0.2")
-     - SerialNumber: String (e.g., "BLD2008397")
    - **G2 Format**: `$INFOR,G2,<Odometer>,<DriverMode>,<ErrorCode>`
-     - Odometer: Float in hours (e.g., 1000.0)
+     - Odometer: Float in hours (e.g., 89.0)
      - DriverMode: "Eco", "Normal", "Sport", or "Docking"
-     - ErrorCode: E01-E08 or empty for no error
+     - ErrorCode: E0 = no error, E01-E08 are error codes
 
 **Error Code Table:**
 | Code | Description | Cause |

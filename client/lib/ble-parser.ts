@@ -36,9 +36,9 @@ export interface INFORG1Data {
 
 // INFOR Group 2: Odometer, Driver Mode, Error
 export interface INFORG2Data {
-  odometer: number; // km
+  odometer: number; // hours
   driverMode: "Eco" | "Normal" | "Sport" | "Docking";
-  errorCode: string | null; // E01-E08 or null if no error
+  errorCode: string | null; // E01-E08 or null if no error (E0 = no error)
   errorDescription: string | null;
 }
 
@@ -134,14 +134,16 @@ export function parseVESCFrame(fields: string[]): VESCData | null {
   return { voltage, current, wattage, throttle, temperature };
 }
 
-// INFOR G1: Firmware version, Serial number
+// INFOR G1: Serial number, Firmware version
+// Format: $INFOR,G1,<SerialNumber>,<FirmwareVersion>
+// Example: $INFOR,G1,JK8839421,1.0.2
 export function parseINFORG1Frame(fields: string[]): INFORG1Data | null {
   if (fields.length < 2) return null;
   
-  const firmwareVersion = fields[0].trim();
-  const serialNumber = fields[1].trim();
+  const serialNumber = fields[0].trim();
+  const firmwareVersion = fields[1].trim();
   
-  if (!firmwareVersion || !serialNumber) {
+  if (!serialNumber || !firmwareVersion) {
     return null;
   }
   
@@ -149,6 +151,9 @@ export function parseINFORG1Frame(fields: string[]): INFORG1Data | null {
 }
 
 // INFOR G2: Odometer, Driver mode, Error code
+// Format: $INFOR,G2,<Odometer>,<DriverMode>,<ErrorCode>
+// Example: $INFOR,G2,89.0,Docking,E0
+// Odometer is in hours, E0 means no error, E01-E08 are error codes
 export function parseINFORG2Frame(fields: string[]): INFORG2Data | null {
   if (fields.length < 3) return null;
   
@@ -160,13 +165,14 @@ export function parseINFORG2Frame(fields: string[]): INFORG2Data | null {
     return null;
   }
   
-  // Validate driver mode
+  // Validate driver mode (case-insensitive match)
   const validModes = ["Eco", "Normal", "Sport", "Docking"];
-  const driverMode = validModes.includes(modeStr) 
-    ? (modeStr as "Eco" | "Normal" | "Sport" | "Docking")
+  const matchedMode = validModes.find(m => m.toLowerCase() === modeStr.toLowerCase());
+  const driverMode = matchedMode 
+    ? (matchedMode as "Eco" | "Normal" | "Sport" | "Docking")
     : "Normal"; // Default to Normal if invalid
   
-  // Parse error code - empty or non-E0x means no error
+  // Parse error code - E0 or empty means no error, E01-E08 are error codes
   let errorCode: string | null = null;
   let errorDescription: string | null = null;
   
@@ -177,6 +183,7 @@ export function parseINFORG2Frame(fields: string[]): INFORG2Data | null {
       errorDescription = errorInfo.description;
     }
   }
+  // E0 or E00 means no error - we leave errorCode as null
   
   return { odometer, driverMode, errorCode, errorDescription };
 }
