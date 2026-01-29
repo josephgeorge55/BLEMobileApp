@@ -28,6 +28,7 @@ interface SettingsRowProps {
   showChevron?: boolean;
   iconColor?: string;
   destructive?: boolean;
+  disabled?: boolean;
 }
 
 const springConfig = {
@@ -49,6 +50,7 @@ export function SettingsRow({
   showChevron = true,
   iconColor,
   destructive,
+  disabled,
 }: SettingsRowProps) {
   const { theme, isDark } = useTheme();
   const pressed = useSharedValue(0);
@@ -67,7 +69,7 @@ export function SettingsRow({
   };
 
   const tap = Gesture.Tap()
-    .enabled(!!onPress && !isToggle)
+    .enabled(!!onPress && !isToggle && !disabled)
     .onBegin(() => {
       pressed.value = withSpring(1, springConfig);
       translateX.value = withSpring(4, springConfig);
@@ -121,7 +123,7 @@ export function SettingsRow({
   }));
 
   const content = (
-    <Animated.View style={[styles.row, animatedRowStyle]}>
+    <Animated.View style={[styles.row, animatedRowStyle, disabled && { opacity: 0.5 }]}>
       {icon ? (
         <View
           style={[

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -75,6 +76,9 @@ export default function BleScannerModal() {
   const [isLinking, setIsLinking] = useState(false);
   const [useMockMode, setUseMockMode] = useState(false);
   const [bleError, setBleError] = useState<string | null>(null);
+  const [showConnectingModal, setShowConnectingModal] = useState(false);
+  const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
+  const { isGuestMode } = useUser();
   const [bleDiagnostics, setBleDiagnostics] = useState<{
     bleInitialized: boolean;
     classicInitialized: boolean;
@@ -251,10 +255,13 @@ export default function BleScannerModal() {
   const handleDevicePress = async (device: ScanDevice) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedDevice(device.id);
+    setConnectingDevice(device.name);
+    setShowConnectingModal(true);
 
     try {
       if (useMockMode) {
         await connectToMotor(device.serialNumber, true);
+        setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else if (device.type === "classic") {
         addDebugLog("INFO", `Connecting to Classic device: ${device.name} (${device.id})`);
@@ -287,6 +294,7 @@ export default function BleScannerModal() {
         if (!success) {
           throw new Error("Failed to connect via Bluetooth Classic");
         }
+        setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         const success = await connectToBleDevice(device.id, {
@@ -311,16 +319,19 @@ export default function BleScannerModal() {
         if (!success) {
           throw new Error("Failed to connect via BLE");
         }
+        setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
-      if (user) {
+      // Show anti-theft modal for logged-in users (not guest mode)
+      if (user && !isGuestMode) {
         setPairedMotor({ name: device.name, serialNumber: device.serialNumber });
         setShowAntiTheftModal(true);
       } else {
         navigation.goBack();
       }
     } catch (error) {
+      setShowConnectingModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSelectedDevice(null);
     }
@@ -666,6 +677,31 @@ export default function BleScannerModal() {
         onSkip={handleSkipLink}
       />
     ) : null}
+
+    <Modal
+      visible={showConnectingModal}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+    >
+      <View style={styles.connectingOverlay}>
+        <Animated.View 
+          entering={FadeIn.duration(200)}
+          style={[styles.connectingModal, { backgroundColor: theme.surface }]}
+        >
+          <ActivityIndicator size="large" color={BladeColors.primary} />
+          <ThemedText type="h4" style={styles.connectingTitle}>
+            Connecting...
+          </ThemedText>
+          <ThemedText type="body" style={[styles.connectingSubtitle, { color: theme.textSecondary }]}>
+            {connectingDevice || "Blade Outboard"}
+          </ThemedText>
+          <ThemedText type="caption" style={[styles.connectingNote, { color: theme.textTertiary }]}>
+            Please keep your device nearby
+          </ThemedText>
+        </Animated.View>
+      </View>
+    </Modal>
     </>
   );
 }
@@ -806,5 +842,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
+  },
+  connectingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  connectingModal: {
+    width: "100%",
+    maxWidth: 280,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing["2xl"],
+    alignItems: "center",
+  },
+  connectingTitle: {
+    marginTop: Spacing.lg,
+    textAlign: "center",
+  },
+  connectingSubtitle: {
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  connectingNote: {
+    marginTop: Spacing.lg,
+    textAlign: "center",
   },
 });

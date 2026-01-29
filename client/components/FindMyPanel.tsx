@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, Image, Pressable, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Image, Pressable, ActivityIndicator, ScrollView, Dimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BladeColors, BorderRadius, Shadows } from "@/constants/theme";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const MIN_HEIGHT = 220;
+const MAX_HEIGHT = SCREEN_HEIGHT * 0.6;
 
 interface FindMyPanelProps {
   motorName: string;
@@ -32,6 +37,34 @@ export function FindMyPanel({
   const [locationName, setLocationName] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [isFinding, setIsFinding] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const panelHeight = useSharedValue(MIN_HEIGHT);
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      const newHeight = isExpanded 
+        ? MAX_HEIGHT - e.translationY 
+        : MIN_HEIGHT - e.translationY;
+      panelHeight.value = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, newHeight));
+    })
+    .onEnd((e) => {
+      const shouldExpand = e.velocityY < -500 || (!isExpanded && panelHeight.value > (MIN_HEIGHT + MAX_HEIGHT) / 2);
+      const shouldCollapse = e.velocityY > 500 || (isExpanded && panelHeight.value < (MIN_HEIGHT + MAX_HEIGHT) / 2);
+      
+      if (shouldExpand) {
+        panelHeight.value = withSpring(MAX_HEIGHT, { damping: 20, stiffness: 200 });
+        setIsExpanded(true);
+      } else if (shouldCollapse) {
+        panelHeight.value = withSpring(MIN_HEIGHT, { damping: 20, stiffness: 200 });
+        setIsExpanded(false);
+      } else {
+        panelHeight.value = withSpring(isExpanded ? MAX_HEIGHT : MIN_HEIGHT, { damping: 20, stiffness: 200 });
+      }
+    });
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    height: panelHeight.value,
+  }));
 
   useEffect(() => {
     let isMounted = true;
@@ -122,14 +155,32 @@ export function FindMyPanel({
     return `${Math.abs(latitude).toFixed(4)}° ${latDir}, ${Math.abs(longitude).toFixed(4)}° ${lonDir}`;
   };
 
+  const handleExpandToggle = () => {
+    const targetHeight = isExpanded ? MIN_HEIGHT : MAX_HEIGHT;
+    panelHeight.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
+    setIsExpanded(!isExpanded);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   return (
-    <Animated.View
-      entering={FadeInUp.duration(400).springify()}
-      style={[styles.container, { backgroundColor: theme.surface }, Shadows.large]}
-    >
-      <View style={styles.handle} />
-      
-      <View style={styles.content}>
+    <GestureDetector gesture={panGesture}>
+      <Animated.View
+        entering={FadeInUp.duration(400).springify()}
+        style={[styles.container, { backgroundColor: theme.surface }, Shadows.large, animatedContainerStyle]}
+      >
+        <Pressable onPress={handleExpandToggle} style={styles.handleContainer}>
+          <View style={styles.handle} />
+          <ThemedText type="caption" style={{ color: theme.textTertiary, marginTop: Spacing.xs }}>
+            {isExpanded ? "Swipe down to minimize" : "Swipe up for details"}
+          </ThemedText>
+        </Pressable>
+        
+        <ScrollView 
+          style={styles.scrollContent}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={isExpanded}
+        >
         <View style={styles.motorSection}>
           <View style={styles.imageContainer}>
             <Image
@@ -229,8 +280,29 @@ export function FindMyPanel({
             Anti-theft tracking active. Your outboard reports location every hour for up to 30 days.
           </ThemedText>
         </View>
-      </View>
-    </Animated.View>
+
+        {isExpanded ? (
+          <View style={[styles.additionalInfo, { borderTopColor: theme.border }]}>
+            <ThemedText type="caption" style={{ color: theme.textSecondary, fontWeight: "600", marginBottom: Spacing.sm }}>
+              ADDITIONAL DETAILS
+            </ThemedText>
+            <View style={styles.infoRow}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Coordinates</ThemedText>
+              <ThemedText type="mono" style={{ fontSize: 12 }}>{formatCoordinates()}</ThemedText>
+            </View>
+            <View style={styles.infoRow}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Last Update</ThemedText>
+              <ThemedText type="small">{timestamp.toLocaleString()}</ThemedText>
+            </View>
+            <View style={styles.infoRow}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Tracking Status</ThemedText>
+              <ThemedText type="small" style={{ color: BladeColors.success }}>Active</ThemedText>
+            </View>
+          </View>
+        ) : null}
+        </ScrollView>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -238,19 +310,26 @@ const styles = StyleSheet.create({
   container: {
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
+    minHeight: MIN_HEIGHT,
+    maxHeight: MAX_HEIGHT,
+  },
+  handleContainer: {
+    alignItems: "center",
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.xs,
   },
   handle: {
     width: 36,
     height: 4,
     backgroundColor: "rgba(0,0,0,0.15)",
     borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: Spacing.md,
+  },
+  scrollContent: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   motorSection: {
     flexDirection: "row",
@@ -340,5 +419,16 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     backgroundColor: BladeColors.marine + "10",
     borderRadius: BorderRadius.md,
+  },
+  additionalInfo: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
   },
 });

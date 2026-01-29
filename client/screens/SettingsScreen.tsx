@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, ScrollView, Image } from "react-native";
+import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -37,10 +37,21 @@ export default function SettingsScreen() {
   } = useSettings();
   
   const [firmwareModalVisible, setFirmwareModalVisible] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const { isGuestMode } = useUser();
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsDisconnecting(true);
+    
+    // Small delay to show the disconnecting state
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     disconnectMotor();
+    setIsDisconnecting(false);
+    
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert("Disconnected", "Your outboard motor has been disconnected successfully.");
   };
 
   const handleLogout = async () => {
@@ -129,8 +140,11 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="shield"
             title="Anti-Theft Protection"
-            subtitle="Your outboard is linked to your account"
+            subtitle={isGuestMode 
+              ? "Sign in to enable anti-theft protection" 
+              : "Your outboard is linked to your account"}
             showChevron={false}
+            iconColor={isGuestMode ? theme.textTertiary : BladeColors.success}
           />
           <SettingsRow
             icon="upload-cloud"
@@ -144,10 +158,11 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             icon="power"
-            title="Disconnect Motor"
+            title={isDisconnecting ? "Disconnecting..." : "Disconnect Motor"}
             onPress={handleDisconnect}
             destructive
             showChevron={false}
+            disabled={isDisconnecting}
           />
         </SettingsSection>
       ) : (
