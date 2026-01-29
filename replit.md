@@ -52,22 +52,36 @@ The app includes a complete STM32 bootloader FOTA implementation for flashing cu
 
 **Components:**
 - `client/lib/hex-parser.ts` - Intel HEX file parser that converts .hex files into 256-byte memory blocks
-- `client/lib/firmware-ota-service.ts` - STM32 bootloader protocol implementation
-- `client/components/FirmwareUpdateModal.tsx` - Full-featured UI with file picker, progress bar, log console
+- `client/lib/firmware-ota-service.ts` - STM32 bootloader protocol implementation with debug logging
+- `client/components/FirmwareUpdateModal.tsx` - Full-featured UI with file picker, progress bar, real-time log console
+- `client/lib/bluetooth-classic-service.ts` - Binary data handling with OTA mode support
 
-**STM32 Bootloader Protocol:**
-- Communication: UART over Bluetooth SPP (115200 baud, 8N1, Even parity)
-- Init: Send 0x7F, expect ACK (0x79)
-- GET: 0x00 + 0xFF → 13-byte response with protocol version
-- GET ID: 0x02 + 0xFD → 5-byte response with chip ID
-- ERASE: 0x43 + 0xBC → ACK → 0xFF + 0x00 → ACK (mass erase)
-- WRITE: 0x31 + 0xCE → address+checksum → data+checksum (256-byte blocks)
-- GO: 0x21 + 0xDE → start address+checksum (start firmware)
+**STM32 Bootloader Protocol (Tiller Board v1.3):**
+- Communication: UART over Bluetooth SPP (115200 baud, 8 data bits, Even parity, 1 stop bit)
+- ACK byte: 0x79 (success), NACK byte: 0x1F (failure - stop process on NACK)
+
+**Protocol Steps:**
+1. **Init**: Send 0x7F → expect ACK (0x79)
+2. **GET**: Send 0x00 + 0xFF → 13-byte response (ACK, N=11, Protocol version, supported commands)
+3. **GET ID**: Send 0x02 + 0xFD → 5-byte response (ACK, N=1, 2-byte chip ID, ACK)
+4. **ERASE**: Send 0x43 + 0xBC → ACK → Send 0xFF + 0x00 → ACK → Wait 2 seconds
+5. **WRITE** (per 256-byte block):
+   - Send 0x31 + 0xCE → ACK
+   - Send [4-byte address] + [address checksum] → ACK
+   - Send [length N-1] + [N data bytes] + [data checksum] → ACK
+   - Wait 10ms before next block
+6. **GO**: Send 0x21 + 0xDE → ACK → Send [4-byte start address] + [checksum] → ACK
+
+**OTA Mode:**
+- `setOTAMode(true)` switches Bluetooth service to binary data handling
+- `setOTAMode(false)` returns to normal text-based telemetry mode
+- Prevents interference between firmware updates and dashboard telemetry
 
 **Requirements:**
-- Tiller board must be in bootloader mode (hardware switch or software command)
-- Bluetooth must be connected via the Scanner first
+- Tiller board must be in bootloader mode (hardware switch or software command 0x01 + 0xFE)
+- Bluetooth Classic must be connected via the Scanner first (not BLE)
 - Firmware files must be in Intel HEX format (.hex)
+- Start address typically 0x08000000 for STM32
 
 ### Trip Recording System
 - **Automatic Data Capture**: Records 17 telemetry parameters every 15 seconds during active trips
