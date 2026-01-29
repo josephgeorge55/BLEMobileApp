@@ -84,14 +84,15 @@ The app includes a complete STM32 bootloader FOTA implementation for flashing cu
 - Start address typically 0x08000000 for STM32
 
 ### Trip Recording System
-- **Automatic Data Capture**: Records 17 telemetry parameters every 15 seconds during active trips
+- **Automatic Data Capture**: Records 17 telemetry parameters every 5 seconds during active trips
 - **Metrics Tracked**: Speed (km/h), GPS coordinates, battery level/voltage/current/temp, motor RPM/current/temp, VESC power/current/temp, throttle position
-- **Trip Calculations**: Total distance (nm), max/avg speed (km/h), energy consumption (Wh), efficiency (Wh/nm)
+- **Trip Calculations**: Total distance (km), max/avg speed (km/h), energy consumption (Wh), efficiency (Wh/km)
 - **PDF Export**: Generate and share professional trip reports with route map visualization via expo-print and expo-sharing
 - **Route Visualization**: OpenStreetMap displays recorded GPS route with start/end markers
 - **Auto-End on App Close**: Trips automatically end when app goes to background or is closed (via AppState listener)
-- **Offline Persistence**: Active trip state persisted to AsyncStorage for recovery on app restart
+- **Offline Support**: Full offline trip recording - trips and data points stored locally in AsyncStorage, automatically synced to server when connection is restored
 - **Context**: TripContext manages active trip state and automatic recording when motor is connected
+- **Sync Strategy**: Uses NetInfo to detect connectivity changes and sync pending data automatically
 
 ### Data Flow
 - Users authenticate with email and 6-digit PIN

@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { AppState, AppStateStatus, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 import type { Trip, TripDataPoint } from "@shared/schema";
 
 const ACTIVE_TRIP_KEY = "@blade_active_trip";
-const TRIP_INTERVAL_MS = 30000; // Check telemetry every 30 seconds
+const PENDING_DATA_KEY = "@blade_pending_trip_data";
+const LOCAL_TRIPS_KEY = "@blade_local_trips";
+const TRIP_INTERVAL_MS = 5000; // Log telemetry every 5 seconds
 
 interface TripContextType {
   activeTrip: Trip | null;
@@ -138,6 +141,60 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Store data point locally for offline support
+  const storeDataPointLocally = async (tripId: number, dataPoint: Partial<TripDataPoint>) => {
+    try {
+      const existing = await AsyncStorage.getItem(PENDING_DATA_KEY);
+      const pendingData: { tripId: number; dataPoint: Partial<TripDataPoint> }[] = existing ? JSON.parse(existing) : [];
+      pendingData.push({ tripId, dataPoint });
+      await AsyncStorage.setItem(PENDING_DATA_KEY, JSON.stringify(pendingData));
+    } catch (error) {
+      console.error("Error storing data locally:", error);
+    }
+  };
+
+  // Sync pending data points to server when online
+  const syncPendingData = async () => {
+    try {
+      const existing = await AsyncStorage.getItem(PENDING_DATA_KEY);
+      if (!existing) return;
+      
+      const pendingData: { tripId: number; dataPoint: Partial<TripDataPoint> }[] = JSON.parse(existing);
+      if (pendingData.length === 0) return;
+
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) return;
+
+      const failedItems: { tripId: number; dataPoint: Partial<TripDataPoint> }[] = [];
+      
+      for (const item of pendingData) {
+        try {
+          await apiRequest("POST", `/api/trips/${item.tripId}/data`, item.dataPoint);
+        } catch (error) {
+          failedItems.push(item);
+        }
+      }
+
+      if (failedItems.length > 0) {
+        await AsyncStorage.setItem(PENDING_DATA_KEY, JSON.stringify(failedItems));
+      } else {
+        await AsyncStorage.removeItem(PENDING_DATA_KEY);
+      }
+    } catch (error) {
+      console.error("Error syncing pending data:", error);
+    }
+  };
+
+  // Try to sync pending data when network becomes available
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      if (state.isConnected) {
+        syncPendingData();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const startDataRecording = useCallback(() => {
     if (recordingRef.current) return;
 
@@ -181,26 +238,31 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const avgSpeed = speedSamplesRef.current.reduce((a, b) => a + b, 0) / speedSamplesRef.current.length;
       setTripStats(prev => ({ ...prev, avgSpeedKmh: avgSpeed }));
 
-      try {
-        await apiRequest("POST", `/api/trips/${activeTrip.id}/data`, {
-          latitude,
-          longitude,
-          speedKmh,
-          course: telemetry.gnss?.course || location?.heading,
-          batteryPercent: telemetry.bms?.capacity,
-          batteryVoltage: telemetry.bms?.voltage,
-          batteryCurrent: telemetry.bms?.current,
-          batteryTemp: telemetry.bms?.temperature,
-          motorRpm: telemetry.motor?.motorRPM,
-          motorCurrent: telemetry.motor?.phaseCurrent,
-          motorTemp: telemetry.motor?.temperature,
-          vescWattage: telemetry.vesc?.wattage,
-          vescCurrent: telemetry.vesc?.current,
-          vescTemp: telemetry.vesc?.temperature,
-          throttlePercent: telemetry.vesc?.throttle,
-        });
-      } catch (error) {
-        console.error("Error recording trip data:", error);
+      const dataPoint: Partial<TripDataPoint> = {
+        latitude,
+        longitude,
+        speedKmh,
+        course: telemetry.gnss?.course || location?.heading,
+        batteryPercent: telemetry.bms?.capacity,
+        batteryVoltage: telemetry.bms?.voltage,
+        batteryCurrent: telemetry.bms?.current,
+        batteryTemp: telemetry.bms?.temperature,
+        motorRpm: telemetry.motor?.motorRPM,
+        motorCurrent: telemetry.motor?.phaseCurrent,
+        motorTemp: telemetry.motor?.temperature,
+        vescWattage: telemetry.vesc?.wattage,
+        vescCurrent: telemetry.vesc?.current,
+        vescTemp: telemetry.vesc?.temperature,
+        throttlePercent: telemetry.vesc?.throttle,
+      };
+
+      // Always store locally first for offline support
+      await storeDataPointLocally(activeTrip.id, dataPoint);
+
+      // Try to sync to server if online
+      const netState = await NetInfo.fetch();
+      if (netState.isConnected) {
+        syncPendingData();
       }
     }, TRIP_INTERVAL_MS);
   }, [activeTrip, telemetry, location, startDurationTimer]);
@@ -223,6 +285,124 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     });
     lastPositionRef.current = null;
     speedSamplesRef.current = [];
+  }, []);
+
+  // Create a local trip when offline
+  const createLocalTrip = async (name: string, startBatteryPercent?: number): Promise<Trip> => {
+    const localId = -Date.now(); // Negative ID to distinguish from server-created trips
+    const trip: Trip = {
+      id: localId,
+      userId: user!.id,
+      motorSerialNumber: motor!.serialNumber,
+      name,
+      startTime: new Date(),
+      endTime: null,
+      startBatteryPercent: startBatteryPercent || null,
+      endBatteryPercent: null,
+      totalDistanceKm: 0,
+      maxSpeedKmh: 0,
+      avgSpeedKmh: 0,
+      totalEnergyWh: 0,
+      createdAt: new Date(),
+    };
+
+    // Store local trip
+    const existing = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+    const localTrips: Trip[] = existing ? JSON.parse(existing) : [];
+    localTrips.push(trip);
+    await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(localTrips));
+    await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(trip));
+
+    return trip;
+  };
+
+  // Sync local trips to server when online
+  const syncLocalTrips = async () => {
+    try {
+      const existing = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+      if (!existing) return;
+
+      const localTrips: Trip[] = JSON.parse(existing);
+      if (localTrips.length === 0) return;
+
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) return;
+
+      const remainingTrips: Trip[] = [];
+
+      for (const trip of localTrips) {
+        try {
+          // Create trip on server
+          const response = await apiRequest("POST", "/api/trips/start", {
+            userId: trip.userId,
+            motorSerialNumber: trip.motorSerialNumber,
+            name: trip.name,
+            startBatteryPercent: trip.startBatteryPercent,
+          });
+          const data = await response.json();
+
+          if (data.trip) {
+            // Update pending data points with new server trip ID
+            const pendingDataStr = await AsyncStorage.getItem(PENDING_DATA_KEY);
+            if (pendingDataStr) {
+              const pendingData = JSON.parse(pendingDataStr);
+              const updatedPending = pendingData.map((item: { tripId: number; dataPoint: Partial<TripDataPoint> }) => 
+                item.tripId === trip.id ? { ...item, tripId: data.trip.id } : item
+              );
+              await AsyncStorage.setItem(PENDING_DATA_KEY, JSON.stringify(updatedPending));
+            }
+
+            // If this was the active trip, update the active trip reference
+            const activeTripStr = await AsyncStorage.getItem(ACTIVE_TRIP_KEY);
+            if (activeTripStr) {
+              const activeLocalTrip = JSON.parse(activeTripStr);
+              if (activeLocalTrip.id === trip.id) {
+                setActiveTrip(data.trip);
+                await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(data.trip));
+              }
+            }
+
+            // End the trip on server if it was already ended locally
+            if (trip.endTime) {
+              await apiRequest("POST", `/api/trips/${data.trip.id}/end`, {
+                endBatteryPercent: trip.endBatteryPercent,
+                totalDistanceKm: trip.totalDistanceKm,
+                maxSpeedKmh: trip.maxSpeedKmh,
+                avgSpeedKmh: trip.avgSpeedKmh,
+                totalEnergyWh: trip.totalEnergyWh,
+              });
+            }
+          } else {
+            remainingTrips.push(trip);
+          }
+        } catch (error) {
+          remainingTrips.push(trip);
+        }
+      }
+
+      if (remainingTrips.length > 0) {
+        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(remainingTrips));
+      } else {
+        await AsyncStorage.removeItem(LOCAL_TRIPS_KEY);
+      }
+
+      // Sync pending data points
+      await syncPendingData();
+    } catch (error) {
+      console.error("Error syncing local trips:", error);
+    }
+  };
+
+  // Sync local trips when network becomes available
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      if (state.isConnected) {
+        syncLocalTrips();
+      }
+    });
+    // Also try to sync on mount
+    syncLocalTrips();
+    return () => unsubscribe();
   }, []);
 
   const startTrip = async (name?: string): Promise<boolean> => {
@@ -258,37 +438,65 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
 
     setIsLoading(true);
-    try {
-      const response = await apiRequest("POST", "/api/trips/start", {
-        userId: user.id,
-        motorSerialNumber: motor.serialNumber,
-        name: name || `Trip ${new Date().toLocaleDateString()}`,
-        startBatteryPercent: telemetry?.bms?.capacity,
-      });
+    const tripName = name || `Trip ${new Date().toLocaleDateString()}`;
+    const startBatteryPercent = telemetry?.bms?.capacity;
 
-      const data = await response.json();
-      if (data.trip) {
+    try {
+      // Check if we're online
+      const netState = await NetInfo.fetch();
+      
+      if (netState.isConnected) {
+        // Online: create trip on server
+        const response = await apiRequest("POST", "/api/trips/start", {
+          userId: user.id,
+          motorSerialNumber: motor.serialNumber,
+          name: tripName,
+          startBatteryPercent,
+        });
+
+        const data = await response.json();
+        if (data.trip) {
+          resetTripState();
+          setActiveTrip(data.trip);
+          setIsRecording(true);
+          await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(data.trip));
+          return true;
+        }
+        
+        // Server returned but no trip - show error
+        Alert.alert(
+          "Could Not Start Trip",
+          data.error || "An unexpected error occurred. Please try again.",
+          [{ text: "OK" }]
+        );
+        return false;
+      } else {
+        // Offline: create local trip
+        const localTrip = await createLocalTrip(tripName, startBatteryPercent);
         resetTripState();
-        setActiveTrip(data.trip);
+        setActiveTrip(localTrip);
         setIsRecording(true);
         return true;
       }
-      
-      // Server returned but no trip - show error
-      Alert.alert(
-        "Could Not Start Trip",
-        data.error || "An unexpected error occurred. Please try again.",
-        [{ text: "OK" }]
-      );
-      return false;
     } catch (error) {
-      console.error("Error starting trip:", error);
-      Alert.alert(
-        "Connection Error",
-        "Could not connect to the server. Please check your internet connection.",
-        [{ text: "OK" }]
-      );
-      return false;
+      console.error("Error starting trip, trying offline mode:", error);
+      
+      // Network error: create local trip
+      try {
+        const localTrip = await createLocalTrip(tripName, startBatteryPercent);
+        resetTripState();
+        setActiveTrip(localTrip);
+        setIsRecording(true);
+        return true;
+      } catch (localError) {
+        console.error("Error creating local trip:", localError);
+        Alert.alert(
+          "Error",
+          "Could not start trip. Please try again.",
+          [{ text: "OK" }]
+        );
+        return false;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -299,17 +507,68 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoading(true);
     stopDataRecording();
-    try {
-      const response = await apiRequest("POST", `/api/trips/${activeTrip.id}/end`, {
-        endBatteryPercent: telemetry?.bms?.capacity,
-        totalDistanceKm: tripStats.totalDistanceKm,
-        maxSpeedKmh: tripStats.maxSpeedKmh,
-        avgSpeedKmh: tripStats.avgSpeedKmh,
-        totalEnergyWh: tripStats.totalEnergyWh,
-      });
 
-      const data = await response.json();
-      if (data.success) {
+    const tripData = {
+      endBatteryPercent: telemetry?.bms?.capacity,
+      totalDistanceKm: tripStats.totalDistanceKm,
+      maxSpeedKmh: tripStats.maxSpeedKmh,
+      avgSpeedKmh: tripStats.avgSpeedKmh,
+      totalEnergyWh: tripStats.totalEnergyWh,
+    };
+
+    try {
+      // Check if this is a local trip (negative ID)
+      if (activeTrip.id < 0) {
+        // Update local trip with end data
+        const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+        if (localTripsStr) {
+          const localTrips: Trip[] = JSON.parse(localTripsStr);
+          const updatedTrips = localTrips.map(trip => 
+            trip.id === activeTrip.id
+              ? {
+                  ...trip,
+                  endTime: new Date(),
+                  ...tripData,
+                }
+              : trip
+          );
+          await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(updatedTrips));
+        }
+        await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+        setActiveTrip(null);
+        setIsRecording(false);
+        
+        // Try to sync if online
+        const netState = await NetInfo.fetch();
+        if (netState.isConnected) {
+          syncLocalTrips();
+        }
+        return true;
+      }
+
+      // Online trip - try to end on server
+      const netState = await NetInfo.fetch();
+      if (netState.isConnected) {
+        const response = await apiRequest("POST", `/api/trips/${activeTrip.id}/end`, tripData);
+        const data = await response.json();
+        if (data.success) {
+          await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+          setActiveTrip(null);
+          setIsRecording(false);
+          return true;
+        }
+      } else {
+        // Offline - store end data locally to sync later
+        const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+        const localTrips: Trip[] = localTripsStr ? JSON.parse(localTripsStr) : [];
+        const endedTrip = {
+          ...activeTrip,
+          endTime: new Date(),
+          ...tripData,
+        };
+        localTrips.push(endedTrip);
+        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(localTrips));
+        await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
         setActiveTrip(null);
         setIsRecording(false);
         return true;
@@ -317,7 +576,25 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       return false;
     } catch (error) {
       console.error("Error ending trip:", error);
-      return false;
+      // Try to save locally on error
+      try {
+        const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+        const localTrips: Trip[] = localTripsStr ? JSON.parse(localTripsStr) : [];
+        const endedTrip = {
+          ...activeTrip,
+          endTime: new Date(),
+          ...tripData,
+        };
+        localTrips.push(endedTrip);
+        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(localTrips));
+        await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+        setActiveTrip(null);
+        setIsRecording(false);
+        return true;
+      } catch (localError) {
+        console.error("Error saving trip locally:", localError);
+        return false;
+      }
     } finally {
       setIsLoading(false);
     }
