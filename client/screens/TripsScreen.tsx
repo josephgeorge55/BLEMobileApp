@@ -29,7 +29,7 @@ export default function TripsScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const { user } = useUser();
-  const { activeTrip, isRecording, startTrip, endTrip, isLoading: tripLoading } = useTrip();
+  const { activeTrip, isRecording, startTrip, endTrip, isLoading: tripLoading, tripDuration, tripStats } = useTrip();
   const { motor } = useMotor();
   
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -95,6 +95,16 @@ export default function TripsScreen() {
     return `${minutes}m`;
   };
 
+  const formatLiveDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString(undefined, {
       weekday: "short",
@@ -133,9 +143,9 @@ export default function TripsScreen() {
           <View style={styles.tripStats}>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.text }]}>
-                {(item.totalDistanceNm || 0).toFixed(1)}
+                {(item.totalDistanceKm || 0).toFixed(1)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>nm</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -147,14 +157,14 @@ export default function TripsScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.text }]}>
-                {(item.maxSpeedKts || 0).toFixed(1)}
+                {(item.maxSpeedKmh || 0).toFixed(1)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>max kts</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>max km/h</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.text }]}>
-                {((item.totalEnergyKwh || 0) * 1000).toFixed(0)}
+                {(item.totalEnergyWh || 0).toFixed(0)}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Wh</Text>
             </View>
@@ -180,26 +190,59 @@ export default function TripsScreen() {
   const renderHeader = () => (
     <View style={styles.headerSection}>
       {isRecording ? (
-        <Pressable
-          onPress={handleEndTrip}
-          disabled={tripLoading}
-          testID="stop-trip-button"
-          style={styles.tripButton}
-        >
-          <LinearGradient
-            colors={[BladeColors.error, "#C0392B"]}
-            style={styles.tripButtonGradient}
+        <>
+          <Card style={styles.liveRecordingCard}>
+            <View style={styles.liveRecordingHeader}>
+              <View style={styles.recordingIndicator}>
+                <View style={styles.recordingDot} />
+                <Text style={styles.recordingText}>RECORDING</Text>
+              </View>
+              <Text style={[styles.liveDuration, { color: theme.text }]}>
+                {formatLiveDuration(tripDuration)}
+              </Text>
+            </View>
+            <View style={styles.liveStats}>
+              <View style={styles.liveStatItem}>
+                <Text style={[styles.liveStatValue, { color: theme.text }]}>
+                  {tripStats.totalDistanceKm.toFixed(2)}
+                </Text>
+                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>km</Text>
+              </View>
+              <View style={styles.liveStatItem}>
+                <Text style={[styles.liveStatValue, { color: theme.text }]}>
+                  {tripStats.maxSpeedKmh.toFixed(1)}
+                </Text>
+                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>max km/h</Text>
+              </View>
+              <View style={styles.liveStatItem}>
+                <Text style={[styles.liveStatValue, { color: theme.text }]}>
+                  {tripStats.totalEnergyWh.toFixed(0)}
+                </Text>
+                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>Wh</Text>
+              </View>
+            </View>
+          </Card>
+          <Pressable
+            onPress={handleEndTrip}
+            disabled={tripLoading}
+            testID="stop-trip-button"
+            style={styles.tripButton}
           >
-            {tripLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Feather name="stop-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.tripButtonText}>End Trip</Text>
-              </>
-            )}
-          </LinearGradient>
-        </Pressable>
+            <LinearGradient
+              colors={[BladeColors.error, "#C0392B"]}
+              style={styles.tripButtonGradient}
+            >
+              {tripLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Feather name="stop-circle" size={24} color="#FFFFFF" />
+                  <Text style={styles.tripButtonText}>End Trip</Text>
+                </>
+              )}
+            </LinearGradient>
+          </Pressable>
+        </>
       ) : (
         <Pressable
           onPress={handleStartTrip}
@@ -395,5 +438,53 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
+  },
+  liveRecordingCard: {
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderWidth: 2,
+    borderColor: BladeColors.error,
+  },
+  liveRecordingHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  recordingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: BladeColors.error,
+  },
+  recordingText: {
+    color: BladeColors.error,
+    fontSize: Typography.sizes.sm,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  liveDuration: {
+    fontSize: Typography.sizes.xl,
+    fontWeight: "700",
+  },
+  liveStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  liveStatItem: {
+    alignItems: "center",
+  },
+  liveStatValue: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: "700",
+  },
+  liveStatLabel: {
+    fontSize: Typography.sizes.xs,
+    marginTop: 2,
   },
 });

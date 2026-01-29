@@ -149,8 +149,8 @@ export default function TripDetailScreen() {
     if (!trip) return "";
 
     const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
-    const efficiency = trip.totalDistanceNm && trip.totalEnergyKwh
-      ? (trip.totalEnergyKwh * 1000) / trip.totalDistanceNm
+    const efficiency = trip.totalDistanceKm && trip.totalEnergyWh
+      ? trip.totalEnergyWh / trip.totalDistanceKm
       : 0;
 
     return `
@@ -252,15 +252,15 @@ export default function TripDetailScreen() {
               <div class="section-title">Trip Summary</div>
               <div class="stats-grid">
                 <div class="stat-box">
-                  <div class="stat-value">${(trip.totalDistanceNm || 0).toFixed(2)}</div>
-                  <div class="stat-label">Distance (nm)</div>
+                  <div class="stat-value">${(trip.totalDistanceKm || 0).toFixed(2)}</div>
+                  <div class="stat-label">Distance (km)</div>
                 </div>
                 <div class="stat-box">
-                  <div class="stat-value-accent">${((trip.maxSpeedKts || 0) * 1.852).toFixed(1)}</div>
+                  <div class="stat-value-accent">${(trip.maxSpeedKmh || 0).toFixed(1)}</div>
                   <div class="stat-label">Max Speed (km/h)</div>
                 </div>
                 <div class="stat-box">
-                  <div class="stat-value">${((trip.avgSpeedKts || 0) * 1.852).toFixed(1)}</div>
+                  <div class="stat-value">${(trip.avgSpeedKmh || 0).toFixed(1)}</div>
                   <div class="stat-label">Avg Speed (km/h)</div>
                 </div>
                 <div class="stat-box">
@@ -274,7 +274,7 @@ export default function TripDetailScreen() {
               <div class="section-title">Energy Consumption</div>
               <div class="stats-grid-3">
                 <div class="stat-box">
-                  <div class="stat-value">${((trip.totalEnergyKwh || 0) * 1000).toFixed(0)}</div>
+                  <div class="stat-value">${(trip.totalEnergyWh || 0).toFixed(0)}</div>
                   <div class="stat-label">Total Energy (Wh)</div>
                 </div>
                 <div class="stat-box">
@@ -283,7 +283,7 @@ export default function TripDetailScreen() {
                 </div>
                 <div class="stat-box">
                   <div class="stat-value-accent">${efficiency.toFixed(1)}</div>
-                  <div class="stat-label">Efficiency (Wh/nm)</div>
+                  <div class="stat-label">Efficiency (Wh/km)</div>
                 </div>
               </div>
             </div>
@@ -345,7 +345,7 @@ export default function TripDetailScreen() {
     
     try {
       await Share.share({
-        message: `Blade Outboards Trip Report\n\nTrip: ${trip.name || "Trip"}\nDistance: ${(trip.totalDistanceNm || 0).toFixed(2)} nm\nDuration: ${formatDuration(trip.startTime, trip.endTime)}\nMax Speed: ${ktsToKmh(trip.maxSpeedKts || 0).toFixed(1)} km/h\nEnergy Used: ${((trip.totalEnergyKwh || 0) * 1000).toFixed(0)} Wh`,
+        message: `Blade Outboards Trip Report\n\nTrip: ${trip.name || "Trip"}\nDistance: ${(trip.totalDistanceKm || 0).toFixed(2)} km\nDuration: ${formatDuration(trip.startTime, trip.endTime)}\nMax Speed: ${(trip.maxSpeedKmh || 0).toFixed(1)} km/h\nEnergy Used: ${(trip.totalEnergyWh || 0).toFixed(0)} Wh`,
         title: "Trip Report",
       });
     } catch (error) {
@@ -370,7 +370,7 @@ export default function TripDetailScreen() {
     );
   }
 
-  const speedData = dataPoints.filter(p => p.speedKts != null).map(p => p.speedKts!);
+  const speedData = dataPoints.filter(p => p.speedKmh != null).map(p => p.speedKmh!);
   const batteryData = dataPoints.filter(p => p.batteryPercent != null).map(p => p.batteryPercent!);
   const powerData = dataPoints.filter(p => p.vescWattage != null).map(p => p.vescWattage!);
   const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
@@ -434,9 +434,9 @@ export default function TripDetailScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
               <Text style={[styles.statValue, { color: BladeColors.primary }]}>
-                {(trip.totalDistanceNm || 0).toFixed(2)}
+                {(trip.totalDistanceKm || 0).toFixed(2)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>nm</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statValue, { color: BladeColors.primary }]}>
@@ -446,13 +446,13 @@ export default function TripDetailScreen() {
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statValue, { color: BladeColors.accent }]}>
-                {ktsToKmh(trip.maxSpeedKts || 0).toFixed(1)}
+                {(trip.maxSpeedKmh || 0).toFixed(1)}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Max km/h</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statValue, { color: BladeColors.accent }]}>
-                {ktsToKmh(trip.avgSpeedKts || 0).toFixed(1)}
+                {(trip.avgSpeedKmh || 0).toFixed(1)}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg km/h</Text>
             </View>
@@ -506,7 +506,7 @@ export default function TripDetailScreen() {
               <Feather name="zap" size={20} color={BladeColors.warning} />
               <View style={styles.energyStatText}>
                 <Text style={[styles.energyValue, { color: theme.text }]}>
-                  {((trip.totalEnergyKwh || 0) * 1000).toFixed(0)} Wh
+                  {(trip.totalEnergyWh || 0).toFixed(0)} Wh
                 </Text>
                 <Text style={[styles.energyLabel, { color: theme.textSecondary }]}>
                   Total Energy
@@ -517,9 +517,9 @@ export default function TripDetailScreen() {
               <Feather name="trending-up" size={20} color={BladeColors.primary} />
               <View style={styles.energyStatText}>
                 <Text style={[styles.energyValue, { color: theme.text }]}>
-                  {trip.totalDistanceNm && trip.totalEnergyKwh
-                    ? ((trip.totalEnergyKwh * 1000) / trip.totalDistanceNm).toFixed(1)
-                    : "0"} Wh/nm
+                  {trip.totalDistanceKm && trip.totalEnergyWh
+                    ? (trip.totalEnergyWh / trip.totalDistanceKm).toFixed(1)
+                    : "0"} Wh/km
                 </Text>
                 <Text style={[styles.energyLabel, { color: theme.textSecondary }]}>
                   Efficiency

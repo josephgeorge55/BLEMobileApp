@@ -43,8 +43,8 @@ function handleZodError(error: unknown, res: Response) {
   throw error;
 }
 
-function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 3440.065;
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -465,46 +465,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const dataPoints = await storage.getTripDataPoints(tripId);
       
-      let totalDistanceNm = 0;
-      let maxSpeedKts = 0;
-      let speedSum = 0;
-      let speedCount = 0;
-      let totalEnergyWh = 0;
+      let totalDistanceKm = body.totalDistanceKm || 0;
+      let maxSpeedKmh = body.maxSpeedKmh || 0;
+      let avgSpeedKmh = body.avgSpeedKmh || 0;
+      let totalEnergyWh = body.totalEnergyWh || 0;
 
-      for (let i = 0; i < dataPoints.length; i++) {
-        const point = dataPoints[i];
-        
-        if (point.speedKts !== null && point.speedKts !== undefined) {
-          if (point.speedKts > maxSpeedKts) maxSpeedKts = point.speedKts;
-          speedSum += point.speedKts;
-          speedCount++;
-        }
+      if (dataPoints.length > 0 && !body.totalDistanceKm) {
+        let speedSum = 0;
+        let speedCount = 0;
 
-        if (point.vescWattage !== null && point.vescWattage !== undefined) {
-          totalEnergyWh += (point.vescWattage / 3600) * 0.5;
-        }
+        for (let i = 0; i < dataPoints.length; i++) {
+          const point = dataPoints[i];
+          
+          if (point.speedKmh !== null && point.speedKmh !== undefined) {
+            if (point.speedKmh > maxSpeedKmh) maxSpeedKmh = point.speedKmh;
+            speedSum += point.speedKmh;
+            speedCount++;
+          }
 
-        if (i > 0 && point.latitude && point.longitude) {
-          const prevPoint = dataPoints[i - 1];
-          if (prevPoint.latitude && prevPoint.longitude) {
-            const dist = haversineNm(
-              prevPoint.latitude, prevPoint.longitude,
-              point.latitude, point.longitude
-            );
-            totalDistanceNm += dist;
+          if (point.vescWattage !== null && point.vescWattage !== undefined) {
+            totalEnergyWh += (point.vescWattage / 3600) * 30;
+          }
+
+          if (i > 0 && point.latitude && point.longitude) {
+            const prevPoint = dataPoints[i - 1];
+            if (prevPoint.latitude && prevPoint.longitude) {
+              const dist = haversineKm(
+                prevPoint.latitude, prevPoint.longitude,
+                point.latitude, point.longitude
+              );
+              totalDistanceKm += dist;
+            }
           }
         }
-      }
 
-      const avgSpeedKts = speedCount > 0 ? speedSum / speedCount : 0;
-      const totalEnergyKwh = totalEnergyWh / 1000;
+        avgSpeedKmh = speedCount > 0 ? speedSum / speedCount : 0;
+      }
 
       const endedTrip = await storage.endTrip(tripId, {
         endBatteryPercent: body.endBatteryPercent,
-        totalDistanceNm,
-        maxSpeedKts,
-        avgSpeedKts,
-        totalEnergyKwh,
+        totalDistanceKm,
+        maxSpeedKmh,
+        avgSpeedKmh,
+        totalEnergyWh,
       });
 
       res.json({ success: true, trip: endedTrip });
