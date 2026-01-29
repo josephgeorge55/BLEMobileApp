@@ -9,6 +9,7 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,21 +29,18 @@ const FIRMWARE_PROTOCOL = "BLE 5.0";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
-  const { login, register, loginAsGuest } = useUser();
+  const { login, register, loginAsGuest, resetPassword } = useUser();
   
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "reset">("login");
   const [email, setEmail] = useState("");
-  const [pin, setPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
-  const isValidPin = (pin: string) => {
-    return /^\d{6}$/.test(pin);
   };
 
   const handleSubmit = async () => {
@@ -53,13 +51,36 @@ export default function AuthScreen() {
       return;
     }
 
-    if (!isValidPin(pin)) {
-      setError("PIN must be exactly 6 digits");
+    if (mode === "reset") {
+      setIsLoading(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      try {
+        const result = await resetPassword(email);
+        if (result.success) {
+          Alert.alert(
+            "Check Your Email",
+            "We've sent a password reset link to your email address.",
+            [{ text: "OK", onPress: () => setMode("login") }]
+          );
+        } else {
+          setError(result.error || "Password reset failed");
+        }
+      } catch (e: any) {
+        setError(e.message || "Network error");
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
-    if (mode === "register" && pin !== confirmPin) {
-      setError("PINs do not match");
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    if (mode === "register" && password !== confirmPassword) {
+      setError("Passwords do not match");
       return;
     }
 
@@ -68,8 +89,8 @@ export default function AuthScreen() {
 
     try {
       const result = mode === "register" 
-        ? await register(email, pin)
-        : await login(email, pin);
+        ? await register(email, password)
+        : await login(email, password);
 
       if (!result.success) {
         setError(result.error || "Something went wrong");
@@ -82,14 +103,25 @@ export default function AuthScreen() {
   };
 
   const toggleMode = () => {
-    setMode(mode === "login" ? "register" : "login");
+    if (mode === "reset") {
+      setMode("login");
+    } else {
+      setMode(mode === "login" ? "register" : "login");
+    }
     setError(null);
-    setPin("");
-    setConfirmPin("");
+    setPassword("");
+    setConfirmPassword("");
   };
 
   const handleOpenSupport = async () => {
     await WebBrowser.openBrowserAsync("https://support.bladeoutboards.com");
+  };
+
+  const handleForgotPassword = () => {
+    setMode("reset");
+    setError(null);
+    setPassword("");
+    setConfirmPassword("");
   };
 
   return (
@@ -127,12 +159,14 @@ export default function AuthScreen() {
           <View style={styles.formSection}>
             <View style={styles.formCard}>
               <ThemedText type="h2" style={styles.formTitle}>
-                {mode === "login" ? "Welcome Back" : "Create Account"}
+                {mode === "login" ? "Welcome Back" : mode === "register" ? "Create Account" : "Reset Password"}
               </ThemedText>
               <ThemedText type="small" style={styles.formSubtitle}>
                 {mode === "login" 
                   ? "Sign in to manage your outboard" 
-                  : "Register to pair your Blade outboard"}
+                  : mode === "register"
+                    ? "Register to pair your Blade outboard"
+                    : "Enter your email to reset your password"}
               </ThemedText>
 
               {error ? (
@@ -156,41 +190,66 @@ export default function AuthScreen() {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   autoComplete="email"
+                  testID="email-input"
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <ThemedText type="caption" style={styles.inputLabel}>
-                  6-DIGIT PIN
-                </ThemedText>
-                <TextInput
-                  style={styles.input}
-                  placeholder="000000"
-                  placeholderTextColor="#64748B"
-                  value={pin}
-                  onChangeText={(text) => setPin(text.replace(/\D/g, "").slice(0, 6))}
-                  keyboardType="number-pad"
-                  secureTextEntry
-                  maxLength={6}
-                />
-              </View>
+              {mode !== "reset" ? (
+                <>
+                  <View style={styles.inputGroup}>
+                    <ThemedText type="caption" style={styles.inputLabel}>
+                      PASSWORD
+                    </ThemedText>
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={[styles.input, styles.passwordInput]}
+                        placeholder="Enter password"
+                        placeholderTextColor="#64748B"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        autoComplete="password"
+                        testID="password-input"
+                      />
+                      <Pressable 
+                        onPress={() => setShowPassword(!showPassword)}
+                        style={styles.eyeButton}
+                      >
+                        <Feather 
+                          name={showPassword ? "eye-off" : "eye"} 
+                          size={20} 
+                          color="#64748B" 
+                        />
+                      </Pressable>
+                    </View>
+                  </View>
 
-              {mode === "register" ? (
-                <View style={styles.inputGroup}>
-                  <ThemedText type="caption" style={styles.inputLabel}>
-                    CONFIRM PIN
-                  </ThemedText>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="000000"
-                    placeholderTextColor="#64748B"
-                    value={confirmPin}
-                    onChangeText={(text) => setConfirmPin(text.replace(/\D/g, "").slice(0, 6))}
-                    keyboardType="number-pad"
-                    secureTextEntry
-                    maxLength={6}
-                  />
-                </View>
+                  {mode === "register" ? (
+                    <View style={styles.inputGroup}>
+                      <ThemedText type="caption" style={styles.inputLabel}>
+                        CONFIRM PASSWORD
+                      </ThemedText>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Confirm password"
+                        placeholderTextColor="#64748B"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showPassword}
+                        autoComplete="password"
+                        testID="confirm-password-input"
+                      />
+                    </View>
+                  ) : null}
+
+                  {mode === "login" ? (
+                    <Pressable onPress={handleForgotPassword} style={styles.forgotPassword}>
+                      <ThemedText type="small" style={styles.forgotPasswordText}>
+                        Forgot password?
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
+                </>
               ) : null}
 
               <Button
@@ -201,7 +260,7 @@ export default function AuthScreen() {
                 {isLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  mode === "login" ? "Sign In" : "Create Account"
+                  mode === "login" ? "Sign In" : mode === "register" ? "Create Account" : "Send Reset Link"
                 )}
               </Button>
 
@@ -209,25 +268,31 @@ export default function AuthScreen() {
                 <ThemedText type="small" style={styles.toggleText}>
                   {mode === "login" 
                     ? "Don't have an account? " 
-                    : "Already have an account? "}
+                    : mode === "register"
+                      ? "Already have an account? "
+                      : "Remember your password? "}
                   <ThemedText type="small" style={styles.toggleLink}>
                     {mode === "login" ? "Register" : "Sign In"}
                   </ThemedText>
                 </ThemedText>
               </Pressable>
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <ThemedText type="caption" style={styles.dividerText}>OR</ThemedText>
-                <View style={styles.dividerLine} />
-              </View>
+              {mode !== "reset" ? (
+                <>
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <ThemedText type="caption" style={styles.dividerText}>OR</ThemedText>
+                    <View style={styles.dividerLine} />
+                  </View>
 
-              <Pressable onPress={loginAsGuest} style={styles.guestButton}>
-                <Feather name="user" size={18} color="#94A3B8" />
-                <ThemedText type="body" style={styles.guestButtonText}>
-                  Continue as Guest
-                </ThemedText>
-              </Pressable>
+                  <Pressable onPress={loginAsGuest} style={styles.guestButton} testID="guest-button">
+                    <Feather name="user" size={18} color="#94A3B8" />
+                    <ThemedText type="body" style={styles.guestButtonText}>
+                      Continue as Guest
+                    </ThemedText>
+                  </Pressable>
+                </>
+              ) : null}
             </View>
           </View>
 
@@ -343,6 +408,27 @@ const styles = StyleSheet.create({
     color: "#F8FAFC",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  passwordContainer: {
+    position: "relative",
+  },
+  passwordInput: {
+    paddingRight: 50,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 16,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+  },
+  forgotPassword: {
+    alignItems: "flex-end",
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  forgotPasswordText: {
+    color: BladeColors.accent,
   },
   submitButton: {
     marginTop: Spacing.sm,

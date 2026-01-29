@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { 
+  auth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  type User as FirebaseUser
+} from "@/lib/firebase";
 
 interface UserData {
   id: string;
@@ -13,16 +21,16 @@ interface UserContextType {
   isLoading: boolean;
   isLoggedIn: boolean;
   isGuestMode: boolean;
-  login: (email: string, pin: string) => Promise<{ success: boolean; error?: string }>;
-  register: (email: string, pin: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 const USER_STORAGE_KEY = "@blade_user";
-
 const GUEST_STORAGE_KEY = "@blade_guest_mode";
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
@@ -32,10 +40,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadStoredUser();
+    
+    // Listen for Firebase auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in with Firebase
+        const userData: UserData = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
+        };
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+        await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
+        setUser(userData);
+        setIsGuestMode(false);
+      }
+      // Note: We don't clear user on sign out here because guest mode handles that differently
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadStoredUser = async () => {
     try {
+      // Check for guest mode first
       const storedGuest = await AsyncStorage.getItem(GUEST_STORAGE_KEY);
       if (storedGuest === "true") {
         setIsGuestMode(true);
@@ -48,6 +76,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Check for stored Firebase user (for offline access)
       const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
       if (storedUser) {
         const userData = JSON.parse(storedUser);
@@ -61,53 +90,101 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const saveUser = async (userData: UserData) => {
-    await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-    setUser(userData);
-  };
-
-  const register = async (email: string, pin: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await apiRequest("POST", "/api/auth/register", { email, pin });
-      const data = await response.json();
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
       
-      if (data.success && data.user) {
-        await saveUser({
-          id: data.user.id,
-          email: data.user.email,
-          createdAt: new Date(data.user.createdAt),
-        });
-        return { success: true };
-      } else {
-        return { success: false, error: data.error || "Registration failed" };
-      }
+      const userData: UserData = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email || email,
+        createdAt: new Date(),
+      };
+      
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
+      setUser(userData);
+      setIsGuestMode(false);
+      
+      return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message || "Network error" };
+      console.error("Firebase registration error:", error);
+      
+      // Map Firebase error codes to user-friendly messages
+      let errorMessage = "Registration failed";
+      switch (error.code) {
+        case "auth/email-already-in-use":
+          errorMessage = "This email is already registered. Please sign in instead.";
+          break;
+        case "auth/invalid-email":
+          errorMessage = "Please enter a valid email address.";
+          break;
+        case "auth/weak-password":
+          errorMessage = "Password must be at least 6 characters.";
+          break;
+        case "auth/operation-not-allowed":
+          errorMessage = "Email/password accounts are not enabled.";
+          break;
+        default:
+          errorMessage = error.message || "Registration failed";
+      }
+      
+      return { success: false, error: errorMessage };
     }
   };
 
-  const login = async (email: string, pin: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await apiRequest("POST", "/api/auth/login", { email, pin });
-      const data = await response.json();
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
       
-      if (data.success && data.user) {
-        await saveUser({
-          id: data.user.id,
-          email: data.user.email,
-          createdAt: new Date(data.user.createdAt),
-        });
-        return { success: true };
-      } else {
-        return { success: false, error: data.error || "Login failed" };
-      }
+      const userData: UserData = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email || email,
+        createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
+      };
+      
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
+      setUser(userData);
+      setIsGuestMode(false);
+      
+      return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message || "Network error" };
+      console.error("Firebase login error:", error);
+      
+      // Map Firebase error codes to user-friendly messages
+      let errorMessage = "Login failed";
+      switch (error.code) {
+        case "auth/user-not-found":
+          errorMessage = "No account found with this email.";
+          break;
+        case "auth/wrong-password":
+          errorMessage = "Incorrect password.";
+          break;
+        case "auth/invalid-email":
+          errorMessage = "Please enter a valid email address.";
+          break;
+        case "auth/user-disabled":
+          errorMessage = "This account has been disabled.";
+          break;
+        case "auth/too-many-requests":
+          errorMessage = "Too many failed attempts. Please try again later.";
+          break;
+        case "auth/invalid-credential":
+          errorMessage = "Invalid email or password.";
+          break;
+        default:
+          errorMessage = error.message || "Login failed";
+      }
+      
+      return { success: false, error: errorMessage };
     }
   };
 
   const loginAsGuest = async () => {
     await AsyncStorage.setItem(GUEST_STORAGE_KEY, "true");
+    await AsyncStorage.removeItem(USER_STORAGE_KEY);
     setIsGuestMode(true);
     setUser({
       id: "guest",
@@ -117,10 +194,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    try {
+      // Sign out from Firebase if not in guest mode
+      if (!isGuestMode && auth.currentUser) {
+        await firebaseSignOut(auth);
+      }
+    } catch (error) {
+      console.error("Firebase sign out error:", error);
+    }
+    
     await AsyncStorage.removeItem(USER_STORAGE_KEY);
     await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
     setUser(null);
     setIsGuestMode(false);
+  };
+
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Firebase password reset error:", error);
+      
+      let errorMessage = "Password reset failed";
+      switch (error.code) {
+        case "auth/user-not-found":
+          errorMessage = "No account found with this email.";
+          break;
+        case "auth/invalid-email":
+          errorMessage = "Please enter a valid email address.";
+          break;
+        default:
+          errorMessage = error.message || "Password reset failed";
+      }
+      
+      return { success: false, error: errorMessage };
+    }
   };
 
   return (
@@ -134,6 +243,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         register,
         loginAsGuest,
         logout,
+        resetPassword,
       }}
     >
       {children}
