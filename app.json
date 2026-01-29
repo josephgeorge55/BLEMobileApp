@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "bladeoutboards",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bladeoutboards.app",
