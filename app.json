@@ -25,6 +25,8 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "BLUETOOTH",
@@ -38,6 +40,15 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "networkSecurityConfig": "./network-security-config.xml"
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {
