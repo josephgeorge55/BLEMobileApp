@@ -370,6 +370,21 @@ export async function getClassicDiagnostics(): Promise<{
 
 let pendingDataResolve: ((data: Uint8Array | null) => void) | null = null;
 let pendingDataBuffer: number[] = [];
+let otaMode = false;
+
+export function setOTAMode(enabled: boolean): void {
+  otaMode = enabled;
+  if (enabled) {
+    pendingDataBuffer = [];
+    console.log("[BT-Classic] OTA mode enabled - binary data handling active");
+  } else {
+    console.log("[BT-Classic] OTA mode disabled - normal text mode");
+  }
+}
+
+export function isInOTAMode(): boolean {
+  return otaMode;
+}
 
 export async function sendBinaryData(data: Uint8Array): Promise<void> {
   if (!connectedDevice) {
@@ -377,53 +392,108 @@ export async function sendBinaryData(data: Uint8Array): Promise<void> {
   }
 
   try {
+    const hexPreview = Array.from(data.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    console.log(`[BT-OTA] TX (${data.length} bytes): ${hexPreview}${data.length > 16 ? '...' : ''}`);
+    
     const base64 = arrayBufferToBase64(data);
     await connectedDevice.write(base64, "base64");
+    
+    await new Promise(resolve => setTimeout(resolve, 5));
   } catch (error) {
-    console.error("Error sending binary data:", error);
+    console.error("[BT-OTA] Error sending binary data:", error);
     throw error;
   }
 }
 
 export async function receiveBinaryData(timeout: number): Promise<Uint8Array | null> {
   if (!connectedDevice) {
+    console.log("[BT-OTA] No device connected for receive");
     return null;
   }
 
   return new Promise((resolve) => {
-    pendingDataResolve = resolve;
-    pendingDataBuffer = [];
+    const startTime = Date.now();
+    let receivedData: number[] = [];
+    let checkInterval: ReturnType<typeof setInterval> | null = null;
+
+    const cleanup = () => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+        checkInterval = null;
+      }
+    };
 
     const timeoutId = setTimeout(() => {
-      pendingDataResolve = null;
-      if (pendingDataBuffer.length > 0) {
-        resolve(new Uint8Array(pendingDataBuffer));
-        pendingDataBuffer = [];
+      cleanup();
+      if (receivedData.length > 0) {
+        console.log(`[BT-OTA] RX timeout with ${receivedData.length} bytes collected`);
+        resolve(new Uint8Array(receivedData));
       } else {
+        console.log("[BT-OTA] RX timeout - no data received");
         resolve(null);
       }
     }, timeout);
 
     const checkForData = async () => {
       try {
+        if (!connectedDevice) {
+          cleanup();
+          clearTimeout(timeoutId);
+          resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
+          return;
+        }
+
         const available = await connectedDevice.available();
         if (available > 0) {
-          const data = await connectedDevice.read();
-          if (data) {
-            clearTimeout(timeoutId);
-            pendingDataResolve = null;
+          const rawData = await connectedDevice.read();
+          if (rawData) {
+            const bytes = base64ToBytes(rawData) || stringToBytes(rawData);
+            receivedData.push(...bytes);
             
-            const bytes = stringToBytes(data);
-            resolve(new Uint8Array(bytes));
+            const hexPreview = bytes.slice(0, 16).map((b: number) => b.toString(16).padStart(2, '0')).join(' ');
+            console.log(`[BT-OTA] RX chunk (${bytes.length} bytes): ${hexPreview}${bytes.length > 16 ? '...' : ''}`);
+            
+            if (receivedData.length > 0 && (receivedData[0] === 0x79 || receivedData[0] === 0x1F)) {
+              cleanup();
+              clearTimeout(timeoutId);
+              console.log(`[BT-OTA] RX complete (ACK/NACK): ${receivedData.length} bytes`);
+              resolve(new Uint8Array(receivedData));
+              return;
+            }
+            
+            if (receivedData.length >= 13 && receivedData[0] === 0x79) {
+              cleanup();
+              clearTimeout(timeoutId);
+              console.log(`[BT-OTA] RX complete (GET response): ${receivedData.length} bytes`);
+              resolve(new Uint8Array(receivedData));
+              return;
+            }
           }
         }
       } catch (error) {
-        console.error("Error reading binary data:", error);
+        console.error("[BT-OTA] Error in receive loop:", error);
       }
     };
 
     checkForData();
+    checkInterval = setInterval(checkForData, 50);
   });
+}
+
+function base64ToBytes(base64: string): number[] | null {
+  try {
+    if (!/^[A-Za-z0-9+/=]+$/.test(base64)) {
+      return null;
+    }
+    const binary = atob(base64);
+    const bytes: number[] = [];
+    for (let i = 0; i < binary.length; i++) {
+      bytes.push(binary.charCodeAt(i) & 0xFF);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
 }
 
 function arrayBufferToBase64(buffer: Uint8Array): string {

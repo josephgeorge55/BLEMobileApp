@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -28,6 +28,7 @@ import {
   sendBinaryData,
   receiveBinaryData,
   isClassicConnected,
+  setOTAMode,
 } from "@/lib/bluetooth-classic-service";
 
 interface Props {
@@ -115,7 +116,13 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
       return;
     }
 
-    addLog("info", "Ensure the board is in bootloader mode (hardware switch or software command)");
+    addLog("info", "=== BOOTLOADER CONNECTION ===");
+    addLog("info", "1. Ensure the Tiller board is in bootloader mode");
+    addLog("info", "   - Use hardware switch OR send software command");
+    addLog("info", "2. Bluetooth SPP settings: 115200 baud, 8N1, Even parity");
+    
+    setOTAMode(true);
+    addLog("info", "OTA binary mode enabled");
 
     const service = new FirmwareOTAService(
       sendBinaryData,
@@ -125,13 +132,23 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     );
     otaServiceRef.current = service;
 
+    addLog("info", "Attempting to enter bootloader mode...");
+    await service.enterBootloaderMode();
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     const info = await service.initialize();
     if (info) {
       setChipInfo(info);
-      addLog("success", `Connected to bootloader v${info.protocolVersion}`);
+      addLog("success", `Bootloader connected! Protocol: v${info.protocolVersion}, Chip: ${info.chipId}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
-      addLog("error", "Failed to initialize bootloader. Check if board is in boot mode.");
+      addLog("error", "Failed to initialize bootloader.");
+      addLog("info", "Troubleshooting:");
+      addLog("info", "  - Check if board is in bootloader mode (hardware switch)");
+      addLog("info", "  - Verify Bluetooth is connected and paired");
+      addLog("info", "  - Try power cycling the Tiller board");
+      setOTAMode(false);
     }
   };
 
@@ -171,13 +188,20 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     setIsUpdating(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
+    addLog("info", "=== STARTING FIRMWARE PROGRAMMING ===");
+    addLog("info", `File: ${hexFile.name} (${formatSize(hexFile.size)})`);
+
     const success = await otaServiceRef.current.performFullUpdate(hexFile.content);
 
     if (success) {
-      addLog("success", "Firmware update completed successfully!");
+      addLog("success", "=== FIRMWARE UPDATE COMPLETE ===");
+      addLog("info", "The Tiller board should now be running the new firmware.");
+      addLog("info", "You may need to reconnect via Bluetooth Scanner.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setOTAMode(false);
     } else {
       addLog("error", "Firmware update failed");
+      addLog("info", "Check the log above for details.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
 
@@ -187,6 +211,8 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
   const handleAbort = () => {
     if (otaServiceRef.current) {
       otaServiceRef.current.abort();
+      setOTAMode(false);
+      addLog("warning", "Firmware update aborted by user");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
   };
@@ -195,6 +221,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     if (isUpdating) {
       return;
     }
+    setOTAMode(false);
     setHexFile(null);
     setLogs([]);
     setProgress({
@@ -225,6 +252,8 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
         return BladeColors.warning;
       case "error":
         return BladeColors.error;
+      case "debug":
+        return "#888888";
       default:
         return theme.textSecondary;
     }
