@@ -262,15 +262,23 @@ function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): 
     // Check if this frame has enough data to be complete
     const commaCount = (frame.match(/,/g) || []).length;
     const frameType = frame.split(",")[0]?.substring(1); // Remove $
+    const frameGroup = frame.split(",")[1]; // G1 or G2
     
-    // Frame comma requirements:
+    // Frame comma requirements (minimum commas needed for complete frame):
     // $MOTOR,G1,phaseCurrent,rpm,temp = 4 commas (5 parts)
     // $BMS,G1,voltage,capacity,current,wattage,temp = 6 commas (7 parts)
     // $GNSS,G1,time,lat,lng,course,speed = 6 commas (7 parts)  
     // $VESC,G1,voltage,current,wattage,throttle,temp = 6 commas (7 parts)
-    const minCommas = frameType === "MOTOR" ? 4 : 6;
+    // $INFOR,G1,serialNumber,firmwareVersion = 3 commas (4 parts)
+    // $INFOR,G2,odometer,driverMode,errorCode = 4 commas (5 parts)
+    let minCommas = 6; // Default for BMS, GNSS, VESC
+    if (frameType === "MOTOR") {
+      minCommas = 4;
+    } else if (frameType === "INFOR") {
+      minCommas = frameGroup === "G1" ? 3 : 4;
+    }
     
-    callbacks.onDebugLog?.("DATA", `Frame [${i}]: type=${frameType}, commas=${commaCount}/${minCommas}, data="${frame}"`);
+    callbacks.onDebugLog?.("DATA", `Frame [${i}]: type=${frameType}, group=${frameGroup}, commas=${commaCount}/${minCommas}, data="${frame}"`);
     
     if (commaCount >= minCommas) {
       callbacks.onDebugLog?.("DATA", `Attempting parse for: "${frame}"`);

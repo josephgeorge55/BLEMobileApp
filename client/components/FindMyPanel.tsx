@@ -3,7 +3,7 @@ import { StyleSheet, View, Image, Pressable, ActivityIndicator, ScrollView, Dime
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withSpring, runOnJS } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -40,6 +40,10 @@ export function FindMyPanel({
   const [isExpanded, setIsExpanded] = useState(false);
   const panelHeight = useSharedValue(MIN_HEIGHT);
 
+  const updateExpanded = (expanded: boolean) => {
+    setIsExpanded(expanded);
+  };
+
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       const newHeight = isExpanded 
@@ -53,10 +57,10 @@ export function FindMyPanel({
       
       if (shouldExpand) {
         panelHeight.value = withSpring(MAX_HEIGHT, { damping: 20, stiffness: 200 });
-        setIsExpanded(true);
+        runOnJS(updateExpanded)(true);
       } else if (shouldCollapse) {
         panelHeight.value = withSpring(MIN_HEIGHT, { damping: 20, stiffness: 200 });
-        setIsExpanded(false);
+        runOnJS(updateExpanded)(false);
       } else {
         panelHeight.value = withSpring(isExpanded ? MAX_HEIGHT : MIN_HEIGHT, { damping: 20, stiffness: 200 });
       }
