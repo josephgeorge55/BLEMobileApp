@@ -174,7 +174,8 @@ export default function TripsScreen() {
     </View>
   );
 
-  const canStartTrip = motor?.isConnected && !isRecording;
+  // Button is enabled only when all requirements for starting a trip are met
+  const canStartTrip = Boolean(user?.id) && Boolean(motor?.isConnected) && Boolean(motor?.serialNumber) && !isRecording;
 
   const renderHeader = () => (
     <View style={styles.headerSection}>
@@ -216,7 +217,13 @@ export default function TripsScreen() {
               <>
                 <Feather name="play-circle" size={24} color="#FFFFFF" />
                 <Text style={styles.tripButtonText}>
-                  {canStartTrip ? "Start Trip" : "Connect Motor"}
+                  {canStartTrip 
+                    ? "Start Trip" 
+                    : !user?.id 
+                      ? "Sign In First"
+                      : !motor?.isConnected 
+                        ? "Connect Motor"
+                        : "Motor Not Ready"}
                 </Text>
               </>
             )}

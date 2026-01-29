@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
@@ -139,8 +139,34 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startTrip = async (name?: string): Promise<boolean> => {
-    if (!user?.id || !motor?.serialNumber) {
-      console.error("Cannot start trip: no user or motor");
+    // Check for missing requirements and provide user feedback
+    if (!user?.id) {
+      console.error("Cannot start trip: no user logged in");
+      Alert.alert(
+        "Sign In Required",
+        "Please sign in or continue as guest to record trips.",
+        [{ text: "OK" }]
+      );
+      return false;
+    }
+    
+    if (!motor?.serialNumber) {
+      console.error("Cannot start trip: no motor serial number", { motor });
+      Alert.alert(
+        "Motor Not Ready",
+        "Please connect to your outboard motor first. Make sure Bluetooth is connected and the motor is responding.",
+        [{ text: "OK" }]
+      );
+      return false;
+    }
+    
+    if (!motor?.isConnected) {
+      console.error("Cannot start trip: motor not connected");
+      Alert.alert(
+        "Motor Disconnected",
+        "Your motor connection was lost. Please reconnect via Bluetooth.",
+        [{ text: "OK" }]
+      );
       return false;
     }
 
@@ -159,9 +185,21 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         setIsRecording(true);
         return true;
       }
+      
+      // Server returned but no trip - show error
+      Alert.alert(
+        "Could Not Start Trip",
+        data.error || "An unexpected error occurred. Please try again.",
+        [{ text: "OK" }]
+      );
       return false;
     } catch (error) {
       console.error("Error starting trip:", error);
+      Alert.alert(
+        "Connection Error",
+        "Could not connect to the server. Please check your internet connection.",
+        [{ text: "OK" }]
+      );
       return false;
     } finally {
       setIsLoading(false);
