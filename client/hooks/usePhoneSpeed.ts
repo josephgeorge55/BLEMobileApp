@@ -16,9 +16,11 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const [isTracking, setIsTracking] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const appStateRef = useRef(AppState.currentState);
   const isMountedRef = useRef(true);
+  const initAttemptRef = useRef(0);
 
   const stopTracking = useCallback(() => {
     try {
@@ -37,9 +39,31 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const startTracking = useCallback(async () => {
     if (!isMountedRef.current) return;
     
+    // Increment attempt counter
+    initAttemptRef.current += 1;
+    const currentAttempt = initAttemptRef.current;
+    
     try {
+      // Add a small delay before checking services to let the system settle
+      if (Platform.OS === "android") {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
+      
       // Check if location services are available
-      const isEnabled = await Location.hasServicesEnabledAsync();
+      let isEnabled = false;
+      try {
+        isEnabled = await Location.hasServicesEnabledAsync();
+      } catch (serviceError) {
+        console.warn("Error checking location services:", serviceError);
+        if (isMountedRef.current) {
+          setError("Location services unavailable");
+          setIsTracking(false);
+        }
+        return;
+      }
+      
       if (!isEnabled) {
         if (isMountedRef.current) {
           setError("Location services disabled");
@@ -48,16 +72,37 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
         return;
       }
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
+
+      let permissionResult;
+      try {
+        permissionResult = await Location.requestForegroundPermissionsAsync();
+      } catch (permError) {
+        console.warn("Error requesting location permission:", permError);
+        if (isMountedRef.current) {
+          setError("Permission request failed");
+          setIsTracking(false);
+        }
+        return;
+      }
       
-      if (status !== "granted") {
+      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
+      
+      if (permissionResult.status !== "granted") {
         setHasPermission(false);
         setError("Location permission denied");
         return;
       }
       setHasPermission(true);
       setError(null);
+      setIsInitialized(true);
+
+      // Add delay before starting watch on Android
+      if (Platform.OS === "android") {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
 
       subscriptionRef.current = await Location.watchPositionAsync(
         {
@@ -68,15 +113,19 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
         (location) => {
           if (!isMountedRef.current) return;
           
-          const speedMs = location.coords.speed;
-          if (speedMs !== null && speedMs >= 0) {
-            const speedKmh = speedMs * 3.6;
-            setSpeed(speedKmh);
-          } else {
-            setSpeed(null);
+          try {
+            const speedMs = location.coords.speed;
+            if (speedMs !== null && speedMs >= 0) {
+              const speedKmh = speedMs * 3.6;
+              setSpeed(speedKmh);
+            } else {
+              setSpeed(null);
+            }
+            setAccuracy(location.coords.accuracy);
+            setIsTracking(true);
+          } catch (updateError) {
+            console.warn("Error updating GPS state:", updateError);
           }
-          setAccuracy(location.coords.accuracy);
-          setIsTracking(true);
         }
       );
     } catch (err: any) {
@@ -96,12 +145,14 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       return;
     }
 
-    // Delay GPS initialization to prevent startup crashes
+    // Delay GPS initialization significantly to prevent startup crashes
+    // Android needs more time for the native modules to fully initialize
+    const initDelay = Platform.OS === "android" ? 3000 : 1500;
     const initTimeout = setTimeout(() => {
       if (isMountedRef.current) {
         startTracking();
       }
-    }, 1500);
+    }, initDelay);
 
     const handleAppStateChange = (nextAppState: string) => {
       if (appStateRef.current === "active" && nextAppState !== "active") {

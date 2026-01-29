@@ -16,8 +16,10 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
   const { theme } = useTheme();
   const phoneSpeed = usePhoneSpeed(isConnected);
   
-  const displayMotorSpeed = motorSpeed.toFixed(1);
-  const displayPhoneSpeed = phoneSpeed.speed !== null ? phoneSpeed.speed.toFixed(1) : "--";
+  // Defensive null check for motorSpeed
+  const safeMotorSpeed = typeof motorSpeed === "number" && !isNaN(motorSpeed) ? motorSpeed : 0;
+  const displayMotorSpeed = safeMotorSpeed.toFixed(1);
+  const displayPhoneSpeed = phoneSpeed.speed !== null && !isNaN(phoneSpeed.speed) ? phoneSpeed.speed.toFixed(1) : "--";
   
   const getSpeedColor = (speed: number) => {
     if (speed > 20) return BladeColors.accent;
@@ -49,7 +51,7 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
               type="h1" 
               style={[
                 styles.speedValue, 
-                { color: isConnected ? getSpeedColor(motorSpeed) : "#596F7C" }
+                { color: isConnected ? getSpeedColor(safeMotorSpeed) : "#596F7C" }
               ]}
             >
               {isConnected ? displayMotorSpeed : "--"}

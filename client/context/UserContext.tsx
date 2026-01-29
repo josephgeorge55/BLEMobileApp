@@ -7,6 +7,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  getFirebaseAuth,
+  isFirebaseInitialized,
   type User as FirebaseUser
 } from "@/lib/firebase";
 
@@ -41,8 +43,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadStoredUser();
     
-    // Listen for Firebase auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    // Listen for Firebase auth state changes only if Firebase is initialized
+    const currentAuth = getFirebaseAuth();
+    if (!currentAuth) {
+      console.warn("Firebase auth not initialized, skipping auth state listener");
+      return;
+    }
+    
+    const unsubscribe = onAuthStateChanged(currentAuth, async (firebaseUser) => {
       if (firebaseUser) {
         // User is signed in with Firebase
         const userData: UserData = {
@@ -91,8 +99,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const currentAuth = getFirebaseAuth();
+    if (!currentAuth) {
+      return { success: false, error: "Authentication service unavailable. Please try again later." };
+    }
+    
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(currentAuth, email, password);
       const firebaseUser = userCredential.user;
       
       const userData: UserData = {
@@ -134,8 +147,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const currentAuth = getFirebaseAuth();
+    if (!currentAuth) {
+      return { success: false, error: "Authentication service unavailable. Please try again later." };
+    }
+    
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(currentAuth, email, password);
       const firebaseUser = userCredential.user;
       
       const userData: UserData = {
@@ -196,8 +214,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       // Sign out from Firebase if not in guest mode
-      if (!isGuestMode && auth.currentUser) {
-        await firebaseSignOut(auth);
+      const currentAuth = getFirebaseAuth();
+      if (!isGuestMode && currentAuth?.currentUser) {
+        await firebaseSignOut(currentAuth);
       }
     } catch (error) {
       console.error("Firebase sign out error:", error);
@@ -210,8 +229,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    const currentAuth = getFirebaseAuth();
+    if (!currentAuth) {
+      return { success: false, error: "Authentication service unavailable. Please try again later." };
+    }
+    
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(currentAuth, email);
       return { success: true };
     } catch (error: any) {
       console.error("Firebase password reset error:", error);

@@ -19,16 +19,74 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-let app: FirebaseApp;
-let auth: Auth;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let initializationError: Error | null = null;
 
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  auth = getAuth(app);
-} catch (error) {
-  console.warn("Firebase initialization error:", error);
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
+// Safely initialize Firebase with multiple fallback attempts
+function initializeFirebase(): { app: FirebaseApp; auth: Auth } | null {
+  if (app && auth) {
+    return { app, auth };
+  }
+  
+  try {
+    // Check if all required config values are present
+    const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
+    const missingKeys = requiredKeys.filter(key => !firebaseConfig[key as keyof typeof firebaseConfig]);
+    
+    if (missingKeys.length > 0) {
+      console.warn("Firebase config missing keys:", missingKeys);
+      initializationError = new Error(`Missing Firebase config: ${missingKeys.join(', ')}`);
+      return null;
+    }
+    
+    // Try to get existing app or create new one
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApp();
+    }
+    
+    auth = getAuth(app);
+    initializationError = null;
+    return { app, auth };
+  } catch (error: any) {
+    console.warn("Firebase initialization error:", error);
+    initializationError = error;
+    
+    // Fallback: try to create a fresh instance
+    try {
+      app = initializeApp(firebaseConfig, `blade-${Date.now()}`);
+      auth = getAuth(app);
+      initializationError = null;
+      return { app, auth };
+    } catch (fallbackError) {
+      console.warn("Firebase fallback initialization failed:", fallbackError);
+      return null;
+    }
+  }
+}
+
+// Initialize on module load
+const firebase = initializeFirebase();
+if (firebase) {
+  app = firebase.app;
+  auth = firebase.auth;
+}
+
+// Export a getter that handles null cases
+export function getFirebaseAuth(): Auth | null {
+  if (auth) return auth;
+  const result = initializeFirebase();
+  return result?.auth ?? null;
+}
+
+export function isFirebaseInitialized(): boolean {
+  return app !== null && auth !== null;
+}
+
+export function getFirebaseError(): Error | null {
+  return initializationError;
 }
 
 export { 
