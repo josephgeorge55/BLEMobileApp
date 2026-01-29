@@ -30,7 +30,7 @@ export default function SettingsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
-  const { motor, disconnectMotor, startScan } = useMotor();
+  const { motor, telemetry, disconnectMotor, startScan } = useMotor();
   const { user, logout } = useUser();
   const {
     anonymousDataSharing,
@@ -112,7 +112,7 @@ export default function SettingsScreen() {
         </SettingsSection>
       ) : null}
 
-      {motor ? (
+      {motor?.isConnected ? (
         <SettingsSection title="Connected Outboard">
           <View style={[styles.motorCard, { backgroundColor: theme.surfaceElevated }]}>
             <Image
@@ -121,20 +121,20 @@ export default function SettingsScreen() {
               resizeMode="contain"
             />
             <View style={styles.motorInfo}>
-              <ThemedText type="h3">{motor.name || "Blade Outboard"}</ThemedText>
+              <ThemedText type="h3">Blade Halo</ThemedText>
               <ThemedText type="mono" style={{ color: theme.textSecondary, marginTop: 4 }}>
-                {motor.serialNumber}
+                S/N: {telemetry?.tillerSerialNumber || motor.serialNumber}
               </ThemedText>
               <View style={styles.motorBadges}>
                 <View style={[styles.badge, { backgroundColor: BladeColors.success + "20" }]}>
                   <View style={[styles.badgeDot, { backgroundColor: BladeColors.success }]} />
                   <ThemedText type="caption" style={{ color: BladeColors.success }}>
-                    {motor.isConnected ? "Connected" : "Paired"}
+                    Connected
                   </ThemedText>
                 </View>
                 <View style={[styles.badge, { backgroundColor: theme.primary + "20" }]}>
                   <ThemedText type="caption" style={{ color: theme.primary }}>
-                    v{motor.firmwareVersion || "1.0.0"}
+                    v{telemetry?.tillerFirmwareVersion || motor.firmwareVersion || "1.0.0"}
                   </ThemedText>
                 </View>
               </View>

@@ -171,6 +171,50 @@ export default function DashboardScreen() {
         </View>
       </View>
 
+      {isConnected ? (
+        <Animated.View
+          entering={FadeInUp.duration(400).springify()}
+          style={[styles.connectedCard, { backgroundColor: "#181F27" }]}
+        >
+          <View style={styles.connectedCardGlow} />
+          <View style={styles.connectedCardContent}>
+            <Image
+              source={require("../../assets/images/halo-outboard.png")}
+              style={styles.connectedMotorImage}
+              resizeMode="contain"
+            />
+            <View style={styles.connectedMotorInfo}>
+              <View style={styles.connectedMotorHeader}>
+                <ThemedText type="h3" style={{ color: "#EBEFF3" }}>Blade Halo</ThemedText>
+                <View style={[styles.statusPill, { backgroundColor: BladeColors.success + "25" }]}>
+                  <View style={[styles.statusDot, { backgroundColor: BladeColors.success }]} />
+                  <ThemedText type="caption" style={{ color: BladeColors.success, fontWeight: "600" }}>
+                    Live
+                  </ThemedText>
+                </View>
+              </View>
+              <ThemedText type="mono" style={styles.connectedSerial}>
+                S/N: {telemetry?.tillerSerialNumber || motor?.serialNumber || "--"}
+              </ThemedText>
+              <View style={styles.connectedMetaRow}>
+                <View style={styles.connectedMetaItem}>
+                  <Feather name="cpu" size={12} color="#596F7C" />
+                  <ThemedText type="caption" style={styles.connectedMetaText}>
+                    v{firmware}
+                  </ThemedText>
+                </View>
+                <View style={styles.connectedMetaItem}>
+                  <Feather name="clock" size={12} color="#596F7C" />
+                  <ThemedText type="caption" style={styles.connectedMetaText}>
+                    {odometer != null ? `${odometer.toFixed(0)} hrs` : "-- hrs"}
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+      ) : null}
+
       <Pressable
         onPress={() => setShowDebugModal(true)}
         style={[styles.debugButton, { backgroundColor: theme.surface }]}
@@ -646,5 +690,65 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
+  },
+  connectedCard: {
+    borderRadius: BorderRadius.xl,
+    marginBottom: Spacing.lg,
+    overflow: "hidden",
+    position: "relative",
+  },
+  connectedCardGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: BladeColors.accent,
+    opacity: 0.6,
+  },
+  connectedCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  connectedMotorImage: {
+    width: 80,
+    height: 100,
+    marginRight: Spacing.md,
+  },
+  connectedMotorInfo: {
+    flex: 1,
+  },
+  connectedMotorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    gap: 6,
+  },
+  connectedSerial: {
+    color: "#596F7C",
+    fontSize: 12,
+    marginBottom: Spacing.sm,
+  },
+  connectedMetaRow: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+  },
+  connectedMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  connectedMetaText: {
+    color: "#596F7C",
+    fontSize: 11,
   },
 });
