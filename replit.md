@@ -120,6 +120,27 @@ The app parses comma-separated data frames from the tiller board via Bluetooth C
    - Format: `$VESC,G1,<Voltage>,<Current>,<Wattage>,<Throttle>,<Temperature>`
    - Voltage (V), Current (A), Wattage (W), Throttle (%), Temp (°C)
 
+5. **INFOR** - System information (firmware, odometer, errors)
+   - **G1 Format**: `$INFOR,G1,<FirmwareVersion>,<SerialNumber>`
+     - FirmwareVersion: String (e.g., "1.0.2")
+     - SerialNumber: String (e.g., "BLD2008397")
+   - **G2 Format**: `$INFOR,G2,<Odometer>,<DriverMode>,<ErrorCode>`
+     - Odometer: Float in km (e.g., 1000.0)
+     - DriverMode: "Eco", "Normal", "Sport", or "Docking"
+     - ErrorCode: E01-E08 or empty for no error
+
+**Error Code Table:**
+| Code | Description | Cause |
+|------|-------------|-------|
+| E01 | Overvoltage | Battery voltage > 65V |
+| E02 | Undervoltage | Battery voltage < 42V |
+| E03 | BMS over temperature | Temperature > 85°C |
+| E04 | VESC over temperature | Temperature > 85°C |
+| E05 | Motor over temperature | Temperature > 85°C |
+| E06 | GPS not found | GPS not found |
+| E07 | VESC not found | VESC not found |
+| E08 | BMS not found | BMS not found |
+
 **Parser Location:** `client/lib/ble-parser.ts`
 
 ### Bluetooth Data Flow

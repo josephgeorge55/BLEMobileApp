@@ -28,6 +28,34 @@ export interface VESCData {
   temperature: number;
 }
 
+// INFOR Group 1: Firmware and Serial Number
+export interface INFORG1Data {
+  firmwareVersion: string;
+  serialNumber: string;
+}
+
+// INFOR Group 2: Odometer, Driver Mode, Error
+export interface INFORG2Data {
+  odometer: number; // km
+  driverMode: "Eco" | "Normal" | "Sport" | "Docking";
+  errorCode: string | null; // E01-E08 or null if no error
+  errorDescription: string | null;
+}
+
+export type INFORData = INFORG1Data | INFORG2Data;
+
+// Error code lookup table
+export const ERROR_CODES: Record<string, { description: string; cause: string }> = {
+  E01: { description: "Overvoltage", cause: "Battery voltage > 65V" },
+  E02: { description: "Undervoltage", cause: "Battery voltage < 42V" },
+  E03: { description: "BMS over temperature", cause: "Temperature > 85°C" },
+  E04: { description: "VESC over temperature", cause: "Temperature > 85°C" },
+  E05: { description: "Motor over temperature", cause: "Temperature > 85°C" },
+  E06: { description: "GPS not found", cause: "GPS not found" },
+  E07: { description: "VESC not found", cause: "VESC not found" },
+  E08: { description: "BMS not found", cause: "BMS not found" },
+};
+
 export interface ParsedTelemetry {
   gnss: GNSSData | null;
   bms: BMSData | null;
@@ -36,12 +64,12 @@ export interface ParsedTelemetry {
   timestamp: Date;
 }
 
-export type FrameType = "GNSS" | "BMS" | "MOTOR" | "VESC";
+export type FrameType = "GNSS" | "BMS" | "MOTOR" | "VESC" | "INFOR";
 
 export interface ParseResult {
   type: FrameType;
   group: string;
-  data: GNSSData | BMSData | MotorData | VESCData;
+  data: GNSSData | BMSData | MotorData | VESCData | INFORData;
 }
 
 export function parseGNSSFrame(fields: string[]): GNSSData | null {
@@ -106,6 +134,53 @@ export function parseVESCFrame(fields: string[]): VESCData | null {
   return { voltage, current, wattage, throttle, temperature };
 }
 
+// INFOR G1: Firmware version, Serial number
+export function parseINFORG1Frame(fields: string[]): INFORG1Data | null {
+  if (fields.length < 2) return null;
+  
+  const firmwareVersion = fields[0].trim();
+  const serialNumber = fields[1].trim();
+  
+  if (!firmwareVersion || !serialNumber) {
+    return null;
+  }
+  
+  return { firmwareVersion, serialNumber };
+}
+
+// INFOR G2: Odometer, Driver mode, Error code
+export function parseINFORG2Frame(fields: string[]): INFORG2Data | null {
+  if (fields.length < 3) return null;
+  
+  const odometer = parseFloat(fields[0]);
+  const modeStr = fields[1].trim();
+  const errorStr = fields[2].trim();
+  
+  if (isNaN(odometer)) {
+    return null;
+  }
+  
+  // Validate driver mode
+  const validModes = ["Eco", "Normal", "Sport", "Docking"];
+  const driverMode = validModes.includes(modeStr) 
+    ? (modeStr as "Eco" | "Normal" | "Sport" | "Docking")
+    : "Normal"; // Default to Normal if invalid
+  
+  // Parse error code - empty or non-E0x means no error
+  let errorCode: string | null = null;
+  let errorDescription: string | null = null;
+  
+  if (errorStr && errorStr.match(/^E0[1-8]$/)) {
+    errorCode = errorStr;
+    const errorInfo = ERROR_CODES[errorCode];
+    if (errorInfo) {
+      errorDescription = errorInfo.description;
+    }
+  }
+  
+  return { odometer, driverMode, errorCode, errorDescription };
+}
+
 export function parseBLEFrame(frame: string): ParseResult | null {
   const trimmed = frame.trim();
   
@@ -162,6 +237,27 @@ export function parseBLEFrame(frame: string): ParseResult | null {
         return { type: "VESC", group, data };
       }
       console.log(`[BLE-Parser] VESC parse failed for fields:`, dataFields);
+      break;
+    }
+    case "INFOR": {
+      // INFOR has two groups: G1 (firmware/serial) and G2 (odometer/mode/error)
+      if (group === "G1") {
+        const data = parseINFORG1Frame(dataFields);
+        if (data) {
+          console.log(`[BLE-Parser] INFOR G1 parsed OK:`, data);
+          return { type: "INFOR", group, data };
+        }
+        console.log(`[BLE-Parser] INFOR G1 parse failed for fields:`, dataFields);
+      } else if (group === "G2") {
+        const data = parseINFORG2Frame(dataFields);
+        if (data) {
+          console.log(`[BLE-Parser] INFOR G2 parsed OK:`, data);
+          return { type: "INFOR", group, data };
+        }
+        console.log(`[BLE-Parser] INFOR G2 parse failed for fields:`, dataFields);
+      } else {
+        console.log(`[BLE-Parser] Unknown INFOR group: "${group}"`);
+      }
       break;
     }
     default:

@@ -11,6 +11,8 @@ import {
   BMSData,
   MotorData as BLEMotorData,
   VESCData,
+  INFORG1Data,
+  INFORG2Data,
   ParseResult,
 } from "@/lib/ble-parser";
 
@@ -31,6 +33,11 @@ interface TelemetryData {
   motor: BLEMotorData | null;
   vesc: VESCData | null;
   odometer: number | null;
+  driverMode: "Eco" | "Normal" | "Sport" | "Docking" | null;
+  errorCode: string | null;
+  errorDescription: string | null;
+  tillerFirmwareVersion: string | null;
+  tillerSerialNumber: string | null;
   timestamp: Date;
 }
 
@@ -96,6 +103,8 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   const bmsRef = useRef<BMSData | null>(null);
   const motorDataRef = useRef<BLEMotorData | null>(null);
   const vescRef = useRef<VESCData | null>(null);
+  const inforG1Ref = useRef<INFORG1Data | null>(null);
+  const inforG2Ref = useRef<INFORG2Data | null>(null);
 
   const addDebugLog = useCallback((level: DebugLogEntry["level"], message: string) => {
     const entry: DebugLogEntry = {
@@ -175,6 +184,8 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     const vesc = vescRef.current;
     const gnss = gnssRef.current;
     const motor = motorDataRef.current;
+    const inforG1 = inforG1Ref.current;
+    const inforG2 = inforG2Ref.current;
 
     const newTelemetry: TelemetryData = {
       speed: gnss ? kphToKnots(gnss.speed) : 0,
@@ -184,7 +195,12 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
       bms: bmsRef.current,
       motor: motorDataRef.current,
       vesc: vescRef.current,
-      odometer: null,
+      odometer: inforG2?.odometer ?? null,
+      driverMode: inforG2?.driverMode ?? null,
+      errorCode: inforG2?.errorCode ?? null,
+      errorDescription: inforG2?.errorDescription ?? null,
+      tillerFirmwareVersion: inforG1?.firmwareVersion ?? null,
+      tillerSerialNumber: inforG1?.serialNumber ?? null,
       timestamp: now,
     };
 
@@ -237,6 +253,19 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         const data = result.data as VESCData;
         addDebugLog("PARSE", `VESC: voltage=${data.voltage}V, current=${data.current}A, wattage=${data.wattage}W, throttle=${data.throttle}%, temp=${data.temperature}C`);
         vescRef.current = data;
+        break;
+      }
+      case "INFOR": {
+        if (result.group === "G1") {
+          const data = result.data as INFORG1Data;
+          addDebugLog("PARSE", `INFOR G1: firmware=${data.firmwareVersion}, serial=${data.serialNumber}`);
+          inforG1Ref.current = data;
+        } else if (result.group === "G2") {
+          const data = result.data as INFORG2Data;
+          const errorInfo = data.errorCode ? `Error=${data.errorCode} (${data.errorDescription})` : "No errors";
+          addDebugLog("PARSE", `INFOR G2: odometer=${data.odometer}km, mode=${data.driverMode}, ${errorInfo}`);
+          inforG2Ref.current = data;
+        }
         break;
       }
     }
