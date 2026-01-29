@@ -3,6 +3,8 @@ import { StyleSheet, View, ScrollView, RefreshControl, Pressable, Image } from "
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
+import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
@@ -29,6 +31,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
   const { motor, telemetry, isConnecting, startScan, setLocation, debugLogs } =
     useMotor();
@@ -66,6 +69,7 @@ export default function DashboardScreen() {
 
   const handleConnect = () => {
     startScan();
+    navigation.navigate("BleScanner");
   };
 
   if (!motor) {
@@ -196,24 +200,6 @@ export default function DashboardScreen() {
         </Animated.View>
       ) : null}
 
-      {driverMode ? (
-        <Animated.View
-          entering={FadeInUp.delay(50).duration(300).springify()}
-          style={styles.driveModeContainer}
-        >
-          <View style={[styles.driveModeBadge, { backgroundColor: getDriverModeColor(driverMode) + "20", borderColor: getDriverModeColor(driverMode) }]}>
-            <Feather 
-              name={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"} 
-              size={16} 
-              color={getDriverModeColor(driverMode)} 
-            />
-            <ThemedText type="body" style={{ color: getDriverModeColor(driverMode), marginLeft: Spacing.xs, fontWeight: "600" }}>
-              {driverMode} Mode
-            </ThemedText>
-          </View>
-        </Animated.View>
-      ) : null}
-
       <View style={styles.metricsGrid}>
         <Animated.View
           entering={FadeInUp.delay(100).duration(400).springify()}
@@ -261,11 +247,10 @@ export default function DashboardScreen() {
           />
           <View style={{ width: Spacing.md }} />
           <MetricCard
-            icon="clock"
-            label="Runtime"
-            value={odometer != null ? odometer.toFixed(0) : "--"}
-            unit="hrs"
-            iconColor={BladeColors.marine}
+            icon={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"}
+            label="Drive Mode"
+            value={driverMode || "--"}
+            iconColor={getDriverModeColor(driverMode)}
           />
         </Animated.View>
       </View>
@@ -661,17 +646,5 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-  },
-  driveModeContainer: {
-    marginBottom: Spacing.md,
-  },
-  driveModeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
   },
 });

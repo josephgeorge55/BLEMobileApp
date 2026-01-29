@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Modal } from "react-native";
+import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Modal, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import { Feather } from "@expo/vector-icons";
+import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 import { ThemedText } from "@/components/ThemedText";
 import { SettingsRow, SettingsSection } from "@/components/SettingsRow";
@@ -26,8 +28,9 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
-  const { motor, disconnectMotor } = useMotor();
+  const { motor, disconnectMotor, startScan } = useMotor();
   const { user, logout } = useUser();
   const {
     anonymousDataSharing,
@@ -167,7 +170,14 @@ export default function SettingsScreen() {
         </SettingsSection>
       ) : (
         <SettingsSection title="Outboard">
-          <View style={[styles.emptyMotorCard, { backgroundColor: theme.surfaceElevated }]}>
+          <Pressable 
+            style={[styles.emptyMotorCard, { backgroundColor: theme.surfaceElevated }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              startScan();
+              navigation.navigate("BleScanner");
+            }}
+          >
             <Image
               source={require("../../assets/images/halo-outboard.png")}
               style={styles.emptyMotorImage}
@@ -175,9 +185,9 @@ export default function SettingsScreen() {
             />
             <ThemedText type="h4" style={styles.emptyTitle}>No Outboard Paired</ThemedText>
             <ThemedText type="small" style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-              Scan for nearby Blade outboards to pair
+              Tap to scan for nearby Blade outboards
             </ThemedText>
-          </View>
+          </Pressable>
         </SettingsSection>
       )}
 

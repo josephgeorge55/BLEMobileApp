@@ -39,6 +39,7 @@ function MainWithFab() {
           styles.fabContainer,
           { bottom: Platform.select({ ios: 100, android: 80, default: 80 }) },
         ]}
+        pointerEvents="box-none"
       >
         <FloatingActionButton
           isConnected={motor?.isConnected ?? false}
