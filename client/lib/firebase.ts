@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { 
   getAuth, 
   createUserWithEmailAndPassword,
@@ -6,7 +6,8 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  type User
+  type User,
+  type Auth
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -18,11 +19,17 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app (singleton pattern)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+let app: FirebaseApp;
+let auth: Auth;
 
-// Get Auth instance
-const auth = getAuth(app);
+try {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+} catch (error) {
+  console.warn("Firebase initialization error:", error);
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+}
 
 export { 
   auth, 

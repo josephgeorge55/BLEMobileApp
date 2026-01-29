@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as Location from "expo-location";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 
 interface PhoneSpeedData {
   speed: number | null;
@@ -18,18 +18,39 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const [error, setError] = useState<string | null>(null);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const appStateRef = useRef(AppState.currentState);
+  const isMountedRef = useRef(true);
 
   const stopTracking = useCallback(() => {
-    if (subscriptionRef.current) {
-      subscriptionRef.current.remove();
-      subscriptionRef.current = null;
+    try {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.remove();
+        subscriptionRef.current = null;
+      }
+      if (isMountedRef.current) {
+        setIsTracking(false);
+      }
+    } catch (err) {
+      console.warn("Error stopping GPS tracking:", err);
     }
-    setIsTracking(false);
   }, []);
 
   const startTracking = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    
     try {
+      // Check if location services are available
+      const isEnabled = await Location.hasServicesEnabledAsync();
+      if (!isEnabled) {
+        if (isMountedRef.current) {
+          setError("Location services disabled");
+          setIsTracking(false);
+        }
+        return;
+      }
+
       const { status } = await Location.requestForegroundPermissionsAsync();
+      if (!isMountedRef.current) return;
+      
       if (status !== "granted") {
         setHasPermission(false);
         setError("Location permission denied");
@@ -40,11 +61,13 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
 
       subscriptionRef.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
-          distanceInterval: 1,
+          accuracy: Location.Accuracy.High,
+          timeInterval: 2000,
+          distanceInterval: 5,
         },
         (location) => {
+          if (!isMountedRef.current) return;
+          
           const speedMs = location.coords.speed;
           if (speedMs !== null && speedMs >= 0) {
             const speedKmh = speedMs * 3.6;
@@ -57,17 +80,28 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
         }
       );
     } catch (err: any) {
-      console.error("Phone GPS error:", err);
-      setError(err.message || "Failed to start GPS tracking");
-      setIsTracking(false);
+      console.warn("Phone GPS error:", err);
+      if (isMountedRef.current) {
+        setError(err?.message || "Failed to start GPS tracking");
+        setIsTracking(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (!enabled) {
       stopTracking();
       return;
     }
+
+    // Delay GPS initialization to prevent startup crashes
+    const initTimeout = setTimeout(() => {
+      if (isMountedRef.current) {
+        startTracking();
+      }
+    }, 1500);
 
     const handleAppStateChange = (nextAppState: string) => {
       if (appStateRef.current === "active" && nextAppState !== "active") {
@@ -79,10 +113,10 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
     };
 
     const subscription = AppState.addEventListener("change", handleAppStateChange);
-    
-    startTracking();
 
     return () => {
+      isMountedRef.current = false;
+      clearTimeout(initTimeout);
       stopTracking();
       subscription.remove();
     };

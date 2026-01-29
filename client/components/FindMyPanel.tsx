@@ -34,15 +34,21 @@ export function FindMyPanel({
   const [isFinding, setIsFinding] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+    
     const reverseGeocode = async () => {
+      if (!isMounted) return;
       setIsLoadingLocation(true);
+      
       try {
         const results = await Location.reverseGeocodeAsync({
           latitude,
           longitude,
         });
         
-        if (results.length > 0) {
+        if (!isMounted) return;
+        
+        if (results && results.length > 0) {
           const place = results[0];
           const parts: string[] = [];
           
@@ -66,14 +72,26 @@ export function FindMyPanel({
           setLocationName(null);
         }
       } catch (error) {
-        console.error("Reverse geocode error:", error);
-        setLocationName(null);
+        console.warn("Reverse geocode error:", error);
+        if (isMounted) {
+          setLocationName(null);
+        }
       } finally {
-        setIsLoadingLocation(false);
+        if (isMounted) {
+          setIsLoadingLocation(false);
+        }
       }
     };
 
-    reverseGeocode();
+    // Delay geocoding to avoid startup issues
+    const timeout = setTimeout(() => {
+      reverseGeocode();
+    }, 500);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+    };
   }, [latitude, longitude]);
 
   const formatTimestamp = (date: Date) => {

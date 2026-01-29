@@ -14,7 +14,7 @@ interface SpeedCardProps {
 
 export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
   const { theme } = useTheme();
-  const phoneSpeed = usePhoneSpeed(true);
+  const phoneSpeed = usePhoneSpeed(isConnected);
   
   const displayMotorSpeed = motorSpeed.toFixed(1);
   const displayPhoneSpeed = phoneSpeed.speed !== null ? phoneSpeed.speed.toFixed(1) : "--";
