@@ -318,11 +318,21 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         batteryCapacity = Math.max(5, batteryCapacity - 1);
       }
 
+      // Determine drive mode based on throttle
+      let driveMode = "Normal";
+      if (throttle > 70) driveMode = "Sport";
+      else if (throttle < 25) driveMode = "Eco";
+      
+      // Simulate odometer incrementing slowly
+      const odometerKm = 1234.5 + tick * 0.001;
+
       const frames = [
         generateMockGNSSFrame(currentLat, currentLng, speedKph, currentCourse),
         generateMockBMSFrame(voltage, batteryCapacity, bmsCurrent, bmsWattage, Math.floor(bmsTemp)),
         generateMockMotorFrame(motorCurrent, rpm, Math.floor(motorTemp)),
         generateMockVESCFrame(voltage, vescCurrent, vescWattage, Math.floor(throttle), Math.floor(vescTemp)),
+        `$INFOR,G1,1.3.0,BLD-2024-0001`,
+        `$INFOR,G2,${odometerKm.toFixed(1)},${driveMode},`,
       ];
 
       frames.forEach((frame) => processBLEFrame(frame));
@@ -338,6 +348,8 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     bmsRef.current = null;
     motorDataRef.current = null;
     vescRef.current = null;
+    inforG1Ref.current = null;
+    inforG2Ref.current = null;
   }, []);
 
   const connectToMotor = async (serialNumber: string, useSimulation: boolean = true) => {

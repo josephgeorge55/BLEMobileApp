@@ -103,11 +103,25 @@ export default function DashboardScreen() {
   const speed = telemetry?.speed ?? 0;
   const soc = telemetry?.stateOfCharge ?? 0;
   const power = telemetry?.powerConsumption ?? 0;
-  const firmware = motor.firmwareVersion ?? "--";
+  const firmware = telemetry?.tillerFirmwareVersion ?? motor.firmwareVersion ?? "--";
+  const odometer = telemetry?.odometer;
+  const driverMode = telemetry?.driverMode;
+  const errorCode = telemetry?.errorCode;
+  const errorDescription = telemetry?.errorDescription;
 
   const bms = telemetry?.bms;
   const motorData = telemetry?.motor;
   const vesc = telemetry?.vesc;
+
+  const getDriverModeColor = (mode: string | null) => {
+    switch (mode) {
+      case "Sport": return BladeColors.error;
+      case "Normal": return BladeColors.accent;
+      case "Eco": return BladeColors.success;
+      case "Docking": return BladeColors.marine;
+      default: return theme.textSecondary;
+    }
+  };
 
   const getBatteryColor = () => {
     if (soc > 60) return BladeColors.success;
@@ -161,6 +175,43 @@ export default function DashboardScreen() {
           Debug Log ({debugLogs.length})
         </ThemedText>
       </Pressable>
+
+      {errorCode ? (
+        <Animated.View
+          entering={FadeInUp.duration(300).springify()}
+          style={[styles.errorBanner, { backgroundColor: BladeColors.error + "20", borderColor: BladeColors.error }]}
+        >
+          <View style={styles.errorContent}>
+            <Feather name="alert-triangle" size={20} color={BladeColors.error} />
+            <View style={styles.errorText}>
+              <ThemedText type="body" style={{ color: BladeColors.error, fontWeight: "600" }}>
+                Error {errorCode}
+              </ThemedText>
+              <ThemedText type="small" style={{ color: BladeColors.error, opacity: 0.9 }}>
+                {errorDescription}
+              </ThemedText>
+            </View>
+          </View>
+        </Animated.View>
+      ) : null}
+
+      {driverMode ? (
+        <Animated.View
+          entering={FadeInUp.delay(50).duration(300).springify()}
+          style={styles.driveModeContainer}
+        >
+          <View style={[styles.driveModeBadge, { backgroundColor: getDriverModeColor(driverMode) + "20", borderColor: getDriverModeColor(driverMode) }]}>
+            <Feather 
+              name={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"} 
+              size={16} 
+              color={getDriverModeColor(driverMode)} 
+            />
+            <ThemedText type="body" style={{ color: getDriverModeColor(driverMode), marginLeft: Spacing.xs, fontWeight: "600" }}>
+              {driverMode} Mode
+            </ThemedText>
+          </View>
+        </Animated.View>
+      ) : null}
 
       <View style={styles.metricsGrid}>
         <Animated.View
@@ -386,14 +437,14 @@ export default function DashboardScreen() {
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
               <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
-                <Feather name="clock" size={14} color={BladeColors.marine} />
+                <Feather name="map" size={14} color={BladeColors.marine} />
               </View>
               <ThemedText type="small" style={{ color: "#596F7C" }}>
                 Odometer
               </ThemedText>
             </View>
             <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
-              {telemetry?.odometer ?? "--"} hrs
+              {odometer != null ? `${odometer.toFixed(1)} km` : "--"}
             </ThemedText>
           </View>
 
@@ -587,5 +638,31 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.md,
+  },
+  errorBanner: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  errorContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  errorText: {
+    flex: 1,
+  },
+  driveModeContainer: {
+    marginBottom: Spacing.md,
+  },
+  driveModeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
   },
 });
