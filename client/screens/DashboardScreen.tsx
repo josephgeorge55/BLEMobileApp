@@ -437,14 +437,14 @@ export default function DashboardScreen() {
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
               <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
-                <Feather name="map" size={14} color={BladeColors.marine} />
+                <Feather name="clock" size={14} color={BladeColors.marine} />
               </View>
               <ThemedText type="small" style={{ color: "#596F7C" }}>
                 Odometer
               </ThemedText>
             </View>
             <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
-              {odometer != null ? `${odometer.toFixed(1)} km` : "--"}
+              {odometer != null ? `${odometer.toFixed(1)} hrs` : "--"}
             </ThemedText>
           </View>
 

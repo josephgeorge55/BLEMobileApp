@@ -125,7 +125,7 @@ The app parses comma-separated data frames from the tiller board via Bluetooth C
      - FirmwareVersion: String (e.g., "1.0.2")
      - SerialNumber: String (e.g., "BLD2008397")
    - **G2 Format**: `$INFOR,G2,<Odometer>,<DriverMode>,<ErrorCode>`
-     - Odometer: Float in km (e.g., 1000.0)
+     - Odometer: Float in hours (e.g., 1000.0)
      - DriverMode: "Eco", "Normal", "Sport", or "Docking"
      - ErrorCode: E01-E08 or empty for no error
 

@@ -318,13 +318,13 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         batteryCapacity = Math.max(5, batteryCapacity - 1);
       }
 
-      // Determine drive mode based on throttle
+      // Determine drive mode based on throttle (Sport, Normal, Eco, Docking)
       let driveMode = "Normal";
       if (throttle > 70) driveMode = "Sport";
-      else if (throttle < 25) driveMode = "Eco";
+      else if (throttle < 20) driveMode = "Eco";
       
-      // Simulate odometer incrementing slowly
-      const odometerKm = 1234.5 + tick * 0.001;
+      // Simulate odometer incrementing slowly (hours of operation)
+      const odometerHours = 1234.5 + tick * 0.001;
 
       const frames = [
         generateMockGNSSFrame(currentLat, currentLng, speedKph, currentCourse),
@@ -332,7 +332,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         generateMockMotorFrame(motorCurrent, rpm, Math.floor(motorTemp)),
         generateMockVESCFrame(voltage, vescCurrent, vescWattage, Math.floor(throttle), Math.floor(vescTemp)),
         `$INFOR,G1,1.3.0,BLD-2024-0001`,
-        `$INFOR,G2,${odometerKm.toFixed(1)},${driveMode},`,
+        `$INFOR,G2,${odometerHours.toFixed(1)},${driveMode},`,
       ];
 
       frames.forEach((frame) => processBLEFrame(frame));
