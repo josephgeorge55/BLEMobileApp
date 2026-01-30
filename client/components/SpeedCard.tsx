@@ -14,7 +14,8 @@ interface SpeedCardProps {
 
 export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
   const { theme } = useTheme();
-  const phoneSpeed = usePhoneSpeed(isConnected);
+  // Always track phone GPS speed, regardless of motor connection
+  const phoneSpeed = usePhoneSpeed(true);
   
   // Defensive null check for motorSpeed
   const safeMotorSpeed = typeof motorSpeed === "number" && !isNaN(motorSpeed) ? motorSpeed : 0;
