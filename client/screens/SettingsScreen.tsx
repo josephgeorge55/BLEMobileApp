@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Modal, Pressable } from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Modal, Pressable, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -18,6 +18,12 @@ import { useMotor } from "@/context/MotorContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useUser } from "@/context/UserContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+import { 
+  registerMotorForUser, 
+  getRegisteredMotors, 
+  removeMotorForUser,
+  type RegisteredMotor 
+} from "@/lib/firebase";
 
 const APP_VERSION = Constants.expoConfig?.version || "1.0.0";
 const BUILD_NUMBER = "2026.01.27";
@@ -41,7 +47,91 @@ export default function SettingsScreen() {
   
   const [firmwareModalVisible, setFirmwareModalVisible] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [registerModalVisible, setRegisterModalVisible] = useState(false);
+  const [serialNumberInput, setSerialNumberInput] = useState("");
+  const [motorNameInput, setMotorNameInput] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
+  const [loadingMotors, setLoadingMotors] = useState(false);
   const { isGuestMode } = useUser();
+
+  // Load registered motors when user is logged in
+  useEffect(() => {
+    if (user?.id) {
+      loadRegisteredMotors();
+    } else {
+      setRegisteredMotors([]);
+    }
+  }, [user?.id]);
+
+  const loadRegisteredMotors = async () => {
+    if (!user?.id) return;
+    setLoadingMotors(true);
+    try {
+      const motors = await getRegisteredMotors(user.id);
+      setRegisteredMotors(motors);
+    } catch (error) {
+      console.error("Failed to load registered motors:", error);
+    } finally {
+      setLoadingMotors(false);
+    }
+  };
+
+  const handleRegisterMotor = async () => {
+    if (!user?.id || !serialNumberInput.trim()) return;
+    
+    setIsRegistering(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    try {
+      const success = await registerMotorForUser(
+        user.id,
+        serialNumberInput.trim(),
+        motorNameInput.trim() || undefined
+      );
+      
+      if (success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Motor registered successfully!");
+        setSerialNumberInput("");
+        setMotorNameInput("");
+        setRegisterModalVisible(false);
+        loadRegisteredMotors();
+      } else {
+        Alert.alert("Error", "Failed to register motor. Please try again.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "An error occurred while registering the motor.");
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const handleRemoveMotor = async (serialNumber: string) => {
+    if (!user?.id) return;
+    
+    Alert.alert(
+      "Remove Motor",
+      `Are you sure you want to remove motor ${serialNumber}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            const success = await removeMotorForUser(user.id, serialNumber);
+            if (success) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              loadRegisteredMotors();
+            } else {
+              Alert.alert("Error", "Failed to remove motor.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleDisconnect = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -108,6 +198,49 @@ export default function SettingsScreen() {
             onPress={handleLogout}
             destructive
             showChevron={false}
+          />
+        </SettingsSection>
+      ) : null}
+
+      {user && !isGuestMode ? (
+        <SettingsSection title="Registered Outboards">
+          {loadingMotors ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+                Loading...
+              </ThemedText>
+            </View>
+          ) : registeredMotors.length > 0 ? (
+            <>
+              {registeredMotors.map((motor, index) => (
+                <SettingsRow
+                  key={`${motor.serialNumber}-${index}`}
+                  icon="anchor"
+                  title={motor.name || motor.serialNumber}
+                  subtitle={motor.name ? `S/N: ${motor.serialNumber}` : "Registered to your account"}
+                  onPress={() => handleRemoveMotor(motor.serialNumber)}
+                  iconColor={BladeColors.accent}
+                />
+              ))}
+            </>
+          ) : (
+            <View style={styles.emptyRegisteredContainer}>
+              <Feather name="anchor" size={24} color={theme.textTertiary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm, textAlign: "center" }}>
+                No outboards registered yet
+              </ThemedText>
+            </View>
+          )}
+          <SettingsRow
+            icon="plus-circle"
+            title="Register New Outboard"
+            subtitle="Add your motor's serial number"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setRegisterModalVisible(true);
+            }}
+            iconColor={BladeColors.success}
           />
         </SettingsSection>
       ) : null}
@@ -345,6 +478,88 @@ export default function SettingsScreen() {
       visible={firmwareModalVisible}
       onClose={() => setFirmwareModalVisible(false)}
     />
+
+    <Modal
+      visible={registerModalVisible}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setRegisterModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.surfaceElevated }]}>
+          <ThemedText type="h3" style={styles.modalTitle}>
+            Register Outboard
+          </ThemedText>
+          
+          <ThemedText type="small" style={[styles.modalInputLabel, { color: theme.textSecondary }]}>
+            Serial Number *
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.modalInput,
+              { 
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              }
+            ]}
+            placeholder="Enter serial number (e.g., BLD-1234-5678)"
+            placeholderTextColor={theme.textTertiary}
+            value={serialNumberInput}
+            onChangeText={setSerialNumberInput}
+            autoCapitalize="characters"
+          />
+
+          <ThemedText type="small" style={[styles.modalInputLabel, { color: theme.textSecondary }]}>
+            Name (optional)
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.modalInput,
+              { 
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              }
+            ]}
+            placeholder="Give your outboard a name"
+            placeholderTextColor={theme.textTertiary}
+            value={motorNameInput}
+            onChangeText={setMotorNameInput}
+          />
+
+          <View style={styles.modalButtons}>
+            <Pressable
+              style={[styles.modalButton, { backgroundColor: theme.surface }]}
+              onPress={() => {
+                setRegisterModalVisible(false);
+                setSerialNumberInput("");
+                setMotorNameInput("");
+              }}
+            >
+              <ThemedText style={styles.modalButtonText}>Cancel</ThemedText>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.modalButton, 
+                { backgroundColor: BladeColors.success },
+                (!serialNumberInput.trim() || isRegistering) && { opacity: 0.5 }
+              ]}
+              onPress={handleRegisterMotor}
+              disabled={!serialNumberInput.trim() || isRegistering}
+            >
+              {isRegistering ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <ThemedText style={[styles.modalButtonText, { color: "#fff" }]}>
+                  Register
+                </ThemedText>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
     </>
   );
 }
@@ -453,5 +668,59 @@ const styles = StyleSheet.create({
   copyright: {
     fontSize: 10,
     marginTop: Spacing.sm,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.lg,
+  },
+  emptyRegisteredContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.xl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.screenPadding,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+  },
+  modalTitle: {
+    marginBottom: Spacing.lg,
+    textAlign: "center",
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    fontSize: 16,
+  },
+  modalInputLabel: {
+    marginBottom: Spacing.xs,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonText: {
+    fontWeight: "600",
+    fontSize: 16,
   },
 });
