@@ -28,6 +28,7 @@ interface MetricCardProps {
   style?: ViewStyle;
   iconColor?: string;
   accentGlow?: boolean;
+  compact?: boolean;
   onPress?: () => void;
   onLongPress?: () => void;
 }
@@ -57,6 +58,7 @@ export function MetricCard({
   style,
   iconColor,
   accentGlow = false,
+  compact = false,
   onPress,
   onLongPress,
 }: MetricCardProps) {
@@ -225,7 +227,7 @@ export function MetricCard({
             {label.toUpperCase()}
           </ThemedText>
           <View style={styles.valueRow}>
-            <ThemedText style={[styles.value, { color: lightText }]}>
+            <ThemedText style={[styles.value, compact && styles.valueCompact, { color: lightText }]}>
               {value}
             </ThemedText>
             {unit ? (
@@ -312,6 +314,10 @@ const styles = StyleSheet.create({
   value: {
     ...Typography.metric,
     fontVariant: ["tabular-nums"],
+  },
+  valueCompact: {
+    fontSize: 22,
+    lineHeight: 28,
   },
   unit: {
     marginLeft: Spacing.sm,

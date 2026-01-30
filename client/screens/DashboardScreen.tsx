@@ -295,6 +295,7 @@ export default function DashboardScreen() {
             label="Drive Mode"
             value={driverMode || "--"}
             iconColor={getDriverModeColor(driverMode)}
+            compact
           />
         </Animated.View>
       </View>
@@ -497,18 +498,9 @@ export default function DashboardScreen() {
                 Firmware
               </ThemedText>
             </View>
-            <View style={styles.connectionStatus}>
-              <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
-                v{firmware}
-              </ThemedText>
-              {firmware !== "1.3.0" ? (
-                <View style={[styles.updateBadge, { backgroundColor: BladeColors.warning + "20" }]}>
-                  <ThemedText type="caption" style={{ color: BladeColors.warning, fontWeight: "600" }}>
-                    Update
-                  </ThemedText>
-                </View>
-              ) : null}
-            </View>
+            <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+              v{firmware}
+            </ThemedText>
           </View>
 
           <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
