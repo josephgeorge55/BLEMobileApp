@@ -1,0 +1,19 @@
+C:\Users\georg\OneDrive\Desktop\APP\14\Blade-Outboards-Connect>eas env:create --name EXPO_PUBLIC_FIREBASE_API_KEY --value "AIzaSyAOS_qrKCWdXAENEdrvO3cJ2V8nLmE3v1A" --environment production --visibility secret
+Variables prefixed with "EXPO_PUBLIC_" should never be considered as secret. These variables will be visible in plain text in your compiled application. Do not store sensitive info, such as private keys, in these variables. Use "plain text" or "sensitive" visibility options for "EXPO_PUBLIC_" environment variables instead. https://docs.expo.dev/eas/environment-variables/
+Request ID: 2a3c2926-5388-4d78-82b9-6a5505590a89
+    Error: GraphQL request failed.
+
+C:\Users\georg\OneDrive\Desktop\APP\14\Blade-Outboards-Connect>
+C:\Users\georg\OneDrive\Desktop\APP\14\Blade-Outboards-Connect>eas env:create --name EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN --value "bladeobapp.firebaseapp.com" --environment production --visibility secret
+Variables prefixed with "EXPO_PUBLIC_" should never be considered as secret. These variables will be visible in plain text in your compiled application. Do not store sensitive info, such as private keys, in these variables. Use "plain text" or "sensitive" visibility options for "EXPO_PUBLIC_" environment variables instead. https://docs.expo.dev/eas/environment-variables/
+Request ID: 6751d0e1-2c89-408d-a256-fa72ba25177e
+    Error: GraphQL request failed.
+
+C:\Users\georg\OneDrive\Desktop\APP\14\Blade-Outboards-Connect>
+C:\Users\georg\OneDrive\Desktop\APP\14\Blade-Outboards-Connect>eas env:create --name EXPO_PUBLIC_FIREBASE_PROJECT_ID --value "bladeobapp" --environment production --visibility secret
+Variables prefixed with "EXPO_PUBLIC_" should never be considered as secret. These variables will be visible in plain text in your compiled application. Do not store sensitive info, such as private keys, in these variables. Use "plain text" or "sensitive" visibility options for "EXPO_PUBLIC_" environment variables instead. https://docs.expo.dev/eas/environment-variables/
+Request ID: c618fe9c-afef-4d63-bc14-9ccbb7ff0fb6
+    Error: GraphQL request failed.
+
+C:\Users\georg\OneDrive\Desktop\APP\14\Blade-Outboards-Connect>
+C:\Users\georg\OneDrive\Desktop\APP\14\Blade-Outboards-Connect>eas env:create --name EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET --value "bladeobapp.firebasestorage.app" --environment production --visibility secret
