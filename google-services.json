@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:416634217131:android:2798ac855d090d0f3d0dee",
         "android_client_info": {
-          "package_name": "expo.android.package"
+          "package_name": "com.bladeoutboards.app"
         }
       },
       "oauth_client": [],
