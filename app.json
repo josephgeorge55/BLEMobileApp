@@ -18,7 +18,7 @@
       }
     },
     "android": {
-      "package": "expo.android.package",
+      "package": "com.bladeoutboards.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A4D6E",
         "foregroundImage": "./assets/images/icon.png"
