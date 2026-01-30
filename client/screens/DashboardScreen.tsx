@@ -118,7 +118,7 @@ export default function DashboardScreen() {
   const motorData = telemetry?.motor;
   const vesc = telemetry?.vesc;
 
-  const getDriverModeColor = (mode: string | null) => {
+  const getDriverModeColor = (mode: string | null | undefined) => {
     switch (mode) {
       case "Sport": return BladeColors.error;
       case "Normal": return BladeColors.accent;
@@ -650,11 +650,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  updateBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.xs,
   },
   divider: {
     height: 1,

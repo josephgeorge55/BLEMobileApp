@@ -11,8 +11,7 @@ import UpdatesScreen from "@/screens/UpdatesScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
 import { useTheme } from "@/hooks/useTheme";
-import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { BladeColors, Spacing } from "@/constants/theme";
+import { BladeColors, Spacing, BorderRadius } from "@/constants/theme";
 
 export type MainTabParamList = {
   DashboardTab: undefined;
@@ -24,48 +23,77 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+function TabBarIcon({ name, color, focused }: { name: keyof typeof Feather.glyphMap; color: string; focused: boolean }) {
+  return (
+    <View style={styles.iconWrapper}>
+      {focused && (
+        <View style={[styles.iconGlow, { backgroundColor: color + "20" }]} />
+      )}
+      <Feather name={name} size={22} color={color} />
+    </View>
+  );
+}
+
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
-  const screenOptions = useScreenOptions();
 
   return (
     <Tab.Navigator
       initialRouteName="DashboardTab"
       screenOptions={{
-        tabBarActiveTintColor: isDark ? BladeColors.accent : BladeColors.primary,
-        tabBarInactiveTintColor: theme.tabIconDefault,
+        headerShown: true,
+        headerTransparent: true,
+        headerStyle: {
+          backgroundColor: Platform.select({
+            ios: "transparent",
+            default: isDark ? BladeColors.primaryDark : BladeColors.primary,
+          }),
+        },
+        headerTintColor: "#FFFFFF",
+        headerTitleStyle: {
+          fontWeight: "600",
+        },
+        tabBarActiveTintColor: BladeColors.accent,
+        tabBarInactiveTintColor: isDark ? "#5A6B7A" : "#8A9BA8",
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: theme.backgroundRoot,
-            default: theme.backgroundRoot,
+            android: isDark ? "#0D1318" : "#F8FAFB",
+            default: isDark ? "#0D1318" : "#F8FAFB",
           }),
           borderTopWidth: 0,
           elevation: 0,
-          height: Platform.select({ ios: 88, android: 68, default: 68 }),
-          paddingBottom: Platform.select({ ios: 28, android: 10, default: 10 }),
+          height: Platform.select({ ios: 88, android: 72, default: 72 }),
+          paddingBottom: Platform.select({ ios: 28, android: 12, default: 12 }),
           paddingTop: Spacing.sm,
+          paddingHorizontal: Spacing.md,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: isDark ? 0.3 : 0.08,
+          shadowRadius: 12,
         },
         tabBarBackground: () =>
           Platform.OS === "ios" ? (
             <BlurView
-              intensity={100}
+              intensity={isDark ? 80 : 90}
               tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
-          ) : null,
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#0D1318" : "#F8FAFB" }]}>
+              <View style={[styles.tabBarTopBorder, { backgroundColor: isDark ? "#1E2832" : "#E5E9EC" }]} />
+            </View>
+          ),
+        tabBarItemStyle: {
+          paddingVertical: 4,
+        },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "600",
-          letterSpacing: 0.3,
+          letterSpacing: 0.2,
+          marginTop: 2,
         },
-        ...screenOptions,
-        headerStyle: {
-          ...screenOptions.headerStyle,
-          backgroundColor: isDark ? BladeColors.primaryDark : BladeColors.primary,
-        },
-        headerTintColor: "#FFFFFF",
       }}
     >
       <Tab.Screen
@@ -74,8 +102,8 @@ export default function MainTabNavigator() {
         options={{
           title: "Dashboard",
           headerTitle: () => <HeaderTitle />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="activity" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="activity" color={color} focused={focused} />
           ),
         }}
       />
@@ -85,8 +113,8 @@ export default function MainTabNavigator() {
         options={{
           title: "Location",
           headerTitle: () => <HeaderTitle />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="map-pin" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="map-pin" color={color} focused={focused} />
           ),
         }}
       />
@@ -94,10 +122,10 @@ export default function MainTabNavigator() {
         name="TripsTab"
         component={TripsScreen}
         options={{
-          title: "My Trips",
+          title: "Trips",
           headerTitle: () => <HeaderTitle />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="navigation" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="navigation" color={color} focused={focused} />
           ),
         }}
       />
@@ -107,8 +135,8 @@ export default function MainTabNavigator() {
         options={{
           title: "Updates",
           headerTitle: () => <HeaderTitle />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="download-cloud" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="download-cloud" color={color} focused={focused} />
           ),
         }}
       />
@@ -118,11 +146,30 @@ export default function MainTabNavigator() {
         options={{
           title: "Settings",
           headerTitle: () => <HeaderTitle />,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="settings" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="settings" color={color} focused={focused} />
           ),
         }}
       />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 44,
+    height: 32,
+  },
+  iconGlow: {
+    position: "absolute",
+    width: 44,
+    height: 32,
+    borderRadius: 16,
+  },
+  tabBarTopBorder: {
+    height: 1,
+    width: "100%",
+  },
+});
