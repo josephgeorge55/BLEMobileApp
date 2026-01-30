@@ -10,56 +10,27 @@ import {
   type Auth
 } from "firebase/auth";
 
-// Get Firebase config from environment variables
-const getFirebaseConfig = () => {
-  // Check both EXPO_PUBLIC_ and non-prefixed versions
-  const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
-  const authDomain = process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN;
-  const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
-  const storageBucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  const messagingSenderId = process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
-  const appId = process.env.EXPO_PUBLIC_FIREBASE_APP_ID;
-
-  console.log("[Firebase] Config check:", {
-    hasApiKey: !!apiKey,
-    hasAuthDomain: !!authDomain,
-    hasProjectId: !!projectId,
-    hasAppId: !!appId,
-  });
-
-  return {
-    apiKey,
-    authDomain,
-    projectId,
-    storageBucket,
-    messagingSenderId,
-    appId,
-  };
+// Firebase configuration - values from google-services.json and Firebase Console
+const firebaseConfig = {
+  apiKey: "AIzaSyAOS_qrKCWdXAENEdrvO3cJ2V8nLmE3v1A",
+  authDomain: "bladeobapp.firebaseapp.com",
+  projectId: "bladeobapp",
+  storageBucket: "bladeobapp.firebasestorage.app",
+  messagingSenderId: "416634217131",
+  appId: "1:416634217131:web:c45427f52f10285e3d0dee"
 };
-
-const firebaseConfig = getFirebaseConfig();
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let initializationError: Error | null = null;
 
-// Safely initialize Firebase with multiple fallback attempts
+// Initialize Firebase
 function initializeFirebase(): { app: FirebaseApp; auth: Auth } | null {
   if (app && auth) {
     return { app, auth };
   }
   
   try {
-    // Check if all required config values are present
-    const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
-    const missingKeys = requiredKeys.filter(key => !firebaseConfig[key as keyof typeof firebaseConfig]);
-    
-    if (missingKeys.length > 0) {
-      console.warn("Firebase config missing keys:", missingKeys);
-      initializationError = new Error(`Missing Firebase config: ${missingKeys.join(', ')}`);
-      return null;
-    }
-    
     // Try to get existing app or create new one
     if (getApps().length === 0) {
       app = initializeApp(firebaseConfig);
@@ -69,21 +40,12 @@ function initializeFirebase(): { app: FirebaseApp; auth: Auth } | null {
     
     auth = getAuth(app);
     initializationError = null;
+    console.log("[Firebase] Initialized successfully");
     return { app, auth };
   } catch (error: any) {
     console.warn("Firebase initialization error:", error);
     initializationError = error;
-    
-    // Fallback: try to create a fresh instance
-    try {
-      app = initializeApp(firebaseConfig, `blade-${Date.now()}`);
-      auth = getAuth(app);
-      initializationError = null;
-      return { app, auth };
-    } catch (fallbackError) {
-      console.warn("Firebase fallback initialization failed:", fallbackError);
-      return null;
-    }
+    return null;
   }
 }
 
