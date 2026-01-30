@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "416634217131",
+    "project_id": "bladeobapp",
+    "storage_bucket": "bladeobapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:416634217131:android:2798ac855d090d0f3d0dee",
+        "android_client_info": {
+          "package_name": "expo.android.package"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXZkajOvnqEErfuemLKe3WdgjQkr3IvTM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
