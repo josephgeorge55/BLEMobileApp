@@ -68,7 +68,7 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
           <View style={styles.speedLabelRow}>
             <Feather name="smartphone" size={12} color={BladeColors.accent} />
             <ThemedText type="caption" style={[styles.speedLabel, { color: "#596F7C" }]}>
-              Phone GPS
+              Phone GPS{phoneSpeed.speedSource === "calculated" ? " (calc)" : phoneSpeed.speedSource === "gps" ? " (native)" : ""}
             </ThemedText>
             {phoneSpeed.isTracking ? (
               <View style={[styles.liveIndicator, { backgroundColor: BladeColors.success }]} />
@@ -98,11 +98,18 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
         </ThemedText>
       </View>
       
-      {phoneSpeed.accuracy !== null ? (
+      {phoneSpeed.accuracy !== null || phoneSpeed.error ? (
         <View style={styles.accuracyRow}>
-          <ThemedText type="caption" style={{ color: "#596F7C" }}>
-            Phone accuracy: {phoneSpeed.accuracy.toFixed(0)}m
-          </ThemedText>
+          {phoneSpeed.accuracy !== null ? (
+            <ThemedText type="caption" style={{ color: phoneSpeed.accuracy < 10 ? BladeColors.success : phoneSpeed.accuracy < 30 ? BladeColors.warning : "#596F7C" }}>
+              GPS accuracy: {phoneSpeed.accuracy.toFixed(0)}m
+            </ThemedText>
+          ) : null}
+          {phoneSpeed.error ? (
+            <ThemedText type="caption" style={{ color: BladeColors.error }}>
+              {phoneSpeed.error}
+            </ThemedText>
+          ) : null}
         </View>
       ) : null}
     </View>

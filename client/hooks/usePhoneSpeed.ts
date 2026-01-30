@@ -8,6 +8,32 @@ interface PhoneSpeedData {
   isTracking: boolean;
   hasPermission: boolean;
   error: string | null;
+  speedSource: "gps" | "calculated" | null;
+}
+
+interface PositionHistory {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+}
+
+function calculateHaversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
@@ -16,11 +42,14 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const [isTracking, setIsTracking] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [speedSource, setSpeedSource] = useState<"gps" | "calculated" | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const appStateRef = useRef(AppState.currentState);
   const isMountedRef = useRef(true);
   const initAttemptRef = useRef(0);
+  const lastPositionRef = useRef<PositionHistory | null>(null);
+  const speedHistoryRef = useRef<number[]>([]);
 
   const stopTracking = useCallback(() => {
     try {
@@ -31,6 +60,8 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       if (isMountedRef.current) {
         setIsTracking(false);
       }
+      lastPositionRef.current = null;
+      speedHistoryRef.current = [];
     } catch (err) {
       console.warn("Error stopping GPS tracking:", err);
     }
@@ -39,19 +70,16 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const startTracking = useCallback(async () => {
     if (!isMountedRef.current) return;
     
-    // Increment attempt counter
     initAttemptRef.current += 1;
     const currentAttempt = initAttemptRef.current;
     
     try {
-      // Add a small delay before checking services to let the system settle
       if (Platform.OS === "android") {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
       
-      // Check if location services are available
       let isEnabled = false;
       try {
         isEnabled = await Location.hasServicesEnabledAsync();
@@ -97,32 +125,86 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       setError(null);
       setIsInitialized(true);
 
-      // Add delay before starting watch on Android
       if (Platform.OS === "android") {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
       
       if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
 
+      lastPositionRef.current = null;
+      speedHistoryRef.current = [];
+
       subscriptionRef.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 2000,
-          distanceInterval: 5,
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 1000,
+          distanceInterval: 1,
         },
         (location) => {
           if (!isMountedRef.current) return;
           
           try {
-            const speedMs = location.coords.speed;
-            if (speedMs !== null && speedMs >= 0) {
-              const speedKmh = speedMs * 3.6;
-              setSpeed(speedKmh);
-            } else {
-              setSpeed(null);
-            }
-            setAccuracy(location.coords.accuracy);
+            const { latitude, longitude, speed: gpsSpeed, accuracy: locAccuracy } = location.coords;
+            const timestamp = location.timestamp;
+            
+            setAccuracy(locAccuracy);
             setIsTracking(true);
+            
+            let calculatedSpeed: number | null = null;
+            let source: "gps" | "calculated" | null = null;
+            
+            if (gpsSpeed !== null && gpsSpeed > 0) {
+              calculatedSpeed = gpsSpeed * 3.6;
+              source = "gps";
+            }
+            
+            if ((calculatedSpeed === null || calculatedSpeed === 0) && lastPositionRef.current) {
+              const timeDeltaSeconds = (timestamp - lastPositionRef.current.timestamp) / 1000;
+              
+              if (timeDeltaSeconds > 0.5 && timeDeltaSeconds < 10) {
+                const distanceMeters = calculateHaversineDistance(
+                  lastPositionRef.current.latitude,
+                  lastPositionRef.current.longitude,
+                  latitude,
+                  longitude
+                );
+                
+                if (locAccuracy !== null && distanceMeters > locAccuracy * 0.5) {
+                  const speedMs = distanceMeters / timeDeltaSeconds;
+                  calculatedSpeed = speedMs * 3.6;
+                  source = "calculated";
+                  
+                  if (calculatedSpeed > 100) {
+                    calculatedSpeed = null;
+                    source = null;
+                  }
+                }
+              }
+            }
+            
+            lastPositionRef.current = { latitude, longitude, timestamp };
+            
+            if (calculatedSpeed !== null && calculatedSpeed > 0.5) {
+              speedHistoryRef.current.push(calculatedSpeed);
+              if (speedHistoryRef.current.length > 5) {
+                speedHistoryRef.current.shift();
+              }
+              
+              const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
+              setSpeed(avgSpeed);
+              setSpeedSource(source);
+            } else if (calculatedSpeed === null || calculatedSpeed < 0.5) {
+              if (speedHistoryRef.current.length > 0) {
+                speedHistoryRef.current.shift();
+              }
+              if (speedHistoryRef.current.length === 0) {
+                setSpeed(0);
+                setSpeedSource(null);
+              } else {
+                const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
+                setSpeed(avgSpeed);
+              }
+            }
           } catch (updateError) {
             console.warn("Error updating GPS state:", updateError);
           }
@@ -145,8 +227,6 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       return;
     }
 
-    // Delay GPS initialization significantly to prevent startup crashes
-    // Android needs more time for the native modules to fully initialize
     const initDelay = Platform.OS === "android" ? 3000 : 1500;
     const initTimeout = setTimeout(() => {
       if (isMountedRef.current) {
@@ -179,5 +259,6 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
     isTracking,
     hasPermission,
     error,
+    speedSource,
   };
 }
