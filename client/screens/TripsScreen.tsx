@@ -6,20 +6,21 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
-  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { useUser } from "@/context/UserContext";
 import { useTrip } from "@/context/TripContext";
 import { useMotor } from "@/context/MotorContext";
 import { getApiUrl } from "@/lib/query-client";
 import { Card } from "@/components/Card";
-import { BladeColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { BladeColors, Spacing, BorderRadius, Typography, Shadows } from "@/constants/theme";
 import type { Trip } from "@shared/schema";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -66,20 +67,25 @@ export default function TripsScreen() {
   };
 
   const handleStartTrip = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const success = await startTrip();
     if (success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchTrips();
     }
   };
 
   const handleEndTrip = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const success = await endTrip();
     if (success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchTrips();
     }
   };
 
   const handleTripPress = (trip: Trip) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("TripDetail", { tripId: trip.id });
   };
 
@@ -300,7 +306,7 @@ export default function TripsScreen() {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={isLoading ? null : renderEmptyState}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh} />
         }
         showsVerticalScrollIndicator={true}
         testID="trips-list"

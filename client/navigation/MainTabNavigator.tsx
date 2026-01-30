@@ -28,9 +28,14 @@ function TabBarIcon({ name, color, focused }: { name: keyof typeof Feather.glyph
   return (
     <View style={styles.iconWrapper}>
       {focused ? (
-        <View style={[styles.iconGlow, { backgroundColor: color + "15" }]} />
+        <View style={[styles.iconGlow, { backgroundColor: color + "20" }]} />
       ) : null}
-      <Feather name={name} size={22} color={color} />
+      <Feather 
+        name={name} 
+        size={focused ? 24 : 22} 
+        color={color}
+        style={{ opacity: focused ? 1 : 0.8 }}
+      />
     </View>
   );
 }
