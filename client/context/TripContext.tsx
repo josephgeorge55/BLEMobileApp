@@ -200,15 +200,15 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
   }, [stopDurationTimer]);
 
-  // Start duration timer when trip starts (regardless of motor connection)
+  // Start duration timer only when motor is connected during an active trip
   useEffect(() => {
-    if (activeTrip && isRecording) {
+    if (activeTrip && isRecording && motor?.isConnected) {
       startDurationTimer();
     } else {
       stopDurationTimer();
     }
     return () => stopDurationTimer();
-  }, [activeTrip, isRecording, startDurationTimer, stopDurationTimer]);
+  }, [activeTrip, isRecording, motor?.isConnected, startDurationTimer, stopDurationTimer]);
 
   // Start/stop data recording when motor is connected during an active trip
   useEffect(() => {
