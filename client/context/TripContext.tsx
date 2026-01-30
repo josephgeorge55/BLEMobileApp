@@ -89,15 +89,6 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  useEffect(() => {
-    if (activeTrip && isRecording && motor?.isConnected) {
-      startDataRecording();
-    } else {
-      stopDataRecording();
-    }
-    return () => stopDataRecording();
-  }, [activeTrip, isRecording, motor?.isConnected]);
-
   const fetchActiveTrip = async () => {
     if (!user?.id) return;
     try {
@@ -279,6 +270,16 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       recordingRef.current = null;
     }
   }, [stopDurationTimer]);
+
+  // Start/stop data recording when trip state changes
+  useEffect(() => {
+    if (activeTrip && isRecording && motor?.isConnected) {
+      startDataRecording();
+    } else {
+      stopDataRecording();
+    }
+    return () => stopDataRecording();
+  }, [activeTrip, isRecording, motor?.isConnected, startDataRecording, stopDataRecording]);
 
   const resetTripState = useCallback(() => {
     setTripDuration(0);
