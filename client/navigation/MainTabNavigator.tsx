@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View } from "react-native";
+import * as Haptics from "expo-haptics";
 
 import DashboardScreen from "@/screens/DashboardScreen";
 import LocationScreen from "@/screens/LocationScreen";
@@ -11,7 +12,7 @@ import UpdatesScreen from "@/screens/UpdatesScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
 import { useTheme } from "@/hooks/useTheme";
-import { BladeColors, Spacing, BorderRadius } from "@/constants/theme";
+import { BladeColors, Spacing } from "@/constants/theme";
 
 export type MainTabParamList = {
   DashboardTab: undefined;
@@ -26,9 +27,9 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 function TabBarIcon({ name, color, focused }: { name: keyof typeof Feather.glyphMap; color: string; focused: boolean }) {
   return (
     <View style={styles.iconWrapper}>
-      {focused && (
-        <View style={[styles.iconGlow, { backgroundColor: color + "20" }]} />
-      )}
+      {focused ? (
+        <View style={[styles.iconGlow, { backgroundColor: color + "15" }]} />
+      ) : null}
       <Feather name={name} size={22} color={color} />
     </View>
   );
@@ -43,6 +44,7 @@ export default function MainTabNavigator() {
       screenOptions={{
         headerShown: true,
         headerTransparent: true,
+        headerTitleAlign: "center",
         headerStyle: {
           backgroundColor: Platform.select({
             ios: "transparent",
@@ -55,44 +57,49 @@ export default function MainTabNavigator() {
         },
         tabBarActiveTintColor: BladeColors.accent,
         tabBarInactiveTintColor: isDark ? "#5A6B7A" : "#8A9BA8",
+        tabBarShowLabel: true,
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: isDark ? "#0D1318" : "#F8FAFB",
-            default: isDark ? "#0D1318" : "#F8FAFB",
+            android: isDark ? "#0A0F14" : "#FFFFFF",
+            default: isDark ? "#0A0F14" : "#FFFFFF",
           }),
           borderTopWidth: 0,
           elevation: 0,
-          height: Platform.select({ ios: 88, android: 72, default: 72 }),
-          paddingBottom: Platform.select({ ios: 28, android: 12, default: 12 }),
-          paddingTop: Spacing.sm,
-          paddingHorizontal: Spacing.md,
+          height: Platform.select({ ios: 85, android: 68, default: 68 }),
+          paddingBottom: Platform.select({ ios: 26, android: 8, default: 8 }),
+          paddingTop: 8,
           shadowColor: "#000",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: isDark ? 0.3 : 0.08,
-          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: isDark ? 0.4 : 0.06,
+          shadowRadius: 16,
         },
         tabBarBackground: () =>
           Platform.OS === "ios" ? (
             <BlurView
-              intensity={isDark ? 80 : 90}
+              intensity={isDark ? 60 : 80}
               tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
           ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#0D1318" : "#F8FAFB" }]}>
-              <View style={[styles.tabBarTopBorder, { backgroundColor: isDark ? "#1E2832" : "#E5E9EC" }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#0A0F14" : "#FFFFFF" }]}>
+              <View style={[styles.tabBarTopBorder, { backgroundColor: isDark ? "#1A2530" : "#E8ECEF" }]} />
             </View>
           ),
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 2,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: "600",
-          letterSpacing: 0.2,
-          marginTop: 2,
+          fontSize: 11,
+          fontWeight: "500",
+          letterSpacing: 0.1,
+          marginTop: 4,
+        },
+      }}
+      screenListeners={{
+        tabPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         },
       }}
     >
@@ -159,17 +166,17 @@ const styles = StyleSheet.create({
   iconWrapper: {
     alignItems: "center",
     justifyContent: "center",
-    width: 44,
-    height: 32,
+    width: 48,
+    height: 28,
   },
   iconGlow: {
     position: "absolute",
-    width: 44,
-    height: 32,
-    borderRadius: 16,
+    width: 48,
+    height: 28,
+    borderRadius: 14,
   },
   tabBarTopBorder: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     width: "100%",
   },
 });

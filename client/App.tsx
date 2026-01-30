@@ -15,6 +15,7 @@ import { MotorProvider } from "@/context/MotorContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { UserProvider } from "@/context/UserContext";
 import { TripProvider } from "@/context/TripContext";
+import { ToastProvider } from "@/context/ToastContext";
 
 export default function App() {
   return (
@@ -27,10 +28,12 @@ export default function App() {
                 <MotorProvider>
                   <TripProvider>
                     <SettingsProvider>
-                      <NavigationContainer>
-                        <RootStackNavigator />
-                      </NavigationContainer>
-                      <StatusBar style="light" />
+                      <ToastProvider>
+                        <NavigationContainer>
+                          <RootStackNavigator />
+                        </NavigationContainer>
+                        <StatusBar style="light" />
+                      </ToastProvider>
                     </SettingsProvider>
                   </TripProvider>
                 </MotorProvider>

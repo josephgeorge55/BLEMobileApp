@@ -2,11 +2,11 @@ import React from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
   runOnJS,
   interpolate,
   Extrapolation,
@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, BladeColors, Typography, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius, BladeColors, Typography, Shadows, Gradients } from "@/constants/theme";
 
 interface MetricCardProps {
   icon: keyof typeof Feather.glyphMap;
@@ -183,14 +183,17 @@ export function MetricCard({
       <Animated.View
         style={[
           styles.card,
-          {
-            backgroundColor: darkCardBg,
-            borderColor: "transparent",
-          },
+          Shadows.card,
           style,
           animatedStyle,
         ]}
       >
+        <LinearGradient
+          colors={Gradients.cardPremium as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.header}>
           <View
             style={[
@@ -271,7 +274,6 @@ const styles = StyleSheet.create({
     minHeight: 150,
     padding: Spacing.cardPadding,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1,
     overflow: "hidden",
   },
   header: {

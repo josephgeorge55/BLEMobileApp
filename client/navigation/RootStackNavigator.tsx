@@ -68,19 +68,31 @@ export default function RootStackNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator 
+      screenOptions={{
+        ...screenOptions,
+        animation: "slide_from_right",
+        animationDuration: 250,
+      }}
+    >
       {!isLoggedIn ? (
         <Stack.Screen
           name="Auth"
           component={AuthScreen}
-          options={{ headerShown: false }}
+          options={{ 
+            headerShown: false,
+            animation: "fade",
+          }}
         />
       ) : (
         <>
           <Stack.Screen
             name="Main"
             component={MainWithFab}
-            options={{ headerShown: false }}
+            options={{ 
+              headerShown: false,
+              animation: "fade",
+            }}
           />
           <Stack.Screen
             name="BleScanner"
@@ -88,6 +100,7 @@ export default function RootStackNavigator() {
             options={{
               presentation: "modal",
               headerShown: false,
+              animation: "slide_from_bottom",
             }}
           />
           <Stack.Screen
@@ -96,6 +109,7 @@ export default function RootStackNavigator() {
             options={{
               headerTitle: "Trip Details",
               headerBackTitle: "Back",
+              animation: "slide_from_right",
             }}
           />
         </>
