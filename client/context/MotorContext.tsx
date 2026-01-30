@@ -157,10 +157,14 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
 
   const setMotor = async (newMotor: MotorInfo | null) => {
     setMotorState(newMotor);
-    if (newMotor) {
-      await AsyncStorage.setItem(MOTOR_STORAGE_KEY, JSON.stringify(newMotor));
-    } else {
-      await AsyncStorage.removeItem(MOTOR_STORAGE_KEY);
+    try {
+      if (newMotor) {
+        await AsyncStorage.setItem(MOTOR_STORAGE_KEY, JSON.stringify(newMotor));
+      } else {
+        await AsyncStorage.removeItem(MOTOR_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.error("Error saving motor data:", error);
     }
   };
 
@@ -170,11 +174,15 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
 
   const setLocation = async (newLocation: LocationData | null) => {
     setLocationState(newLocation);
-    if (newLocation) {
-      await AsyncStorage.setItem(
-        LOCATION_STORAGE_KEY,
-        JSON.stringify(newLocation),
-      );
+    try {
+      if (newLocation) {
+        await AsyncStorage.setItem(
+          LOCATION_STORAGE_KEY,
+          JSON.stringify(newLocation),
+        );
+      }
+    } catch (error) {
+      console.error("Error saving location data:", error);
     }
   };
 

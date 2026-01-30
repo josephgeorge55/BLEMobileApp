@@ -142,10 +142,15 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Store data point locally for offline support
-  const storeDataPointLocally = async (tripId: number, dataPoint: Partial<TripDataPoint>) => {
+  const storeDataPointLocally = async (tripId: string, dataPoint: Partial<TripDataPoint>) => {
     try {
       const existing = await AsyncStorage.getItem(PENDING_DATA_KEY);
-      const pendingData: { tripId: number; dataPoint: Partial<TripDataPoint> }[] = existing ? JSON.parse(existing) : [];
+      let pendingData: { tripId: string; dataPoint: Partial<TripDataPoint> }[] = [];
+      try {
+        pendingData = existing ? JSON.parse(existing) : [];
+      } catch {
+        pendingData = [];
+      }
       pendingData.push({ tripId, dataPoint });
       await AsyncStorage.setItem(PENDING_DATA_KEY, JSON.stringify(pendingData));
     } catch (error) {
@@ -289,7 +294,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
   // Create a local trip when offline
   const createLocalTrip = async (name: string, startBatteryPercent?: number): Promise<Trip> => {
-    const localId = -Date.now(); // Negative ID to distinguish from server-created trips
+    const localId = `local-${Date.now()}`; // Local ID prefix to distinguish from server-created trips
     const trip: Trip = {
       id: localId,
       userId: user!.id,
@@ -297,13 +302,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       name,
       startTime: new Date(),
       endTime: null,
-      startBatteryPercent: startBatteryPercent || null,
+      startBatteryPercent: startBatteryPercent ?? null,
       endBatteryPercent: null,
       totalDistanceKm: 0,
       maxSpeedKmh: 0,
       avgSpeedKmh: 0,
       totalEnergyWh: 0,
-      createdAt: new Date(),
+      isActive: true,
     };
 
     // Store local trip
@@ -346,7 +351,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             const pendingDataStr = await AsyncStorage.getItem(PENDING_DATA_KEY);
             if (pendingDataStr) {
               const pendingData = JSON.parse(pendingDataStr);
-              const updatedPending = pendingData.map((item: { tripId: number; dataPoint: Partial<TripDataPoint> }) => 
+              const updatedPending = pendingData.map((item: { tripId: string; dataPoint: Partial<TripDataPoint> }) => 
                 item.tripId === trip.id ? { ...item, tripId: data.trip.id } : item
               );
               await AsyncStorage.setItem(PENDING_DATA_KEY, JSON.stringify(updatedPending));
@@ -509,7 +514,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     stopDataRecording();
 
     const tripData = {
-      endBatteryPercent: telemetry?.bms?.capacity,
+      endBatteryPercent: telemetry?.bms?.capacity ?? null,
       totalDistanceKm: tripStats.totalDistanceKm,
       maxSpeedKmh: tripStats.maxSpeedKmh,
       avgSpeedKmh: tripStats.avgSpeedKmh,
@@ -517,8 +522,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     };
 
     try {
-      // Check if this is a local trip (negative ID)
-      if (activeTrip.id < 0) {
+      // Check if this is a local trip (local- prefix)
+      if (String(activeTrip.id).startsWith('local-')) {
         // Update local trip with end data
         const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
         if (localTripsStr) {
