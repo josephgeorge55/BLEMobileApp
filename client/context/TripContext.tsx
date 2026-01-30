@@ -191,78 +191,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const startDataRecording = useCallback(() => {
-    if (recordingRef.current) return;
-
-    startDurationTimer();
-
-    recordingRef.current = setInterval(async () => {
-      if (!activeTrip || !telemetry) return;
-
-      const latitude = telemetry.gnss?.latitude || location?.latitude;
-      const longitude = telemetry.gnss?.longitude || location?.longitude;
-      const speedKmh = telemetry.gnss?.speed || 0;
-      const powerKw = (telemetry.vesc?.wattage || 0) / 1000;
-      const energyWhThisInterval = powerKw * (TRIP_INTERVAL_MS / 3600000) * 1000;
-
-      if (latitude && longitude && lastPositionRef.current) {
-        const distanceKm = calculateDistance(
-          lastPositionRef.current.lat,
-          lastPositionRef.current.lng,
-          latitude,
-          longitude
-        );
-        setTripStats(prev => ({
-          ...prev,
-          totalDistanceKm: prev.totalDistanceKm + distanceKm,
-          totalEnergyWh: prev.totalEnergyWh + energyWhThisInterval,
-          maxSpeedKmh: Math.max(prev.maxSpeedKmh, speedKmh),
-        }));
-      } else if (latitude && longitude) {
-        setTripStats(prev => ({
-          ...prev,
-          totalEnergyWh: prev.totalEnergyWh + energyWhThisInterval,
-          maxSpeedKmh: Math.max(prev.maxSpeedKmh, speedKmh),
-        }));
-      }
-
-      if (latitude && longitude) {
-        lastPositionRef.current = { lat: latitude, lng: longitude };
-      }
-
-      speedSamplesRef.current.push(speedKmh);
-      const avgSpeed = speedSamplesRef.current.reduce((a, b) => a + b, 0) / speedSamplesRef.current.length;
-      setTripStats(prev => ({ ...prev, avgSpeedKmh: avgSpeed }));
-
-      const dataPoint: Partial<TripDataPoint> = {
-        latitude,
-        longitude,
-        speedKmh,
-        course: telemetry.gnss?.course || location?.heading,
-        batteryPercent: telemetry.bms?.capacity,
-        batteryVoltage: telemetry.bms?.voltage,
-        batteryCurrent: telemetry.bms?.current,
-        batteryTemp: telemetry.bms?.temperature,
-        motorRpm: telemetry.motor?.motorRPM,
-        motorCurrent: telemetry.motor?.phaseCurrent,
-        motorTemp: telemetry.motor?.temperature,
-        vescWattage: telemetry.vesc?.wattage,
-        vescCurrent: telemetry.vesc?.current,
-        vescTemp: telemetry.vesc?.temperature,
-        throttlePercent: telemetry.vesc?.throttle,
-      };
-
-      // Always store locally first for offline support
-      await storeDataPointLocally(activeTrip.id, dataPoint);
-
-      // Try to sync to server if online
-      const netState = await NetInfo.fetch();
-      if (netState.isConnected) {
-        syncPendingData();
-      }
-    }, TRIP_INTERVAL_MS);
-  }, [activeTrip, telemetry, location, startDurationTimer]);
-
+  // Stop all recording (timer and data collection)
   const stopDataRecording = useCallback(() => {
     stopDurationTimer();
     if (recordingRef.current) {
@@ -271,15 +200,96 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
   }, [stopDurationTimer]);
 
-  // Start/stop data recording when trip state changes
+  // Start duration timer when trip starts (regardless of motor connection)
+  useEffect(() => {
+    if (activeTrip && isRecording) {
+      startDurationTimer();
+    } else {
+      stopDurationTimer();
+    }
+    return () => stopDurationTimer();
+  }, [activeTrip, isRecording, startDurationTimer, stopDurationTimer]);
+
+  // Start/stop data recording when motor is connected during an active trip
   useEffect(() => {
     if (activeTrip && isRecording && motor?.isConnected) {
-      startDataRecording();
-    } else {
-      stopDataRecording();
+      // Only start the data recording interval, timer is already running
+      if (!recordingRef.current) {
+        recordingRef.current = setInterval(async () => {
+          if (!activeTrip || !telemetry) return;
+
+          const latitude = telemetry.gnss?.latitude || location?.latitude;
+          const longitude = telemetry.gnss?.longitude || location?.longitude;
+          const speedKmh = telemetry.gnss?.speed || 0;
+          const powerKw = (telemetry.vesc?.wattage || 0) / 1000;
+          const energyWhThisInterval = powerKw * (TRIP_INTERVAL_MS / 3600000) * 1000;
+
+          if (latitude && longitude && lastPositionRef.current) {
+            const distanceKm = calculateDistance(
+              lastPositionRef.current.lat,
+              lastPositionRef.current.lng,
+              latitude,
+              longitude
+            );
+            setTripStats(prev => ({
+              ...prev,
+              totalDistanceKm: prev.totalDistanceKm + distanceKm,
+              totalEnergyWh: prev.totalEnergyWh + energyWhThisInterval,
+              maxSpeedKmh: Math.max(prev.maxSpeedKmh, speedKmh),
+            }));
+          } else if (latitude && longitude) {
+            setTripStats(prev => ({
+              ...prev,
+              totalEnergyWh: prev.totalEnergyWh + energyWhThisInterval,
+              maxSpeedKmh: Math.max(prev.maxSpeedKmh, speedKmh),
+            }));
+          }
+
+          if (latitude && longitude) {
+            lastPositionRef.current = { lat: latitude, lng: longitude };
+          }
+
+          speedSamplesRef.current.push(speedKmh);
+          const avgSpeed = speedSamplesRef.current.reduce((a, b) => a + b, 0) / speedSamplesRef.current.length;
+          setTripStats(prev => ({ ...prev, avgSpeedKmh: avgSpeed }));
+
+          const dataPoint: Partial<TripDataPoint> = {
+            latitude,
+            longitude,
+            speedKmh,
+            course: telemetry.gnss?.course || location?.heading,
+            batteryPercent: telemetry.bms?.capacity,
+            batteryVoltage: telemetry.bms?.voltage,
+            batteryCurrent: telemetry.bms?.current,
+            batteryTemp: telemetry.bms?.temperature,
+            motorRpm: telemetry.motor?.motorRPM,
+            motorCurrent: telemetry.motor?.phaseCurrent,
+            motorTemp: telemetry.motor?.temperature,
+            vescWattage: telemetry.vesc?.wattage,
+            vescCurrent: telemetry.vesc?.current,
+            vescTemp: telemetry.vesc?.temperature,
+            throttlePercent: telemetry.vesc?.throttle,
+          };
+
+          await storeDataPointLocally(activeTrip.id, dataPoint);
+
+          const netState = await NetInfo.fetch();
+          if (netState.isConnected) {
+            syncPendingData();
+          }
+        }, TRIP_INTERVAL_MS);
+      }
+    } else if (recordingRef.current) {
+      clearInterval(recordingRef.current);
+      recordingRef.current = null;
     }
-    return () => stopDataRecording();
-  }, [activeTrip, isRecording, motor?.isConnected, startDataRecording, stopDataRecording]);
+    return () => {
+      if (recordingRef.current) {
+        clearInterval(recordingRef.current);
+        recordingRef.current = null;
+      }
+    };
+  }, [activeTrip, isRecording, motor?.isConnected, telemetry, location]);
 
   const resetTripState = useCallback(() => {
     setTripDuration(0);

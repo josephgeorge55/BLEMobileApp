@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "com.bladeoutboards.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0A4D6E",
         "foregroundImage": "./assets/images/icon.png"
