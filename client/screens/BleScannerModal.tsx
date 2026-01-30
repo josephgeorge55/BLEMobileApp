@@ -21,7 +21,7 @@ import { AntiTheftLinkModal } from "@/components/AntiTheftLinkModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useUser } from "@/context/UserContext";
-import { apiRequest } from "@/lib/query-client";
+import { registerMotorForUser, isMotorRegisteredToUser } from "@/lib/firebase";
 import { Spacing, BorderRadius, BladeColors } from "@/constants/theme";
 import {
   initializeBle,
@@ -342,16 +342,14 @@ export default function BleScannerModal() {
     
     setIsLinking(true);
     try {
-      await apiRequest("POST", "/api/motors/link", {
-        serialNumber: pairedMotor.serialNumber,
-        userId: user.id,
-      });
+      await registerMotorForUser(user.id, pairedMotor.serialNumber, pairedMotor.name);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowAntiTheftModal(false);
       navigation.goBack();
     } catch (error) {
       console.error("Failed to link motor:", error);
+      Alert.alert("Error", "Failed to register motor for anti-theft protection.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsLinking(false);
