@@ -1,49 +1,113 @@
-import React from "react";
-import { StyleSheet, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, View, ActivityIndicator } from "react-native";
 
 import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { FindMyPanel } from "@/components/FindMyPanel";
 import { EmptyState } from "@/components/EmptyState";
+import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
+import { useUser } from "@/context/UserContext";
 import { BladeColors, Spacing } from "@/constants/theme";
+import { 
+  getRegisteredMotors, 
+  fetchLatestGPSFromFirestore,
+  type RegisteredMotor,
+  type DeviceTelemetry
+} from "@/lib/firebase";
 
-interface LocationQueryData {
+interface LocationData {
   latitude: number;
   longitude: number;
-  speed: number;
-  heading: number;
-  timestamp: string;
+  speed?: number;
+  heading?: number;
+  timestamp: Date;
   isLive: boolean;
+  status?: string;
 }
 
 export default function LocationScreen() {
   const { theme } = useTheme();
   const { motor, location, setLocation, telemetry } = useMotor();
+  const { user, isGuestMode } = useUser();
 
-  const serialNumber = motor?.serialNumber;
+  const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
+  const [firestoreLocation, setFirestoreLocation] = useState<LocationData | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  const { data: locationData, refetch } = useQuery<LocationQueryData>({
-    queryKey: ["/api/motor", serialNumber, "location"],
-    enabled: !!serialNumber && !motor?.isConnected,
-    refetchInterval: 10000,
-  });
+  const isConnected = motor?.isConnected;
+  
+  // Get the serial number - prioritize connected motor, then first registered motor
+  const serialNumber = motor?.serialNumber || registeredMotors[0]?.serialNumber;
 
-  React.useEffect(() => {
-    if (locationData && !motor?.isConnected) {
-      setLocation({
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
-        speed: locationData.speed,
-        heading: locationData.heading,
-        timestamp: new Date(locationData.timestamp),
-        isLive: locationData.isLive,
-      });
+  // Load registered motors for the user
+  useEffect(() => {
+    const loadRegisteredMotors = async () => {
+      if (!user || isGuestMode || user.id === "guest") {
+        setRegisteredMotors([]);
+        return;
+      }
+
+      try {
+        const motors = await getRegisteredMotors(user.id);
+        setRegisteredMotors(motors);
+      } catch (error) {
+        console.error("[Location] Error loading registered motors:", error);
+      }
+    };
+
+    loadRegisteredMotors();
+  }, [user, isGuestMode]);
+
+  // Fetch GPS from Firestore when not connected via Bluetooth
+  const fetchFirestoreGPS = async () => {
+    if (!serialNumber) {
+      setLocationError("No motor registered for anti-theft tracking");
+      return;
     }
-  }, [locationData, motor?.isConnected]);
 
-  const currentLocation = motor?.isConnected && telemetry?.gnss
+    setIsLoadingLocation(true);
+    setLocationError(null);
+
+    try {
+      const telemetryData = await fetchLatestGPSFromFirestore(serialNumber);
+      
+      setFirestoreLocation({
+        latitude: telemetryData.latitude,
+        longitude: telemetryData.longitude,
+        timestamp: telemetryData.timestamp,
+        isLive: false, // Firestore data is historical (not real-time Bluetooth)
+        status: telemetryData.status,
+      });
+
+      // Also update the motor context location
+      setLocation({
+        latitude: telemetryData.latitude,
+        longitude: telemetryData.longitude,
+        timestamp: telemetryData.timestamp,
+        isLive: false,
+      });
+
+      setLocationError(null);
+    } catch (error: any) {
+      console.error("[Location] Firestore GPS fetch error:", error);
+      setLocationError(error.message || "Failed to fetch location");
+      setFirestoreLocation(null);
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+  // Auto-fetch Firestore GPS when not connected and we have a serial number
+  useEffect(() => {
+    if (!isConnected && serialNumber && !isGuestMode) {
+      fetchFirestoreGPS();
+    }
+  }, [isConnected, serialNumber, isGuestMode]);
+
+  // Determine the current location to display
+  const currentLocation: LocationData | null = isConnected && telemetry?.gnss
     ? {
         latitude: telemetry.gnss.latitude,
         longitude: telemetry.gnss.longitude,
@@ -52,24 +116,66 @@ export default function LocationScreen() {
         timestamp: new Date(),
         isLive: true,
       }
-    : location;
+    : firestoreLocation || location;
 
   const handleFind = () => {
-    refetch();
+    if (!isConnected) {
+      fetchFirestoreGPS();
+    }
   };
 
-  if (!motor) {
+  // No motor registered and not connected
+  if (!motor && registeredMotors.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
         <EmptyState
           image={require("../../assets/images/empty-location.png")}
-          title="No Motor Connected"
-          description="Connect to your Blade outboard to view its current or last known location."
+          title="No Motor Registered"
+          description="Register your Blade outboard in Settings to enable anti-theft GPS tracking."
         />
       </View>
     );
   }
 
+  // Guest mode - can't use anti-theft
+  if (isGuestMode) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+        <EmptyState
+          image={require("../../assets/images/empty-location.png")}
+          title="Sign In Required"
+          description="Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location."
+        />
+      </View>
+    );
+  }
+
+  // Loading state
+  if (isLoadingLocation && !currentLocation) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+        <ActivityIndicator size="large" color={BladeColors.marine} />
+        <ThemedText type="body" style={styles.loadingText}>
+          Fetching location from Firestore...
+        </ThemedText>
+      </View>
+    );
+  }
+
+  // Error state - Device has never connected to GNSS
+  if (locationError && !currentLocation) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+        <EmptyState
+          image={require("../../assets/images/empty-location.png")}
+          title="No Location Data"
+          description={locationError}
+        />
+      </View>
+    );
+  }
+
+  // No location data available
   if (!currentLocation) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -81,6 +187,9 @@ export default function LocationScreen() {
       </View>
     );
   }
+
+  const displayName = motor?.name || registeredMotors[0]?.name || "Blade Outboard";
+  const displaySerial = serialNumber || "--";
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -99,7 +208,7 @@ export default function LocationScreen() {
                 latitude: currentLocation.latitude,
                 longitude: currentLocation.longitude,
               },
-              title: motor.name || "Blade Outboard",
+              title: displayName,
               color: currentLocation.isLive ? BladeColors.success : BladeColors.marine,
               isLive: currentLocation.isLive,
             },
@@ -110,8 +219,8 @@ export default function LocationScreen() {
 
       <View style={styles.panelContainer}>
         <FindMyPanel
-          motorName={motor.name || "Blade Outboard"}
-          serialNumber={motor.serialNumber}
+          motorName={displayName}
+          serialNumber={displaySerial}
           latitude={currentLocation.latitude}
           longitude={currentLocation.longitude}
           timestamp={currentLocation.timestamp}
@@ -126,6 +235,14 @@ export default function LocationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: Spacing.md,
+    color: "#596F7C",
   },
   mapContainer: {
     flex: 1,

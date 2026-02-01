@@ -17,6 +17,12 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  collectionGroup,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
   type Firestore
 } from "firebase/firestore";
 
@@ -220,6 +226,82 @@ export async function isMotorRegisteredToUser(
 ): Promise<boolean> {
   const motors = await getRegisteredMotors(userId);
   return motors.some((m) => m.serialNumber === serialNumber.toUpperCase());
+}
+
+// GPS Telemetry interface from Firestore
+export interface DeviceTelemetry {
+  latitude: number;
+  longitude: number;
+  status: string;
+  timestamp: Date;
+  serialNumber: string;
+}
+
+// Fetch latest GPS coordinates from Firestore using collection group query
+// Queries across all devices/{deviceName}/telemetry subcollections
+export async function fetchLatestGPSFromFirestore(
+  serialNumber: string
+): Promise<DeviceTelemetry> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    throw new Error("Firestore not initialized");
+  }
+
+  try {
+    // Collection group query across all telemetry subcollections
+    const telemetryQuery = query(
+      collectionGroup(firestore, "telemetry"),
+      where("serialNumber", "==", serialNumber.toUpperCase()),
+      orderBy("timestamp", "desc"),
+      limit(1)
+    );
+
+    const snapshot = await getDocs(telemetryQuery);
+
+    if (snapshot.empty) {
+      throw new Error("Device has never connected to GNSS");
+    }
+
+    const data = snapshot.docs[0].data();
+    
+    // Handle Firestore timestamp conversion
+    let timestamp: Date;
+    if (data.timestamp && typeof data.timestamp.toDate === "function") {
+      timestamp = data.timestamp.toDate();
+    } else if (data.timestamp instanceof Date) {
+      timestamp = data.timestamp;
+    } else if (typeof data.timestamp === "string") {
+      timestamp = new Date(data.timestamp);
+    } else if (typeof data.timestamp === "number") {
+      timestamp = new Date(data.timestamp);
+    } else {
+      timestamp = new Date();
+    }
+
+    console.log("[Firebase] Fetched GPS telemetry for:", serialNumber, {
+      lat: data.latitude,
+      lng: data.longitude,
+      status: data.status,
+      timestamp: timestamp,
+    });
+
+    return {
+      latitude: data.latitude,
+      longitude: data.longitude,
+      status: data.status || "unknown",
+      timestamp: timestamp,
+      serialNumber: data.serialNumber,
+    };
+  } catch (error: any) {
+    console.error("[Firebase] Error fetching GPS telemetry:", error);
+    
+    // Check if it's a missing index error
+    if (error?.code === "failed-precondition" || error?.message?.includes("index")) {
+      throw new Error("Firestore index required. Please create a composite index on telemetry collection group for serialNumber + timestamp fields.");
+    }
+    
+    throw error;
+  }
 }
 
 export { 

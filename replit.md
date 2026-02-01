@@ -1,274 +1,69 @@
 # Blade Outboards Mobile App
 
 ## Overview
-
-Blade Outboards is a cross-platform mobile application (iOS, Android, Web) for monitoring and managing electric outboard motors. The system provides real-time telemetry monitoring, anti-theft GPS tracking, firmware update management, and push notifications for marine environments with intermittent connectivity.
-
-The application consists of an Expo/React Native mobile client and an Express.js backend API, connected via REST endpoints and designed for BLE (Bluetooth Low Energy) communication with physical outboard motors.
+Blade Outboards is a cross-platform mobile application (iOS, Android, Web) designed for monitoring and managing electric outboard motors. It provides real-time telemetry, anti-theft GPS tracking, firmware update management, and push notifications, specifically engineered for marine environments with intermittent connectivity. The project aims to offer a premium, robust solution for electric outboard motor management.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 Design aesthetic: Premium DJI-style with high-contrast design optimized for outdoor marine environments.
 
 ## System Architecture
+The application comprises an Expo/React Native mobile client and an Express.js backend API, communicating via REST endpoints and utilizing BLE (Bluetooth Low Energy) for interaction with physical outboard motors.
 
-### Frontend Architecture
-- **Framework**: Expo SDK 54 with React Native 0.81
-- **Navigation**: React Navigation v7 with native stack and bottom tab navigators
-- **State Management**: React Context for motor/settings/user state, TanStack React Query for server state
-- **Styling**: Custom theming system with light/dark mode support, Reanimated for animations, expo-linear-gradient for premium effects
-- **Path Aliases**: `@/` maps to `./client`, `@shared/` maps to `./shared`
+### Frontend
+- **Framework**: Expo SDK with React Native
+- **Navigation**: React Navigation (native stack, bottom tab navigators)
+- **State Management**: React Context (local state), TanStack React Query (server state)
+- **Styling**: Custom theming with light/dark mode, Reanimated for animations, Expo Linear Gradient
+- **UI/UX Decisions**: High-contrast interface, deep ocean blue palette, optimized for outdoor visibility.
+- **Key Features**:
+    - **Authentication**: Email and 6-digit PIN.
+    - **Dashboard**: Real-time telemetry (speed, battery, power).
+    - **Location**: GPS tracking, map visualization (OpenStreetMap-based Leaflet.js).
+    - **My Trips**: Recording, history, PDF export, route visualization.
+    - **Updates**: OTA firmware management.
+    - **Settings**: Device management, user account, notifications.
+    - **BLE Scanner**: Bluetooth device discovery and motor pairing.
+    - **Anti-Theft**: Motor-to-user account linking, extended GPS tracking.
+    - **Custom Firmware Update**: In-app .hex firmware flashing via Bluetooth OTA using a custom STM32 bootloader protocol.
 
-### Backend Architecture
-- **Framework**: Express.js 5 with TypeScript
+### Backend
+- **Framework**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
-- **Schema Location**: `shared/schema.ts` contains all database tables and Zod validation schemas
-- **API Pattern**: RESTful endpoints under `/api/motor/:serialNumber/*` and `/api/auth/*`
-- **Auth Logging**: Auth events logged to `logs/auth.log`
+- **API Pattern**: RESTful, structured for motor-specific and authentication endpoints.
 
-### Key Design Patterns
-- **Shared Schema**: Database schemas and validation types are shared between client and server via the `shared/` directory
-- **Platform-Specific Files**: Location screen uses `.native.tsx` and `.web.tsx` suffixes for platform-specific implementations
-- **OpenStreetMap Integration**: Uses WebView-based Leaflet.js maps for cross-platform compatibility (no Google API required)
-- **Marine-First Design**: High-contrast UI optimized for outdoor/sunlight visibility with deep ocean blue color palette
-- **User-Motor Linking**: Motors are linked to user accounts via userId for anti-theft protection
+### Core Design Patterns
+- **Shared Schema**: Database schemas and validation types (`shared/schema.ts`) are shared between client and server.
+- **Platform-Specific Files**: Uses `.native.tsx` and `.web.tsx` for platform-specific implementations.
+- **Marine-First Design**: UI optimized for marine conditions.
+- **User-Motor Linking**: Motors are linked to user accounts for security.
 
-### Core Features
-1. **Authentication**: User account creation with email and 6-digit PIN, login/logout
-2. **Dashboard**: Real-time telemetry display (speed, battery, power consumption)
-3. **Location**: GPS tracking with map visualization for anti-theft monitoring
-4. **My Trips**: Trip recording with automatic telemetry capture, history, and PDF export
-5. **Updates**: OTA firmware management with version targeting
-6. **Settings**: Device management, user account info, notification preferences, legal links
-7. **BLE Scanner**: Bluetooth device discovery and motor pairing
-8. **Anti-Theft**: Motors linked to user accounts for ownership protection
-9. **Custom Firmware Update**: User can upload .hex firmware files directly from their phone and flash to the Tiller board via Bluetooth OTA
-
-### Custom Firmware OTA System
-The app includes a complete STM32 bootloader FOTA implementation for flashing custom firmware to the Tiller board:
-
-**Location:** Settings > Connected Outboard > Custom Firmware Update
-
-**Components:**
-- `client/lib/hex-parser.ts` - Intel HEX file parser that converts .hex files into 256-byte memory blocks
-- `client/lib/firmware-ota-service.ts` - STM32 bootloader protocol implementation with debug logging
-- `client/components/FirmwareUpdateModal.tsx` - Full-featured UI with file picker, progress bar, real-time log console
-- `client/lib/bluetooth-classic-service.ts` - Binary data handling with OTA mode support
-
-**STM32 Bootloader Protocol (Tiller Board v1.3):**
-- Communication: UART over Bluetooth SPP (115200 baud, 8 data bits, Even parity, 1 stop bit)
-- ACK byte: 0x79 (success), NACK byte: 0x1F (failure - stop process on NACK)
-
-**Protocol Steps:**
-1. **Init**: Send 0x7F → expect ACK (0x79)
-2. **GET**: Send 0x00 + 0xFF → 13-byte response (ACK, N=11, Protocol version, supported commands)
-3. **GET ID**: Send 0x02 + 0xFD → 5-byte response (ACK, N=1, 2-byte chip ID, ACK)
-4. **ERASE**: Send 0x43 + 0xBC → ACK → Send 0xFF + 0x00 → ACK → Wait 2 seconds
-5. **WRITE** (per 256-byte block):
-   - Send 0x31 + 0xCE → ACK
-   - Send [4-byte address] + [address checksum] → ACK
-   - Send [length N-1] + [N data bytes] + [data checksum] → ACK
-   - Wait 10ms before next block
-6. **GO**: Send 0x21 + 0xDE → ACK → Send [4-byte start address] + [checksum] → ACK
-
-**OTA Mode:**
-- `setOTAMode(true)` switches Bluetooth service to binary data handling
-- `setOTAMode(false)` returns to normal text-based telemetry mode
-- Prevents interference between firmware updates and dashboard telemetry
-
-**Requirements:**
-- Tiller board must be in bootloader mode (hardware switch or software command 0x01 + 0xFE)
-- Bluetooth Classic must be connected via the Scanner first (not BLE)
-- Firmware files must be in Intel HEX format (.hex)
-- Start address typically 0x08000000 for STM32
-
-### Trip Recording System
-- **Automatic Data Capture**: Records 17 telemetry parameters every 5 seconds during active trips
-- **Metrics Tracked**: Speed (km/h), GPS coordinates, battery level/voltage/current/temp, motor RPM/current/temp, VESC power/current/temp, throttle position
-- **Trip Calculations**: Total distance (km), max/avg speed (km/h), energy consumption (Wh), efficiency (Wh/km)
-- **PDF Export**: Generate and share professional trip reports with route map visualization via expo-print and expo-sharing
-- **Route Visualization**: OpenStreetMap displays recorded GPS route with start/end markers
-- **Auto-End on App Close**: Trips automatically end when app goes to background or is closed (via AppState listener)
-- **Offline Support**: Full offline trip recording - trips and data points stored locally in AsyncStorage, automatically synced to server when connection is restored
-- **Context**: TripContext manages active trip state and automatic recording when motor is connected
-- **Sync Strategy**: Uses NetInfo to detect connectivity changes and sync pending data automatically
-
-### Data Flow
-- Users authenticate with email and 6-digit PIN
-- Motors identified by serial number and linked to user accounts
-- Telemetry reported at 2 Hz (500ms intervals) when connected via BLE
-- Location data stored with live/historical status
-- Push notifications delivered via Expo Push service
-
-### BLE Protocol (Halo Outboards Tiller Board v1.3)
-The app parses comma-separated data frames from the tiller board via Bluetooth Classic serial:
-
-**Frame Types:**
-1. **GNSS** - GPS/GLONASS location data
-   - Format: `$GNSS,G1,<TimeUTC>,<Latitude>,<Longitude>,<Course>,<Speed>`
-   - Speed in km/h, converted to knots for display
-
-2. **BMS** - Battery Management System
-   - Format: `$BMS,G1,<Voltage>,<Capacity>,<Current>,<Wattage>,<Temperature>`
-   - Voltage (V), Capacity (%), Current (A), Wattage (W), Temp (°C)
-
-3. **MOTOR** - Motor telemetry
-   - Format: `$MOTOR,G1,<PhaseCurrent>,<MotorRPM>,<Temperature>`
-   - Phase Current (A), RPM, Temp (°C)
-
-4. **VESC** - Motor controller data
-   - Format: `$VESC,G1,<Voltage>,<Current>,<Wattage>,<Throttle>,<Temperature>`
-   - Voltage (V), Current (A), Wattage (W), Throttle (%), Temp (°C)
-
-5. **INFOR** - System information (firmware, odometer, errors)
-   - **G1 Format**: `$INFOR,G1,<SerialNumber>,<FirmwareVersion>`
-     - SerialNumber: String (e.g., "JK8839421")
-     - FirmwareVersion: String (e.g., "1.0.2")
-   - **G2 Format**: `$INFOR,G2,<Odometer>,<DriverMode>,<ErrorCode>`
-     - Odometer: Float in hours (e.g., 89.0)
-     - DriverMode: "Eco", "Normal", "Sport", or "Docking"
-     - ErrorCode: E0 = no error, E01-E08 are error codes
-
-**Error Code Table:**
-| Code | Description | Cause |
-|------|-------------|-------|
-| E01 | Overvoltage | Battery voltage > 65V |
-| E02 | Undervoltage | Battery voltage < 42V |
-| E03 | BMS over temperature | Temperature > 85°C |
-| E04 | VESC over temperature | Temperature > 85°C |
-| E05 | Motor over temperature | Temperature > 85°C |
-| E06 | GPS not found | GPS not found |
-| E07 | VESC not found | VESC not found |
-| E08 | BMS not found | BMS not found |
-
-**Parser Location:** `client/lib/ble-parser.ts`
-
-### Bluetooth Data Flow
-The app supports both real Bluetooth connections and simulation mode:
-
-**Real Connection (Custom Build):**
-1. BleScannerModal discovers devices via `bluetooth-classic-service.ts` or `ble-service.ts`
-2. When user connects, `connectToClassicDevice` is called with callbacks
-3. The `onConnected` callback calls `MotorContext.connectToMotor(serialNumber, false)` - the `false` prevents simulation
-4. The `onDataReceived` callback passes parsed data directly to `MotorContext.processParsedData()`
-5. Telemetry updates flow to the Dashboard in real-time
-
-**Simulation Mode (Expo Go):**
-1. BleScannerModal shows mock devices when Bluetooth is unavailable
-2. `connectToMotor(serialNumber, true)` starts the BLE simulation
-3. Mock frames are generated at 2Hz and processed by `processBLEFrame()`
-
-**Key Context Functions:**
-- `processBLEFrame(frame: string)` - Parses raw frame string and updates telemetry
-- `processParsedData(data: ParseResult)` - Directly accepts already-parsed data from Bluetooth services
-
-### Anti-Theft Location Tracking
-- Motors report GPS location via cellular every hour
-- Continues for up to 30 days after last power on
-- Enables recovery of stolen motors even when powered off
-
-## Database Schema
-
-### Tables
-- **users**: User accounts with email, PIN, timestamps
-- **motors**: Motor records with serialNumber, userId (for anti-theft), firmware info
-- **motor_locations**: GPS location history
-- **trips**: Trip records with start/end times, battery levels, calculated metrics (distance, speed, energy)
-- **trip_data_points**: Individual telemetry snapshots captured during trips (17 parameters per point)
-- **firmware_versions**: Available firmware updates
-- **firmware_eligibility**: Serial-specific firmware targeting
-- **push_tokens**: Expo push notification tokens
-- **notifications**: Notification history
-- **telemetry_data**: Real-time telemetry records
+### Data Flow & Protocols
+- **Telemetry**: Real-time data reported at 2 Hz via Bluetooth Classic serial frames (GNSS, BMS, MOTOR, VESC, INFOR frame types).
+- **Firmware OTA**: Specific STM32 bootloader protocol commands for flashing firmware.
+- **Offline Support**: Trip data recorded locally and synced when connectivity is restored.
+- **Anti-Theft Location**: Motors report GPS hourly via cellular for up to 30 days post-power-off.
+- **Firestore Integration**: Used for fetching latest GPS coordinates when not connected via Bluetooth, leveraging collection group queries.
 
 ## External Dependencies
 
 ### Database
-- **PostgreSQL**: Primary data store for users, motors, locations, firmware versions, push tokens, and notifications
-- **Drizzle ORM**: Type-safe database access with schema in `shared/schema.ts`
+- **PostgreSQL**: Primary data store.
+- **Drizzle ORM**: Type-safe database access.
 
 ### Mobile Services
-- **Expo Location**: GPS tracking for motor position
-- **Expo Notifications**: Push notification delivery
-- **React Native Maps**: Native map rendering (iOS/Android only)
-- **AsyncStorage**: Local persistence for user, motor, and settings data
-- **Expo Linear Gradient**: Premium gradient effects
+- **Expo Location**: GPS tracking.
+- **Expo Notifications**: Push notification delivery.
+- **React Native Maps**: Native map rendering.
+- **AsyncStorage**: Local data persistence.
+- **Expo Linear Gradient**: UI effects.
+- **react-native-ble-plx**: Bluetooth Low Energy support (requires custom native build).
 
 ### Build & Development
-- **Expo**: Managed workflow for cross-platform builds
-- **Metro Bundler**: React Native JavaScript bundler
-- **Drizzle Kit**: Database migrations (`drizzle-kit push`)
+- **Expo**: Managed workflow for cross-platform builds.
+- **Metro Bundler**: JavaScript bundler.
+- **Drizzle Kit**: Database migrations.
 
-### BLE Hardware Support
-The app includes real Bluetooth Low Energy support via `react-native-ble-plx`. This requires a custom native build.
-
-**Expo Go Limitations:**
-- Expo Go does NOT support native BLE modules
-- The app automatically falls back to demo mode in Expo Go
-- Demo mode shows simulated devices for UI/UX testing
-
-**Custom Build for Real BLE:**
-To test with actual Bluetooth hardware (Halo Tiller Board), you need a custom development build:
-
-1. **Clone the project locally**
-   ```bash
-   git clone <repository-url>
-   cd blade-outboards
-   npm install
-   ```
-
-2. **Install react-native-ble-plx and add plugin to app.json**
-   ```bash
-   npm install react-native-ble-plx
-   ```
-   
-   Then add to app.json plugins array:
-   ```json
-   [
-     "react-native-ble-plx",
-     {
-       "isBackgroundEnabled": false,
-       "modes": ["peripheral", "central"],
-       "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor."
-     }
-   ]
-   ```
-
-3. **Create development build**
-   ```bash
-   # Generate native projects
-   npx expo prebuild
-   
-   # Build for Android
-   npx expo run:android
-   
-   # Build for iOS (requires Mac + Xcode)
-   npx expo run:ios
-   ```
-
-4. **Or use EAS Build (cloud)**
-   ```bash
-   npm install -g eas-cli
-   eas login
-   eas build --profile development --platform android
-   eas build --profile development --platform ios
-   ```
-
-**BLE Service UUIDs:**
-- Service: `0000ffe0-0000-1000-8000-00805f9b34fb`
-- Characteristic: `0000ffe1-0000-1000-8000-00805f9b34fb`
-
-**Supported Device Names:**
-- Devices starting with "Blade" or "Halo"
-- Serial number pattern: `BLD-XXXX-XXXX` or `HALO-XXXX-XXXX`
-
-### Environment Variables Required
-- `DATABASE_URL`: PostgreSQL connection string
-- `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
-- `REPLIT_DEV_DOMAIN`: Development domain (auto-set in Replit)
-
-## Company Information
-- **Company**: Blade Marine Technologies Limited
-- **Privacy Policy**: https://www.bladeoutboards.com/privacy-policy
-- **Terms & Conditions**: https://www.bladeoutboards.com/tandc
+### Environment Variables
+- `DATABASE_URL`: PostgreSQL connection string.
+- `EXPO_PUBLIC_DOMAIN`: API server domain.
