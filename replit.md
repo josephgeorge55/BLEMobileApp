@@ -45,6 +45,14 @@ The application comprises an Expo/React Native mobile client and an Express.js b
 - **Anti-Theft Location**: Motors report GPS hourly via cellular for up to 30 days post-power-off.
 - **Firestore Integration**: Used for fetching latest GPS coordinates when not connected via Bluetooth, leveraging collection group queries.
 
+### Critical: Motor Serial Number Flow
+When connecting to a real motor via Bluetooth:
+1. **Initial Connection**: Motor's `serialNumber` is set to the Bluetooth MAC address (e.g., `AA:BB:CC:DD:EE:FF`)
+2. **INFOR G1 Frame Received**: The real serial number (e.g., `BLD-2024-0001`) arrives and MotorContext updates `motor.serialNumber`
+3. **Anti-Theft Registration**: BleScannerModal waits up to 3 seconds for the real serial before registering with Firebase
+4. **Trip Recording**: Uses `telemetry.tillerSerialNumber` as fallback when `motor.serialNumber` is still a Bluetooth address
+5. **Location Lookup**: LocationScreen checks for valid serial (no `:` colons) from motor, telemetry, or registered motors list
+
 ## External Dependencies
 
 ### Database
