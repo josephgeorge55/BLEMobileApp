@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ActivityIndicator, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OpenStreetMap } from "@/components/OpenStreetMap";
@@ -29,7 +29,7 @@ interface LocationData {
 export default function LocationScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { motor, location, setLocation, telemetry } = useMotor();
+  const { motor, location, setLocation, telemetry, addDebugLog } = useMotor();
   const { user, isGuestMode } = useUser();
 
   const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
@@ -74,22 +74,29 @@ export default function LocationScreen() {
   }, [user, isGuestMode]);
 
   const fetchFirestoreGPS = async () => {
-    console.log("[Location] fetchFirestoreGPS called with serialNumber:", serialNumber);
-    console.log("[Location] motor.serialNumber:", motor?.serialNumber);
-    console.log("[Location] telemetry.tillerSerialNumber:", telemetry?.tillerSerialNumber);
-    console.log("[Location] registeredMotors:", registeredMotors.map(m => m.serialNumber));
+    addDebugLog("INFO", `[Location] fetchFirestoreGPS called`);
+    addDebugLog("INFO", `[Location] serialNumber: ${serialNumber || 'none'}`);
+    addDebugLog("INFO", `[Location] motor.serialNumber: ${motor?.serialNumber || 'none'}`);
+    addDebugLog("INFO", `[Location] telemetry.tillerSerialNumber: ${telemetry?.tillerSerialNumber || 'none'}`);
+    addDebugLog("INFO", `[Location] registeredMotors: ${registeredMotors.map(m => m.serialNumber).join(', ') || 'none'}`);
     
     if (!serialNumber) {
-      setLocationError("No motor registered for anti-theft tracking");
+      const errorMsg = "No motor serial number available for location lookup";
+      addDebugLog("ERROR", `[Location] ${errorMsg}`);
+      setLocationError(errorMsg);
+      Alert.alert("Location Lookup", errorMsg);
       return;
     }
 
     setIsLoadingLocation(true);
     setLocationError(null);
+    addDebugLog("INFO", `[Location] Starting Firestore GPS lookup for: ${serialNumber}`);
 
     try {
-      console.log("[Location] Fetching GPS from Firestore for serial:", serialNumber);
       const telemetryData = await fetchLatestGPSFromFirestore(serialNumber);
+      
+      addDebugLog("INFO", `[Location] SUCCESS! Got GPS: lat=${telemetryData.latitude}, lng=${telemetryData.longitude}`);
+      addDebugLog("INFO", `[Location] Timestamp: ${telemetryData.timestamp}, Status: ${telemetryData.status || 'unknown'}`);
       
       setFirestoreLocation({
         latitude: telemetryData.latitude,
@@ -108,9 +115,12 @@ export default function LocationScreen() {
 
       setLocationError(null);
     } catch (error: any) {
+      const errorMsg = error.message || "Failed to fetch location";
+      addDebugLog("ERROR", `[Location] Firestore GPS fetch FAILED: ${errorMsg}`);
       console.error("[Location] Firestore GPS fetch error:", error);
-      setLocationError(error.message || "Failed to fetch location");
+      setLocationError(errorMsg);
       setFirestoreLocation(null);
+      Alert.alert("Location Error", errorMsg);
     } finally {
       setIsLoadingLocation(false);
     }
@@ -134,7 +144,12 @@ export default function LocationScreen() {
     : firestoreLocation || location;
 
   const handleFind = () => {
-    if (!isConnected) {
+    addDebugLog("INFO", `[Location] Find button pressed. isConnected=${isConnected}`);
+    if (isConnected) {
+      addDebugLog("INFO", "[Location] Motor connected - using live GPS from Bluetooth");
+      Alert.alert("Live Location", "Using real-time GPS from connected motor.");
+    } else {
+      addDebugLog("INFO", "[Location] Motor not connected - looking up location from Firestore");
       fetchFirestoreGPS();
     }
   };

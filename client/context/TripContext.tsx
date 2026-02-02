@@ -490,71 +490,22 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     console.log("[TripContext] Trip parameters:", { tripName, startBatteryPercent });
 
     try {
-      // Check if we're online
-      const netState = await NetInfo.fetch();
-      console.log("[TripContext] Network state:", netState.isConnected);
-      
-      if (netState.isConnected) {
-        // Online: create trip on server
-        console.log("[TripContext] Creating trip on server...");
-        const response = await apiRequest("POST", "/api/trips/start", {
-          userId: user.id,
-          motorSerialNumber: effectiveSerialNumber,
-          name: tripName,
-          startBatteryPercent,
-        });
-
-        const data = await response.json();
-        console.log("[TripContext] Server response:", data);
-        
-        if (data.trip) {
-          resetTripState();
-          setActiveTrip(data.trip);
-          setIsRecording(true);
-          await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(data.trip));
-          console.log("[TripContext] Trip started successfully:", data.trip.id);
-          return true;
-        }
-        
-        // Server returned but no trip - show error
-        console.error("[TripContext] Server returned no trip:", data);
-        Alert.alert(
-          "Could Not Start Trip",
-          data.error || "An unexpected error occurred. Please try again.",
-          [{ text: "OK" }]
-        );
-        return false;
-      } else {
-        // Offline: create local trip
-        console.log("[TripContext] Offline mode, creating local trip...");
-        const localTrip = await createLocalTrip(tripName, effectiveSerialNumber, startBatteryPercent);
-        resetTripState();
-        setActiveTrip(localTrip);
-        setIsRecording(true);
-        console.log("[TripContext] Local trip started:", localTrip.id);
-        return true;
-      }
+      // Always use local storage for trips - no server dependency
+      console.log("[TripContext] Creating local trip...");
+      const localTrip = await createLocalTrip(tripName, effectiveSerialNumber, startBatteryPercent);
+      resetTripState();
+      setActiveTrip(localTrip);
+      setIsRecording(true);
+      console.log("[TripContext] Trip started successfully:", localTrip.id);
+      return true;
     } catch (error: any) {
-      console.error("[TripContext] Error starting trip:", error);
-      
-      // Network error: create local trip
-      try {
-        console.log("[TripContext] Falling back to local trip...");
-        const localTrip = await createLocalTrip(tripName, effectiveSerialNumber, startBatteryPercent);
-        resetTripState();
-        setActiveTrip(localTrip);
-        setIsRecording(true);
-        console.log("[TripContext] Local trip fallback started:", localTrip.id);
-        return true;
-      } catch (localError: any) {
-        console.error("[TripContext] Error creating local trip:", localError);
-        Alert.alert(
-          "Error",
-          localError.message || "Could not start trip. Please try again.",
-          [{ text: "OK" }]
-        );
-        return false;
-      }
+      console.error("[TripContext] Error creating trip:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Could not start trip. Please try again.",
+        [{ text: "OK" }]
+      );
+      return false;
     } finally {
       setIsLoading(false);
     }

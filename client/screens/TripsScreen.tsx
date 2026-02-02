@@ -14,16 +14,18 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "@/hooks/useTheme";
 import { useUser } from "@/context/UserContext";
 import { useTrip } from "@/context/TripContext";
 import { useMotor } from "@/context/MotorContext";
-import { getApiUrl } from "@/lib/query-client";
 import { Card } from "@/components/Card";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { BladeColors, Spacing, BorderRadius, Typography, Shadows } from "@/constants/theme";
 import type { Trip } from "@shared/schema";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+const LOCAL_TRIPS_KEY = "@blade_local_trips";
 
 export default function TripsScreen() {
   const { theme, isDark } = useTheme();
@@ -40,16 +42,26 @@ export default function TripsScreen() {
 
   const fetchTrips = async () => {
     if (!user?.id) return;
+    console.log("[TripsScreen] Fetching trips from local storage for user:", user.id);
     try {
-      const response = await fetch(
-        new URL(`/api/trips/user/${user.id}`, getApiUrl()).toString()
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setTrips(data);
+      const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+      if (localTripsStr) {
+        const allTrips: Trip[] = JSON.parse(localTripsStr);
+        // Filter trips for current user and sort by startTime descending
+        const userTrips = allTrips
+          .filter((trip: Trip) => trip.userId === user.id)
+          .sort((a: Trip, b: Trip) => 
+            new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+          );
+        console.log("[TripsScreen] Found", userTrips.length, "trips for user");
+        setTrips(userTrips);
+      } else {
+        console.log("[TripsScreen] No trips found in local storage");
+        setTrips([]);
       }
     } catch (error) {
-      console.error("Error fetching trips:", error);
+      console.error("[TripsScreen] Error fetching trips:", error);
+      setTrips([]);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -290,21 +302,8 @@ export default function TripsScreen() {
     canStartTrip 
   });
 
-  // Show debug info on screen (remove once issue is fixed)
-  const renderDebugBanner = () => (
-    <View style={{ backgroundColor: '#1a1a2e', padding: 8, marginBottom: 8, borderRadius: 8 }}>
-      <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
-        [DEBUG] user: {user?.id ? 'yes' : 'no'} | motor: {motor?.isConnected ? 'yes' : 'no'} | serial: {effectiveSerial || 'none'}
-      </Text>
-      <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
-        motorSerial: {motorSerial || 'null'} | tillerSerial: {tillerSerial || 'null'} | canStart: {canStartTrip ? 'YES' : 'NO'}
-      </Text>
-    </View>
-  );
-
   const renderHeader = () => (
     <View style={styles.headerSection}>
-      {renderDebugBanner()}
       {isRecording ? (
         <>
           <Card style={styles.liveRecordingCard}>
