@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -65,7 +65,7 @@ export default function BleScannerModal() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { theme } = useTheme();
-  const { connectToMotor, isConnecting, stopScan, processParsedData, disconnectMotor, addDebugLog } = useMotor();
+  const { motor, connectToMotor, isConnecting, stopScan, processParsedData, disconnectMotor, addDebugLog } = useMotor();
   const { user } = useUser();
 
   const [isScanning, setIsScanning] = useState(true);
@@ -96,6 +96,12 @@ export default function BleScannerModal() {
     bleDeviceCount: 0,
     classicDeviceCount: 0,
   });
+  
+  // Ref to track current motor state for use in async callbacks
+  const motorRef = useRef(motor);
+  useEffect(() => {
+    motorRef.current = motor;
+  }, [motor]);
 
   const startMockScan = useCallback(() => {
     setIsScanning(true);
@@ -353,7 +359,53 @@ export default function BleScannerModal() {
     
     setIsLinking(true);
     try {
-      const result = await registerMotorForUser(user.id, pairedMotor.serialNumber, pairedMotor.name);
+      // CRITICAL: Use the motor context's serial number which gets updated from INFOR G1 frame
+      // The pairedMotor.serialNumber may still be the Bluetooth MAC address (contains ":")
+      // The motor.serialNumber from context is updated when INFOR G1 telemetry is received
+      let serialToRegister = pairedMotor.serialNumber;
+      let motorName = pairedMotor.name;
+      
+      // Check if motor context has a valid serial (updated from INFOR G1)
+      // Use motorRef.current to get the latest motor state in async context
+      const currentMotor = motorRef.current;
+      if (currentMotor?.serialNumber && !currentMotor.serialNumber.includes(':')) {
+        console.log("[AntiTheft] Using motor context serial:", currentMotor.serialNumber, "instead of BT address:", pairedMotor.serialNumber);
+        serialToRegister = currentMotor.serialNumber;
+        motorName = currentMotor.name || pairedMotor.name;
+      } else if (pairedMotor.serialNumber.includes(':')) {
+        // Still have Bluetooth MAC address, wait a bit for INFOR G1 to arrive
+        console.log("[AntiTheft] Serial is still Bluetooth address, waiting for INFOR G1 frame...");
+        
+        // Poll for up to 3 seconds (6 attempts x 500ms) for the real serial number
+        for (let attempt = 0; attempt < 6; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const updatedMotor = motorRef.current;
+          if (updatedMotor?.serialNumber && !updatedMotor.serialNumber.includes(':')) {
+            console.log("[AntiTheft] Got real serial after waiting:", updatedMotor.serialNumber);
+            serialToRegister = updatedMotor.serialNumber;
+            motorName = updatedMotor.name || pairedMotor.name;
+            break;
+          }
+        }
+        
+        // Check if we got a valid serial after waiting
+        if (serialToRegister.includes(':')) {
+          console.warn("[AntiTheft] Could not get real serial number from motor telemetry after waiting");
+          Alert.alert(
+            "Registration Issue",
+            "Could not retrieve motor serial number. Please ensure you're connected to the motor and try enabling anti-theft from Settings later."
+          );
+          setShowAntiTheftModal(false);
+          navigation.goBack();
+          setIsLinking(false);
+          return;
+        }
+      }
+      
+      console.log("[AntiTheft] Registering motor with serial:", serialToRegister);
+      addDebugLog("INFO", `Registering motor for anti-theft: ${serialToRegister}`);
+      
+      const result = await registerMotorForUser(user.id, serialToRegister, motorName);
       
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
