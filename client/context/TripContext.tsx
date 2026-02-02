@@ -422,6 +422,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startTrip = async (name?: string): Promise<boolean> => {
+    console.log("[TripContext] startTrip called - beginning checks");
+    
     // Get the real motor serial number - prefer telemetry data for real Bluetooth connections
     // because motor.serialNumber might be the Bluetooth address initially
     const tillerSerial = telemetry?.tillerSerialNumber;
@@ -429,14 +431,16 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     
     // Use tiller serial from telemetry if available and motor serial looks like a BT address
     const isBluetoothAddress = motorSerial?.includes(':');
-    const effectiveSerialNumber = (tillerSerial && isBluetoothAddress) ? tillerSerial : motorSerial;
+    const effectiveSerialNumber = (isBluetoothAddress && tillerSerial) ? tillerSerial : motorSerial;
     
-    console.log("[TripContext] startTrip called", { 
+    console.log("[TripContext] Serial number resolution:", { 
       userId: user?.id, 
       motorSerial,
       tillerSerial,
+      isBluetoothAddress,
       effectiveSerialNumber,
-      isConnected: motor?.isConnected 
+      isConnected: motor?.isConnected,
+      hasTelemetry: !!telemetry
     });
     
     // Check for missing requirements and provide user feedback
@@ -450,35 +454,40 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
     
-    if (!effectiveSerialNumber) {
-      console.error("[TripContext] Cannot start trip: no motor serial number", { motor, telemetry });
+    if (!motor?.isConnected) {
+      console.error("[TripContext] Cannot start trip: motor not connected");
       Alert.alert(
-        "Motor Not Ready",
+        "Motor Not Connected",
         "Please connect to your outboard motor first. Go to Settings and tap 'Connect Motor' to scan for available devices.",
         [{ text: "OK" }]
       );
       return false;
     }
     
-    if (!motor?.isConnected) {
-      console.error("[TripContext] Cannot start trip: motor not connected");
+    // Check if we have a real serial number (not a Bluetooth MAC address)
+    if (!effectiveSerialNumber) {
+      console.error("[TripContext] Cannot start trip: no motor serial number", { motor, telemetry });
       Alert.alert(
-        "Motor Disconnected",
-        "Your motor connection was lost. Please reconnect via Bluetooth in Settings.",
+        "Motor Not Ready",
+        "The motor hasn't sent its identity yet. Please wait a few seconds and try again.",
         [{ text: "OK" }]
       );
       return false;
     }
     
-    // Warn if using Bluetooth address (no INFOR data yet)
+    // If still using Bluetooth address with no tiller serial, allow but warn
     if (isBluetoothAddress && !tillerSerial) {
-      console.warn("[TripContext] Warning: Using Bluetooth address as serial - waiting for INFOR data");
+      console.warn("[TripContext] Warning: Using Bluetooth address as serial - motor INFOR data not yet received");
+      // We'll still allow the trip to start but use the Bluetooth address
+      // This ensures trips can be recorded even before INFOR frame arrives
     }
 
-    console.log("[TripContext] All checks passed, starting trip...");
+    console.log("[TripContext] All checks passed, starting trip with serial:", effectiveSerialNumber);
     setIsLoading(true);
     const tripName = name || `Trip ${new Date().toLocaleDateString()}`;
     const startBatteryPercent = telemetry?.bms?.capacity;
+    
+    console.log("[TripContext] Trip parameters:", { tripName, startBatteryPercent });
 
     try {
       // Check if we're online

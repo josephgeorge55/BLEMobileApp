@@ -67,11 +67,29 @@ export default function TripsScreen() {
   };
 
   const handleStartTrip = async () => {
+    console.log("[TripsScreen] Start Trip button pressed", {
+      userId: user?.id,
+      motorConnected: motor?.isConnected,
+      motorSerial: motor?.serialNumber,
+      isRecording,
+      canStartTrip,
+    });
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const success = await startTrip();
-    if (success) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      fetchTrips();
+    
+    try {
+      const success = await startTrip();
+      console.log("[TripsScreen] startTrip result:", success);
+      
+      if (success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        fetchTrips();
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch (error: any) {
+      console.error("[TripsScreen] Error starting trip:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
@@ -190,8 +208,25 @@ export default function TripsScreen() {
     </View>
   );
 
+  // Get effective serial number (prefer real serial over Bluetooth MAC address)
+  const motorSerial = motor?.serialNumber;
+  const tillerSerial = (motor as any)?.telemetry?.tillerSerialNumber;
+  const isBluetoothAddress = motorSerial?.includes(':');
+  const effectiveSerial = (isBluetoothAddress && tillerSerial) ? tillerSerial : motorSerial;
+  
   // Button is enabled only when all requirements for starting a trip are met
-  const canStartTrip = Boolean(user?.id) && Boolean(motor?.isConnected) && Boolean(motor?.serialNumber) && !isRecording;
+  const canStartTrip = Boolean(user?.id) && Boolean(motor?.isConnected) && Boolean(effectiveSerial) && !isRecording;
+  
+  // Debug logging for button state
+  console.log("[TripsScreen] Button state:", { 
+    userId: user?.id, 
+    motorConnected: motor?.isConnected, 
+    motorSerial,
+    tillerSerial,
+    effectiveSerial,
+    isRecording, 
+    canStartTrip 
+  });
 
   const renderHeader = () => (
     <View style={styles.headerSection}>
