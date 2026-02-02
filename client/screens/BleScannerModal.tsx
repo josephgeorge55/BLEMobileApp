@@ -266,7 +266,7 @@ export default function BleScannerModal() {
 
     try {
       if (useMockMode) {
-        await connectToMotor(device.serialNumber, true);
+        await connectToMotor(device.serialNumber);
         setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else if (device.type === "classic") {
@@ -276,7 +276,7 @@ export default function BleScannerModal() {
           onConnected: async (connectedDevice) => {
             addDebugLog("INFO", `Bluetooth Classic connected callback: ${connectedDevice.name}`);
             console.log("Bluetooth Classic connected:", connectedDevice.name);
-            await connectToMotor(device.serialNumber, false);
+            await connectToMotor(device.serialNumber);
           },
           onDisconnected: (deviceId) => {
             addDebugLog("INFO", `Bluetooth Classic disconnected callback: ${deviceId}`);
@@ -307,7 +307,7 @@ export default function BleScannerModal() {
           onDeviceFound: () => {},
           onConnected: async (connectedDevice) => {
             console.log("BLE connected:", connectedDevice.name);
-            await connectToMotor(device.serialNumber, false);
+            await connectToMotor(device.serialNumber);
           },
           onDisconnected: (deviceId) => {
             console.log("BLE disconnected:", deviceId);
