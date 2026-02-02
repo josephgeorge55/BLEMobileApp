@@ -106,7 +106,10 @@ export default function SettingsScreen() {
   };
 
   const handleLinkConnectedMotor = async () => {
-    if (!user?.id || !motor?.isConnected) return;
+    if (!user?.id || !motor?.isConnected) {
+      Alert.alert("Error", "Please connect to your motor first.");
+      return;
+    }
     
     // Check for guest mode first
     if (isGuestMode) {
@@ -118,7 +121,26 @@ export default function SettingsScreen() {
       return;
     }
     
-    const serialNumber = telemetry?.tillerSerialNumber || motor.serialNumber;
+    // Prefer real serial number from telemetry over Bluetooth MAC address
+    const rawSerial = motor.serialNumber;
+    const tillerSerial = telemetry?.tillerSerialNumber;
+    const isBluetoothAddress = rawSerial?.includes(':');
+    
+    // Use tiller serial if motor serial looks like a Bluetooth address
+    const serialNumber = (isBluetoothAddress && tillerSerial) ? tillerSerial : rawSerial;
+    
+    console.log("[SettingsScreen] Linking motor:", { rawSerial, tillerSerial, isBluetoothAddress, serialNumber });
+    
+    // Validate we have a real serial number
+    if (!serialNumber || serialNumber.includes(':')) {
+      Alert.alert(
+        "Waiting for Motor Identity",
+        "The motor hasn't sent its serial number yet. Please wait a few seconds and try again.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
     const motorName = `Blade Halo`;
     
     setIsLinkingMotor(true);
@@ -126,14 +148,19 @@ export default function SettingsScreen() {
     
     try {
       const result = await registerMotorForUser(user.id, serialNumber, motorName);
+      console.log("[SettingsScreen] Registration result:", result);
+      
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         loadRegisteredMotors();
-        Alert.alert("Success", "Anti-theft protection enabled for this motor.");
+        Alert.alert("Success", `Anti-theft protection enabled for motor ${serialNumber}.`);
       } else {
-        Alert.alert("Error", result.error || "Failed to enable anti-theft protection.");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Registration Failed", result.error || "Failed to enable anti-theft protection.");
       }
     } catch (error: any) {
+      console.error("[SettingsScreen] Error linking motor:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Error", error.message || "An error occurred while linking the motor.");
     } finally {
       setIsLinkingMotor(false);

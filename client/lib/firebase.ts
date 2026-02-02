@@ -144,6 +144,12 @@ export async function registerMotorForUser(
 ): Promise<{ success: boolean; error?: string }> {
   console.log("[Firebase] registerMotorForUser called:", { userId, serialNumber, motorName });
   
+  // Validate serial number format - skip Bluetooth MAC addresses
+  if (!serialNumber || serialNumber.includes(':')) {
+    console.error("[Firebase] Invalid serial number (looks like Bluetooth address):", serialNumber);
+    return { success: false, error: "Motor serial number not yet received. Please wait for the motor to send its identity." };
+  }
+  
   // Check for guest user first
   if (userId === "guest") {
     console.error("[Firebase] Cannot register motor for guest user");
@@ -157,22 +163,21 @@ export async function registerMotorForUser(
   }
 
   // Wait for Firebase auth state to be ready (on app restart, auth state may not be immediately available)
-  const currentUser = await waitForAuthState(5000);
+  const currentUser = await waitForAuthState(8000); // Increased timeout
   console.log("[Firebase] Auth state resolved:", { hasUser: !!currentUser, uid: currentUser?.uid });
   
   if (!currentUser) {
     console.error("[Firebase] User not authenticated after waiting");
-    return { success: false, error: "Authentication not ready. Please wait a moment and try again." };
+    return { success: false, error: "You need to sign in first. Please sign in with your email and password." };
   }
 
-  // Verify the userId matches the authenticated user
-  if (currentUser.uid !== userId) {
-    console.error("[Firebase] User ID mismatch:", { expected: userId, actual: currentUser.uid });
-    return { success: false, error: "Authentication error. Please sign out and sign in again." };
-  }
+  // Use the Firebase authenticated user's UID directly for the document path
+  // This ensures we're always using the correct UID that Firestore security rules expect
+  const effectiveUserId = currentUser.uid;
+  console.log("[Firebase] Using effective userId:", { providedUserId: userId, effectiveUserId });
 
   try {
-    const userRef = doc(firestore, "users", userId);
+    const userRef = doc(firestore, "users", effectiveUserId);
     const userDoc = await getDoc(userRef);
 
     const newMotor: RegisteredMotor = {
@@ -207,14 +212,23 @@ export async function registerMotorForUser(
       });
     }
 
-    console.log("[Firebase] Motor registered:", serialNumber);
+    console.log("[Firebase] Motor registered successfully:", serialNumber);
     return { success: true };
   } catch (error: any) {
     console.error("[Firebase] Error registering motor:", error);
+    console.error("[Firebase] Error code:", error.code);
+    console.error("[Firebase] Error message:", error.message);
     
-    // Handle specific Firebase errors
+    // Handle specific Firebase errors with user-friendly messages
     if (error.code === "permission-denied") {
-      return { success: false, error: "Permission denied. Please sign out and sign in again." };
+      return { 
+        success: false, 
+        error: "Firestore permission denied. Please check that Firestore security rules allow writes for authenticated users to the 'users' collection." 
+      };
+    }
+    
+    if (error.code === "unavailable") {
+      return { success: false, error: "Network error. Please check your internet connection and try again." };
     }
     
     return { success: false, error: error.message || "Failed to register motor. Please try again." };
