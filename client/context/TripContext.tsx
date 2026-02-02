@@ -304,12 +304,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Create a local trip when offline
-  const createLocalTrip = async (name: string, startBatteryPercent?: number): Promise<Trip> => {
+  const createLocalTrip = async (name: string, serialNumber: string, startBatteryPercent?: number): Promise<Trip> => {
     const localId = `local-${Date.now()}`; // Local ID prefix to distinguish from server-created trips
     const trip: Trip = {
       id: localId,
       userId: user!.id,
-      motorSerialNumber: motor!.serialNumber,
+      motorSerialNumber: serialNumber,
       name,
       startTime: new Date(),
       endTime: null,
@@ -422,9 +422,20 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startTrip = async (name?: string): Promise<boolean> => {
+    // Get the real motor serial number - prefer telemetry data for real Bluetooth connections
+    // because motor.serialNumber might be the Bluetooth address initially
+    const tillerSerial = telemetry?.tillerSerialNumber;
+    const motorSerial = motor?.serialNumber;
+    
+    // Use tiller serial from telemetry if available and motor serial looks like a BT address
+    const isBluetoothAddress = motorSerial?.includes(':');
+    const effectiveSerialNumber = (tillerSerial && isBluetoothAddress) ? tillerSerial : motorSerial;
+    
     console.log("[TripContext] startTrip called", { 
       userId: user?.id, 
-      motorSerial: motor?.serialNumber, 
+      motorSerial,
+      tillerSerial,
+      effectiveSerialNumber,
       isConnected: motor?.isConnected 
     });
     
@@ -439,8 +450,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
     
-    if (!motor?.serialNumber) {
-      console.error("[TripContext] Cannot start trip: no motor serial number", { motor });
+    if (!effectiveSerialNumber) {
+      console.error("[TripContext] Cannot start trip: no motor serial number", { motor, telemetry });
       Alert.alert(
         "Motor Not Ready",
         "Please connect to your outboard motor first. Go to Settings and tap 'Connect Motor' to scan for available devices.",
@@ -458,6 +469,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       );
       return false;
     }
+    
+    // Warn if using Bluetooth address (no INFOR data yet)
+    if (isBluetoothAddress && !tillerSerial) {
+      console.warn("[TripContext] Warning: Using Bluetooth address as serial - waiting for INFOR data");
+    }
 
     console.log("[TripContext] All checks passed, starting trip...");
     setIsLoading(true);
@@ -474,7 +490,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         console.log("[TripContext] Creating trip on server...");
         const response = await apiRequest("POST", "/api/trips/start", {
           userId: user.id,
-          motorSerialNumber: motor.serialNumber,
+          motorSerialNumber: effectiveSerialNumber,
           name: tripName,
           startBatteryPercent,
         });
@@ -502,7 +518,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       } else {
         // Offline: create local trip
         console.log("[TripContext] Offline mode, creating local trip...");
-        const localTrip = await createLocalTrip(tripName, startBatteryPercent);
+        const localTrip = await createLocalTrip(tripName, effectiveSerialNumber, startBatteryPercent);
         resetTripState();
         setActiveTrip(localTrip);
         setIsRecording(true);
@@ -515,7 +531,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       // Network error: create local trip
       try {
         console.log("[TripContext] Falling back to local trip...");
-        const localTrip = await createLocalTrip(tripName, startBatteryPercent);
+        const localTrip = await createLocalTrip(tripName, effectiveSerialNumber, startBatteryPercent);
         resetTripState();
         setActiveTrip(localTrip);
         setIsRecording(true);

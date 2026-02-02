@@ -104,6 +104,12 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   const vescRef = useRef<VESCData | null>(null);
   const inforG1Ref = useRef<INFORG1Data | null>(null);
   const inforG2Ref = useRef<INFORG2Data | null>(null);
+  const motorRef = useRef<MotorInfo | null>(null);
+  
+  // Keep motorRef in sync with motor state
+  useEffect(() => {
+    motorRef.current = motor;
+  }, [motor]);
 
   const addDebugLog = useCallback((level: DebugLogEntry["level"], message: string) => {
     const entry: DebugLogEntry = {
@@ -267,6 +273,23 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
           const data = result.data as INFORG1Data;
           addDebugLog("PARSE", `INFOR G1: firmware=${data.firmwareVersion}, serial=${data.serialNumber}`);
           inforG1Ref.current = data;
+          
+          // Update motor with real serial number from Bluetooth data
+          // This is critical for real Bluetooth connections where initial serial is just the device address
+          const currentMotor = motorRef.current;
+          if (data.serialNumber && currentMotor) {
+            const currentSerial = currentMotor.serialNumber;
+            // Only update if we have a different, valid serial number (not a Bluetooth address like "AA:BB:CC:DD:EE:FF")
+            if (data.serialNumber !== currentSerial && !data.serialNumber.includes(':')) {
+              addDebugLog("INFO", `Updating motor serial from ${currentSerial} to ${data.serialNumber}`);
+              setMotor({
+                ...currentMotor,
+                serialNumber: data.serialNumber,
+                firmwareVersion: data.firmwareVersion || currentMotor.firmwareVersion,
+                name: `Blade ${data.serialNumber.slice(-4)}`,
+              });
+            }
+          }
         } else if (result.group === "G2") {
           const data = result.data as INFORG2Data;
           const errorInfo = data.errorCode ? `Error=${data.errorCode} (${data.errorDescription})` : "No errors";
