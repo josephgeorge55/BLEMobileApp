@@ -43,17 +43,26 @@ export default function LocationScreen() {
   // 1. If connected and motor has a valid serial (not Bluetooth MAC address), use it
   // 2. If connected but motor.serialNumber is a BT address, check telemetry.tillerSerialNumber (from INFOR G1)
   // 3. Fall back to first registered motor's serial
-  const getEffectiveSerialNumber = () => {
+  const getEffectiveSerialNumber = (): string | undefined => {
     if (motor?.serialNumber && !motor.serialNumber.includes(':')) {
       return motor.serialNumber;
     }
     if (telemetry?.tillerSerialNumber && !telemetry.tillerSerialNumber.includes(':')) {
       return telemetry.tillerSerialNumber;
     }
-    return registeredMotors[0]?.serialNumber;
+    if (registeredMotors.length > 0 && registeredMotors[0]?.serialNumber) {
+      return registeredMotors[0].serialNumber;
+    }
+    return undefined;
   };
   
   const serialNumber = getEffectiveSerialNumber();
+  
+  // Debug log the serial number resolution
+  useEffect(() => {
+    addDebugLog("INFO", `[Location] Serial number resolved: ${serialNumber || 'none'}`);
+    addDebugLog("INFO", `[Location] Source: motor=${motor?.serialNumber || 'none'}, telemetry=${telemetry?.tillerSerialNumber || 'none'}, registered=${registeredMotors[0]?.serialNumber || 'none'}`);
+  }, [serialNumber, motor?.serialNumber, telemetry?.tillerSerialNumber, registeredMotors]);
 
   useEffect(() => {
     const loadRegisteredMotors = async () => {
@@ -63,10 +72,13 @@ export default function LocationScreen() {
       }
 
       try {
+        addDebugLog("INFO", `[Location] Loading registered motors for user: ${user.id}`);
         const motors = await getRegisteredMotors(user.id);
+        addDebugLog("INFO", `[Location] Found ${motors.length} registered motors: ${motors.map(m => m.serialNumber).join(', ') || 'none'}`);
         setRegisteredMotors(motors);
-      } catch (error) {
+      } catch (error: any) {
         console.error("[Location] Error loading registered motors:", error);
+        addDebugLog("ERROR", `[Location] Failed to load registered motors: ${error.message || error.code || 'unknown'}`);
       }
     };
 
@@ -126,11 +138,15 @@ export default function LocationScreen() {
     }
   };
 
+  // Auto-fetch from Firestore when not connected but have a valid serial number
   useEffect(() => {
     if (!isConnected && serialNumber && !isGuestMode) {
+      addDebugLog("INFO", `[Location] Auto-fetching GPS for registered motor: ${serialNumber}`);
       fetchFirestoreGPS();
+    } else if (!serialNumber && registeredMotors.length === 0) {
+      addDebugLog("INFO", "[Location] No serial number available - waiting for registered motors to load");
     }
-  }, [isConnected, serialNumber, isGuestMode]);
+  }, [isConnected, serialNumber, isGuestMode, registeredMotors.length]);
 
   const currentLocation: LocationData | null = isConnected && telemetry?.gnss
     ? {
@@ -144,13 +160,16 @@ export default function LocationScreen() {
     : firestoreLocation || location;
 
   const handleFind = () => {
-    addDebugLog("INFO", `[Location] Find button pressed. isConnected=${isConnected}`);
+    addDebugLog("INFO", `[Location] Find button pressed. isConnected=${isConnected}, serialNumber=${serialNumber || 'none'}`);
     if (isConnected) {
       addDebugLog("INFO", "[Location] Motor connected - using live GPS from Bluetooth");
-      Alert.alert("Live Location", "Using real-time GPS from connected motor.");
-    } else {
-      addDebugLog("INFO", "[Location] Motor not connected - looking up location from Firestore");
+      Alert.alert("Live Location", "Motor is connected via Bluetooth. Showing real-time GPS location.");
+    } else if (serialNumber) {
+      addDebugLog("INFO", `[Location] Refreshing location from Firestore for: ${serialNumber}`);
       fetchFirestoreGPS();
+    } else {
+      addDebugLog("ERROR", "[Location] No serial number available for lookup");
+      Alert.alert("No Motor Available", "Please register a motor or connect via Bluetooth to track location.");
     }
   };
 
