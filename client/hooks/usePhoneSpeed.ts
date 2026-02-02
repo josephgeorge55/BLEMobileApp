@@ -13,6 +13,9 @@ interface PhoneSpeedData {
   longitude: number | null;
 }
 
+type DebugLogLevel = "INFO" | "DATA" | "PARSE" | "STATE" | "ERROR";
+type DebugLogCallback = (level: DebugLogLevel, message: string) => void;
+
 interface PositionHistory {
   latitude: number;
   longitude: number;
@@ -38,7 +41,7 @@ function calculateHaversineDistance(
   return R * c;
 }
 
-export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
+export function usePhoneSpeed(enabled: boolean = true, onDebugLog?: DebugLogCallback): PhoneSpeedData {
   const [speed, setSpeed] = useState<number | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [isTracking, setIsTracking] = useState(false);
@@ -53,6 +56,20 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const isMountedRef = useRef(true);
   const lastPositionRef = useRef<PositionHistory | null>(null);
   const speedHistoryRef = useRef<number[]>([]);
+  const onDebugLogRef = useRef(onDebugLog);
+  
+  // Keep the callback ref updated
+  useEffect(() => {
+    onDebugLogRef.current = onDebugLog;
+  }, [onDebugLog]);
+  
+  // Helper to log to both console and debug modal
+  const logGPS = useCallback((level: DebugLogLevel, message: string) => {
+    console.log(`[GPS] ${message}`);
+    if (onDebugLogRef.current) {
+      onDebugLogRef.current(level, `[GPS] ${message}`);
+    }
+  }, []);
 
   const stopTracking = useCallback(() => {
     if (subscriptionRef.current) {
@@ -69,14 +86,15 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const startTracking = useCallback(async () => {
     if (!isMountedRef.current) return;
     
-    console.log("[GPS] Starting phone GPS tracking...");
+    logGPS("INFO", `Starting phone GPS tracking (Platform: ${Platform.OS})`);
     
     try {
       // Check if location services are available
       const isAvailable = await Location.hasServicesEnabledAsync();
-      console.log("[GPS] Location services available:", isAvailable);
+      logGPS("INFO", `Location services available: ${isAvailable}`);
       
       if (!isAvailable) {
+        logGPS("ERROR", "Location services are disabled on device");
         if (isMountedRef.current) {
           setError("Location services disabled");
           setIsTracking(false);
@@ -85,28 +103,29 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       }
 
       // Request permissions
-      console.log("[GPS] Requesting foreground permissions...");
+      logGPS("INFO", "Requesting foreground location permission...");
       const { status } = await Location.requestForegroundPermissionsAsync();
-      console.log("[GPS] Permission status:", status);
+      logGPS("INFO", `Permission status: ${status}`);
       
       if (!isMountedRef.current) return;
       
       if (status !== "granted") {
         setHasPermission(false);
         setError("Location permission denied");
-        console.warn("[GPS] Permission denied");
+        logGPS("ERROR", "Location permission DENIED by user");
         return;
       }
       
       setHasPermission(true);
       setError(null);
+      logGPS("INFO", "Location permission GRANTED");
       
       if (!isMountedRef.current) return;
 
       // Clear previous data
       lastPositionRef.current = null;
       speedHistoryRef.current = [];
-      console.log("[GPS] Starting position watch...");
+      logGPS("INFO", "Starting position watch with BestForNavigation accuracy...");
 
       // Start watching position
       subscriptionRef.current = await Location.watchPositionAsync(
@@ -125,6 +144,9 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
           setLatitude(lat);
           setLongitude(lng);
           setIsTracking(true);
+          
+          // Log the raw GPS data received
+          logGPS("DATA", `Position: ${lat.toFixed(6)}, ${lng.toFixed(6)} | Accuracy: ${locAccuracy?.toFixed(1) ?? 'N/A'}m | Raw speed: ${gpsSpeed !== null ? (gpsSpeed * 3.6).toFixed(2) + ' km/h' : 'null'}`);
           
           let calculatedSpeed: number | null = null;
           let source: "gps" | "calculated" | null = null;
@@ -172,8 +194,12 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
             }
             
             const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
-            setSpeed(avgSpeed < 0.5 ? 0 : avgSpeed);
+            const finalSpeed = avgSpeed < 0.5 ? 0 : avgSpeed;
+            setSpeed(finalSpeed);
             setSpeedSource(source);
+            
+            // Log computed speed
+            logGPS("STATE", `Speed: ${finalSpeed.toFixed(2)} km/h (${source}) | History: [${speedHistoryRef.current.map(s => s.toFixed(1)).join(', ')}]`);
           } else {
             // Decay speed gradually
             if (speedHistoryRef.current.length > 0) {
@@ -182,22 +208,24 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
             if (speedHistoryRef.current.length === 0) {
               setSpeed(0);
               setSpeedSource(null);
+              logGPS("STATE", "Speed: 0 km/h (no valid data)");
             } else {
               const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
               setSpeed(avgSpeed < 0.5 ? 0 : avgSpeed);
+              logGPS("STATE", `Speed decaying: ${avgSpeed.toFixed(2)} km/h`);
             }
           }
         }
       );
-      console.log("[GPS] Position watch started successfully");
+      logGPS("INFO", "Position watch started successfully - GPS active");
     } catch (err: any) {
-      console.error("[GPS] Phone GPS error:", err);
+      logGPS("ERROR", `GPS tracking failed: ${err?.message || 'Unknown error'}`);
       if (isMountedRef.current) {
         setError(err?.message || "Failed to start GPS");
         setIsTracking(false);
       }
     }
-  }, []);
+  }, [logGPS]);
 
   useEffect(() => {
     isMountedRef.current = true;

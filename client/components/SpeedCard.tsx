@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { StyleSheet, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { usePhoneSpeed } from "@/hooks/usePhoneSpeed";
+import { useMotor } from "@/context/MotorContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 
 interface SpeedCardProps {
@@ -14,8 +15,16 @@ interface SpeedCardProps {
 
 export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
   const { theme } = useTheme();
+  const { addDebugLog } = useMotor();
+  
+  // Memoize the callback to prevent unnecessary re-renders
+  const handleGPSLog = useCallback((level: "INFO" | "DATA" | "PARSE" | "STATE" | "ERROR", message: string) => {
+    addDebugLog(level, message);
+  }, [addDebugLog]);
+  
   // Always track phone GPS speed, regardless of motor connection
-  const phoneSpeed = usePhoneSpeed(true);
+  // Pass the debug log callback to see GPS data in the debug modal
+  const phoneSpeed = usePhoneSpeed(true, handleGPSLog);
   
   // Defensive null check for motorSpeed
   const safeMotorSpeed = typeof motorSpeed === "number" && !isNaN(motorSpeed) ? motorSpeed : 0;
