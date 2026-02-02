@@ -75,3 +75,42 @@ When connecting to a real motor via Bluetooth:
 ### Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string.
 - `EXPO_PUBLIC_DOMAIN`: API server domain.
+
+## Firebase Configuration
+
+### Required Firestore Security Rules
+The anti-theft system requires proper Firestore security rules to allow authenticated users to write to their own user documents. Configure these rules in the Firebase Console:
+
+1. Go to Firebase Console > Firestore Database > Rules
+2. Replace the default rules with:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Device telemetry can be read by authenticated users
+    match /devices/{deviceId}/telemetry/{docId} {
+      allow read: if request.auth != null;
+      allow write: if true; // Motors write without auth
+    }
+  }
+}
+```
+
+3. Click "Publish" to apply the rules.
+
+### Key Firebase Collections
+- `users/{userId}`: User documents with `registeredMotors` array for anti-theft
+- `devices/{deviceName}/telemetry/{docId}`: Motor GPS telemetry data
+
+### Troubleshooting Firebase Permission Errors
+If you see "permission-denied" errors:
+1. Verify Firestore security rules are published (see above)
+2. Check that the user is signed in with email/password (not guest mode)
+3. Confirm Firebase Auth is properly initialized (check console for "[Firebase] Initialized successfully")
+4. Sign out and sign back in if auth state seems stale
