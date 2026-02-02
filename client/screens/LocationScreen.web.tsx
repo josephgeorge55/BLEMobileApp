@@ -75,6 +75,11 @@ export default function LocationScreen() {
 
   // Fetch GPS from Firestore when not connected via Bluetooth
   const fetchFirestoreGPS = async () => {
+    console.log("[Location] fetchFirestoreGPS called with serialNumber:", serialNumber);
+    console.log("[Location] motor.serialNumber:", motor?.serialNumber);
+    console.log("[Location] telemetry.tillerSerialNumber:", telemetry?.tillerSerialNumber);
+    console.log("[Location] registeredMotors:", registeredMotors.map(m => m.serialNumber));
+    
     if (!serialNumber) {
       setLocationError("No motor registered for anti-theft tracking");
       return;
@@ -84,6 +89,7 @@ export default function LocationScreen() {
     setLocationError(null);
 
     try {
+      console.log("[Location] Fetching GPS from Firestore for serial:", serialNumber);
       const telemetryData = await fetchLatestGPSFromFirestore(serialNumber);
       
       setFirestoreLocation({
