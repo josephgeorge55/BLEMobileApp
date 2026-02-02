@@ -2,10 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   parseBLEFrame,
-  generateMockGNSSFrame,
-  generateMockBMSFrame,
-  generateMockMotorFrame,
-  generateMockVESCFrame,
   GNSSData,
   BMSData,
   MotorData as BLEMotorData,
@@ -68,7 +64,7 @@ interface MotorContextType {
   setLocation: (location: LocationData | null) => void;
   setIsConnecting: (connecting: boolean) => void;
   setIsScanning: (scanning: boolean) => void;
-  connectToMotor: (serialNumber: string, useSimulation?: boolean) => Promise<void>;
+  connectToMotor: (serialNumber: string) => Promise<void>;
   disconnectMotor: () => void;
   startScan: () => void;
   stopScan: () => void;
@@ -82,10 +78,6 @@ const MotorContext = createContext<MotorContextType | undefined>(undefined);
 
 const MOTOR_STORAGE_KEY = "@blade_motor";
 const LOCATION_STORAGE_KEY = "@blade_last_location";
-
-const BASE_LAT = 25.7617;
-const BASE_LNG = -80.1918;
-
 const MAX_DEBUG_LOGS = 200;
 
 export function MotorProvider({ children }: { children: React.ReactNode }) {
@@ -97,7 +89,6 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   const [isRealConnection, setIsRealConnection] = useState(false);
   const [debugLogs, setDebugLogs] = useState<DebugLogEntry[]>([]);
   
-  const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gnssRef = useRef<GNSSData | null>(null);
   const bmsRef = useRef<BMSData | null>(null);
   const motorDataRef = useRef<BLEMotorData | null>(null);
@@ -132,11 +123,6 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadStoredData();
-    return () => {
-      if (simulationRef.current) {
-        clearInterval(simulationRef.current);
-      }
-    };
   }, []);
 
   const loadStoredData = async () => {
@@ -309,90 +295,11 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     processParsedData(result);
   }, [processParsedData]);
 
-  const startBLESimulation = useCallback(() => {
-    if (simulationRef.current) {
-      clearInterval(simulationRef.current);
-    }
-
-    let tick = 0;
-    let currentLat = BASE_LAT;
-    let currentLng = BASE_LNG;
-    let currentCourse = Math.random() * 360;
-    let batteryCapacity = 85 + Math.floor(Math.random() * 10);
-
-    simulationRef.current = setInterval(() => {
-      tick++;
-
-      const throttle = 30 + Math.sin(tick * 0.1) * 20 + Math.random() * 10;
-      const speedKph = throttle * 0.8 + Math.random() * 5;
-      const rpm = Math.floor(throttle * 28 + Math.random() * 100);
-      
-      currentCourse = (currentCourse + (Math.random() - 0.5) * 5 + 360) % 360;
-      const moveDistance = (speedKph / 3600) * 0.5;
-      currentLat += moveDistance * Math.cos(currentCourse * Math.PI / 180) * 0.01;
-      currentLng += moveDistance * Math.sin(currentCourse * Math.PI / 180) * 0.01;
-
-      const voltage = 48 + (batteryCapacity / 100) * 6 - 2;
-      const bmsCurrent = throttle * 0.4 + Math.random() * 5;
-      const bmsWattage = Math.floor(voltage * bmsCurrent);
-      const bmsTemp = 28 + throttle * 0.15 + Math.random() * 3;
-
-      const vescCurrent = throttle * 0.6 + Math.random() * 8;
-      const vescWattage = Math.floor(voltage * vescCurrent);
-      const vescTemp = 32 + throttle * 0.2 + Math.random() * 4;
-
-      const motorCurrent = throttle * 0.35 + Math.random() * 4;
-      const motorTemp = 30 + throttle * 0.18 + Math.random() * 3;
-
-      if (tick % 60 === 0 && batteryCapacity > 5) {
-        batteryCapacity = Math.max(5, batteryCapacity - 1);
-      }
-
-      // Determine drive mode based on throttle (Sport, Normal, Eco, Docking)
-      let driveMode = "Normal";
-      if (throttle > 70) driveMode = "Sport";
-      else if (throttle < 20) driveMode = "Eco";
-      
-      // Simulate odometer incrementing slowly (hours of operation)
-      const odometerHours = 1234.5 + tick * 0.001;
-
-      const frames = [
-        generateMockGNSSFrame(currentLat, currentLng, speedKph, currentCourse),
-        generateMockBMSFrame(voltage, batteryCapacity, bmsCurrent, bmsWattage, Math.floor(bmsTemp)),
-        generateMockMotorFrame(motorCurrent, rpm, Math.floor(motorTemp)),
-        generateMockVESCFrame(voltage, vescCurrent, vescWattage, Math.floor(throttle), Math.floor(vescTemp)),
-        `$INFOR,G1,BLD-2024-0001,1.3.0`,
-        `$INFOR,G2,${odometerHours.toFixed(1)},${driveMode},E0`,
-      ];
-
-      frames.forEach((frame) => processBLEFrame(frame));
-    }, 500);
-  }, [processBLEFrame]);
-
-  const stopBLESimulation = useCallback(() => {
-    if (simulationRef.current) {
-      clearInterval(simulationRef.current);
-      simulationRef.current = null;
-    }
-    gnssRef.current = null;
-    bmsRef.current = null;
-    motorDataRef.current = null;
-    vescRef.current = null;
-    inforG1Ref.current = null;
-    inforG2Ref.current = null;
-  }, []);
-
-  const connectToMotor = async (serialNumber: string, useSimulation: boolean = true) => {
-    addDebugLog("INFO", `connectToMotor called: serialNumber=${serialNumber}, useSimulation=${useSimulation}`);
+  const connectToMotor = async (serialNumber: string) => {
+    addDebugLog("INFO", `connectToMotor called: serialNumber=${serialNumber}`);
     setIsConnecting(true);
     setIsScanning(false);
-
-    if (useSimulation) {
-      addDebugLog("INFO", "Using simulation mode, waiting 2s...");
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    } else {
-      addDebugLog("INFO", "Real connection mode - expecting data from Bluetooth callbacks");
-    }
+    addDebugLog("INFO", "Real connection mode - expecting data from Bluetooth callbacks");
 
     const newMotor: MotorInfo = {
       serialNumber,
@@ -404,17 +311,17 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
 
     await setMotor(newMotor);
     setIsConnecting(false);
-    setIsRealConnection(!useSimulation);
-    addDebugLog("INFO", `Motor connected: isRealConnection=${!useSimulation}`);
-    
-    if (useSimulation) {
-      addDebugLog("INFO", "Starting BLE simulation...");
-      startBLESimulation();
-    }
+    setIsRealConnection(true);
+    addDebugLog("INFO", "Motor connected: isRealConnection=true");
   };
 
   const disconnectMotor = () => {
-    stopBLESimulation();
+    gnssRef.current = null;
+    bmsRef.current = null;
+    motorDataRef.current = null;
+    vescRef.current = null;
+    inforG1Ref.current = null;
+    inforG2Ref.current = null;
     if (motor) {
       setMotor({ ...motor, isConnected: false });
     }

@@ -523,12 +523,12 @@ export function DebugLogModal({ visible, onClose }: Props) {
           </View>
           <View style={styles.statusItem}>
             <Feather 
-              name={isRealConnection ? "bluetooth" : "cpu"} 
+              name="bluetooth" 
               size={14} 
-              color={isRealConnection ? BladeColors.primary : BladeColors.warning} 
+              color={BladeColors.primary} 
             />
             <ThemedText type="caption" style={{ marginLeft: 4 }}>
-              {isRealConnection ? "Real BT" : "Simulation"}
+              {isRealConnection ? "Connected" : "Disconnected"}
             </ThemedText>
           </View>
           <View style={styles.statusItem}>
