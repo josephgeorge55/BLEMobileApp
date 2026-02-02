@@ -69,9 +69,13 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const startTracking = useCallback(async () => {
     if (!isMountedRef.current) return;
     
+    console.log("[GPS] Starting phone GPS tracking...");
+    
     try {
       // Check if location services are available
       const isAvailable = await Location.hasServicesEnabledAsync();
+      console.log("[GPS] Location services available:", isAvailable);
+      
       if (!isAvailable) {
         if (isMountedRef.current) {
           setError("Location services disabled");
@@ -81,13 +85,16 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       }
 
       // Request permissions
+      console.log("[GPS] Requesting foreground permissions...");
       const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log("[GPS] Permission status:", status);
       
       if (!isMountedRef.current) return;
       
       if (status !== "granted") {
         setHasPermission(false);
         setError("Location permission denied");
+        console.warn("[GPS] Permission denied");
         return;
       }
       
@@ -99,6 +106,7 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       // Clear previous data
       lastPositionRef.current = null;
       speedHistoryRef.current = [];
+      console.log("[GPS] Starting position watch...");
 
       // Start watching position
       subscriptionRef.current = await Location.watchPositionAsync(
@@ -181,8 +189,9 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
           }
         }
       );
+      console.log("[GPS] Position watch started successfully");
     } catch (err: any) {
-      console.warn("Phone GPS error:", err);
+      console.error("[GPS] Phone GPS error:", err);
       if (isMountedRef.current) {
         setError(err?.message || "Failed to start GPS");
         setIsTracking(false);

@@ -111,12 +111,39 @@ export function getFirestoreDb(): Firestore | null {
   return result?.db ?? null;
 }
 
+// Wait for Firebase auth state to be ready (useful on app restart)
+async function waitForAuthState(maxWaitMs: number = 5000): Promise<User | null> {
+  const currentAuth = getFirebaseAuth();
+  if (!currentAuth) return null;
+  
+  // If already authenticated, return immediately
+  if (currentAuth.currentUser) {
+    return currentAuth.currentUser;
+  }
+  
+  // Wait for auth state to resolve
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.warn("[Firebase] Auth state wait timed out");
+      resolve(currentAuth.currentUser);
+    }, maxWaitMs);
+    
+    const unsubscribe = onAuthStateChanged(currentAuth, (user) => {
+      clearTimeout(timeout);
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
 // Register a motor serial number for a user
 export async function registerMotorForUser(
   userId: string,
   serialNumber: string,
   motorName?: string
 ): Promise<{ success: boolean; error?: string }> {
+  console.log("[Firebase] registerMotorForUser called:", { userId, serialNumber, motorName });
+  
   // Check for guest user first
   if (userId === "guest") {
     console.error("[Firebase] Cannot register motor for guest user");
@@ -129,16 +156,18 @@ export async function registerMotorForUser(
     return { success: false, error: "Database service unavailable. Please try again." };
   }
 
-  // Check if user is authenticated with Firebase
-  const currentAuth = getFirebaseAuth();
-  if (!currentAuth?.currentUser) {
-    console.error("[Firebase] User not authenticated");
-    return { success: false, error: "You must be signed in to enable anti-theft protection." };
+  // Wait for Firebase auth state to be ready (on app restart, auth state may not be immediately available)
+  const currentUser = await waitForAuthState(5000);
+  console.log("[Firebase] Auth state resolved:", { hasUser: !!currentUser, uid: currentUser?.uid });
+  
+  if (!currentUser) {
+    console.error("[Firebase] User not authenticated after waiting");
+    return { success: false, error: "Authentication not ready. Please wait a moment and try again." };
   }
 
   // Verify the userId matches the authenticated user
-  if (currentAuth.currentUser.uid !== userId) {
-    console.error("[Firebase] User ID mismatch");
+  if (currentUser.uid !== userId) {
+    console.error("[Firebase] User ID mismatch:", { expected: userId, actual: currentUser.uid });
     return { success: false, error: "Authentication error. Please sign out and sign in again." };
   }
 
@@ -171,7 +200,7 @@ export async function registerMotorForUser(
     } else {
       // Create new user document
       await setDoc(userRef, {
-        email: currentAuth.currentUser.email || "",
+        email: currentUser.email || "",
         registeredMotors: [newMotor],
         createdAt: new Date(),
         updatedAt: new Date(),
