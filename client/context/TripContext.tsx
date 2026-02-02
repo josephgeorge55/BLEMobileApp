@@ -422,9 +422,15 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startTrip = async (name?: string): Promise<boolean> => {
+    console.log("[TripContext] startTrip called", { 
+      userId: user?.id, 
+      motorSerial: motor?.serialNumber, 
+      isConnected: motor?.isConnected 
+    });
+    
     // Check for missing requirements and provide user feedback
     if (!user?.id) {
-      console.error("Cannot start trip: no user logged in");
+      console.error("[TripContext] Cannot start trip: no user logged in");
       Alert.alert(
         "Sign In Required",
         "Please sign in or continue as guest to record trips.",
@@ -434,25 +440,26 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
     
     if (!motor?.serialNumber) {
-      console.error("Cannot start trip: no motor serial number", { motor });
+      console.error("[TripContext] Cannot start trip: no motor serial number", { motor });
       Alert.alert(
         "Motor Not Ready",
-        "Please connect to your outboard motor first. Make sure Bluetooth is connected and the motor is responding.",
+        "Please connect to your outboard motor first. Go to Settings and tap 'Connect Motor' to scan for available devices.",
         [{ text: "OK" }]
       );
       return false;
     }
     
     if (!motor?.isConnected) {
-      console.error("Cannot start trip: motor not connected");
+      console.error("[TripContext] Cannot start trip: motor not connected");
       Alert.alert(
         "Motor Disconnected",
-        "Your motor connection was lost. Please reconnect via Bluetooth.",
+        "Your motor connection was lost. Please reconnect via Bluetooth in Settings.",
         [{ text: "OK" }]
       );
       return false;
     }
 
+    console.log("[TripContext] All checks passed, starting trip...");
     setIsLoading(true);
     const tripName = name || `Trip ${new Date().toLocaleDateString()}`;
     const startBatteryPercent = telemetry?.bms?.capacity;
@@ -460,9 +467,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     try {
       // Check if we're online
       const netState = await NetInfo.fetch();
+      console.log("[TripContext] Network state:", netState.isConnected);
       
       if (netState.isConnected) {
         // Online: create trip on server
+        console.log("[TripContext] Creating trip on server...");
         const response = await apiRequest("POST", "/api/trips/start", {
           userId: user.id,
           motorSerialNumber: motor.serialNumber,
@@ -471,15 +480,19 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         });
 
         const data = await response.json();
+        console.log("[TripContext] Server response:", data);
+        
         if (data.trip) {
           resetTripState();
           setActiveTrip(data.trip);
           setIsRecording(true);
           await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(data.trip));
+          console.log("[TripContext] Trip started successfully:", data.trip.id);
           return true;
         }
         
         // Server returned but no trip - show error
+        console.error("[TripContext] Server returned no trip:", data);
         Alert.alert(
           "Could Not Start Trip",
           data.error || "An unexpected error occurred. Please try again.",
@@ -488,27 +501,31 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         return false;
       } else {
         // Offline: create local trip
+        console.log("[TripContext] Offline mode, creating local trip...");
         const localTrip = await createLocalTrip(tripName, startBatteryPercent);
         resetTripState();
         setActiveTrip(localTrip);
         setIsRecording(true);
+        console.log("[TripContext] Local trip started:", localTrip.id);
         return true;
       }
-    } catch (error) {
-      console.error("Error starting trip, trying offline mode:", error);
+    } catch (error: any) {
+      console.error("[TripContext] Error starting trip:", error);
       
       // Network error: create local trip
       try {
+        console.log("[TripContext] Falling back to local trip...");
         const localTrip = await createLocalTrip(tripName, startBatteryPercent);
         resetTripState();
         setActiveTrip(localTrip);
         setIsRecording(true);
+        console.log("[TripContext] Local trip fallback started:", localTrip.id);
         return true;
-      } catch (localError) {
-        console.error("Error creating local trip:", localError);
+      } catch (localError: any) {
+        console.error("[TripContext] Error creating local trip:", localError);
         Alert.alert(
           "Error",
-          "Could not start trip. Please try again.",
+          localError.message || "Could not start trip. Please try again.",
           [{ text: "OK" }]
         );
         return false;
