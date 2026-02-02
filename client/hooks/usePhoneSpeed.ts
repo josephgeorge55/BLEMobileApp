@@ -9,6 +9,8 @@ interface PhoneSpeedData {
   hasPermission: boolean;
   error: string | null;
   speedSource: "gps" | "calculated" | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface PositionHistory {
@@ -43,56 +45,34 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [speedSource, setSpeedSource] = useState<"gps" | "calculated" | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const appStateRef = useRef(AppState.currentState);
   const isMountedRef = useRef(true);
-  const initAttemptRef = useRef(0);
   const lastPositionRef = useRef<PositionHistory | null>(null);
   const speedHistoryRef = useRef<number[]>([]);
 
   const stopTracking = useCallback(() => {
-    try {
-      if (subscriptionRef.current) {
-        subscriptionRef.current.remove();
-        subscriptionRef.current = null;
-      }
-      if (isMountedRef.current) {
-        setIsTracking(false);
-      }
-      lastPositionRef.current = null;
-      speedHistoryRef.current = [];
-    } catch (err) {
-      console.warn("Error stopping GPS tracking:", err);
+    if (subscriptionRef.current) {
+      subscriptionRef.current.remove();
+      subscriptionRef.current = null;
     }
+    if (isMountedRef.current) {
+      setIsTracking(false);
+    }
+    lastPositionRef.current = null;
+    speedHistoryRef.current = [];
   }, []);
 
   const startTracking = useCallback(async () => {
     if (!isMountedRef.current) return;
     
-    initAttemptRef.current += 1;
-    const currentAttempt = initAttemptRef.current;
-    
     try {
-      if (Platform.OS === "android") {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
-      
-      let isEnabled = false;
-      try {
-        isEnabled = await Location.hasServicesEnabledAsync();
-      } catch (serviceError) {
-        console.warn("Error checking location services:", serviceError);
-        if (isMountedRef.current) {
-          setError("Location services unavailable");
-          setIsTracking(false);
-        }
-        return;
-      }
-      
-      if (!isEnabled) {
+      // Check if location services are available
+      const isAvailable = await Location.hasServicesEnabledAsync();
+      if (!isAvailable) {
         if (isMountedRef.current) {
           setError("Location services disabled");
           setIsTracking(false);
@@ -100,40 +80,27 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
         return;
       }
 
-      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
-
-      let permissionResult;
-      try {
-        permissionResult = await Location.requestForegroundPermissionsAsync();
-      } catch (permError) {
-        console.warn("Error requesting location permission:", permError);
-        if (isMountedRef.current) {
-          setError("Permission request failed");
-          setIsTracking(false);
-        }
-        return;
-      }
+      // Request permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
       
-      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
+      if (!isMountedRef.current) return;
       
-      if (permissionResult.status !== "granted") {
+      if (status !== "granted") {
         setHasPermission(false);
         setError("Location permission denied");
         return;
       }
+      
       setHasPermission(true);
       setError(null);
-      setIsInitialized(true);
-
-      if (Platform.OS === "android") {
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
       
-      if (!isMountedRef.current || currentAttempt !== initAttemptRef.current) return;
+      if (!isMountedRef.current) return;
 
+      // Clear previous data
       lastPositionRef.current = null;
       speedHistoryRef.current = [];
 
+      // Start watching position
       subscriptionRef.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
@@ -143,77 +110,81 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
         (location) => {
           if (!isMountedRef.current) return;
           
-          try {
-            const { latitude, longitude, speed: gpsSpeed, accuracy: locAccuracy } = location.coords;
-            const timestamp = location.timestamp;
+          const { latitude: lat, longitude: lng, speed: gpsSpeed, accuracy: locAccuracy } = location.coords;
+          const timestamp = location.timestamp;
+          
+          setAccuracy(locAccuracy);
+          setLatitude(lat);
+          setLongitude(lng);
+          setIsTracking(true);
+          
+          let calculatedSpeed: number | null = null;
+          let source: "gps" | "calculated" | null = null;
+          
+          // Try native GPS speed first
+          if (gpsSpeed !== null && gpsSpeed >= 0) {
+            calculatedSpeed = gpsSpeed * 3.6; // m/s to km/h
+            source = "gps";
+          }
+          
+          // Fallback to calculated speed if GPS speed is not available or zero
+          if ((calculatedSpeed === null || calculatedSpeed < 0.5) && lastPositionRef.current) {
+            const timeDeltaSeconds = (timestamp - lastPositionRef.current.timestamp) / 1000;
             
-            setAccuracy(locAccuracy);
-            setIsTracking(true);
-            
-            let calculatedSpeed: number | null = null;
-            let source: "gps" | "calculated" | null = null;
-            
-            if (gpsSpeed !== null && gpsSpeed > 0) {
-              calculatedSpeed = gpsSpeed * 3.6;
-              source = "gps";
-            }
-            
-            if ((calculatedSpeed === null || calculatedSpeed === 0) && lastPositionRef.current) {
-              const timeDeltaSeconds = (timestamp - lastPositionRef.current.timestamp) / 1000;
+            if (timeDeltaSeconds > 0.5 && timeDeltaSeconds < 10) {
+              const distanceMeters = calculateHaversineDistance(
+                lastPositionRef.current.latitude,
+                lastPositionRef.current.longitude,
+                lat,
+                lng
+              );
               
-              if (timeDeltaSeconds > 0.5 && timeDeltaSeconds < 10) {
-                const distanceMeters = calculateHaversineDistance(
-                  lastPositionRef.current.latitude,
-                  lastPositionRef.current.longitude,
-                  latitude,
-                  longitude
-                );
+              // Only calculate if distance is significant relative to accuracy
+              if (locAccuracy !== null && distanceMeters > Math.max(locAccuracy * 0.3, 1)) {
+                const speedMs = distanceMeters / timeDeltaSeconds;
+                const calcSpeedKmh = speedMs * 3.6;
                 
-                if (locAccuracy !== null && distanceMeters > locAccuracy * 0.5) {
-                  const speedMs = distanceMeters / timeDeltaSeconds;
-                  calculatedSpeed = speedMs * 3.6;
+                // Sanity check - ignore unrealistic speeds
+                if (calcSpeedKmh <= 150) {
+                  calculatedSpeed = calcSpeedKmh;
                   source = "calculated";
-                  
-                  if (calculatedSpeed > 100) {
-                    calculatedSpeed = null;
-                    source = null;
-                  }
                 }
               }
             }
-            
-            lastPositionRef.current = { latitude, longitude, timestamp };
-            
-            if (calculatedSpeed !== null && calculatedSpeed > 0.5) {
-              speedHistoryRef.current.push(calculatedSpeed);
-              if (speedHistoryRef.current.length > 5) {
-                speedHistoryRef.current.shift();
-              }
-              
-              const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
-              setSpeed(avgSpeed);
-              setSpeedSource(source);
-            } else if (calculatedSpeed === null || calculatedSpeed < 0.5) {
-              if (speedHistoryRef.current.length > 0) {
-                speedHistoryRef.current.shift();
-              }
-              if (speedHistoryRef.current.length === 0) {
-                setSpeed(0);
-                setSpeedSource(null);
-              } else {
-                const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
-                setSpeed(avgSpeed);
-              }
+          }
+          
+          // Update position history
+          lastPositionRef.current = { latitude: lat, longitude: lng, timestamp };
+          
+          // Smooth the speed with a rolling average
+          if (calculatedSpeed !== null && calculatedSpeed >= 0) {
+            speedHistoryRef.current.push(calculatedSpeed);
+            if (speedHistoryRef.current.length > 3) {
+              speedHistoryRef.current.shift();
             }
-          } catch (updateError) {
-            console.warn("Error updating GPS state:", updateError);
+            
+            const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
+            setSpeed(avgSpeed < 0.5 ? 0 : avgSpeed);
+            setSpeedSource(source);
+          } else {
+            // Decay speed gradually
+            if (speedHistoryRef.current.length > 0) {
+              speedHistoryRef.current.shift();
+            }
+            if (speedHistoryRef.current.length === 0) {
+              setSpeed(0);
+              setSpeedSource(null);
+            } else {
+              const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
+              setSpeed(avgSpeed < 0.5 ? 0 : avgSpeed);
+            }
           }
         }
       );
     } catch (err: any) {
       console.warn("Phone GPS error:", err);
       if (isMountedRef.current) {
-        setError(err?.message || "Failed to start GPS tracking");
+        setError(err?.message || "Failed to start GPS");
         setIsTracking(false);
       }
     }
@@ -227,13 +198,10 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
       return;
     }
 
-    const initDelay = Platform.OS === "android" ? 3000 : 1500;
-    const initTimeout = setTimeout(() => {
-      if (isMountedRef.current) {
-        startTracking();
-      }
-    }, initDelay);
+    // Start tracking immediately
+    startTracking();
 
+    // Handle app state changes
     const handleAppStateChange = (nextAppState: string) => {
       if (appStateRef.current === "active" && nextAppState !== "active") {
         stopTracking();
@@ -247,7 +215,6 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
 
     return () => {
       isMountedRef.current = false;
-      clearTimeout(initTimeout);
       stopTracking();
       subscription.remove();
     };
@@ -260,5 +227,7 @@ export function usePhoneSpeed(enabled: boolean = true): PhoneSpeedData {
     hasPermission,
     error,
     speedSource,
+    latitude,
+    longitude,
   };
 }

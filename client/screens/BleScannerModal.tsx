@@ -340,16 +340,34 @@ export default function BleScannerModal() {
   const handleLinkMotor = async () => {
     if (!pairedMotor || !user) return;
     
-    setIsLinking(true);
-    try {
-      await registerMotorForUser(user.id, pairedMotor.serialNumber, pairedMotor.name);
-      
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Check for guest mode
+    if (user.id === "guest") {
+      Alert.alert(
+        "Account Required",
+        "Sign in with an email account to enable anti-theft protection. Guest mode doesn't support this feature."
+      );
       setShowAntiTheftModal(false);
       navigation.goBack();
-    } catch (error) {
+      return;
+    }
+    
+    setIsLinking(true);
+    try {
+      const result = await registerMotorForUser(user.id, pairedMotor.serialNumber, pairedMotor.name);
+      
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Anti-theft protection enabled for this motor.");
+      } else {
+        Alert.alert("Error", result.error || "Failed to register motor for anti-theft protection.");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      
+      setShowAntiTheftModal(false);
+      navigation.goBack();
+    } catch (error: any) {
       console.error("Failed to link motor:", error);
-      Alert.alert("Error", "Failed to register motor for anti-theft protection.");
+      Alert.alert("Error", error.message || "Failed to register motor for anti-theft protection.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsLinking(false);

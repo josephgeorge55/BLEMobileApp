@@ -108,6 +108,16 @@ export default function SettingsScreen() {
   const handleLinkConnectedMotor = async () => {
     if (!user?.id || !motor?.isConnected) return;
     
+    // Check for guest mode first
+    if (isGuestMode) {
+      Alert.alert(
+        "Account Required",
+        "Sign in with an email account to enable anti-theft protection. Guest mode doesn't support this feature.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
     const serialNumber = telemetry?.tillerSerialNumber || motor.serialNumber;
     const motorName = `Blade Halo`;
     
@@ -115,15 +125,16 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     try {
-      const success = await registerMotorForUser(user.id, serialNumber, motorName);
-      if (success) {
+      const result = await registerMotorForUser(user.id, serialNumber, motorName);
+      if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         loadRegisteredMotors();
+        Alert.alert("Success", "Anti-theft protection enabled for this motor.");
       } else {
-        Alert.alert("Error", "Failed to enable anti-theft protection.");
+        Alert.alert("Error", result.error || "Failed to enable anti-theft protection.");
       }
-    } catch (error) {
-      Alert.alert("Error", "An error occurred while linking the motor.");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "An error occurred while linking the motor.");
     } finally {
       setIsLinkingMotor(false);
     }

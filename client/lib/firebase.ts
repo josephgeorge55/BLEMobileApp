@@ -116,11 +116,30 @@ export async function registerMotorForUser(
   userId: string,
   serialNumber: string,
   motorName?: string
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
+  // Check for guest user first
+  if (userId === "guest") {
+    console.error("[Firebase] Cannot register motor for guest user");
+    return { success: false, error: "Sign in with an account to enable anti-theft protection. Guest mode doesn't support this feature." };
+  }
+
   const firestore = getFirestoreDb();
   if (!firestore) {
     console.error("[Firebase] Firestore not initialized");
-    return false;
+    return { success: false, error: "Database service unavailable. Please try again." };
+  }
+
+  // Check if user is authenticated with Firebase
+  const currentAuth = getFirebaseAuth();
+  if (!currentAuth?.currentUser) {
+    console.error("[Firebase] User not authenticated");
+    return { success: false, error: "You must be signed in to enable anti-theft protection." };
+  }
+
+  // Verify the userId matches the authenticated user
+  if (currentAuth.currentUser.uid !== userId) {
+    console.error("[Firebase] User ID mismatch");
+    return { success: false, error: "Authentication error. Please sign out and sign in again." };
   }
 
   try {
@@ -134,6 +153,16 @@ export async function registerMotorForUser(
     };
 
     if (userDoc.exists()) {
+      // Check if motor is already registered
+      const existingData = userDoc.data() as UserData;
+      const alreadyRegistered = existingData.registeredMotors?.some(
+        m => m.serialNumber.toUpperCase() === serialNumber.toUpperCase()
+      );
+      if (alreadyRegistered) {
+        console.log("[Firebase] Motor already registered:", serialNumber);
+        return { success: true }; // Already registered, treat as success
+      }
+      
       // Update existing user document
       await updateDoc(userRef, {
         registeredMotors: arrayUnion(newMotor),
@@ -142,7 +171,7 @@ export async function registerMotorForUser(
     } else {
       // Create new user document
       await setDoc(userRef, {
-        email: auth?.currentUser?.email || "",
+        email: currentAuth.currentUser.email || "",
         registeredMotors: [newMotor],
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -150,10 +179,16 @@ export async function registerMotorForUser(
     }
 
     console.log("[Firebase] Motor registered:", serialNumber);
-    return true;
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
     console.error("[Firebase] Error registering motor:", error);
-    return false;
+    
+    // Handle specific Firebase errors
+    if (error.code === "permission-denied") {
+      return { success: false, error: "Permission denied. Please sign out and sign in again." };
+    }
+    
+    return { success: false, error: error.message || "Failed to register motor. Please try again." };
   }
 }
 
