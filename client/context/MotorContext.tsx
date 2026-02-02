@@ -98,7 +98,6 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   const [debugLogs, setDebugLogs] = useState<DebugLogEntry[]>([]);
   
   const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoConnectAttempted = useRef(false);
   const gnssRef = useRef<GNSSData | null>(null);
   const bmsRef = useRef<BMSData | null>(null);
   const motorDataRef = useRef<BLEMotorData | null>(null);
@@ -382,52 +381,6 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     inforG1Ref.current = null;
     inforG2Ref.current = null;
   }, []);
-
-  // Auto-start simulation when app loads (for demo/testing purposes)
-  // This ensures users can use trip recording without manually connecting
-  useEffect(() => {
-    const autoStartSimulation = async () => {
-      // Only auto-connect once and if no motor is connected
-      if (autoConnectAttempted.current) return;
-      if (motor?.isConnected) return;
-      
-      autoConnectAttempted.current = true;
-      
-      // Wait a moment for the app to fully load
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Check again if motor got connected in the meantime
-      if (motorRef.current?.isConnected) return;
-      
-      console.log("[MotorContext] Auto-starting simulation mode...");
-      
-      // Auto-connect with simulation
-      const defaultSerial = "BLD-2024-0001";
-      const newMotor: MotorInfo = {
-        serialNumber: defaultSerial,
-        name: `Blade ${defaultSerial.slice(-4)}`,
-        firmwareVersion: "1.3.0",
-        isConnected: true,
-        lastConnected: new Date(),
-      };
-      
-      setMotorState(newMotor);
-      motorRef.current = newMotor;
-      setIsRealConnection(false);
-      
-      // Save to storage
-      try {
-        await AsyncStorage.setItem(MOTOR_STORAGE_KEY, JSON.stringify(newMotor));
-      } catch (e) {
-        console.error("Error saving auto-connected motor:", e);
-      }
-      
-      // Start simulation
-      startBLESimulation();
-    };
-    
-    autoStartSimulation();
-  }, [motor?.isConnected, startBLESimulation]);
 
   const connectToMotor = async (serialNumber: string, useSimulation: boolean = true) => {
     addDebugLog("INFO", `connectToMotor called: serialNumber=${serialNumber}, useSimulation=${useSimulation}`);
