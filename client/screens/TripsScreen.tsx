@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -31,7 +32,7 @@ export default function TripsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const { user } = useUser();
   const { activeTrip, isRecording, startTrip, endTrip, isLoading: tripLoading, tripDuration, tripStats } = useTrip();
-  const { motor } = useMotor();
+  const { motor, telemetry } = useMotor();
   
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,30 +68,82 @@ export default function TripsScreen() {
   };
 
   const handleStartTrip = async () => {
-    console.log("[TripsScreen] Start Trip button pressed", {
+    console.log("[TripsScreen] ===== START TRIP BUTTON PRESSED =====");
+    console.log("[TripsScreen] State:", {
       userId: user?.id,
       motorConnected: motor?.isConnected,
       motorSerial: motor?.serialNumber,
+      tillerSerial: telemetry?.tillerSerialNumber,
+      effectiveSerial,
       isRecording,
       canStartTrip,
+      hasTelemetry: !!telemetry,
     });
     
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Immediate feedback that button was pressed
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e) {
+      console.log("[TripsScreen] Haptics error (non-critical):", e);
+    }
+    
+    // Double-check requirements before calling startTrip
+    if (!user?.id) {
+      console.error("[TripsScreen] BLOCKED: No user ID");
+      Alert.alert("Sign In Required", "Please sign in to record trips.");
+      return;
+    }
+    
+    if (!motor?.isConnected) {
+      console.error("[TripsScreen] BLOCKED: Motor not connected");
+      Alert.alert("Motor Not Connected", "Please connect to your motor first via Settings.");
+      return;
+    }
+    
+    if (!effectiveSerial) {
+      console.error("[TripsScreen] BLOCKED: No serial number available");
+      Alert.alert(
+        "Motor Not Ready", 
+        "Waiting for motor serial number. Please wait a few seconds and try again.\n\n" +
+        `Debug: motorSerial=${motor?.serialNumber}, tillerSerial=${telemetry?.tillerSerialNumber}`
+      );
+      return;
+    }
+    
+    console.log("[TripsScreen] All checks passed, calling startTrip()...");
     
     try {
       const success = await startTrip();
       console.log("[TripsScreen] startTrip result:", success);
       
       if (success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        console.log("[TripsScreen] Trip started successfully!");
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (e) {}
         fetchTrips();
       } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        console.error("[TripsScreen] startTrip returned false");
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } catch (e) {}
+        // TripContext should show its own alert, but just in case:
+        // Alert is already shown in TripContext
       }
     } catch (error: any) {
-      console.error("[TripsScreen] Error starting trip:", error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error("[TripsScreen] EXCEPTION in startTrip:", error);
+      console.error("[TripsScreen] Error stack:", error?.stack);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch (e) {}
+      Alert.alert(
+        "Trip Error",
+        `Failed to start trip: ${error?.message || "Unknown error"}\n\nCheck logs for details.`,
+        [{ text: "OK" }]
+      );
     }
+    
+    console.log("[TripsScreen] ===== END START TRIP HANDLER =====");
   };
 
   const handleEndTrip = async () => {
@@ -210,9 +263,18 @@ export default function TripsScreen() {
 
   // Get effective serial number (prefer real serial over Bluetooth MAC address)
   const motorSerial = motor?.serialNumber;
-  const tillerSerial = (motor as any)?.telemetry?.tillerSerialNumber;
+  const tillerSerial = telemetry?.tillerSerialNumber;
   const isBluetoothAddress = motorSerial?.includes(':');
   const effectiveSerial = (isBluetoothAddress && tillerSerial) ? tillerSerial : motorSerial;
+  
+  // Debug: log the serial number resolution on every render
+  console.log("[TripsScreen] Serial resolution:", {
+    motorSerial,
+    tillerSerial, 
+    isBluetoothAddress,
+    effectiveSerial,
+    hasTelemetry: !!telemetry,
+  });
   
   // Button is enabled only when all requirements for starting a trip are met
   const canStartTrip = Boolean(user?.id) && Boolean(motor?.isConnected) && Boolean(effectiveSerial) && !isRecording;
@@ -228,8 +290,21 @@ export default function TripsScreen() {
     canStartTrip 
   });
 
+  // Show debug info on screen (remove once issue is fixed)
+  const renderDebugBanner = () => (
+    <View style={{ backgroundColor: '#1a1a2e', padding: 8, marginBottom: 8, borderRadius: 8 }}>
+      <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
+        [DEBUG] user: {user?.id ? 'yes' : 'no'} | motor: {motor?.isConnected ? 'yes' : 'no'} | serial: {effectiveSerial || 'none'}
+      </Text>
+      <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
+        motorSerial: {motorSerial || 'null'} | tillerSerial: {tillerSerial || 'null'} | canStart: {canStartTrip ? 'YES' : 'NO'}
+      </Text>
+    </View>
+  );
+
   const renderHeader = () => (
     <View style={styles.headerSection}>
+      {renderDebugBanner()}
       {isRecording ? (
         <>
           <Card style={styles.liveRecordingCard}>
