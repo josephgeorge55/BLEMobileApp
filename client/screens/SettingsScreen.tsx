@@ -244,61 +244,75 @@ export default function SettingsScreen() {
         </SettingsSection>
       ) : null}
 
-      {user && !isGuestMode ? (
-        <SettingsSection title="Registered Outboards">
-          {loadingMotors ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.primary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
-                Loading...
-              </ThemedText>
-            </View>
-          ) : registeredMotors.length > 0 ? (
-            <>
-              {registeredMotors.map((registeredMotor, index) => (
+      {user && !isGuestMode ? (() => {
+        const currentSerial = telemetry?.tillerSerialNumber || motor?.serialNumber;
+        const otherRegisteredMotors = registeredMotors.filter(
+          rm => rm.serialNumber !== currentSerial
+        );
+        
+        if (loadingMotors) {
+          return (
+            <SettingsSection title="Other Registered Outboards">
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={theme.primary} />
+                <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+                  Loading...
+                </ThemedText>
+              </View>
+            </SettingsSection>
+          );
+        }
+        
+        if (otherRegisteredMotors.length > 0) {
+          return (
+            <SettingsSection title="Other Registered Outboards">
+              {otherRegisteredMotors.map((registeredMotor, index) => (
                 <SettingsRow
                   key={`${registeredMotor.serialNumber}-${index}`}
-                  icon="anchor"
+                  icon="lock"
                   title={registeredMotor.name || registeredMotor.serialNumber}
-                  subtitle={registeredMotor.name ? `S/N: ${registeredMotor.serialNumber}` : "Registered to your account"}
+                  subtitle={registeredMotor.name ? `S/N: ${registeredMotor.serialNumber}` : "Protected"}
                   onPress={() => {
-                    if (motor?.isConnected && motor.serialNumber === registeredMotor.serialNumber) {
-                      handleRemoveMotor(registeredMotor.serialNumber);
-                    } else {
-                      Alert.alert(
-                        "Connect to Unlink",
-                        "You must be connected to this outboard via Bluetooth to unlink it from your account."
-                      );
-                    }
+                    Alert.alert(
+                      "Connect to Manage",
+                      "Connect to this outboard via Bluetooth to manage its anti-theft settings."
+                    );
                   }}
-                  iconColor={BladeColors.accent}
+                  iconColor={BladeColors.success}
                 />
               ))}
-            </>
-          ) : (
-            <View style={styles.emptyRegisteredContainer}>
-              <Feather name="anchor" size={24} color={theme.textTertiary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm, textAlign: "center" }}>
-                No outboards registered yet.{"\n"}Connect via Bluetooth to register.
-              </ThemedText>
-            </View>
-          )}
-        </SettingsSection>
-      ) : null}
+            </SettingsSection>
+          );
+        }
+        
+        return null;
+      })() : null}
 
       {motor?.isConnected ? (
         <SettingsSection title="Connected Outboard">
           <View style={[styles.motorCard, { backgroundColor: theme.surfaceElevated }]}>
-            <Image
-              source={require("../../assets/images/halo-outboard.png")}
-              style={styles.motorImage}
-              resizeMode="contain"
-            />
+            <View style={styles.motorImageContainer}>
+              <Image
+                source={require("../../assets/images/halo-outboard.png")}
+                style={styles.motorImage}
+                resizeMode="contain"
+              />
+              {isConnectedMotorRegistered ? (
+                <View style={[styles.registeredBadge, { backgroundColor: BladeColors.success }]}>
+                  <Feather name="lock" size={12} color="#fff" />
+                </View>
+              ) : null}
+            </View>
             <View style={styles.motorInfo}>
               <ThemedText type="h3">Blade Halo</ThemedText>
-              <ThemedText type="mono" style={{ color: theme.textSecondary, marginTop: 4 }}>
-                S/N: {telemetry?.tillerSerialNumber || motor.serialNumber}
-              </ThemedText>
+              <View style={styles.serialRow}>
+                {isConnectedMotorRegistered ? (
+                  <Feather name="lock" size={12} color={BladeColors.success} style={{ marginRight: 4 }} />
+                ) : null}
+                <ThemedText type="mono" style={{ color: isConnectedMotorRegistered ? BladeColors.success : theme.textSecondary }}>
+                  S/N: {telemetry?.tillerSerialNumber || motor.serialNumber}
+                </ThemedText>
+              </View>
               <View style={styles.motorBadges}>
                 <View style={[styles.badge, { backgroundColor: BladeColors.success + "20" }]}>
                   <View style={[styles.badgeDot, { backgroundColor: BladeColors.success }]} />
@@ -311,6 +325,14 @@ export default function SettingsScreen() {
                     v{telemetry?.tillerFirmwareVersion || motor.firmwareVersion || "1.0.0"}
                   </ThemedText>
                 </View>
+                {isConnectedMotorRegistered ? (
+                  <View style={[styles.badge, { backgroundColor: BladeColors.success + "20" }]}>
+                    <Feather name="shield" size={10} color={BladeColors.success} />
+                    <ThemedText type="caption" style={{ color: BladeColors.success, marginLeft: 3 }}>
+                      Protected
+                    </ThemedText>
+                  </View>
+                ) : null}
               </View>
             </View>
           </View>
@@ -324,11 +346,11 @@ export default function SettingsScreen() {
             />
           ) : isConnectedMotorRegistered ? (
             <SettingsRow
-              icon="shield"
-              title="Anti-Theft Protection"
-              subtitle="Linked to your account - Tap to unlink"
+              icon="unlock"
+              title="Unlink from Account"
+              subtitle="Remove anti-theft protection"
               onPress={handleUnlinkConnectedMotor}
-              iconColor={BladeColors.success}
+              iconColor={theme.textSecondary}
             />
           ) : (
             <SettingsRow
@@ -670,5 +692,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: Spacing.xl,
+  },
+  motorImageContainer: {
+    position: "relative",
+  },
+  registeredBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  serialRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
   },
 });
