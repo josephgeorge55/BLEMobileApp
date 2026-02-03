@@ -389,8 +389,8 @@ export default function TripsScreen() {
       ) : (
         <Pressable
           onPress={handleStartTrip}
-          disabled={tripLoading}
-          style={[styles.tripButton, { opacity: canStartTrip ? 1 : 0.7 }]}
+          disabled={tripLoading || !canStartTrip}
+          style={[styles.tripButton, { opacity: canStartTrip ? 1 : 0.5 }]}
           testID="start-trip-button"
         >
           <LinearGradient
