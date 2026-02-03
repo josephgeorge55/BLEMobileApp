@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -112,18 +113,18 @@ export function DebugLogModal({ visible, onClose }: Props) {
       return;
     }
     
-    addTripLog("INFO", `Loading trips for user: ${user.id}`);
+    addTripLog("INFO", `Loading trips from local storage for user: ${user.id}`);
     
     try {
-      const response = await fetch(
-        new URL(`/api/trips/user/${user.id}`, getApiUrl()).toString()
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setTrips(data);
-        addTripLog("INFO", `Found ${data.length} trip(s)`);
+      const localTripsStr = await AsyncStorage.getItem("@blade_local_trips");
+      if (localTripsStr) {
+        const allTrips = JSON.parse(localTripsStr);
+        const userTrips = allTrips.filter((trip: any) => trip.userId === user.id);
+        setTrips(userTrips);
+        addTripLog("INFO", `Found ${userTrips.length} trip(s) in local storage`);
       } else {
-        addTripLog("ERROR", `API error: ${response.status}`);
+        setTrips([]);
+        addTripLog("INFO", "No trips found in local storage");
       }
     } catch (error: any) {
       addTripLog("ERROR", `Failed to load trips: ${error.message}`);

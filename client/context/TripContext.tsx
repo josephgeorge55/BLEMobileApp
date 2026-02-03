@@ -78,32 +78,41 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     
     stopDataRecording();
     try {
-      await apiRequest("POST", `/api/trips/${activeTrip.id}/end`, {
-        endBatteryPercent: telemetry?.bms?.capacity,
-      });
+      // Update trip in local storage
+      const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+      if (localTripsStr) {
+        const localTrips: Trip[] = JSON.parse(localTripsStr);
+        const updatedTrips = localTrips.map(trip => 
+          trip.id === activeTrip.id
+            ? { ...trip, endTime: new Date(), endBatteryPercent: telemetry?.bms?.capacity ?? null, isActive: false }
+            : trip
+        );
+        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(updatedTrips));
+      }
       await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
       setActiveTrip(null);
       setIsRecording(false);
+      console.log("[TripContext] Trip ended silently");
     } catch (error) {
-      console.error("Error auto-ending trip:", error);
+      console.error("[TripContext] Error auto-ending trip:", error);
     }
   };
 
   const fetchActiveTrip = async () => {
     if (!user?.id) return;
     try {
-      const response = await fetch(
-        new URL(`/api/trips/user/${user.id}/active`, getApiUrl()).toString()
-      );
-      if (response.ok) {
-        const trip = await response.json();
-        if (trip) {
+      // Check local storage for active trip
+      const activeTripStr = await AsyncStorage.getItem(ACTIVE_TRIP_KEY);
+      if (activeTripStr) {
+        const trip: Trip = JSON.parse(activeTripStr);
+        if (trip.userId === user.id && trip.isActive) {
+          console.log("[TripContext] Restored active trip from local storage:", trip.id);
           setActiveTrip(trip);
           setIsRecording(true);
         }
       }
     } catch (error) {
-      console.error("Error fetching active trip:", error);
+      console.error("[TripContext] Error fetching active trip:", error);
     }
   };
 
@@ -149,36 +158,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Sync pending data points to server when online
+  // Data points are stored locally - no server sync needed
   const syncPendingData = async () => {
-    try {
-      const existing = await AsyncStorage.getItem(PENDING_DATA_KEY);
-      if (!existing) return;
-      
-      const pendingData: { tripId: number; dataPoint: Partial<TripDataPoint> }[] = JSON.parse(existing);
-      if (pendingData.length === 0) return;
-
-      const netState = await NetInfo.fetch();
-      if (!netState.isConnected) return;
-
-      const failedItems: { tripId: number; dataPoint: Partial<TripDataPoint> }[] = [];
-      
-      for (const item of pendingData) {
-        try {
-          await apiRequest("POST", `/api/trips/${item.tripId}/data`, item.dataPoint);
-        } catch (error) {
-          failedItems.push(item);
-        }
-      }
-
-      if (failedItems.length > 0) {
-        await AsyncStorage.setItem(PENDING_DATA_KEY, JSON.stringify(failedItems));
-      } else {
-        await AsyncStorage.removeItem(PENDING_DATA_KEY);
-      }
-    } catch (error) {
-      console.error("Error syncing pending data:", error);
-    }
+    // No-op: data is stored locally only
   };
 
   // Try to sync pending data when network becomes available
@@ -332,94 +314,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     return trip;
   };
 
-  // Sync local trips to server when online
+  // Trips are stored locally only - no server sync needed
   const syncLocalTrips = async () => {
-    try {
-      const existing = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
-      if (!existing) return;
-
-      const localTrips: Trip[] = JSON.parse(existing);
-      if (localTrips.length === 0) return;
-
-      const netState = await NetInfo.fetch();
-      if (!netState.isConnected) return;
-
-      const remainingTrips: Trip[] = [];
-
-      for (const trip of localTrips) {
-        try {
-          // Create trip on server
-          const response = await apiRequest("POST", "/api/trips/start", {
-            userId: trip.userId,
-            motorSerialNumber: trip.motorSerialNumber,
-            name: trip.name,
-            startBatteryPercent: trip.startBatteryPercent,
-          });
-          const data = await response.json();
-
-          if (data.trip) {
-            // Update pending data points with new server trip ID
-            const pendingDataStr = await AsyncStorage.getItem(PENDING_DATA_KEY);
-            if (pendingDataStr) {
-              const pendingData = JSON.parse(pendingDataStr);
-              const updatedPending = pendingData.map((item: { tripId: string; dataPoint: Partial<TripDataPoint> }) => 
-                item.tripId === trip.id ? { ...item, tripId: data.trip.id } : item
-              );
-              await AsyncStorage.setItem(PENDING_DATA_KEY, JSON.stringify(updatedPending));
-            }
-
-            // If this was the active trip, update the active trip reference
-            const activeTripStr = await AsyncStorage.getItem(ACTIVE_TRIP_KEY);
-            if (activeTripStr) {
-              const activeLocalTrip = JSON.parse(activeTripStr);
-              if (activeLocalTrip.id === trip.id) {
-                setActiveTrip(data.trip);
-                await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(data.trip));
-              }
-            }
-
-            // End the trip on server if it was already ended locally
-            if (trip.endTime) {
-              await apiRequest("POST", `/api/trips/${data.trip.id}/end`, {
-                endBatteryPercent: trip.endBatteryPercent,
-                totalDistanceKm: trip.totalDistanceKm,
-                maxSpeedKmh: trip.maxSpeedKmh,
-                avgSpeedKmh: trip.avgSpeedKmh,
-                totalEnergyWh: trip.totalEnergyWh,
-              });
-            }
-          } else {
-            remainingTrips.push(trip);
-          }
-        } catch (error) {
-          remainingTrips.push(trip);
-        }
-      }
-
-      if (remainingTrips.length > 0) {
-        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(remainingTrips));
-      } else {
-        await AsyncStorage.removeItem(LOCAL_TRIPS_KEY);
-      }
-
-      // Sync pending data points
-      await syncPendingData();
-    } catch (error) {
-      console.error("Error syncing local trips:", error);
-    }
+    // No-op: trips are stored locally and don't need server sync
+    console.log("[TripContext] Trips are stored locally - no server sync needed");
   };
-
-  // Sync local trips when network becomes available
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      if (state.isConnected) {
-        syncLocalTrips();
-      }
-    });
-    // Also try to sync on mount
-    syncLocalTrips();
-    return () => unsubscribe();
-  }, []);
 
   const startTrip = async (name?: string): Promise<boolean> => {
     console.log("[TripContext] startTrip called - beginning checks");
@@ -526,84 +425,30 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     };
 
     try {
-      // Check if this is a local trip (local- prefix)
-      if (String(activeTrip.id).startsWith('local-')) {
-        // Update local trip with end data
-        const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
-        if (localTripsStr) {
-          const localTrips: Trip[] = JSON.parse(localTripsStr);
-          const updatedTrips = localTrips.map(trip => 
-            trip.id === activeTrip.id
-              ? {
-                  ...trip,
-                  endTime: new Date(),
-                  ...tripData,
-                }
-              : trip
-          );
-          await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(updatedTrips));
-        }
-        await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
-        setActiveTrip(null);
-        setIsRecording(false);
-        
-        // Try to sync if online
-        const netState = await NetInfo.fetch();
-        if (netState.isConnected) {
-          syncLocalTrips();
-        }
-        return true;
+      // Update trip in local storage
+      const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+      if (localTripsStr) {
+        const localTrips: Trip[] = JSON.parse(localTripsStr);
+        const updatedTrips = localTrips.map(trip => 
+          trip.id === activeTrip.id
+            ? {
+                ...trip,
+                endTime: new Date(),
+                isActive: false,
+                ...tripData,
+              }
+            : trip
+        );
+        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(updatedTrips));
+        console.log("[TripContext] Trip ended and saved to local storage:", activeTrip.id);
       }
-
-      // Online trip - try to end on server
-      const netState = await NetInfo.fetch();
-      if (netState.isConnected) {
-        const response = await apiRequest("POST", `/api/trips/${activeTrip.id}/end`, tripData);
-        const data = await response.json();
-        if (data.success) {
-          await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
-          setActiveTrip(null);
-          setIsRecording(false);
-          return true;
-        }
-      } else {
-        // Offline - store end data locally to sync later
-        const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
-        const localTrips: Trip[] = localTripsStr ? JSON.parse(localTripsStr) : [];
-        const endedTrip = {
-          ...activeTrip,
-          endTime: new Date(),
-          ...tripData,
-        };
-        localTrips.push(endedTrip);
-        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(localTrips));
-        await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
-        setActiveTrip(null);
-        setIsRecording(false);
-        return true;
-      }
-      return false;
+      await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+      setActiveTrip(null);
+      setIsRecording(false);
+      return true;
     } catch (error) {
-      console.error("Error ending trip:", error);
-      // Try to save locally on error
-      try {
-        const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
-        const localTrips: Trip[] = localTripsStr ? JSON.parse(localTripsStr) : [];
-        const endedTrip = {
-          ...activeTrip,
-          endTime: new Date(),
-          ...tripData,
-        };
-        localTrips.push(endedTrip);
-        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(localTrips));
-        await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
-        setActiveTrip(null);
-        setIsRecording(false);
-        return true;
-      } catch (localError) {
-        console.error("Error saving trip locally:", localError);
-        return false;
-      }
+      console.error("[TripContext] Error ending trip:", error);
+      return false;
     } finally {
       setIsLoading(false);
     }
