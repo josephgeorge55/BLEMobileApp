@@ -86,15 +86,13 @@ export default function LocationScreen() {
   }, [user, isGuestMode]);
 
   const fetchFirestoreGPS = async () => {
-    addDebugLog("INFO", `[Location] fetchFirestoreGPS called`);
-    addDebugLog("INFO", `[Location] serialNumber: ${serialNumber || 'none'}`);
-    addDebugLog("INFO", `[Location] motor.serialNumber: ${motor?.serialNumber || 'none'}`);
-    addDebugLog("INFO", `[Location] telemetry.tillerSerialNumber: ${telemetry?.tillerSerialNumber || 'none'}`);
-    addDebugLog("INFO", `[Location] registeredMotors: ${registeredMotors.map(m => m.serialNumber).join(', ') || 'none'}`);
+    addDebugLog("INFO", "--- Firestore GPS Fetch Started ---");
+    addDebugLog("INFO", `[Firestore] Target serial: ${serialNumber || 'NONE'}`);
+    addDebugLog("INFO", `[Firestore] Query path: devices/${serialNumber || '???'}/telemetry`);
     
     if (!serialNumber) {
       const errorMsg = "No motor serial number available for location lookup";
-      addDebugLog("ERROR", `[Location] ${errorMsg}`);
+      addDebugLog("ERROR", `[Firestore] ABORTED: ${errorMsg}`);
       setLocationError(errorMsg);
       Alert.alert("Location Lookup", errorMsg);
       return;
@@ -102,13 +100,17 @@ export default function LocationScreen() {
 
     setIsLoadingLocation(true);
     setLocationError(null);
-    addDebugLog("INFO", `[Location] Starting Firestore GPS lookup for: ${serialNumber}`);
+    addDebugLog("INFO", `[Firestore] Querying Firestore collection: devices/${serialNumber}/telemetry`);
+    addDebugLog("INFO", `[Firestore] Looking for most recent document with GPS coordinates...`);
 
     try {
       const telemetryData = await fetchLatestGPSFromFirestore(serialNumber);
       
-      addDebugLog("INFO", `[Location] SUCCESS! Got GPS: lat=${telemetryData.latitude}, lng=${telemetryData.longitude}`);
-      addDebugLog("INFO", `[Location] Timestamp: ${telemetryData.timestamp}, Status: ${telemetryData.status || 'unknown'}`);
+      addDebugLog("INFO", `[Firestore] SUCCESS! Retrieved GPS data:`);
+      addDebugLog("INFO", `[Firestore]   - Latitude: ${telemetryData.latitude}`);
+      addDebugLog("INFO", `[Firestore]   - Longitude: ${telemetryData.longitude}`);
+      addDebugLog("INFO", `[Firestore]   - Timestamp: ${telemetryData.timestamp}`);
+      addDebugLog("INFO", `[Firestore]   - Status: ${telemetryData.status || 'unknown'}`);
       
       setFirestoreLocation({
         latitude: telemetryData.latitude,
@@ -128,23 +130,32 @@ export default function LocationScreen() {
       setLocationError(null);
     } catch (error: any) {
       const errorMsg = error.message || "Failed to fetch location";
-      addDebugLog("ERROR", `[Location] Firestore GPS fetch FAILED: ${errorMsg}`);
-      console.error("[Location] Firestore GPS fetch error:", error);
+      addDebugLog("ERROR", `[Firestore] FAILED: ${errorMsg}`);
+      addDebugLog("ERROR", `[Firestore] Error code: ${error.code || 'unknown'}`);
+      addDebugLog("ERROR", `[Firestore] Check: Is serial number correct? Does Firestore have data for this motor?`);
+      console.error("[Firestore] GPS fetch error:", error);
       setLocationError(errorMsg);
       setFirestoreLocation(null);
       Alert.alert("Location Error", errorMsg);
     } finally {
       setIsLoadingLocation(false);
+      addDebugLog("INFO", "--- Firestore GPS Fetch Complete ---");
     }
   };
 
   // Auto-fetch from Firestore when not connected but have a valid serial number
   useEffect(() => {
     if (!isConnected && serialNumber && !isGuestMode) {
-      addDebugLog("INFO", `[Location] Auto-fetching GPS for registered motor: ${serialNumber}`);
+      addDebugLog("INFO", "=== AUTO-FETCH TRIGGERED ===");
+      addDebugLog("INFO", `[AutoFetch] Conditions met: not connected, have serial, not guest`);
+      addDebugLog("INFO", `[AutoFetch] Serial: ${serialNumber}`);
       fetchFirestoreGPS();
     } else if (!serialNumber && registeredMotors.length === 0) {
-      addDebugLog("INFO", "[Location] No serial number available - waiting for registered motors to load");
+      addDebugLog("INFO", "[AutoFetch] Waiting: no serial number, no registered motors loaded yet");
+    } else if (isConnected) {
+      addDebugLog("INFO", "[AutoFetch] Skipped: Motor is connected via Bluetooth (using live GPS)");
+    } else if (isGuestMode) {
+      addDebugLog("INFO", "[AutoFetch] Skipped: Guest mode - requires signed in user");
     }
   }, [isConnected, serialNumber, isGuestMode, registeredMotors.length]);
 
@@ -160,15 +171,26 @@ export default function LocationScreen() {
     : firestoreLocation || location;
 
   const handleFind = () => {
-    addDebugLog("INFO", `[Location] Find button pressed. isConnected=${isConnected}, serialNumber=${serialNumber || 'none'}`);
+    addDebugLog("INFO", "=== FIND BUTTON PRESSED ===");
+    addDebugLog("INFO", `[Find] Current state:`);
+    addDebugLog("INFO", `[Find]   - isConnected: ${isConnected}`);
+    addDebugLog("INFO", `[Find]   - serialNumber: ${serialNumber || 'NONE'}`);
+    addDebugLog("INFO", `[Find]   - motor.serialNumber: ${motor?.serialNumber || 'NONE'}`);
+    addDebugLog("INFO", `[Find]   - telemetry.tillerSerialNumber: ${telemetry?.tillerSerialNumber || 'NONE'}`);
+    addDebugLog("INFO", `[Find]   - registeredMotors: ${registeredMotors.length > 0 ? registeredMotors.map(m => m.serialNumber).join(', ') : 'NONE'}`);
+    addDebugLog("INFO", `[Find]   - user.id: ${user?.id || 'NONE'}`);
+    addDebugLog("INFO", `[Find]   - isGuestMode: ${isGuestMode}`);
+    
     if (isConnected) {
-      addDebugLog("INFO", "[Location] Motor connected - using live GPS from Bluetooth");
+      addDebugLog("INFO", "[Find] ACTION: Motor is connected via Bluetooth - showing live GPS");
       Alert.alert("Live Location", "Motor is connected via Bluetooth. Showing real-time GPS location.");
     } else if (serialNumber) {
-      addDebugLog("INFO", `[Location] Refreshing location from Firestore for: ${serialNumber}`);
+      addDebugLog("INFO", `[Find] ACTION: Querying Firestore for serial: ${serialNumber}`);
+      addDebugLog("INFO", `[Find] Will search collection: devices/${serialNumber}/telemetry`);
       fetchFirestoreGPS();
     } else {
-      addDebugLog("ERROR", "[Location] No serial number available for lookup");
+      addDebugLog("ERROR", "[Find] ACTION: BLOCKED - No serial number available");
+      addDebugLog("ERROR", "[Find] Reason: No motor connected, no telemetry serial, no registered motors");
       Alert.alert("No Motor Available", "Please register a motor or connect via Bluetooth to track location.");
     }
   };
