@@ -100,6 +100,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
   // Record data point - uses refs to get fresh values
   const recordDataPoint = useCallback(() => {
+    console.log("[Trip] recordDataPoint fired");
     const telem = telemetryRef.current;
     const loc = locationRef.current;
     
@@ -111,7 +112,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const power = voltage * current;
     const energyWh = power * (10 / 3600); // 10 second interval
 
-    console.log(`[Trip] Data: ${speed.toFixed(1)} km/h, ${power.toFixed(0)}W, ${energyWh.toFixed(2)} Wh`);
+    console.log(`[Trip] Data: speed=${speed.toFixed(1)} km/h, power=${power.toFixed(0)}W, energy=${energyWh.toFixed(2)} Wh, lat=${lat || 'null'}, lon=${lon || 'null'}`);
 
     let distanceKm = 0;
     if (lat && lon && lastPositionRef.current) {

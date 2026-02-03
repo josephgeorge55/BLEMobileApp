@@ -102,7 +102,9 @@ export default function TripsScreen() {
   const [buttonLoading, setButtonLoading] = useState(false);
 
   const loadTrips = useCallback(async () => {
+    console.log("[Trips] loadTrips called, userId:", user?.id);
     if (!user?.id) {
+      console.log("[Trips] No user, skipping load");
       setLoading(false);
       return;
     }
@@ -113,8 +115,10 @@ export default function TripsScreen() {
         const userTrips = all
           .filter(t => t.userId === user.id)
           .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+        console.log("[Trips] Loaded", userTrips.length, "trips");
         setTrips(userTrips);
       } else {
+        console.log("[Trips] No trips in storage");
         setTrips([]);
       }
     } catch (err) {
@@ -126,7 +130,10 @@ export default function TripsScreen() {
     }
   }, [user?.id]);
 
-  useFocusEffect(useCallback(() => { loadTrips(); }, [loadTrips]));
+  useFocusEffect(useCallback(() => { 
+    console.log("[Trips] Screen focused");
+    loadTrips(); 
+  }, [loadTrips]));
 
   const handleStartTrip = async () => {
     console.log("[Trips] handleStartTrip called");
@@ -220,7 +227,7 @@ export default function TripsScreen() {
       activeOpacity={0.8}
       onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}
     >
-      <Card style={[styles.card, item.isActive ? styles.activeCard : null]}>
+      <Card style={[styles.card, item.isActive && styles.activeCard]}>
         <View style={styles.cardHeader}>
           <Feather 
             name={item.isActive ? "navigation" : "anchor"} 
