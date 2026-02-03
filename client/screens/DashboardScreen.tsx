@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Image, Pressable, Modal, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ScrollView, RefreshControl, Image, Pressable, Modal, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
@@ -10,6 +10,8 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as Device from "expo-device";
+import * as Location from "expo-location";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
@@ -139,21 +141,63 @@ export default function DashboardScreen() {
         year: "numeric", month: "long", day: "numeric" 
       });
       const timeStr = now.toLocaleTimeString("en-AU", { 
-        hour: "2-digit", minute: "2-digit" 
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
       });
+      const fullDateTime = now.toISOString();
 
-      const speed = telemetry?.gnss?.speedKmh ?? 0;
-      const battery = telemetry?.bms?.stateOfCharge ?? 0;
+      // Get phone GPS location
+      let phoneGps = { lat: "--", lon: "--", accuracy: "--" };
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          phoneGps = {
+            lat: loc.coords.latitude.toFixed(6),
+            lon: loc.coords.longitude.toFixed(6),
+            accuracy: `${loc.coords.accuracy?.toFixed(1) ?? "--"}m`
+          };
+        }
+      } catch (e) {
+        console.log("[PDF] Could not get phone GPS:", e);
+      }
+
+      // Device info
+      const deviceName = Device.deviceName ?? "Unknown";
+      const deviceModel = Device.modelName ?? "Unknown";
+      const deviceBrand = Device.brand ?? "Unknown";
+      const osName = Device.osName ?? Platform.OS;
+      const osVersion = Device.osVersion ?? "Unknown";
+
+      // Telemetry data with correct property names
+      const motorSpeed = telemetry?.gnss?.speed ?? telemetry?.speed ?? 0;
+      const battery = telemetry?.stateOfCharge ?? telemetry?.bms?.capacity ?? 0;
       const voltage = telemetry?.bms?.voltage ?? 48;
       const current = telemetry?.vesc?.current ?? telemetry?.bms?.current ?? 0;
-      const powerKw = ((voltage * Math.abs(current)) / 1000).toFixed(2);
-      const throttle = telemetry?.motor?.throttle ?? 0;
-      const driveMode = telemetry?.motor?.mode ?? "NORMAL";
-      const firmware = motor?.firmwareVersion ?? "1.0.0";
-      const odometer = telemetry?.infor?.odometer ?? 0;
+      const wattage = telemetry?.vesc?.wattage ?? telemetry?.bms?.wattage ?? (voltage * Math.abs(current));
+      const powerKw = (wattage / 1000).toFixed(2);
+      const throttle = telemetry?.vesc?.throttle ?? 0;
+      const driveMode = telemetry?.driverMode ?? "Normal";
+      const firmware = telemetry?.tillerFirmwareVersion ?? motor?.firmwareVersion ?? "1.0.0";
+      const odometerVal = telemetry?.odometer ?? 0;
       const motorTemp = telemetry?.motor?.temperature ?? 0;
-      const vescTemp = telemetry?.vesc?.mosfetTemp ?? 0;
-      const rpm = telemetry?.vesc?.rpm ?? 0;
+      const vescTemp = telemetry?.vesc?.temperature ?? 0;
+      const motorRpm = telemetry?.motor?.motorRPM ?? 0;
+      const bmsTemp = telemetry?.bms?.temperature ?? 0;
+      const phaseCurrent = telemetry?.motor?.phaseCurrent ?? 0;
+      const errorCode = telemetry?.errorCode ?? null;
+      const errorDesc = telemetry?.errorDescription ?? null;
+
+      // Motor GPS
+      const motorGps = telemetry?.gnss ? {
+        lat: telemetry.gnss.latitude.toFixed(6),
+        lon: telemetry.gnss.longitude.toFixed(6),
+        course: telemetry.gnss.course?.toFixed(1) ?? "--",
+        time: telemetry.gnss.timeUTC ?? "--"
+      } : { lat: "--", lon: "--", course: "--", time: "--" };
+
+      const lastUpdated = telemetry?.timestamp 
+        ? new Date(telemetry.timestamp).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : "--";
 
       const html = `
         <!DOCTYPE html>
@@ -162,48 +206,74 @@ export default function DashboardScreen() {
           <meta charset="utf-8">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D1B2A; color: #EBEFF3; padding: 40px; }
-            .header { text-align: center; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #0A4D6E; }
-            .logo { font-size: 28px; font-weight: 300; letter-spacing: 2px; color: #0A9ED1; margin-bottom: 8px; }
-            .subtitle { font-size: 12px; color: #596F7C; letter-spacing: 3px; text-transform: uppercase; }
-            .date { font-size: 14px; color: #8FA3AD; margin-top: 16px; }
-            .section { margin-bottom: 24px; }
-            .section-title { font-size: 12px; color: #596F7C; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; padding-left: 8px; border-left: 3px solid #0A9ED1; }
-            .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-            .card { background: #1A2633; border-radius: 12px; padding: 16px; }
-            .card-label { font-size: 11px; color: #596F7C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-            .card-value { font-size: 24px; font-weight: 600; color: #EBEFF3; }
-            .card-unit { font-size: 12px; color: #8FA3AD; margin-left: 4px; }
-            .full-width { grid-column: span 2; }
-            .status-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #2A3440; }
-            .status-label { color: #596F7C; font-size: 13px; }
-            .status-value { color: #EBEFF3; font-size: 13px; font-family: monospace; }
-            .footer { text-align: center; margin-top: 40px; padding-top: 24px; border-top: 1px solid #2A3440; }
-            .footer-text { font-size: 11px; color: #596F7C; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0D1B2A 0%, #1A2633 100%); color: #EBEFF3; padding: 32px; min-height: 100vh; }
+            .header { text-align: center; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #0A4D6E; position: relative; }
+            .header::after { content: ''; position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); width: 60px; height: 2px; background: #0A9ED1; }
+            .logo { font-size: 24px; font-weight: 300; letter-spacing: 3px; color: #0A9ED1; margin-bottom: 6px; }
+            .subtitle { font-size: 11px; color: #8FA3AD; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+            .timestamp { font-size: 13px; color: #EBEFF3; font-weight: 500; }
+            .timestamp-sub { font-size: 10px; color: #596F7C; margin-top: 4px; }
+            .section { margin-bottom: 20px; }
+            .section-title { font-size: 10px; color: #0A9ED1; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+            .section-title::before { content: ''; width: 3px; height: 12px; background: #0A9ED1; border-radius: 2px; }
+            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+            .grid-2 { grid-template-columns: repeat(2, 1fr); }
+            .card { background: rgba(26, 38, 51, 0.9); border-radius: 10px; padding: 14px; border: 1px solid rgba(10, 77, 110, 0.3); }
+            .card-highlight { background: linear-gradient(135deg, rgba(10, 158, 209, 0.15) 0%, rgba(26, 38, 51, 0.9) 100%); border-color: rgba(10, 158, 209, 0.4); }
+            .card-label { font-size: 9px; color: #596F7C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+            .card-value { font-size: 20px; font-weight: 600; color: #EBEFF3; }
+            .card-value-sm { font-size: 14px; }
+            .card-unit { font-size: 10px; color: #8FA3AD; margin-left: 2px; }
+            .card-sub { font-size: 9px; color: #596F7C; margin-top: 2px; }
+            .full-width { grid-column: span 4; }
+            .half-width { grid-column: span 2; }
+            .data-table { background: rgba(26, 38, 51, 0.9); border-radius: 10px; border: 1px solid rgba(10, 77, 110, 0.3); overflow: hidden; }
+            .data-row { display: flex; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid rgba(42, 52, 64, 0.5); }
+            .data-row:last-child { border-bottom: none; }
+            .data-label { color: #596F7C; font-size: 11px; }
+            .data-value { color: #EBEFF3; font-size: 11px; font-family: 'SF Mono', Monaco, monospace; text-align: right; }
+            .data-value-highlight { color: #0A9ED1; }
+            .gps-section { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+            .gps-card { background: rgba(26, 38, 51, 0.9); border-radius: 10px; padding: 14px; border: 1px solid rgba(10, 77, 110, 0.3); }
+            .gps-title { font-size: 10px; color: #0A9ED1; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .coord-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+            .coord-label { font-size: 10px; color: #596F7C; }
+            .coord-value { font-size: 10px; color: #EBEFF3; font-family: 'SF Mono', Monaco, monospace; }
+            .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 9px; font-weight: 600; text-transform: uppercase; }
+            .status-connected { background: rgba(52, 199, 89, 0.2); color: #34C759; }
+            .status-disconnected { background: rgba(255, 69, 58, 0.2); color: #FF453A; }
+            .footer { text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(42, 52, 64, 0.5); }
+            .disclaimer { font-size: 8px; color: #596F7C; line-height: 1.4; max-width: 500px; margin: 0 auto 12px; }
+            .footer-brand { font-size: 9px; color: #8FA3AD; letter-spacing: 1px; }
+            .error-box { background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); border-radius: 8px; padding: 10px 14px; margin-top: 10px; }
+            .error-text { color: #FF453A; font-size: 11px; }
           </style>
         </head>
         <body>
           <div class="header">
-            <div class="logo">BLADE<sup style="font-size: 10px;">®</sup> HALO CONNECT</div>
+            <div class="logo">BLADE<sup style="font-size: 8px;">®</sup> HALO CONNECT</div>
             <div class="subtitle">Instantaneous Snapshot Report</div>
-            <div class="date">${dateStr} at ${timeStr}</div>
-            <div style="font-size: 11px; color: #8FA3AD; margin-top: 8px;">Real-time readings captured for your reference</div>
+            <div class="timestamp">${dateStr} at ${timeStr}</div>
+            <div class="timestamp-sub">ISO: ${fullDateTime}</div>
           </div>
           
           <div class="section">
-            <div class="section-title">Performance</div>
+            <div class="section-title">Performance Metrics</div>
             <div class="grid">
-              <div class="card">
+              <div class="card card-highlight">
                 <div class="card-label">Speed</div>
-                <div class="card-value">${speed.toFixed(1)}<span class="card-unit">km/h</span></div>
+                <div class="card-value">${motorSpeed.toFixed(1)}<span class="card-unit">km/h</span></div>
+                <div class="card-sub">Motor GPS</div>
               </div>
-              <div class="card">
+              <div class="card card-highlight">
                 <div class="card-label">Battery</div>
                 <div class="card-value">${battery.toFixed(0)}<span class="card-unit">%</span></div>
+                <div class="card-sub">State of Charge</div>
               </div>
               <div class="card">
                 <div class="card-label">Power</div>
                 <div class="card-value">${powerKw}<span class="card-unit">kW</span></div>
+                <div class="card-sub">${wattage.toFixed(0)}W</div>
               </div>
               <div class="card">
                 <div class="card-label">Throttle</div>
@@ -213,52 +283,86 @@ export default function DashboardScreen() {
           </div>
           
           <div class="section">
-            <div class="section-title">System Status</div>
-            <div class="card full-width">
-              <div class="status-row">
-                <span class="status-label">Drive Mode</span>
-                <span class="status-value">${driveMode}</span>
+            <div class="section-title">GPS Position Data</div>
+            <div class="gps-section">
+              <div class="gps-card">
+                <div class="gps-title">Outboard GPS</div>
+                <div class="coord-row"><span class="coord-label">Latitude</span><span class="coord-value">${motorGps.lat}</span></div>
+                <div class="coord-row"><span class="coord-label">Longitude</span><span class="coord-value">${motorGps.lon}</span></div>
+                <div class="coord-row"><span class="coord-label">Course</span><span class="coord-value">${motorGps.course}°</span></div>
+                <div class="coord-row"><span class="coord-label">GPS Time</span><span class="coord-value">${motorGps.time}</span></div>
               </div>
-              <div class="status-row">
-                <span class="status-label">Motor Temperature</span>
-                <span class="status-value">${motorTemp.toFixed(1)}°C</span>
-              </div>
-              <div class="status-row">
-                <span class="status-label">Controller Temperature</span>
-                <span class="status-value">${vescTemp.toFixed(1)}°C</span>
-              </div>
-              <div class="status-row">
-                <span class="status-label">Motor RPM</span>
-                <span class="status-value">${rpm.toFixed(0)}</span>
-              </div>
-              <div class="status-row">
-                <span class="status-label">Runtime</span>
-                <span class="status-value">${odometer.toFixed(1)} hrs</span>
-              </div>
-              <div class="status-row" style="border-bottom: none;">
-                <span class="status-label">Firmware</span>
-                <span class="status-value">v${firmware}</span>
+              <div class="gps-card">
+                <div class="gps-title">Phone GPS</div>
+                <div class="coord-row"><span class="coord-label">Latitude</span><span class="coord-value">${phoneGps.lat}</span></div>
+                <div class="coord-row"><span class="coord-label">Longitude</span><span class="coord-value">${phoneGps.lon}</span></div>
+                <div class="coord-row"><span class="coord-label">Accuracy</span><span class="coord-value">${phoneGps.accuracy}</span></div>
               </div>
             </div>
           </div>
-          
+
           <div class="section">
-            <div class="section-title">Device</div>
-            <div class="card full-width">
-              <div class="status-row">
-                <span class="status-label">Serial Number</span>
-                <span class="status-value">${motor?.serialNumber ?? '--'}</span>
+            <div class="section-title">Battery & Power System</div>
+            <div class="grid grid-2">
+              <div class="data-table">
+                <div class="data-row"><span class="data-label">Battery Voltage</span><span class="data-value">${voltage.toFixed(1)} V</span></div>
+                <div class="data-row"><span class="data-label">Current Draw</span><span class="data-value">${current.toFixed(1)} A</span></div>
+                <div class="data-row"><span class="data-label">BMS Temperature</span><span class="data-value">${bmsTemp.toFixed(1)}°C</span></div>
               </div>
-              <div class="status-row" style="border-bottom: none;">
-                <span class="status-label">Connection</span>
-                <span class="status-value">${isConnected ? 'Connected' : 'Disconnected'}</span>
+              <div class="data-table">
+                <div class="data-row"><span class="data-label">Drive Mode</span><span class="data-value data-value-highlight">${driveMode}</span></div>
+                <div class="data-row"><span class="data-label">Phase Current</span><span class="data-value">${phaseCurrent.toFixed(1)} A</span></div>
+                <div class="data-row"><span class="data-label">Motor RPM</span><span class="data-value">${motorRpm.toFixed(0)}</span></div>
               </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Temperature & Controller</div>
+            <div class="grid">
+              <div class="card">
+                <div class="card-label">Motor Temp</div>
+                <div class="card-value card-value-sm">${motorTemp.toFixed(1)}<span class="card-unit">°C</span></div>
+              </div>
+              <div class="card">
+                <div class="card-label">VESC Temp</div>
+                <div class="card-value card-value-sm">${vescTemp.toFixed(1)}<span class="card-unit">°C</span></div>
+              </div>
+              <div class="card">
+                <div class="card-label">BMS Temp</div>
+                <div class="card-value card-value-sm">${bmsTemp.toFixed(1)}<span class="card-unit">°C</span></div>
+              </div>
+              <div class="card">
+                <div class="card-label">Odometer</div>
+                <div class="card-value card-value-sm">${odometerVal.toFixed(1)}<span class="card-unit">hrs</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Outboard Information</div>
+            <div class="data-table">
+              <div class="data-row"><span class="data-label">Serial Number</span><span class="data-value data-value-highlight">${motor?.serialNumber ?? '--'}</span></div>
+              <div class="data-row"><span class="data-label">Firmware Version</span><span class="data-value">v${firmware}</span></div>
+              <div class="data-row"><span class="data-label">Connection Status</span><span class="data-value"><span class="status-badge ${isConnected ? 'status-connected' : 'status-disconnected'}">${isConnected ? 'Connected' : 'Disconnected'}</span></span></div>
+              <div class="data-row"><span class="data-label">Last Telemetry</span><span class="data-value">${lastUpdated}</span></div>
+            </div>
+            ${errorCode ? `<div class="error-box"><span class="error-text">Error ${errorCode}: ${errorDesc ?? 'Unknown error'}</span></div>` : ''}
+          </div>
+
+          <div class="section">
+            <div class="section-title">Capture Device</div>
+            <div class="data-table">
+              <div class="data-row"><span class="data-label">Device Name</span><span class="data-value">${deviceName}</span></div>
+              <div class="data-row"><span class="data-label">Model</span><span class="data-value">${deviceBrand} ${deviceModel}</span></div>
+              <div class="data-row"><span class="data-label">Operating System</span><span class="data-value">${osName} ${osVersion}</span></div>
+              <div class="data-row"><span class="data-label">Report Generated</span><span class="data-value">${timeStr}</span></div>
             </div>
           </div>
           
           <div class="footer">
-            <div class="footer-text">Generated by Blade Outboards Halo Connect</div>
-            <div class="footer-text">bladeoutboards.com</div>
+            <div class="disclaimer">Data and weather information are provided for reference only and are not guaranteed. Always operate your vessel safely, comply with all warnings and local laws, and never operate a boat under the influence.</div>
+            <div class="footer-brand">BLADE OUTBOARDS • HALO CONNECT • bladeoutboards.com</div>
           </div>
         </body>
         </html>
