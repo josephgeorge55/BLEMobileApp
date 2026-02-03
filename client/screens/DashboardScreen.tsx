@@ -94,8 +94,8 @@ export default function DashboardScreen() {
             />
             <View style={styles.headerDivider} />
             <View style={styles.headerTitleContainer}>
-              <ThemedText type="h3" style={styles.headerTitle}>
-                Blade<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO Connect
+              <ThemedText style={styles.headerTitle}>
+                BLADE<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO CONNECT
               </ThemedText>
               <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
             </View>
@@ -199,8 +199,8 @@ export default function DashboardScreen() {
           />
           <View style={styles.headerDivider} />
           <View style={styles.headerTitleContainer}>
-            <ThemedText type="h3" style={styles.headerTitle}>
-              Blade<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO Connect
+            <ThemedText style={styles.headerTitle}>
+              BLADE<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO CONNECT
             </ThemedText>
             <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
           </View>
@@ -223,9 +223,9 @@ export default function DashboardScreen() {
             <View style={styles.connectedMotorInfo}>
               <View style={styles.connectedMotorHeader}>
                 <ThemedText type="h3" style={{ color: "#EBEFF3" }}>Blade Halo</ThemedText>
-                <View style={[styles.statusPill, { backgroundColor: BladeColors.success + "25" }]}>
-                  <View style={[styles.statusDot, { backgroundColor: BladeColors.success }]} />
-                  <ThemedText type="caption" style={{ color: BladeColors.success, fontWeight: "600" }}>
+                <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
+                  <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
+                  <ThemedText type="caption" style={{ color: BladeColors.accent, fontWeight: "600" }}>
                     Live
                   </ThemedText>
                 </View>
@@ -660,14 +660,16 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: 0.3,
+    fontSize: 16,
+    fontWeight: "400",
+    letterSpacing: 1.2,
+    fontFamily: "System",
   },
   registeredSymbol: {
-    fontSize: 10,
+    fontSize: 8,
     color: BladeColors.accent,
-    fontWeight: "600",
+    fontWeight: "400",
+    letterSpacing: 0,
   },
   headerSubtitle: {
     color: "#596F7C",
