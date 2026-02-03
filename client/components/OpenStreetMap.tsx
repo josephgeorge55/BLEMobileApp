@@ -1,6 +1,7 @@
-import React, { useRef, useEffect, useState } from "react";
-import { StyleSheet, View, ActivityIndicator, Platform } from "react-native";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import { StyleSheet, View, ActivityIndicator, Platform, Linking, Alert } from "react-native";
 import { WebView } from "react-native-webview";
+import * as Haptics from "expo-haptics";
 import { BladeColors } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -81,6 +82,9 @@ export function OpenStreetMap({
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body, #map { width: 100%; height: 100%; background: #0d1117; }
+    
+    /* Brighten the map tiles */
+    .leaflet-tile-pane { filter: brightness(1.15); }
     
     /* Hide default Leaflet controls */
     .leaflet-control-zoom { display: none !important; }
@@ -411,11 +415,8 @@ export function OpenStreetMap({
     map.on('zoomend moveend', updateScale);
     updateScale();
 
-    // Premium outboard motor propeller icon
-    const motorIcon = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>';
-    
-    // Sleek boat/anchor hybrid icon
-    const premiumIcon = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="white"/><path d="M12 5.5c-1.1 0-2 .9-2 2 0 .74.4 1.39 1 1.73V11h-2v2h2v4c-2.8.5-5 2.5-5 5h2c0-2.2 2-4 5-4s5 1.8 5 4h2c0-2.5-2.2-4.5-5-5v-4h2v-2h-2V9.23c.6-.34 1-.99 1-1.73 0-1.1-.9-2-2-2z" fill="white"/></svg>';
+    // Navigation/location pin icon - clean and modern
+    const locationIcon = '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="white"/></svg>';
 
     const createMarkerIcon = (color, isLive) => {
       const liveClass = isLive ? 'live' : '';
@@ -426,7 +427,7 @@ export function OpenStreetMap({
             <div class="marker-glow \${liveClass}"></div>
             <div class="marker-outer-ring \${liveClass}"></div>
             <div class="marker-inner \${liveClass}">
-              \${premiumIcon}
+              \${locationIcon}
             </div>
             <div class="marker-pointer"></div>
           </div>
@@ -439,13 +440,90 @@ export function OpenStreetMap({
 
     const markers = ${markersJSON};
     const polylineCoords = ${polylineJSON};
+    
+    // Copy to clipboard function
+    function copyToClipboard(text) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'copied', text: text }));
+        }).catch(() => {
+          window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'copyFailed' }));
+        });
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'copied', text: text }));
+      }
+    }
+    
+    // Open Google Maps directions
+    function openDirections(lat, lng) {
+      const url = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng;
+      window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'openDirections', url: url, lat: lat, lng: lng }));
+    }
 
     markers.forEach(m => {
       const icon = createMarkerIcon(m.color || '${BladeColors.primary}', m.isLive);
       const marker = L.marker([m.coordinate.latitude, m.coordinate.longitude], { icon });
-      if (m.title) {
-        marker.bindPopup(m.title);
-      }
+      
+      const lat = m.coordinate.latitude;
+      const lng = m.coordinate.longitude;
+      const coords = lat.toFixed(6) + ', ' + lng.toFixed(6);
+      
+      const popupContent = \`
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; min-width: 180px;">
+          <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #1a1a1a;">\${m.title || 'Motor Location'}</div>
+          <div style="font-size: 12px; color: #666; margin-bottom: 12px;">\${coords}</div>
+          <div style="display: flex; gap: 8px;">
+            <button onclick="openDirections(\${lat}, \${lng})" style="
+              flex: 1;
+              padding: 10px 12px;
+              background: linear-gradient(145deg, #0A4D6E, #083d58);
+              color: white;
+              border: none;
+              border-radius: 8px;
+              font-size: 12px;
+              font-weight: 600;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 6px;
+            ">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M21.71 11.29l-9-9c-.39-.39-1.02-.39-1.41 0l-9 9c-.39.39-.39 1.02 0 1.41l9 9c.39.39 1.02.39 1.41 0l9-9c.39-.38.39-1.01 0-1.41zM14 14.5V12h-4v3H8v-4c0-.55.45-1 1-1h5V7.5l3.5 3.5-3.5 3.5z"/></svg>
+              Directions
+            </button>
+            <button onclick="copyToClipboard('\${coords}')" style="
+              flex: 1;
+              padding: 10px 12px;
+              background: #f0f0f0;
+              color: #333;
+              border: none;
+              border-radius: 8px;
+              font-size: 12px;
+              font-weight: 600;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 6px;
+            ">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#333"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              Copy
+            </button>
+          </div>
+        </div>
+      \`;
+      
+      marker.bindPopup(popupContent, { 
+        className: 'custom-popup',
+        closeButton: true,
+        maxWidth: 250
+      });
       marker.addTo(map);
     });
 
@@ -494,12 +572,34 @@ export function OpenStreetMap({
 </html>
   `;
 
-  const handleMessage = (event: any) => {
-    if (event.nativeEvent.data === "mapReady") {
+  const handleMessage = useCallback((event: any) => {
+    const data = event.nativeEvent.data;
+    
+    if (data === "mapReady") {
       setIsLoading(false);
       onMapReady?.();
+      return;
     }
-  };
+    
+    try {
+      const message = JSON.parse(data);
+      
+      if (message.type === "copied") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Coordinates Copied", message.text);
+      } else if (message.type === "copyFailed") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Copy Failed", "Could not copy coordinates to clipboard");
+      } else if (message.type === "openDirections") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Linking.openURL(message.url).catch(() => {
+          Alert.alert("Could Not Open Maps", "Please install Google Maps or try copying the coordinates");
+        });
+      }
+    } catch (e) {
+      // Not a JSON message, ignore
+    }
+  }, [onMapReady]);
 
   if (Platform.OS === "web") {
     return (
