@@ -73,7 +73,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
     return (
       <Animated.View
         entering={FadeIn.duration(300)}
-        style={[styles.container, { backgroundColor: theme.surfaceElevated }]}
+        style={[styles.container, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
       >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={theme.primary} />
@@ -445,6 +445,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
+    borderWidth: 1,
   },
   loadingContainer: {
     alignItems: 'center',
