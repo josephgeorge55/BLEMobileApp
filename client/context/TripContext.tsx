@@ -100,7 +100,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
   // Record data point - uses refs to get fresh values
   const recordDataPoint = useCallback(() => {
-    console.log("[Trip] recordDataPoint fired");
+    console.log("--- [Trip] RECORDING DATA POINT ---");
     const telem = telemetryRef.current;
     const loc = locationRef.current;
     
@@ -112,7 +112,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const power = voltage * current;
     const energyWh = power * (10 / 3600); // 10 second interval
 
-    console.log(`[Trip] Data: speed=${speed.toFixed(1)} km/h, power=${power.toFixed(0)}W, energy=${energyWh.toFixed(2)} Wh, lat=${lat || 'null'}, lon=${lon || 'null'}`);
+    console.log("[Trip] Telemetry source:", telem ? "Motor BLE" : "None");
+    console.log("[Trip] Location source:", loc ? "Phone GPS" : (telem?.gnss ? "Motor GNSS" : "None"));
+    console.log("[Trip] Speed:", speed.toFixed(1), "km/h");
+    console.log("[Trip] Power:", power.toFixed(0), "W (", voltage.toFixed(1), "V x", current.toFixed(1), "A)");
+    console.log("[Trip] Energy this interval:", energyWh.toFixed(3), "Wh");
+    console.log("[Trip] Position:", lat ? `${lat.toFixed(6)}, ${lon?.toFixed(6)}` : "No GPS fix");
 
     let distanceKm = 0;
     if (lat && lon && lastPositionRef.current) {
@@ -127,12 +132,22 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       ? speedSamplesRef.current.reduce((a, b) => a + b, 0) / speedSamplesRef.current.length
       : 0;
 
-    setTripStats(prev => ({
-      totalDistanceKm: prev.totalDistanceKm + distanceKm,
-      totalEnergyWh: prev.totalEnergyWh + energyWh,
-      maxSpeedKmh: Math.max(prev.maxSpeedKmh, speed),
-      avgSpeedKmh: avgSpeed,
-    }));
+    setTripStats(prev => {
+      const newStats = {
+        totalDistanceKm: prev.totalDistanceKm + distanceKm,
+        totalEnergyWh: prev.totalEnergyWh + energyWh,
+        maxSpeedKmh: Math.max(prev.maxSpeedKmh, speed),
+        avgSpeedKmh: avgSpeed,
+      };
+      console.log("[Trip] Updated cumulative stats:");
+      console.log("[Trip]   Total Distance:", newStats.totalDistanceKm.toFixed(3), "km");
+      console.log("[Trip]   Total Energy:", newStats.totalEnergyWh.toFixed(2), "Wh");
+      console.log("[Trip]   Max Speed:", newStats.maxSpeedKmh.toFixed(1), "km/h");
+      console.log("[Trip]   Avg Speed:", newStats.avgSpeedKmh.toFixed(1), "km/h");
+      console.log("[Trip]   Data points recorded:", speedSamplesRef.current.length);
+      console.log("--- [Trip] DATA POINT COMPLETE ---");
+      return newStats;
+    });
   }, [haversine]);
 
   // Stop all timers
@@ -187,19 +202,22 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }, [stopTimers]);
 
   const startTrip = useCallback(async (name?: string): Promise<boolean> => {
-    console.log("[Trip] startTrip called");
+    console.log("=== [Trip] START TRIP INITIATED ===");
+    console.log("[Trip] User ID:", user?.id);
+    console.log("[Trip] Already recording:", isRecording);
     
     if (!user?.id) {
-      console.log("[Trip] No user, cannot start");
+      console.log("[Trip] FAILED: No user signed in");
       return false;
     }
 
     if (isRecording) {
-      console.log("[Trip] Already recording");
+      console.log("[Trip] FAILED: Already recording a trip");
       return false;
     }
 
     setIsLoading(true);
+    console.log("[Trip] Loading state set to true");
     
     try {
       const serial = telemetryRef.current?.tillerSerialNumber || 
@@ -208,7 +226,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const tripId = `trip_${Date.now()}`;
       const tripName = name || `Trip ${new Date().toLocaleDateString()}`;
 
-      console.log("[Trip] Creating trip:", tripId, "serial:", serial);
+      console.log("[Trip] Creating new trip object:");
+      console.log("[Trip]   - ID:", tripId);
+      console.log("[Trip]   - Name:", tripName);
+      console.log("[Trip]   - Motor Serial:", serial);
+      console.log("[Trip]   - User ID:", user.id);
+      console.log("[Trip]   - Start Battery:", telemetryRef.current?.bms?.capacity ?? "N/A");
 
       const newTrip: Trip = {
         id: tripId,
@@ -227,48 +250,66 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       };
 
       // Save to local storage
+      console.log("[Trip] Saving trip to AsyncStorage...");
       const existing = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
       const trips: Trip[] = existing ? JSON.parse(existing) : [];
       trips.push(newTrip);
       await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(trips));
+      console.log("[Trip] Trip SAVED to local trips list (total:", trips.length, "trips)");
+      
       await AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(newTrip));
+      console.log("[Trip] Active trip marker SAVED");
 
       // Reset state
       setTripDuration(0);
       setTripStats({ totalDistanceKm: 0, totalEnergyWh: 0, maxSpeedKmh: 0, avgSpeedKmh: 0 });
       lastPositionRef.current = null;
       speedSamplesRef.current = [];
+      console.log("[Trip] Trip stats RESET to zero");
 
       // Start recording
       setActiveTrip(newTrip);
       setIsRecording(true);
 
-      console.log("[Trip] Started successfully:", tripId);
+      console.log("=== [Trip] TRIP STARTED SUCCESSFULLY ===");
+      console.log("[Trip] Recording is now ACTIVE for trip:", tripId);
       return true;
     } catch (err) {
-      console.error("[Trip] Start error:", err);
+      console.error("[Trip] START FAILED with error:", err);
       return false;
     } finally {
       setIsLoading(false);
+      console.log("[Trip] Loading state set to false");
     }
   }, [user?.id, isRecording]);
 
   const endTrip = useCallback(async (): Promise<boolean> => {
-    console.log("[Trip] endTrip called");
+    console.log("=== [Trip] END TRIP INITIATED ===");
     
     const trip = activeTripRef.current;
     if (!trip) {
-      console.log("[Trip] No active trip to end");
+      console.log("[Trip] FAILED: No active trip to end");
       return false;
     }
 
+    console.log("[Trip] Ending trip:", trip.id);
     setIsLoading(true);
+    
+    console.log("[Trip] Stopping all timers...");
     stopTimers();
+    console.log("[Trip] Timers STOPPED");
 
     try {
       const stats = tripStatsRef.current;
+      console.log("[Trip] Final trip stats:");
+      console.log("[Trip]   - Distance:", stats.totalDistanceKm.toFixed(2), "km");
+      console.log("[Trip]   - Max Speed:", stats.maxSpeedKmh.toFixed(1), "km/h");
+      console.log("[Trip]   - Avg Speed:", stats.avgSpeedKmh.toFixed(1), "km/h");
+      console.log("[Trip]   - Energy Used:", stats.totalEnergyWh.toFixed(1), "Wh");
+      console.log("[Trip]   - End Battery:", telemetryRef.current?.bms?.capacity ?? "N/A");
       
       // Update trip in storage
+      console.log("[Trip] Updating trip in AsyncStorage...");
       const existing = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
       if (existing) {
         const trips: Trip[] = JSON.parse(existing);
@@ -287,16 +328,21 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             : t
         );
         await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(updated));
+        console.log("[Trip] Trip data SAVED with final stats");
       }
+      
       await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+      console.log("[Trip] Active trip marker REMOVED");
 
       setActiveTrip(null);
       setIsRecording(false);
+      console.log("[Trip] Recording state set to FALSE");
 
-      console.log("[Trip] Ended successfully:", trip.id);
+      console.log("=== [Trip] TRIP ENDED SUCCESSFULLY ===");
+      console.log("[Trip] Trip", trip.id, "is now complete and saved");
       return true;
     } catch (err) {
-      console.error("[Trip] End error:", err);
+      console.error("[Trip] END FAILED with error:", err);
       return false;
     } finally {
       setIsLoading(false);
