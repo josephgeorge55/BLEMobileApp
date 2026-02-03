@@ -1,7 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { StyleSheet, View, ScrollView, RefreshControl, Pressable, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -30,7 +29,6 @@ interface LocationQueryData {
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
@@ -78,12 +76,22 @@ export default function DashboardScreen() {
       <ScrollView
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.xl,
+          paddingTop: insets.top + Spacing.lg,
           paddingBottom: tabBarHeight + Spacing.xl,
           paddingHorizontal: Spacing.screenPadding,
         }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.logoHeader}>
+          <View style={styles.logoContainer}>
+            <Image 
+              source={require("../../assets/images/blade-logo-white.png")} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+        
         <View style={styles.sectionHeader}>
           <Feather name="cloud" size={14} color={theme.textSecondary} />
           <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
@@ -145,7 +153,7 @@ export default function DashboardScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
+        paddingTop: insets.top + Spacing.lg,
         paddingBottom: tabBarHeight + Spacing["4xl"],
         paddingHorizontal: Spacing.screenPadding,
       }}
@@ -159,6 +167,16 @@ export default function DashboardScreen() {
         />
       }
     >
+      <View style={styles.logoHeader}>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={require("../../assets/images/blade-logo-white.png")} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+      </View>
+
       {isConnected ? (
         <Animated.View
           entering={FadeInUp.duration(400).springify()}

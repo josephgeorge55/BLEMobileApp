@@ -113,7 +113,7 @@ export default function MainTabNavigator() {
         component={DashboardScreen}
         options={{
           title: "Dashboard",
-          headerTitle: () => <HeaderTitle />,
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="activity" color={color} focused={focused} />
           ),
