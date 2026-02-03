@@ -30,44 +30,61 @@ function TripButton({
   onPress, 
   isLoading, 
   isStart, 
-  disabled 
+  disabled,
+  disabledReasons,
 }: { 
   onPress: () => void; 
   isLoading: boolean; 
   isStart: boolean; 
   disabled?: boolean;
+  disabledReasons?: string[];
 }) {
-  const bgColor = isStart ? BladeColors.success : BladeColors.error;
+  const canPress = !disabled && !isLoading;
+  const bgColor = isStart 
+    ? (canPress ? BladeColors.success : BladeColors.error)
+    : BladeColors.error;
   const icon = isStart ? "play-circle" : "stop-circle";
   const label = isStart ? "Start Trip" : "End Trip";
 
   const handlePress = () => {
     console.log(`[TripButton] ${label} pressed`);
-    if (!disabled && !isLoading) {
+    if (canPress) {
       onPress();
     }
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={handlePress}
-      disabled={disabled || isLoading}
-      style={[
-        styles.tripButton,
-        { backgroundColor: bgColor, opacity: disabled ? 0.5 : 1 }
-      ]}
-      testID={isStart ? "start-trip-btn" : "end-trip-btn"}
-    >
-      {isLoading ? (
-        <ActivityIndicator color="#FFF" size="small" />
-      ) : (
-        <>
-          <Feather name={icon} size={24} color="#FFF" />
-          <Text style={styles.tripButtonText}>{label}</Text>
-        </>
-      )}
-    </TouchableOpacity>
+    <View>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handlePress}
+        disabled={!canPress}
+        style={[
+          styles.tripButton,
+          { backgroundColor: bgColor }
+        ]}
+        testID={isStart ? "start-trip-btn" : "end-trip-btn"}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#FFF" size="small" />
+        ) : (
+          <>
+            <Feather name={icon} size={24} color="#FFF" />
+            <Text style={styles.tripButtonText}>{label}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+      {!canPress && disabledReasons && disabledReasons.length > 0 ? (
+        <View style={styles.reasonsContainer}>
+          {disabledReasons.map((reason, idx) => (
+            <View key={idx} style={styles.reasonRow}>
+              <Feather name="alert-circle" size={14} color={BladeColors.error} />
+              <Text style={styles.reasonText}>{reason}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -306,14 +323,9 @@ export default function TripsScreen() {
           isLoading={buttonLoading || isLoading} 
           isStart={true}
           disabled={!user?.id}
+          disabledReasons={!user?.id ? ["Sign in required to record trips"] : []}
         />
       )}
-      
-      {!user?.id ? (
-        <Text style={[styles.signInHint, { color: theme.textSecondary }]}>
-          Sign in to record trips
-        </Text>
-      ) : null}
       
       {trips.length > 0 ? (
         <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
@@ -390,10 +402,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   
-  signInHint: {
-    textAlign: "center",
-    fontSize: Typography.sizes.sm,
+  reasonsContainer: {
+    marginTop: Spacing.sm,
     marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
+  reasonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: 4,
+  },
+  reasonText: {
+    color: BladeColors.error,
+    fontSize: Typography.sizes.sm,
   },
   
   recordingCard: { 
