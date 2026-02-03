@@ -204,32 +204,87 @@ export function OpenStreetMap({
       text-shadow: 0 1px 3px rgba(0,0,0,0.8);
     }
     
-    /* Motor marker */
-    .custom-marker {
-      background: ${BladeColors.primary};
-      border: 3px solid white;
-      border-radius: 50%;
-      width: 52px;
-      height: 52px;
+    /* Premium DJI-style motor marker */
+    .marker-container {
+      position: relative;
+      width: 56px;
+      height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-      transition: transform 0.2s ease;
     }
-    .custom-marker.live {
-      background: ${BladeColors.accent};
-      animation: pulse 2s infinite;
+    .marker-outer-ring {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(10, 77, 110, 0.3) 0%, rgba(10, 77, 110, 0.1) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    .custom-marker svg {
-      width: 28px;
-      height: 28px;
+    .marker-outer-ring.live {
+      animation: outerPulse 2.5s infinite ease-out;
+    }
+    .marker-inner {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, ${BladeColors.marine} 0%, ${BladeColors.primary} 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 
+        0 4px 20px rgba(10, 77, 110, 0.5),
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 2px 4px rgba(255, 255, 255, 0.2),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+    }
+    .marker-inner.live {
+      background: linear-gradient(145deg, ${BladeColors.accent} 0%, #5a9a30 100%);
+      box-shadow: 
+        0 4px 20px rgba(141, 198, 63, 0.5),
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 2px 4px rgba(255, 255, 255, 0.2),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+    }
+    .marker-inner svg {
+      width: 22px;
+      height: 22px;
       fill: white;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     }
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(141, 198, 63, 0.7); transform: scale(1); }
-      50% { box-shadow: 0 0 0 24px rgba(141, 198, 63, 0); transform: scale(1.08); }
-      100% { box-shadow: 0 0 0 0 rgba(141, 198, 63, 0); transform: scale(1); }
+    .marker-glow {
+      position: absolute;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(10, 77, 110, 0.4) 0%, transparent 70%);
+      opacity: 0;
+    }
+    .marker-glow.live {
+      background: radial-gradient(circle, rgba(141, 198, 63, 0.4) 0%, transparent 70%);
+      animation: glowPulse 2.5s infinite ease-out;
+    }
+    .marker-pointer {
+      position: absolute;
+      bottom: -8px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 12px solid rgba(255, 255, 255, 0.9);
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+    @keyframes outerPulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.5; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+    @keyframes glowPulse {
+      0% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+      100% { opacity: 0; transform: scale(1.5); }
     }
     
     /* User location */
@@ -356,15 +411,29 @@ export function OpenStreetMap({
     map.on('zoomend moveend', updateScale);
     updateScale();
 
-    const anchorIcon = '<svg viewBox="0 0 24 24"><path d="M12 2C10.9 2 10 2.9 10 4C10 4.74 10.4 5.39 11 5.73V7H6V9H11V14.27C9.87 14.63 9 15.72 9 17C9 18.65 10.35 20 12 20C13.65 20 15 18.65 15 17C15 15.72 14.13 14.63 13 14.27V9H18V7H13V5.73C13.6 5.39 14 4.74 14 4C14 2.9 13.1 2 12 2M5 11V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V11H17V19H7V11H5Z"/></svg>';
+    // Premium outboard motor propeller icon
+    const motorIcon = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>';
+    
+    // Sleek boat/anchor hybrid icon
+    const premiumIcon = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="white"/><path d="M12 5.5c-1.1 0-2 .9-2 2 0 .74.4 1.39 1 1.73V11h-2v2h2v4c-2.8.5-5 2.5-5 5h2c0-2.2 2-4 5-4s5 1.8 5 4h2c0-2.5-2.2-4.5-5-5v-4h2v-2h-2V9.23c.6-.34 1-.99 1-1.73 0-1.1-.9-2-2-2z" fill="white"/></svg>';
 
     const createMarkerIcon = (color, isLive) => {
+      const liveClass = isLive ? 'live' : '';
       return L.divIcon({
         className: '',
-        html: '<div class="custom-marker ' + (isLive ? 'live' : '') + '" style="background: ' + color + '">' + anchorIcon + '</div>',
-        iconSize: [36, 36],
-        iconAnchor: [18, 36],
-        popupAnchor: [0, -36]
+        html: \`
+          <div class="marker-container">
+            <div class="marker-glow \${liveClass}"></div>
+            <div class="marker-outer-ring \${liveClass}"></div>
+            <div class="marker-inner \${liveClass}">
+              \${premiumIcon}
+            </div>
+            <div class="marker-pointer"></div>
+          </div>
+        \`,
+        iconSize: [56, 72],
+        iconAnchor: [28, 64],
+        popupAnchor: [0, -56]
       });
     };
 

@@ -11,7 +11,6 @@ import TripsScreen from "@/screens/TripsScreen";
 import UpdatesScreen from "@/screens/UpdatesScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
-import { OutboardIcon } from "@/components/OutboardIcon";
 import { useTheme } from "@/hooks/useTheme";
 import { BladeColors, Spacing } from "@/constants/theme";
 
@@ -37,19 +36,6 @@ function TabBarIcon({ name, color, focused }: { name: keyof typeof Feather.glyph
           size={22} 
           color={color}
         />
-      </View>
-    </View>
-  );
-}
-
-function OutboardTabIcon({ color, focused }: { color: string; focused: boolean }) {
-  return (
-    <View style={styles.iconWrapper}>
-      {focused ? (
-        <View style={[styles.iconGlow, { backgroundColor: color + "30" }]} />
-      ) : null}
-      <View style={[styles.iconInner, focused && styles.iconFocused]}>
-        <OutboardIcon size={22} color={color} focused={focused} />
       </View>
     </View>
   );
@@ -141,7 +127,7 @@ export default function MainTabNavigator() {
           title: "Motor",
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
-            <OutboardTabIcon color={color} focused={focused} />
+            <TabBarIcon name="shield" color={color} focused={focused} />
           ),
         }}
       />

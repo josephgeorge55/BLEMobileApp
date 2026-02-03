@@ -95,10 +95,11 @@ export default function DashboardScreen() {
             <View style={styles.headerDivider} />
             <View style={styles.headerTitleContainer}>
               <View style={styles.headerTitleRow}>
-                <ThemedText type="h3" style={styles.headerTitle}>Halo Connect</ThemedText>
+                <ThemedText type="h3" style={styles.headerTitle}>Blade</ThemedText>
                 <View style={styles.registeredMark}>
                   <ThemedText type="small" style={styles.registeredText}>R</ThemedText>
                 </View>
+                <ThemedText type="h3" style={styles.headerTitle}> HALO Connect</ThemedText>
               </View>
               <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
             </View>
@@ -195,10 +196,11 @@ export default function DashboardScreen() {
           <View style={styles.headerDivider} />
           <View style={styles.headerTitleContainer}>
             <View style={styles.headerTitleRow}>
-              <ThemedText type="h3" style={styles.headerTitle}>Halo Connect</ThemedText>
+              <ThemedText type="h3" style={styles.headerTitle}>Blade</ThemedText>
               <View style={styles.registeredMark}>
                 <ThemedText type="small" style={styles.registeredText}>R</ThemedText>
               </View>
+              <ThemedText type="h3" style={styles.headerTitle}> HALO Connect</ThemedText>
             </View>
             <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
           </View>

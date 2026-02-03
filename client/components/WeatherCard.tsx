@@ -133,7 +133,7 @@ export function WeatherCard({ onRefresh }: WeatherCardProps) {
   if (!weather) return null;
 
   const current = weather.current;
-  const hourlyForecast = weather.hourly.slice(1, 5);
+  const hourlyForecast = weather.hourly.slice(1, 4);
   const alerts = weather.alerts || [];
   const marineWarning = isMarineRelevant(current);
   const currentIcon = getWeatherIconName(current.weather[0]?.icon || '01d');
@@ -238,7 +238,7 @@ export function WeatherCard({ onRefresh }: WeatherCardProps) {
 
         <View style={styles.forecastSection}>
           <ThemedText type="caption" style={{ color: theme.textTertiary, marginBottom: Spacing.sm }}>
-            4-Hour Forecast
+            3-Hour Forecast
           </ThemedText>
           <View style={styles.forecastRow}>
             {hourlyForecast.map((hour, index) => (
