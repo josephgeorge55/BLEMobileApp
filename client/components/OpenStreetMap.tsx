@@ -310,10 +310,11 @@ export function OpenStreetMap({
       wheelPxPerZoomLevel: 120
     }).setView([${defaultRegion.latitude}, ${defaultRegion.longitude}], 15);
 
-    // Premium Stadia Alidade Smooth Dark tiles
-    L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}' + (window.devicePixelRatio > 1 ? '@2x' : '') + '.png', {
-      attribution: '&copy; Stadia Maps',
-      maxZoom: 20
+    // CartoDB Dark Matter tiles - free, no API key required, high-res support
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}' + (window.devicePixelRatio > 1 ? '@2x' : '') + '.png', {
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 20,
+      subdomains: 'abcd'
     }).addTo(map);
     
     // Custom zoom controls
