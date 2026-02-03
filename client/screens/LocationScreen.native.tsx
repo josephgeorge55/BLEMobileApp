@@ -33,6 +33,7 @@ export default function LocationScreen() {
   const { user, isGuestMode } = useUser();
 
   const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
+  const [isLoadingMotors, setIsLoadingMotors] = useState(true);
   const [firestoreLocation, setFirestoreLocation] = useState<LocationData | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -66,19 +67,33 @@ export default function LocationScreen() {
 
   useEffect(() => {
     const loadRegisteredMotors = async () => {
+      addDebugLog("INFO", "=== LOCATION SCREEN LOADING ===");
+      addDebugLog("INFO", `[Location] user.id: ${user?.id || 'NONE'}`);
+      addDebugLog("INFO", `[Location] isGuestMode: ${isGuestMode}`);
+      
       if (!user || isGuestMode || user.id === "guest") {
+        addDebugLog("INFO", "[Location] Skipping motor load: no user or guest mode");
         setRegisteredMotors([]);
+        setIsLoadingMotors(false);
         return;
       }
 
       try {
-        addDebugLog("INFO", `[Location] Loading registered motors for user: ${user.id}`);
+        addDebugLog("INFO", `[Location] Loading registered motors from Firestore for user: ${user.id}`);
         const motors = await getRegisteredMotors(user.id);
-        addDebugLog("INFO", `[Location] Found ${motors.length} registered motors: ${motors.map(m => m.serialNumber).join(', ') || 'none'}`);
+        addDebugLog("INFO", `[Location] Found ${motors.length} registered motors`);
+        if (motors.length > 0) {
+          motors.forEach((m, i) => {
+            addDebugLog("INFO", `[Location]   Motor ${i+1}: ${m.serialNumber} (name: ${m.name || 'unnamed'})`);
+          });
+        }
         setRegisteredMotors(motors);
       } catch (error: any) {
         console.error("[Location] Error loading registered motors:", error);
         addDebugLog("ERROR", `[Location] Failed to load registered motors: ${error.message || error.code || 'unknown'}`);
+      } finally {
+        setIsLoadingMotors(false);
+        addDebugLog("INFO", "=== LOCATION SCREEN READY ===");
       }
     };
 
@@ -194,6 +209,18 @@ export default function LocationScreen() {
       Alert.alert("No Motor Available", "Please register a motor or connect via Bluetooth to track location.");
     }
   };
+
+  // Show loading while fetching registered motors
+  if (isLoadingMotors) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+        <ActivityIndicator size="large" color={BladeColors.marine} />
+        <ThemedText type="body" style={styles.loadingText}>
+          Loading registered motors...
+        </ThemedText>
+      </View>
+    );
+  }
 
   if (!motor && registeredMotors.length === 0) {
     return (

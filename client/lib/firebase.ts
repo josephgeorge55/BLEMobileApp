@@ -372,10 +372,26 @@ export async function fetchLatestGPSFromFirestore(
     };
   } catch (error: any) {
     console.error("[Firebase] Error fetching GPS telemetry:", error);
+    console.error("[Firebase] Error code:", error?.code);
+    console.error("[Firebase] Error message:", error?.message);
+    
+    // Check for permission denied errors
+    if (error?.code === "permission-denied" || error?.message?.includes("permission")) {
+      throw new Error(
+        "Firestore permission denied. Please configure security rules:\n" +
+        "1. Go to Firebase Console > Firestore > Rules\n" +
+        "2. Add rule: match /{path=**}/telemetry/{docId} { allow read: if request.auth != null; }\n" +
+        "3. Click 'Publish'"
+      );
+    }
     
     // Check if it's a missing index error
     if (error?.code === "failed-precondition" || error?.message?.includes("index")) {
-      throw new Error("Firestore index required. Please create a composite index on telemetry collection group for serialNumber + timestamp fields.");
+      throw new Error(
+        "Firestore index required. Create a composite index:\n" +
+        "Collection group: telemetry\n" +
+        "Fields: serialNumber (Ascending) + timestamp (Descending)"
+      );
     }
     
     throw error;
