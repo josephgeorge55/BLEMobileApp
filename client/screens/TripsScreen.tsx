@@ -4,14 +4,15 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Pressable,
+  TouchableOpacity,
   ActivityIndicator,
+  Alert,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "@/hooks/useTheme";
@@ -25,6 +26,51 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
 
+function TripButton({ 
+  onPress, 
+  isLoading, 
+  isStart, 
+  disabled 
+}: { 
+  onPress: () => void; 
+  isLoading: boolean; 
+  isStart: boolean; 
+  disabled?: boolean;
+}) {
+  const bgColor = isStart ? BladeColors.success : BladeColors.error;
+  const icon = isStart ? "play-circle" : "stop-circle";
+  const label = isStart ? "Start Trip" : "End Trip";
+
+  const handlePress = () => {
+    console.log(`[TripButton] ${label} pressed`);
+    if (!disabled && !isLoading) {
+      onPress();
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={handlePress}
+      disabled={disabled || isLoading}
+      style={[
+        styles.tripButton,
+        { backgroundColor: bgColor, opacity: disabled ? 0.5 : 1 }
+      ]}
+      testID={isStart ? "start-trip-btn" : "end-trip-btn"}
+    >
+      {isLoading ? (
+        <ActivityIndicator color="#FFF" size="small" />
+      ) : (
+        <>
+          <Feather name={icon} size={24} color="#FFF" />
+          <Text style={styles.tripButtonText}>{label}</Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 export default function TripsScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -36,9 +82,13 @@ export default function TripsScreen() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [buttonLoading, setButtonLoading] = useState(false);
 
   const loadTrips = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     try {
       const data = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
       if (data) {
@@ -50,7 +100,8 @@ export default function TripsScreen() {
       } else {
         setTrips([]);
       }
-    } catch {
+    } catch (err) {
+      console.error("[Trips] Load error:", err);
       setTrips([]);
     } finally {
       setLoading(false);
@@ -60,21 +111,71 @@ export default function TripsScreen() {
 
   useFocusEffect(useCallback(() => { loadTrips(); }, [loadTrips]));
 
-  const onStartTrip = async () => {
-    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
-    const ok = await startTrip();
-    if (ok) {
-      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
-      loadTrips();
+  const handleStartTrip = async () => {
+    console.log("[Trips] handleStartTrip called");
+    
+    if (!user?.id) {
+      console.log("[Trips] No user, cannot start");
+      if (Platform.OS !== "web") {
+        Alert.alert("Sign In Required", "Please sign in to record trips");
+      }
+      return;
+    }
+
+    setButtonLoading(true);
+    try {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+    } catch {}
+
+    try {
+      console.log("[Trips] Calling startTrip...");
+      const success = await startTrip();
+      console.log("[Trips] startTrip result:", success);
+      
+      if (success) {
+        try {
+          if (Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        } catch {}
+        loadTrips();
+      }
+    } catch (err) {
+      console.error("[Trips] Start error:", err);
+    } finally {
+      setButtonLoading(false);
     }
   };
 
-  const onEndTrip = async () => {
-    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
-    const ok = await endTrip();
-    if (ok) {
-      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
-      loadTrips();
+  const handleEndTrip = async () => {
+    console.log("[Trips] handleEndTrip called");
+    
+    setButtonLoading(true);
+    try {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+    } catch {}
+
+    try {
+      console.log("[Trips] Calling endTrip...");
+      const success = await endTrip();
+      console.log("[Trips] endTrip result:", success);
+      
+      if (success) {
+        try {
+          if (Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        } catch {}
+        loadTrips();
+      }
+    } catch (err) {
+      console.error("[Trips] End error:", err);
+    } finally {
+      setButtonLoading(false);
     }
   };
 
@@ -82,113 +183,153 @@ export default function TripsScreen() {
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     const s = sec % 60;
-    return h > 0
-      ? `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
-      : `${m}:${s.toString().padStart(2, "0")}`;
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    }
+    return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
   const formatDuration = (start: string | Date, end: string | Date | null) => {
-    const diff = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
+    const startMs = new Date(start).getTime();
+    const endMs = end ? new Date(end).getTime() : Date.now();
+    const diff = endMs - startMs;
     const h = Math.floor(diff / 3600000);
     const m = Math.floor((diff % 3600000) / 60000);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
   const renderTrip = ({ item }: { item: Trip }) => (
-    <Pressable onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}>
-      <Card style={[styles.card, item.isActive && styles.activeCard]}>
+    <TouchableOpacity 
+      activeOpacity={0.8}
+      onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}
+    >
+      <Card style={[styles.card, item.isActive ? styles.activeCard : null]}>
         <View style={styles.cardHeader}>
-          <Feather name={item.isActive ? "navigation" : "anchor"} size={18} color={item.isActive ? BladeColors.success : BladeColors.primary} />
-          <Text style={[styles.cardTitle, { color: theme.text }]}>{item.name || "Trip"}</Text>
-          {item.isActive ? <View style={styles.badge}><Text style={styles.badgeText}>RECORDING</Text></View> : null}
+          <Feather 
+            name={item.isActive ? "navigation" : "anchor"} 
+            size={18} 
+            color={item.isActive ? BladeColors.success : BladeColors.primary} 
+          />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {item.name || "Trip"}
+          </Text>
+          {item.isActive ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>RECORDING</Text>
+            </View>
+          ) : null}
         </View>
         <Text style={[styles.cardDate, { color: theme.textSecondary }]}>
-          {new Date(item.startTime).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+          {new Date(item.startTime).toLocaleDateString(undefined, { 
+            weekday: "short", 
+            month: "short", 
+            day: "numeric" 
+          })}
         </Text>
-        <View style={styles.stats}>
-          <View style={styles.stat}>
-            <Text style={[styles.statVal, { color: theme.text }]}>{(item.totalDistanceKm || 0).toFixed(1)}</Text>
-            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>km</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {(item.totalDistanceKm || 0).toFixed(1)}
+            </Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km</Text>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.stat}>
-            <Text style={[styles.statVal, { color: theme.text }]}>{formatDuration(item.startTime, item.endTime)}</Text>
-            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>duration</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {formatDuration(item.startTime, item.endTime)}
+            </Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>duration</Text>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.stat}>
-            <Text style={[styles.statVal, { color: theme.text }]}>{(item.maxSpeedKmh || 0).toFixed(1)}</Text>
-            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>max km/h</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {(item.maxSpeedKmh || 0).toFixed(1)}
+            </Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>max km/h</Text>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.stat}>
-            <Text style={[styles.statVal, { color: theme.text }]}>{(item.totalEnergyWh || 0).toFixed(0)}</Text>
-            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Wh</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {(item.totalEnergyWh || 0).toFixed(0)}
+            </Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Wh</Text>
           </View>
         </View>
       </Card>
-    </Pressable>
+    </TouchableOpacity>
   );
 
-  const header = () => (
+  const ListHeader = () => (
     <View style={styles.headerSection}>
       {isRecording ? (
         <>
           <Card style={styles.recordingCard}>
             <View style={styles.recordingHeader}>
-              <View style={styles.recordingRow}>
-                <View style={styles.dot} />
-                <Text style={styles.recordingLabel}>RECORDING</Text>
+              <View style={styles.recordingIndicator}>
+                <View style={styles.recordingDot} />
+                <Text style={styles.recordingText}>RECORDING</Text>
               </View>
-              <Text style={[styles.timer, { color: theme.text }]}>{formatTime(tripDuration)}</Text>
+              <Text style={[styles.timerText, { color: theme.text }]}>
+                {formatTime(tripDuration)}
+              </Text>
             </View>
-            <View style={styles.liveStats}>
+            <View style={styles.liveStatsRow}>
               <View style={styles.liveStat}>
-                <Text style={[styles.liveVal, { color: theme.text }]}>{tripStats.totalDistanceKm.toFixed(2)}</Text>
-                <Text style={[styles.liveLbl, { color: theme.textSecondary }]}>km</Text>
+                <Text style={[styles.liveStatValue, { color: theme.text }]}>
+                  {tripStats.totalDistanceKm.toFixed(2)}
+                </Text>
+                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>km</Text>
               </View>
               <View style={styles.liveStat}>
-                <Text style={[styles.liveVal, { color: theme.text }]}>{tripStats.maxSpeedKmh.toFixed(1)}</Text>
-                <Text style={[styles.liveLbl, { color: theme.textSecondary }]}>max km/h</Text>
+                <Text style={[styles.liveStatValue, { color: theme.text }]}>
+                  {tripStats.maxSpeedKmh.toFixed(1)}
+                </Text>
+                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>max km/h</Text>
               </View>
               <View style={styles.liveStat}>
-                <Text style={[styles.liveVal, { color: theme.text }]}>{tripStats.totalEnergyWh.toFixed(0)}</Text>
-                <Text style={[styles.liveLbl, { color: theme.textSecondary }]}>Wh</Text>
+                <Text style={[styles.liveStatValue, { color: theme.text }]}>
+                  {tripStats.totalEnergyWh.toFixed(0)}
+                </Text>
+                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>Wh</Text>
               </View>
             </View>
           </Card>
-          <Pressable onPress={onEndTrip} disabled={isLoading} style={styles.btn} testID="end-trip-btn">
-            <LinearGradient colors={[BladeColors.error, "#C0392B"]} style={styles.btnGrad}>
-              {isLoading ? <ActivityIndicator color="#FFF" /> : (
-                <>
-                  <Feather name="stop-circle" size={24} color="#FFF" />
-                  <Text style={styles.btnTxt}>End Trip</Text>
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
+          <TripButton 
+            onPress={handleEndTrip} 
+            isLoading={buttonLoading || isLoading} 
+            isStart={false} 
+          />
         </>
       ) : (
-        <Pressable onPress={onStartTrip} disabled={isLoading || !user?.id} style={[styles.btn, { opacity: user?.id ? 1 : 0.5 }]} testID="start-trip-btn">
-          <LinearGradient colors={user?.id ? [BladeColors.success, "#27AE60"] : ["#888", "#666"]} style={styles.btnGrad}>
-            {isLoading ? <ActivityIndicator color="#FFF" /> : (
-              <>
-                <Feather name="play-circle" size={24} color="#FFF" />
-                <Text style={styles.btnTxt}>{user?.id ? "Start Trip" : "Sign In First"}</Text>
-              </>
-            )}
-          </LinearGradient>
-        </Pressable>
+        <TripButton 
+          onPress={handleStartTrip} 
+          isLoading={buttonLoading || isLoading} 
+          isStart={true}
+          disabled={!user?.id}
+        />
       )}
-      {trips.length > 0 ? <Text style={[styles.section, { color: theme.textSecondary }]}>TRIP HISTORY</Text> : null}
+      
+      {!user?.id ? (
+        <Text style={[styles.signInHint, { color: theme.textSecondary }]}>
+          Sign in to record trips
+        </Text>
+      ) : null}
+      
+      {trips.length > 0 ? (
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+          TRIP HISTORY
+        </Text>
+      ) : null}
     </View>
   );
 
-  const empty = () => (
-    <View style={styles.empty}>
+  const EmptyState = () => (
+    <View style={styles.emptyContainer}>
       <Feather name="anchor" size={64} color={theme.textSecondary} />
       <Text style={[styles.emptyTitle, { color: theme.text }]}>No Trips Yet</Text>
-      <Text style={[styles.emptySub, { color: theme.textSecondary }]}>Start recording to track your journeys</Text>
+      <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+        Start recording to track your journeys
+      </Text>
     </View>
   );
 
@@ -196,50 +337,202 @@ export default function TripsScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <FlatList
         data={trips}
-        keyExtractor={i => i.id}
+        keyExtractor={item => item.id}
         renderItem={renderTrip}
-        contentContainerStyle={[styles.list, { paddingTop: headerHeight + Spacing.md, paddingBottom: insets.bottom + 100 }]}
-        ListHeaderComponent={header}
-        ListEmptyComponent={loading ? null : empty}
-        refreshControl={<PullToRefresh refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadTrips(); }} />}
+        contentContainerStyle={[
+          styles.listContent, 
+          { paddingTop: headerHeight + Spacing.md, paddingBottom: insets.bottom + 100 }
+        ]}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={loading ? null : EmptyState}
+        refreshControl={
+          <PullToRefresh 
+            refreshing={refreshing} 
+            onRefresh={() => { setRefreshing(true); loadTrips(); }} 
+          />
+        }
       />
-      {loading ? <View style={styles.overlay}><ActivityIndicator size="large" color={BladeColors.primary} /></View> : null}
+      {loading ? (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={BladeColors.primary} />
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  list: { paddingHorizontal: Spacing.md, flexGrow: 1 },
-  headerSection: { marginBottom: Spacing.lg },
-  btn: { marginBottom: Spacing.md },
-  btnGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.lg, paddingHorizontal: Spacing.xl, borderRadius: BorderRadius.lg },
-  btnTxt: { color: "#FFF", fontSize: Typography.sizes.lg, fontWeight: "600" },
-  recordingCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 2, borderColor: BladeColors.error },
-  recordingHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md },
-  recordingRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: BladeColors.error },
-  recordingLabel: { color: BladeColors.error, fontSize: Typography.sizes.sm, fontWeight: "700", letterSpacing: 1 },
-  timer: { fontSize: Typography.sizes.xl, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  liveStats: { flexDirection: "row", justifyContent: "space-around" },
-  liveStat: { alignItems: "center" },
-  liveVal: { fontSize: Typography.sizes.lg, fontWeight: "700" },
-  liveLbl: { fontSize: Typography.sizes.xs, marginTop: 2 },
-  section: { fontSize: Typography.sizes.xs, fontWeight: "600", letterSpacing: 1, marginTop: Spacing.md, marginBottom: Spacing.sm },
-  card: { marginBottom: Spacing.md, padding: Spacing.md },
-  activeCard: { borderWidth: 2, borderColor: BladeColors.success },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.xs },
-  cardTitle: { fontSize: Typography.sizes.lg, fontWeight: "600", flex: 1 },
-  badge: { backgroundColor: BladeColors.success, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.sm },
-  badgeText: { color: "#FFF", fontSize: 10, fontWeight: "700" },
-  cardDate: { fontSize: Typography.sizes.sm, marginLeft: 26, marginBottom: Spacing.sm },
-  stats: { flexDirection: "row", alignItems: "center" },
-  stat: { flex: 1, alignItems: "center" },
-  statVal: { fontSize: Typography.sizes.lg, fontWeight: "700" },
-  statLbl: { fontSize: Typography.sizes.xs, marginTop: 2 },
-  divider: { width: 1, height: 30, backgroundColor: "rgba(128,128,128,0.2)" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 100, paddingHorizontal: Spacing.xl },
-  emptyTitle: { fontSize: Typography.sizes.xl, fontWeight: "600", marginTop: Spacing.lg },
-  emptySub: { fontSize: Typography.sizes.md, textAlign: "center", marginTop: Spacing.sm },
-  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.1)" },
+  container: { 
+    flex: 1 
+  },
+  listContent: { 
+    paddingHorizontal: Spacing.md, 
+    flexGrow: 1 
+  },
+  headerSection: { 
+    marginBottom: Spacing.lg 
+  },
+  
+  tripButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    minHeight: 56,
+  },
+  tripButtonText: {
+    color: "#FFF",
+    fontSize: Typography.sizes.lg,
+    fontWeight: "600",
+  },
+  
+  signInHint: {
+    textAlign: "center",
+    fontSize: Typography.sizes.sm,
+    marginBottom: Spacing.md,
+  },
+  
+  recordingCard: { 
+    marginBottom: Spacing.md, 
+    padding: Spacing.md, 
+    borderWidth: 2, 
+    borderColor: BladeColors.error 
+  },
+  recordingHeader: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginBottom: Spacing.md 
+  },
+  recordingIndicator: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: Spacing.sm 
+  },
+  recordingDot: { 
+    width: 10, 
+    height: 10, 
+    borderRadius: 5, 
+    backgroundColor: BladeColors.error 
+  },
+  recordingText: { 
+    color: BladeColors.error, 
+    fontSize: Typography.sizes.sm, 
+    fontWeight: "700", 
+    letterSpacing: 1 
+  },
+  timerText: { 
+    fontSize: Typography.sizes.xl, 
+    fontWeight: "700", 
+    fontVariant: ["tabular-nums"] 
+  },
+  liveStatsRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-around" 
+  },
+  liveStat: { 
+    alignItems: "center" 
+  },
+  liveStatValue: { 
+    fontSize: Typography.sizes.lg, 
+    fontWeight: "700" 
+  },
+  liveStatLabel: { 
+    fontSize: Typography.sizes.xs, 
+    marginTop: 2 
+  },
+  
+  sectionTitle: { 
+    fontSize: Typography.sizes.xs, 
+    fontWeight: "600", 
+    letterSpacing: 1, 
+    marginTop: Spacing.md, 
+    marginBottom: Spacing.sm 
+  },
+  
+  card: { 
+    marginBottom: Spacing.md, 
+    padding: Spacing.md 
+  },
+  activeCard: { 
+    borderWidth: 2, 
+    borderColor: BladeColors.success 
+  },
+  cardHeader: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: Spacing.sm, 
+    marginBottom: Spacing.xs 
+  },
+  cardTitle: { 
+    fontSize: Typography.sizes.lg, 
+    fontWeight: "600", 
+    flex: 1 
+  },
+  badge: { 
+    backgroundColor: BladeColors.success, 
+    paddingHorizontal: Spacing.sm, 
+    paddingVertical: 2, 
+    borderRadius: BorderRadius.sm 
+  },
+  badgeText: { 
+    color: "#FFF", 
+    fontSize: 10, 
+    fontWeight: "700" 
+  },
+  cardDate: { 
+    fontSize: Typography.sizes.sm, 
+    marginLeft: 26, 
+    marginBottom: Spacing.sm 
+  },
+  statsRow: { 
+    flexDirection: "row", 
+    alignItems: "center" 
+  },
+  statItem: { 
+    flex: 1, 
+    alignItems: "center" 
+  },
+  statValue: { 
+    fontSize: Typography.sizes.lg, 
+    fontWeight: "700" 
+  },
+  statLabel: { 
+    fontSize: Typography.sizes.xs, 
+    marginTop: 2 
+  },
+  statDivider: { 
+    width: 1, 
+    height: 30, 
+    backgroundColor: "rgba(128,128,128,0.2)" 
+  },
+  
+  emptyContainer: { 
+    flex: 1, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    paddingTop: 100, 
+    paddingHorizontal: Spacing.xl 
+  },
+  emptyTitle: { 
+    fontSize: Typography.sizes.xl, 
+    fontWeight: "600", 
+    marginTop: Spacing.lg 
+  },
+  emptySubtitle: { 
+    fontSize: Typography.sizes.md, 
+    textAlign: "center", 
+    marginTop: Spacing.sm 
+  },
+  
+  loadingOverlay: { 
+    ...StyleSheet.absoluteFillObject, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    backgroundColor: "rgba(0,0,0,0.1)" 
+  },
 });
