@@ -526,49 +526,75 @@ export default function DashboardScreen() {
         <View style={styles.headerAccentLine} />
       </Animated.View>
 
-      {isConnected ? (
-        <Animated.View
-          entering={FadeInUp.duration(400).springify()}
-          style={[styles.connectedCard, { backgroundColor: "#181F27" }]}
-        >
-          <View style={styles.connectedCardGlow} />
-          <View style={styles.connectedCardContent}>
-            <Image
-              source={require("../../assets/images/halo-outboard.png")}
-              style={styles.connectedMotorImage}
-              resizeMode="contain"
-            />
-            <View style={styles.connectedMotorInfo}>
-              <View style={styles.connectedMotorHeader}>
-                <ThemedText type="h3" style={{ color: "#EBEFF3" }}>Blade Halo</ThemedText>
+      <Animated.View
+        entering={FadeInUp.duration(400).springify()}
+        style={[styles.connectedCard, { backgroundColor: "#181F27" }]}
+      >
+        <View style={styles.connectedCardGlow} />
+        <View style={styles.connectedCardContent}>
+          <Image
+            source={require("../../assets/images/halo-outboard.png")}
+            style={styles.connectedMotorImage}
+            resizeMode="contain"
+          />
+          <View style={styles.connectedMotorInfo}>
+            <View style={styles.connectedMotorHeader}>
+              <ThemedText type="h3" style={{ color: "#EBEFF3" }}>Blade Halo</ThemedText>
+              {isConnected ? (
                 <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
                   <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
                   <ThemedText type="caption" style={{ color: BladeColors.accent, fontWeight: "600" }}>
                     Live
                   </ThemedText>
                 </View>
-              </View>
-              <ThemedText type="mono" style={styles.connectedSerial}>
-                S/N: {telemetry?.tillerSerialNumber || motor?.serialNumber || "--"}
-              </ThemedText>
-              <View style={styles.connectedMetaRow}>
-                <View style={styles.connectedMetaItem}>
-                  <Feather name="cpu" size={12} color="#596F7C" />
-                  <ThemedText type="caption" style={styles.connectedMetaText}>
-                    v{firmware}
+              ) : (
+                <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
+                  <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
+                  <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
+                    Offline
                   </ThemedText>
                 </View>
-                <View style={styles.connectedMetaItem}>
-                  <Feather name="clock" size={12} color="#596F7C" />
-                  <ThemedText type="caption" style={styles.connectedMetaText}>
-                    {odometer != null ? `${odometer.toFixed(0)} hrs` : "-- hrs"}
-                  </ThemedText>
-                </View>
-              </View>
+              )}
             </View>
+            {isConnected ? (
+              <>
+                <ThemedText type="mono" style={styles.connectedSerial}>
+                  S/N: {telemetry?.tillerSerialNumber || motor?.serialNumber || "--"}
+                </ThemedText>
+                <View style={styles.connectedMetaRow}>
+                  <View style={styles.connectedMetaItem}>
+                    <Feather name="cpu" size={12} color="#596F7C" />
+                    <ThemedText type="caption" style={styles.connectedMetaText}>
+                      v{firmware}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.connectedMetaItem}>
+                    <Feather name="clock" size={12} color="#596F7C" />
+                    <ThemedText type="caption" style={styles.connectedMetaText}>
+                      {odometer != null ? `${odometer.toFixed(0)} hrs` : "-- hrs"}
+                    </ThemedText>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <ThemedText type="small" style={{ color: "#596F7C", marginTop: Spacing.xs }}>
+                  Connect an outboard to begin
+                </ThemedText>
+                <Pressable 
+                  style={styles.connectButton}
+                  onPress={handleConnect}
+                >
+                  <Feather name="bluetooth" size={14} color="#FFFFFF" />
+                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
+                    Scan for Motors
+                  </ThemedText>
+                </Pressable>
+              </>
+            )}
           </View>
-        </Animated.View>
-      ) : null}
+        </View>
+      </Animated.View>
 
       {errorCode ? (
         <Animated.View
@@ -1307,6 +1333,16 @@ const styles = StyleSheet.create({
   connectedMetaText: {
     color: "#596F7C",
     fontSize: 11,
+  },
+  connectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: BladeColors.accent,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
   },
   sectionHeader: {
     flexDirection: "row",
