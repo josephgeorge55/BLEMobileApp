@@ -11,6 +11,7 @@ import TripsScreen from "@/screens/TripsScreen";
 import UpdatesScreen from "@/screens/UpdatesScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
+import { OutboardIcon } from "@/components/OutboardIcon";
 import { useTheme } from "@/hooks/useTheme";
 import { BladeColors, Spacing } from "@/constants/theme";
 
@@ -28,14 +29,28 @@ function TabBarIcon({ name, color, focused }: { name: keyof typeof Feather.glyph
   return (
     <View style={styles.iconWrapper}>
       {focused ? (
-        <View style={[styles.iconGlow, { backgroundColor: color + "20" }]} />
+        <View style={[styles.iconGlow, { backgroundColor: color + "30" }]} />
       ) : null}
-      <Feather 
-        name={name} 
-        size={focused ? 24 : 22} 
-        color={color}
-        style={{ opacity: focused ? 1 : 0.8 }}
-      />
+      <View style={[styles.iconInner, focused && styles.iconFocused]}>
+        <Feather 
+          name={name} 
+          size={22} 
+          color={color}
+        />
+      </View>
+    </View>
+  );
+}
+
+function OutboardTabIcon({ color, focused }: { color: string; focused: boolean }) {
+  return (
+    <View style={styles.iconWrapper}>
+      {focused ? (
+        <View style={[styles.iconGlow, { backgroundColor: color + "30" }]} />
+      ) : null}
+      <View style={[styles.iconInner, focused && styles.iconFocused]}>
+        <OutboardIcon size={22} color={color} focused={focused} />
+      </View>
     </View>
   );
 }
@@ -123,10 +138,10 @@ export default function MainTabNavigator() {
         name="LocationTab"
         component={LocationScreen}
         options={{
-          title: "Location",
+          title: "Motor",
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name="map-pin" color={color} focused={focused} />
+            <OutboardTabIcon color={color} focused={focused} />
           ),
         }}
       />
@@ -172,13 +187,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: 48,
-    height: 28,
+    height: 32,
   },
   iconGlow: {
     position: "absolute",
     width: 48,
-    height: 28,
-    borderRadius: 14,
+    height: 32,
+    borderRadius: 16,
+  },
+  iconInner: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconFocused: {
+    transform: [{ scale: 1.05 }],
   },
   tabBarTopBorder: {
     height: StyleSheet.hairlineWidth,
