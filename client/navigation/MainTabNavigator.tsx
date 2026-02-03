@@ -124,7 +124,7 @@ export default function MainTabNavigator() {
         component={LocationScreen}
         options={{
           title: "Location",
-          headerTitle: () => <HeaderTitle />,
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="map-pin" color={color} focused={focused} />
           ),
