@@ -34,32 +34,40 @@ export default function TripsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const { user } = useUser();
   const { activeTrip, isRecording, startTrip, endTrip, isLoading: tripLoading, tripDuration, tripStats } = useTrip();
-  const { motor, telemetry } = useMotor();
+  const { motor, telemetry, addDebugLog } = useMotor();
   
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchTrips = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      addDebugLog("INFO", "[Trips] Cannot fetch trips: No user ID");
+      return;
+    }
+    addDebugLog("INFO", `[Trips] Loading trips from local storage for user: ${user.id}`);
     console.log("[TripsScreen] Fetching trips from local storage for user:", user.id);
     try {
       const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
       if (localTripsStr) {
         const allTrips: Trip[] = JSON.parse(localTripsStr);
+        addDebugLog("INFO", `[Trips] Total trips in storage: ${allTrips.length}`);
         // Filter trips for current user and sort by startTime descending
         const userTrips = allTrips
           .filter((trip: Trip) => trip.userId === user.id)
           .sort((a: Trip, b: Trip) => 
             new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
           );
+        addDebugLog("INFO", `[Trips] Found ${userTrips.length} trips for this user`);
         console.log("[TripsScreen] Found", userTrips.length, "trips for user");
         setTrips(userTrips);
       } else {
+        addDebugLog("INFO", "[Trips] No trips found in local storage (storage key is empty)");
         console.log("[TripsScreen] No trips found in local storage");
         setTrips([]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      addDebugLog("ERROR", `[Trips] Error loading trips: ${error?.message || 'Unknown'}`);
       console.error("[TripsScreen] Error fetching trips:", error);
       setTrips([]);
     } finally {
@@ -80,6 +88,17 @@ export default function TripsScreen() {
   };
 
   const handleStartTrip = async () => {
+    addDebugLog("INFO", "=== START TRIP BUTTON PRESSED ===");
+    addDebugLog("INFO", "[StartTrip] Current state:");
+    addDebugLog("INFO", `[StartTrip]   - user.id: ${user?.id || 'NONE'}`);
+    addDebugLog("INFO", `[StartTrip]   - motor.isConnected: ${motor?.isConnected || false}`);
+    addDebugLog("INFO", `[StartTrip]   - motor.serialNumber: ${motor?.serialNumber || 'NONE'}`);
+    addDebugLog("INFO", `[StartTrip]   - telemetry.tillerSerialNumber: ${telemetry?.tillerSerialNumber || 'NONE'}`);
+    addDebugLog("INFO", `[StartTrip]   - effectiveSerial: ${effectiveSerial || 'NONE'}`);
+    addDebugLog("INFO", `[StartTrip]   - isRecording: ${isRecording}`);
+    addDebugLog("INFO", `[StartTrip]   - canStartTrip: ${canStartTrip}`);
+    addDebugLog("INFO", `[StartTrip]   - hasTelemetry: ${!!telemetry}`);
+    
     console.log("[TripsScreen] ===== START TRIP BUTTON PRESSED =====");
     console.log("[TripsScreen] State:", {
       userId: user?.id,
@@ -101,18 +120,23 @@ export default function TripsScreen() {
     
     // Double-check requirements before calling startTrip
     if (!user?.id) {
+      addDebugLog("ERROR", "[StartTrip] BLOCKED: No user ID - please sign in");
       console.error("[TripsScreen] BLOCKED: No user ID");
       Alert.alert("Sign In Required", "Please sign in to record trips.");
       return;
     }
     
     if (!motor?.isConnected) {
+      addDebugLog("ERROR", "[StartTrip] BLOCKED: Motor not connected");
+      addDebugLog("ERROR", "[StartTrip] Go to Settings > Connect Motor to scan for Bluetooth devices");
       console.error("[TripsScreen] BLOCKED: Motor not connected");
       Alert.alert("Motor Not Connected", "Please connect to your motor first via Settings.");
       return;
     }
     
     if (!effectiveSerial) {
+      addDebugLog("ERROR", "[StartTrip] BLOCKED: No serial number available");
+      addDebugLog("ERROR", `[StartTrip] motorSerial=${motor?.serialNumber || 'NONE'}, tillerSerial=${telemetry?.tillerSerialNumber || 'NONE'}`);
       console.error("[TripsScreen] BLOCKED: No serial number available");
       Alert.alert(
         "Motor Not Ready", 
@@ -122,6 +146,7 @@ export default function TripsScreen() {
       return;
     }
     
+    addDebugLog("INFO", "[StartTrip] All checks passed! Creating trip...");
     console.log("[TripsScreen] All checks passed, calling startTrip()...");
     
     try {
@@ -129,20 +154,22 @@ export default function TripsScreen() {
       console.log("[TripsScreen] startTrip result:", success);
       
       if (success) {
+        addDebugLog("INFO", "[StartTrip] SUCCESS! Trip created and recording started");
         console.log("[TripsScreen] Trip started successfully!");
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {}
         fetchTrips();
       } else {
+        addDebugLog("ERROR", "[StartTrip] FAILED: startTrip() returned false");
+        addDebugLog("ERROR", "[StartTrip] Check TripContext logs for details");
         console.error("[TripsScreen] startTrip returned false");
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } catch (e) {}
-        // TripContext should show its own alert, but just in case:
-        // Alert is already shown in TripContext
       }
     } catch (error: any) {
+      addDebugLog("ERROR", `[StartTrip] EXCEPTION: ${error?.message || 'Unknown error'}`);
       console.error("[TripsScreen] EXCEPTION in startTrip:", error);
       console.error("[TripsScreen] Error stack:", error?.stack);
       try {
@@ -155,6 +182,7 @@ export default function TripsScreen() {
       );
     }
     
+    addDebugLog("INFO", "=== END START TRIP HANDLER ===");
     console.log("[TripsScreen] ===== END START TRIP HANDLER =====");
   };
 
