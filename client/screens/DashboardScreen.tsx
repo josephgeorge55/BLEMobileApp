@@ -1,5 +1,5 @@
-import React, { useEffect, useCallback } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Image } from "react-native";
+import React, { useEffect, useCallback, useState } from "react";
+import { StyleSheet, View, ScrollView, RefreshControl, Image, Pressable, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
@@ -27,6 +27,47 @@ interface LocationQueryData {
   isLive: boolean;
 }
 
+type InfoHelpKey = 'weather' | 'conditions' | 'speed' | 'battery' | 'power' | 'system' | 'bms' | 'motor' | 'vesc';
+
+const INFO_HELP: Record<InfoHelpKey, { title: string; description: string }> = {
+  weather: {
+    title: "Marine Weather",
+    description: "Current weather conditions at your location including temperature, wind speed, and a 3-hour forecast. This helps you plan safe boating trips and stay aware of changing conditions."
+  },
+  conditions: {
+    title: "Conditions at Sea Level",
+    description: "Real-time wind speed in knots, visibility distance, and air quality index. Wind direction and gust information helps you understand water conditions for safer navigation."
+  },
+  speed: {
+    title: "Speed",
+    description: "Current speed of your outboard in kilometers per hour (km/h). This reading comes directly from your motor's GPS or speed sensor for accurate real-time tracking."
+  },
+  battery: {
+    title: "Battery",
+    description: "State of charge (SoC) percentage showing how much battery capacity remains. Monitor this to plan your trip distance and ensure you have enough power to return safely."
+  },
+  power: {
+    title: "Power Consumption",
+    description: "Current power draw in watts (W) showing how much energy your motor is using. Lower throttle settings and efficient cruising reduce power consumption and extend range."
+  },
+  system: {
+    title: "System Status",
+    description: "Firmware version and runtime hours for your outboard. Keep firmware updated for best performance and monitor runtime for maintenance scheduling."
+  },
+  bms: {
+    title: "Battery Management",
+    description: "Detailed battery cell information including voltage, current, and temperature. The BMS protects your battery from overcharge, over-discharge, and thermal issues."
+  },
+  motor: {
+    title: "Motor Controller",
+    description: "Motor temperature, PWM duty cycle, and torque output. High temperatures may indicate heavy load - allow cooling if needed."
+  },
+  vesc: {
+    title: "VESC Controller",
+    description: "Electronic speed controller data including MOSFET temperature and motor RPM. This controller manages power delivery to the motor for smooth operation."
+  }
+};
+
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -34,6 +75,11 @@ export default function DashboardScreen() {
   const { theme, isDark } = useTheme();
   const { motor, telemetry, isConnecting, startScan, setLocation } =
     useMotor();
+  
+  const [infoModal, setInfoModal] = useState<{ visible: boolean; key: InfoHelpKey | null }>({ visible: false, key: null });
+
+  const showInfo = (key: InfoHelpKey) => setInfoModal({ visible: true, key });
+  const hideInfo = () => setInfoModal({ visible: false, key: null });
 
   const isConnected = motor?.isConnected ?? false;
   const serialNumber = motor?.serialNumber;
@@ -103,19 +149,31 @@ export default function DashboardScreen() {
           <View style={styles.headerAccentLine} />
         </Animated.View>
         
+        <View style={styles.dashboardDescription}>
+          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: 'center' }}>
+            Live telemetry, weather, and system information for your outboard.
+          </ThemedText>
+        </View>
+        
         <View style={styles.sectionHeader}>
           <Feather name="cloud" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
             Marine Weather
           </ThemedText>
+          <Pressable onPress={() => showInfo('weather')} hitSlop={8}>
+            <Feather name="info" size={14} color={theme.textTertiary} />
+          </Pressable>
         </View>
         <WeatherCard variant="weather" />
         
         <View style={styles.sectionHeader}>
           <Feather name="navigation" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
             Conditions at Sea Level
           </ThemedText>
+          <Pressable onPress={() => showInfo('conditions')} hitSlop={8}>
+            <Feather name="info" size={14} color={theme.textTertiary} />
+          </Pressable>
         </View>
         <WeatherCard variant="conditions" />
         
@@ -271,12 +329,23 @@ export default function DashboardScreen() {
         </Animated.View>
       ) : null}
 
+      <Animated.View entering={FadeInUp.delay(25).duration(400).springify()}>
+        <View style={styles.dashboardDescription}>
+          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: 'center' }}>
+            Live telemetry, weather, and system information for your outboard.
+          </ThemedText>
+        </View>
+      </Animated.View>
+
       <Animated.View entering={FadeInUp.delay(50).duration(400).springify()}>
         <View style={styles.sectionHeader}>
           <Feather name="cloud" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
             Marine Weather
           </ThemedText>
+          <Pressable onPress={() => showInfo('weather')} hitSlop={8}>
+            <Feather name="info" size={14} color={theme.textTertiary} />
+          </Pressable>
         </View>
         <WeatherCard variant="weather" />
       </Animated.View>
@@ -284,9 +353,12 @@ export default function DashboardScreen() {
       <Animated.View entering={FadeInUp.delay(75).duration(400).springify()}>
         <View style={styles.sectionHeader}>
           <Feather name="navigation" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
             Conditions at Sea Level
           </ThemedText>
+          <Pressable onPress={() => showInfo('conditions')} hitSlop={8}>
+            <Feather name="info" size={14} color={theme.textTertiary} />
+          </Pressable>
         </View>
         <WeatherCard variant="conditions" />
       </Animated.View>
@@ -610,6 +682,40 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Animated.View>
+
+      <Modal
+        visible={infoModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideInfo}
+      >
+        <Pressable style={styles.infoModalOverlay} onPress={hideInfo}>
+          <Pressable style={[styles.infoModalContent, { backgroundColor: theme.surfaceElevated }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.infoModalHeader}>
+              <View style={[styles.infoModalIcon, { backgroundColor: BladeColors.accent + "20" }]}>
+                <Feather name="info" size={20} color={BladeColors.accent} />
+              </View>
+              <Pressable onPress={hideInfo} hitSlop={12}>
+                <Feather name="x" size={20} color={theme.textSecondary} />
+              </Pressable>
+            </View>
+            <ThemedText type="h3" style={{ color: theme.text, marginBottom: Spacing.sm }}>
+              {infoModal.key ? INFO_HELP[infoModal.key].title : ''}
+            </ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary, lineHeight: 22 }}>
+              {infoModal.key ? INFO_HELP[infoModal.key].description : ''}
+            </ThemedText>
+            <Pressable 
+              style={[styles.infoModalButton, { backgroundColor: BladeColors.accent }]} 
+              onPress={hideInfo}
+            >
+              <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                Got it
+              </ThemedText>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   </>
   );
@@ -677,6 +783,44 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: "uppercase",
     marginTop: 2,
+  },
+  dashboardDescription: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  infoModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  infoModalContent: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  infoModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  infoModalIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  infoModalButton: {
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
   },
   headerAccentLine: {
     height: 2,
