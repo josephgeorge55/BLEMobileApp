@@ -906,6 +906,15 @@ export default function DashboardScreen() {
         </Pressable>
       </Animated.View>
 
+      <Animated.View
+        entering={FadeIn.delay(isConnected ? 800 : 500).duration(400)}
+        style={styles.disclaimerContainer}
+      >
+        <ThemedText style={styles.disclaimerText}>
+          Data and weather information are provided for reference only and are not guaranteed. Always operate your vessel safely, comply with all warnings and local laws, and never operate a boat under the influence.
+        </ThemedText>
+      </Animated.View>
+
       <Modal
         visible={infoModal.visible}
         transparent
@@ -1055,6 +1064,17 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
+  },
+  disclaimerContainer: {
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+  },
+  disclaimerText: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: "#596F7C",
+    textAlign: "center",
+    opacity: 0.7,
   },
   headerAccentLine: {
     height: 2,
