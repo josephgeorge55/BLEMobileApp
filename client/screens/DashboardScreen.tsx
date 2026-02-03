@@ -94,13 +94,9 @@ export default function DashboardScreen() {
             />
             <View style={styles.headerDivider} />
             <View style={styles.headerTitleContainer}>
-              <View style={styles.headerTitleRow}>
-                <ThemedText type="h3" style={styles.headerTitle}>Blade</ThemedText>
-                <View style={styles.registeredMark}>
-                  <ThemedText type="small" style={styles.registeredText}>R</ThemedText>
-                </View>
-                <ThemedText type="h3" style={styles.headerTitle}> HALO Connect</ThemedText>
-              </View>
+              <ThemedText type="h3" style={styles.headerTitle}>
+                Blade<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO Connect
+              </ThemedText>
               <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
             </View>
           </View>
@@ -195,13 +191,9 @@ export default function DashboardScreen() {
           />
           <View style={styles.headerDivider} />
           <View style={styles.headerTitleContainer}>
-            <View style={styles.headerTitleRow}>
-              <ThemedText type="h3" style={styles.headerTitle}>Blade</ThemedText>
-              <View style={styles.registeredMark}>
-                <ThemedText type="small" style={styles.registeredText}>R</ThemedText>
-              </View>
-              <ThemedText type="h3" style={styles.headerTitle}> HALO Connect</ThemedText>
-            </View>
+            <ThemedText type="h3" style={styles.headerTitle}>
+              Blade<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO Connect
+            </ThemedText>
             <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
           </View>
         </View>
@@ -648,31 +640,16 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
   },
-  headerTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
-  registeredMark: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: BladeColors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 4,
-    marginTop: -6,
-  },
-  registeredText: {
-    fontSize: 7,
+  registeredSymbol: {
+    fontSize: 10,
     color: BladeColors.accent,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   headerSubtitle: {
     color: "#596F7C",
