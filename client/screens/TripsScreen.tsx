@@ -31,271 +31,164 @@ export default function TripsScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const { user } = useUser();
-  const { activeTrip, isRecording, startTrip, endTrip, isLoading: tripLoading, tripDuration, tripStats } = useTrip();
-  
+  const { isRecording, tripDuration, tripStats, isLoading, startTrip, endTrip } = useTrip();
+
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchTrips = async () => {
+  const loadTrips = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const localTripsStr = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
-      if (localTripsStr) {
-        const allTrips: Trip[] = JSON.parse(localTripsStr);
-        const userTrips = allTrips
-          .filter((trip: Trip) => trip.userId === user.id)
-          .sort((a: Trip, b: Trip) => 
-            new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-          );
+      const data = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+      if (data) {
+        const all: Trip[] = JSON.parse(data);
+        const userTrips = all
+          .filter(t => t.userId === user.id)
+          .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
         setTrips(userTrips);
       } else {
         setTrips([]);
       }
-    } catch (error) {
-      console.error("[Trips] Error:", error);
+    } catch {
       setTrips([]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
       setRefreshing(false);
     }
+  }, [user?.id]);
+
+  useFocusEffect(useCallback(() => { loadTrips(); }, [loadTrips]));
+
+  const onStartTrip = async () => {
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+    const ok = await startTrip();
+    if (ok) {
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      loadTrips();
+    }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchTrips();
-    }, [user?.id])
+  const onEndTrip = async () => {
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+    const ok = await endTrip();
+    if (ok) {
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      loadTrips();
+    }
+  };
+
+  const formatTime = (sec: number) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return h > 0
+      ? `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+      : `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const formatDuration = (start: string | Date, end: string | Date | null) => {
+    const diff = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  const renderTrip = ({ item }: { item: Trip }) => (
+    <Pressable onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}>
+      <Card style={[styles.card, item.isActive && styles.activeCard]}>
+        <View style={styles.cardHeader}>
+          <Feather name={item.isActive ? "navigation" : "anchor"} size={18} color={item.isActive ? BladeColors.success : BladeColors.primary} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>{item.name || "Trip"}</Text>
+          {item.isActive ? <View style={styles.badge}><Text style={styles.badgeText}>RECORDING</Text></View> : null}
+        </View>
+        <Text style={[styles.cardDate, { color: theme.textSecondary }]}>
+          {new Date(item.startTime).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+        </Text>
+        <View style={styles.stats}>
+          <View style={styles.stat}>
+            <Text style={[styles.statVal, { color: theme.text }]}>{(item.totalDistanceKm || 0).toFixed(1)}</Text>
+            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>km</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.stat}>
+            <Text style={[styles.statVal, { color: theme.text }]}>{formatDuration(item.startTime, item.endTime)}</Text>
+            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>duration</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.stat}>
+            <Text style={[styles.statVal, { color: theme.text }]}>{(item.maxSpeedKmh || 0).toFixed(1)}</Text>
+            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>max km/h</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.stat}>
+            <Text style={[styles.statVal, { color: theme.text }]}>{(item.totalEnergyWh || 0).toFixed(0)}</Text>
+            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Wh</Text>
+          </View>
+        </View>
+      </Card>
+    </Pressable>
   );
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchTrips();
-  };
-
-  const handleStartTrip = async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {}
-    
-    const success = await startTrip();
-    if (success) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {}
-      fetchTrips();
-    }
-  };
-
-  const handleEndTrip = async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {}
-    
-    const success = await endTrip();
-    if (success) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {}
-      fetchTrips();
-    }
-  };
-
-  const handleTripPress = (trip: Trip) => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
-    navigation.navigate("TripDetail", { tripId: trip.id });
-  };
-
-  const formatDuration = (start: Date | string, end: Date | string | null) => {
-    const startTime = new Date(start).getTime();
-    const endTime = end ? new Date(end).getTime() : Date.now();
-    const diff = endTime - startTime;
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
-
-  const formatLiveDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const canStartTrip = Boolean(user?.id) && !isRecording;
-
-  const renderTripItem = ({ item }: { item: Trip }) => {
-    const isActive = item.isActive;
-    
-    return (
-      <Pressable onPress={() => handleTripPress(item)} testID={`trip-item-${item.id}`}>
-        <Card style={{...styles.tripCard, ...(isActive ? styles.activeTripCard : {})}}>
-          <View style={styles.tripHeader}>
-            <View style={styles.tripTitleRow}>
-              <Feather 
-                name={isActive ? "navigation" : "anchor"} 
-                size={18} 
-                color={isActive ? BladeColors.success : BladeColors.primary} 
-              />
-              <Text style={[styles.tripName, { color: theme.text }]}>
-                {item.name || "Unnamed Trip"}
-              </Text>
-              {isActive ? (
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeText}>RECORDING</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={[styles.tripDate, { color: theme.textSecondary }]}>
-              {formatDate(item.startTime)}
-            </Text>
-          </View>
-          
-          <View style={styles.tripStats}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>
-                {(item.totalDistanceKm || 0).toFixed(1)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>
-                {formatDuration(item.startTime, item.endTime)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>duration</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>
-                {(item.maxSpeedKmh || 0).toFixed(1)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>max km/h</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>
-                {(item.totalEnergyWh || 0).toFixed(0)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Wh</Text>
-            </View>
-          </View>
-        </Card>
-      </Pressable>
-    );
-  };
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Feather name="anchor" size={64} color={theme.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>No Trips Yet</Text>
-      <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-        Start recording trips to track your journeys on the water
-      </Text>
-    </View>
-  );
-
-  const renderHeader = () => (
+  const header = () => (
     <View style={styles.headerSection}>
       {isRecording ? (
         <>
-          <Card style={styles.liveRecordingCard}>
-            <View style={styles.liveRecordingHeader}>
-              <View style={styles.recordingIndicator}>
-                <View style={styles.recordingDot} />
-                <Text style={styles.recordingText}>RECORDING</Text>
+          <Card style={styles.recordingCard}>
+            <View style={styles.recordingHeader}>
+              <View style={styles.recordingRow}>
+                <View style={styles.dot} />
+                <Text style={styles.recordingLabel}>RECORDING</Text>
               </View>
-              <Text style={[styles.liveDuration, { color: theme.text }]}>
-                {formatLiveDuration(tripDuration)}
-              </Text>
+              <Text style={[styles.timer, { color: theme.text }]}>{formatTime(tripDuration)}</Text>
             </View>
             <View style={styles.liveStats}>
-              <View style={styles.liveStatItem}>
-                <Text style={[styles.liveStatValue, { color: theme.text }]}>
-                  {tripStats.totalDistanceKm.toFixed(2)}
-                </Text>
-                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>km</Text>
+              <View style={styles.liveStat}>
+                <Text style={[styles.liveVal, { color: theme.text }]}>{tripStats.totalDistanceKm.toFixed(2)}</Text>
+                <Text style={[styles.liveLbl, { color: theme.textSecondary }]}>km</Text>
               </View>
-              <View style={styles.liveStatItem}>
-                <Text style={[styles.liveStatValue, { color: theme.text }]}>
-                  {tripStats.maxSpeedKmh.toFixed(1)}
-                </Text>
-                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>max km/h</Text>
+              <View style={styles.liveStat}>
+                <Text style={[styles.liveVal, { color: theme.text }]}>{tripStats.maxSpeedKmh.toFixed(1)}</Text>
+                <Text style={[styles.liveLbl, { color: theme.textSecondary }]}>max km/h</Text>
               </View>
-              <View style={styles.liveStatItem}>
-                <Text style={[styles.liveStatValue, { color: theme.text }]}>
-                  {tripStats.totalEnergyWh.toFixed(0)}
-                </Text>
-                <Text style={[styles.liveStatLabel, { color: theme.textSecondary }]}>Wh</Text>
+              <View style={styles.liveStat}>
+                <Text style={[styles.liveVal, { color: theme.text }]}>{tripStats.totalEnergyWh.toFixed(0)}</Text>
+                <Text style={[styles.liveLbl, { color: theme.textSecondary }]}>Wh</Text>
               </View>
             </View>
           </Card>
-          <Pressable
-            onPress={handleEndTrip}
-            disabled={tripLoading}
-            testID="stop-trip-button"
-            style={styles.tripButton}
-          >
-            <LinearGradient
-              colors={[BladeColors.error, "#C0392B"]}
-              style={styles.tripButtonGradient}
-            >
-              {tripLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
+          <Pressable onPress={onEndTrip} disabled={isLoading} style={styles.btn} testID="end-trip-btn">
+            <LinearGradient colors={[BladeColors.error, "#C0392B"]} style={styles.btnGrad}>
+              {isLoading ? <ActivityIndicator color="#FFF" /> : (
                 <>
-                  <Feather name="stop-circle" size={24} color="#FFFFFF" />
-                  <Text style={styles.tripButtonText}>End Trip</Text>
+                  <Feather name="stop-circle" size={24} color="#FFF" />
+                  <Text style={styles.btnTxt}>End Trip</Text>
                 </>
               )}
             </LinearGradient>
           </Pressable>
         </>
       ) : (
-        <Pressable
-          onPress={handleStartTrip}
-          disabled={tripLoading || !canStartTrip}
-          style={[styles.tripButton, { opacity: canStartTrip ? 1 : 0.5 }]}
-          testID="start-trip-button"
-        >
-          <LinearGradient
-            colors={canStartTrip ? [BladeColors.success, "#27AE60"] : [theme.textSecondary, theme.textSecondary]}
-            style={styles.tripButtonGradient}
-          >
-            {tripLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
+        <Pressable onPress={onStartTrip} disabled={isLoading || !user?.id} style={[styles.btn, { opacity: user?.id ? 1 : 0.5 }]} testID="start-trip-btn">
+          <LinearGradient colors={user?.id ? [BladeColors.success, "#27AE60"] : ["#888", "#666"]} style={styles.btnGrad}>
+            {isLoading ? <ActivityIndicator color="#FFF" /> : (
               <>
-                <Feather name="play-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.tripButtonText}>
-                  {canStartTrip ? "Start Trip" : "Sign In First"}
-                </Text>
+                <Feather name="play-circle" size={24} color="#FFF" />
+                <Text style={styles.btnTxt}>{user?.id ? "Start Trip" : "Sign In First"}</Text>
               </>
             )}
           </LinearGradient>
         </Pressable>
       )}
-      
-      {trips.length > 0 ? (
-        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          TRIP HISTORY
-        </Text>
-      ) : null}
+      {trips.length > 0 ? <Text style={[styles.section, { color: theme.textSecondary }]}>TRIP HISTORY</Text> : null}
+    </View>
+  );
+
+  const empty = () => (
+    <View style={styles.empty}>
+      <Feather name="anchor" size={64} color={theme.textSecondary} />
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>No Trips Yet</Text>
+      <Text style={[styles.emptySub, { color: theme.textSecondary }]}>Start recording to track your journeys</Text>
     </View>
   );
 
@@ -303,206 +196,50 @@ export default function TripsScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <FlatList
         data={trips}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTripItem}
-        style={styles.list}
-        contentContainerStyle={[
-          styles.listContent,
-          { 
-            paddingTop: headerHeight + Spacing.md, 
-            paddingBottom: insets.bottom + 100,
-            flexGrow: 1,
-          },
-        ]}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={isLoading ? null : renderEmptyState}
-        refreshControl={
-          <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        showsVerticalScrollIndicator={true}
-        testID="trips-list"
+        keyExtractor={i => i.id}
+        renderItem={renderTrip}
+        contentContainerStyle={[styles.list, { paddingTop: headerHeight + Spacing.md, paddingBottom: insets.bottom + 100 }]}
+        ListHeaderComponent={header}
+        ListEmptyComponent={loading ? null : empty}
+        refreshControl={<PullToRefresh refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadTrips(); }} />}
       />
-
-      {isLoading ? (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={BladeColors.primary} />
-        </View>
-      ) : null}
+      {loading ? <View style={styles.overlay}><ActivityIndicator size="large" color={BladeColors.primary} /></View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: Spacing.md,
-  },
-  tripCard: {
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-  },
-  activeTripCard: {
-    borderWidth: 2,
-    borderColor: BladeColors.success,
-  },
-  tripHeader: {
-    marginBottom: Spacing.sm,
-  },
-  tripTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  tripName: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: "600",
-    flex: 1,
-  },
-  activeBadge: {
-    backgroundColor: BladeColors.success,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  activeBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  tripDate: {
-    fontSize: Typography.sizes.sm,
-    marginLeft: 26,
-  },
-  tripStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: Spacing.sm,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: "700",
-  },
-  statLabel: {
-    fontSize: Typography.sizes.xs,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "rgba(128,128,128,0.2)",
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 100,
-    paddingHorizontal: Spacing.xl,
-  },
-  emptyTitle: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: "600",
-    marginTop: Spacing.lg,
-  },
-  emptySubtitle: {
-    fontSize: Typography.sizes.md,
-    textAlign: "center",
-    marginTop: Spacing.sm,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.1)",
-  },
-  headerSection: {
-    marginBottom: Spacing.lg,
-  },
-  tripButton: {
-    marginBottom: Spacing.md,
-  },
-  tripButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  tripButtonText: {
-    color: "#FFFFFF",
-    fontSize: Typography.sizes.lg,
-    fontWeight: "600",
-  },
-  sectionTitle: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: "600",
-    letterSpacing: 1,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  liveRecordingCard: {
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    borderWidth: 2,
-    borderColor: BladeColors.error,
-  },
-  liveRecordingHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  recordingIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  recordingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: BladeColors.error,
-  },
-  recordingText: {
-    color: BladeColors.error,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  liveDuration: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
-  liveStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  liveStatItem: {
-    alignItems: "center",
-  },
-  liveStatValue: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: "700",
-  },
-  liveStatLabel: {
-    fontSize: Typography.sizes.xs,
-    marginTop: 2,
-  },
+  container: { flex: 1 },
+  list: { paddingHorizontal: Spacing.md, flexGrow: 1 },
+  headerSection: { marginBottom: Spacing.lg },
+  btn: { marginBottom: Spacing.md },
+  btnGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.lg, paddingHorizontal: Spacing.xl, borderRadius: BorderRadius.lg },
+  btnTxt: { color: "#FFF", fontSize: Typography.sizes.lg, fontWeight: "600" },
+  recordingCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 2, borderColor: BladeColors.error },
+  recordingHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md },
+  recordingRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: BladeColors.error },
+  recordingLabel: { color: BladeColors.error, fontSize: Typography.sizes.sm, fontWeight: "700", letterSpacing: 1 },
+  timer: { fontSize: Typography.sizes.xl, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  liveStats: { flexDirection: "row", justifyContent: "space-around" },
+  liveStat: { alignItems: "center" },
+  liveVal: { fontSize: Typography.sizes.lg, fontWeight: "700" },
+  liveLbl: { fontSize: Typography.sizes.xs, marginTop: 2 },
+  section: { fontSize: Typography.sizes.xs, fontWeight: "600", letterSpacing: 1, marginTop: Spacing.md, marginBottom: Spacing.sm },
+  card: { marginBottom: Spacing.md, padding: Spacing.md },
+  activeCard: { borderWidth: 2, borderColor: BladeColors.success },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.xs },
+  cardTitle: { fontSize: Typography.sizes.lg, fontWeight: "600", flex: 1 },
+  badge: { backgroundColor: BladeColors.success, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.sm },
+  badgeText: { color: "#FFF", fontSize: 10, fontWeight: "700" },
+  cardDate: { fontSize: Typography.sizes.sm, marginLeft: 26, marginBottom: Spacing.sm },
+  stats: { flexDirection: "row", alignItems: "center" },
+  stat: { flex: 1, alignItems: "center" },
+  statVal: { fontSize: Typography.sizes.lg, fontWeight: "700" },
+  statLbl: { fontSize: Typography.sizes.xs, marginTop: 2 },
+  divider: { width: 1, height: 30, backgroundColor: "rgba(128,128,128,0.2)" },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 100, paddingHorizontal: Spacing.xl },
+  emptyTitle: { fontSize: Typography.sizes.xl, fontWeight: "600", marginTop: Spacing.lg },
+  emptySub: { fontSize: Typography.sizes.md, textAlign: "center", marginTop: Spacing.sm },
+  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.1)" },
 });
