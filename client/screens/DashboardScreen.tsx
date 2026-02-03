@@ -397,7 +397,7 @@ export default function DashboardScreen() {
       >
         <Animated.View entering={FadeIn.duration(600)} style={styles.premiumHeader}>
           <LinearGradient
-            colors={['rgba(10, 77, 110, 0.15)', 'transparent']}
+            colors={['rgba(10, 158, 209, 0.15)', 'rgba(10, 77, 110, 0.1)', 'transparent']}
             style={styles.headerGradient}
           />
           <View style={styles.headerContent}>
@@ -514,7 +514,7 @@ export default function DashboardScreen() {
     >
       <Animated.View entering={FadeIn.duration(600)} style={styles.premiumHeader}>
         <LinearGradient
-          colors={['rgba(10, 77, 110, 0.15)', 'transparent']}
+          colors={['rgba(10, 158, 209, 0.15)', 'rgba(10, 77, 110, 0.1)', 'transparent']}
           style={styles.headerGradient}
         />
         <View style={styles.headerContent}>
@@ -1073,6 +1073,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     position: "relative",
+    backgroundColor: "#0D1B2A",
   },
   headerGradient: {
     position: "absolute",
