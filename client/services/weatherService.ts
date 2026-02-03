@@ -43,6 +43,22 @@ export interface WeatherAlert {
   tags: string[];
 }
 
+export interface AirQualityComponents {
+  co: number;
+  no: number;
+  no2: number;
+  o3: number;
+  so2: number;
+  pm2_5: number;
+  pm10: number;
+  nh3: number;
+}
+
+export interface AirQualityData {
+  aqi: number; // 1-5 scale: 1=Good, 2=Fair, 3=Moderate, 4=Poor, 5=Very Poor
+  components: AirQualityComponents;
+}
+
 export interface WeatherData {
   lat: number;
   lon: number;
@@ -50,6 +66,7 @@ export interface WeatherData {
   current: CurrentWeather;
   hourly: HourlyWeather[];
   alerts?: WeatherAlert[];
+  airQuality?: AirQualityData;
 }
 
 export interface WeatherResult {
@@ -121,7 +138,7 @@ export function getWeatherSeverity(alertEvent: string): 'warning' | 'watch' | 'a
   return 'info';
 }
 
-export function isMarineRelevant(weather: CurrentWeather): { relevant: boolean; reason?: string } {
+export function isMarineRelevant(weather: CurrentWeather, airQuality?: AirQualityData): { relevant: boolean; reason?: string } {
   const windSpeedKnots = getWindSpeedKnots(weather.wind_speed);
   const gustSpeedKnots = weather.wind_gust ? getWindSpeedKnots(weather.wind_gust) : 0;
   
@@ -135,12 +152,65 @@ export function isMarineRelevant(weather: CurrentWeather): { relevant: boolean; 
     return { relevant: true, reason: 'Low visibility' };
   }
   
+  // Dense air pollution warning - can affect visibility
+  if (airQuality && airQuality.aqi >= 4) {
+    return { relevant: true, reason: 'Poor air quality may reduce visibility' };
+  }
+  
   const conditionId = weather.weather[0]?.id;
   if (conditionId >= 200 && conditionId < 300) {
     return { relevant: true, reason: 'Thunderstorm activity' };
   }
   
   return { relevant: false };
+}
+
+export function getAqiLabel(aqi: number): { label: string; color: string; description: string } {
+  switch (aqi) {
+    case 1:
+      return { label: 'Good', color: '#8DC63F', description: 'Air quality is satisfactory' };
+    case 2:
+      return { label: 'Fair', color: '#FFCC00', description: 'Acceptable air quality' };
+    case 3:
+      return { label: 'Moderate', color: '#FF9900', description: 'May affect sensitive individuals' };
+    case 4:
+      return { label: 'Poor', color: '#FF6600', description: 'May reduce visibility, health effects possible' };
+    case 5:
+      return { label: 'Very Poor', color: '#CC0033', description: 'Reduced visibility likely, avoid outdoor activity' };
+    default:
+      return { label: 'Unknown', color: '#888888', description: 'Data unavailable' };
+  }
+}
+
+export async function fetchAirQuality(latitude: number, longitude: number): Promise<AirQualityData | null> {
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${latitude}&lon=${longitude}&appid=${weatherConfig.apiKey}`;
+    
+    console.log('[Weather] Fetching air quality data...');
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error('[Weather] Air quality API error:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.list && data.list.length > 0) {
+      const aqData = data.list[0];
+      console.log('[Weather] Air quality data received, AQI:', aqData.main.aqi);
+      return {
+        aqi: aqData.main.aqi,
+        components: aqData.components,
+      };
+    }
+    
+    return null;
+  } catch (error: any) {
+    console.error('[Weather] Air quality fetch error:', error);
+    return null;
+  }
 }
 
 export async function requestLocationPermission(): Promise<{ granted: boolean; error?: string }> {
@@ -179,20 +249,30 @@ export async function fetchWeather(latitude: number, longitude: number): Promise
     url.searchParams.append('units', 'metric');
     url.searchParams.append('exclude', 'minutely,daily');
     
-    console.log('[Weather] Fetching weather data...');
+    console.log('[Weather] Fetching weather and air quality data...');
     
-    const response = await fetch(url.toString());
+    // Fetch weather and air quality in parallel
+    const [weatherResponse, airQuality] = await Promise.all([
+      fetch(url.toString()),
+      fetchAirQuality(latitude, longitude),
+    ]);
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Weather] API error:', response.status, errorText);
+    if (!weatherResponse.ok) {
+      const errorText = await weatherResponse.text();
+      console.error('[Weather] API error:', weatherResponse.status, errorText);
       return { 
         success: false, 
-        error: `Weather API error: ${response.status}` 
+        error: `Weather API error: ${weatherResponse.status}` 
       };
     }
     
-    const data: WeatherData = await response.json();
+    const data: WeatherData = await weatherResponse.json();
+    
+    // Attach air quality data if available
+    if (airQuality) {
+      data.airQuality = airQuality;
+    }
+    
     console.log('[Weather] Data received successfully');
     
     return { success: true, data };
