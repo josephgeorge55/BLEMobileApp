@@ -195,80 +195,34 @@ export default function LocationScreen() {
     }
   };
 
-  if (!motor && registeredMotors.length === 0) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="No Motor Registered"
-          description="Register your Blade outboard in Settings to enable anti-theft GPS tracking."
-        />
-      </View>
-    );
-  }
-
-  if (isGuestMode) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="Sign In Required"
-          description="Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location."
-        />
-      </View>
-    );
-  }
-
-  if (isLoadingLocation && !currentLocation) {
-    return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
-        <ActivityIndicator size="large" color={BladeColors.marine} />
-        <ThemedText type="body" style={styles.loadingText}>
-          Fetching location from Firestore...
-        </ThemedText>
-      </View>
-    );
-  }
-
-  if (locationError && !currentLocation) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="No Location Data"
-          description={locationError}
-        />
-      </View>
-    );
-  }
-
-  if (!currentLocation) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="No Location Data"
-          description="Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity."
-        />
-      </View>
-    );
-  }
-
   const displayName = motor?.name || registeredMotors[0]?.name || "Blade Outboard";
   const displaySerial = serialNumber || "--";
 
+  // Determine what state we're in for overlay rendering
+  const showNoMotorState = !motor && registeredMotors.length === 0;
+  const showGuestState = isGuestMode && !showNoMotorState;
+  const showLoadingState = isLoadingLocation && !currentLocation;
+  const showErrorState = locationError && !currentLocation && !showLoadingState;
+  const showNoLocationState = !currentLocation && !showLoadingState && !showErrorState && !showNoMotorState && !showGuestState;
+  const showMap = currentLocation !== null;
+
+  // Default location for map background (Miami)
+  const defaultLocation = { latitude: 25.7617, longitude: -80.1918 };
+  const mapLocation = currentLocation || defaultLocation;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      {/* Always render map in background for smooth transitions */}
       <View style={styles.mapContainer}>
         <OpenStreetMap
           style={styles.map}
           initialRegion={{
-            latitude: currentLocation.latitude,
-            longitude: currentLocation.longitude,
+            latitude: mapLocation.latitude,
+            longitude: mapLocation.longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           }}
-          markers={[
+          markers={showMap ? [
             {
               coordinate: {
                 latitude: currentLocation.latitude,
@@ -278,22 +232,78 @@ export default function LocationScreen() {
               color: currentLocation.isLive ? BladeColors.success : BladeColors.marine,
               isLive: currentLocation.isLive,
             },
-          ]}
+          ] : []}
           showUserLocation
         />
       </View>
 
-      <View style={[styles.panelContainer, { paddingBottom: insets.bottom }]}>
-        <FindMyPanel
-          motorName={displayName}
-          serialNumber={displaySerial}
-          latitude={currentLocation.latitude}
-          longitude={currentLocation.longitude}
-          timestamp={currentLocation.timestamp}
-          isLive={currentLocation.isLive}
-          onFind={handleFind}
-        />
-      </View>
+      {/* Loading overlay */}
+      {showLoadingState ? (
+        <View style={styles.overlayContainer}>
+          <View style={styles.overlayContent}>
+            <ActivityIndicator size="large" color={BladeColors.marine} />
+            <ThemedText type="body" style={styles.loadingText}>
+              Fetching location...
+            </ThemedText>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Empty states overlay */}
+      {showNoMotorState ? (
+        <View style={styles.overlayContainer}>
+          <EmptyState
+            image={require("../../assets/images/empty-location.png")}
+            title="No Motor Registered"
+            description="Register your Blade outboard in Settings to enable anti-theft GPS tracking."
+          />
+        </View>
+      ) : null}
+
+      {showGuestState ? (
+        <View style={styles.overlayContainer}>
+          <EmptyState
+            image={require("../../assets/images/empty-location.png")}
+            title="Sign In Required"
+            description="Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location."
+          />
+        </View>
+      ) : null}
+
+      {showErrorState ? (
+        <View style={styles.overlayContainer}>
+          <EmptyState
+            image={require("../../assets/images/empty-location.png")}
+            title="No Location Data"
+            description={locationError || "Unable to fetch location"}
+          />
+        </View>
+      ) : null}
+
+      {showNoLocationState ? (
+        <View style={styles.overlayContainer}>
+          <EmptyState
+            image={require("../../assets/images/empty-location.png")}
+            title="No Location Data"
+            description="Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity."
+          />
+        </View>
+      ) : null}
+
+      {/* Panel - only show when we have location */}
+      {showMap ? (
+        <View style={[styles.panelContainer, { paddingBottom: insets.bottom }]}>
+          <FindMyPanel
+            motorName={displayName}
+            serialNumber={displaySerial}
+            latitude={currentLocation.latitude}
+            longitude={currentLocation.longitude}
+            timestamp={currentLocation.timestamp}
+            isLive={currentLocation.isLive}
+            onFind={handleFind}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -302,13 +312,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
   loadingText: {
     marginTop: Spacing.md,
-    color: "#596F7C",
+    color: "#FFFFFF",
   },
   mapContainer: {
     flex: 1,
@@ -321,5 +327,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+  },
+  overlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(20, 30, 45, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  overlayContent: {
+    backgroundColor: "rgba(30, 45, 65, 0.95)",
+    padding: Spacing.xl,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
