@@ -185,8 +185,9 @@ export default function DashboardScreen() {
         <body>
           <div class="header">
             <div class="logo">BLADE<sup style="font-size: 10px;">®</sup> HALO CONNECT</div>
-            <div class="subtitle">Status Report</div>
+            <div class="subtitle">Instantaneous Snapshot Report</div>
             <div class="date">${dateStr} at ${timeStr}</div>
+            <div style="font-size: 11px; color: #8FA3AD; margin-top: 8px;">Real-time readings captured for your reference</div>
           </div>
           
           <div class="section">
@@ -899,7 +900,7 @@ export default function DashboardScreen() {
             <>
               <Feather name="file-text" size={16} color={BladeColors.accent} />
               <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
-                Export PDF Report
+                Export Snapshot Report
               </ThemedText>
             </>
           )}
