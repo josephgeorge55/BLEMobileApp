@@ -41,9 +41,24 @@ The application comprises an Expo/React Native mobile client and an Express.js b
 ### Data Flow & Protocols
 - **Telemetry**: Real-time data reported at 2 Hz via Bluetooth Classic serial frames (GNSS, BMS, MOTOR, VESC, INFOR frame types).
 - **Firmware OTA**: Specific STM32 bootloader protocol commands for flashing firmware.
-- **Offline Support**: Trip data recorded locally and synced when connectivity is restored.
+- **Offline Support**: Trip data recorded locally using AsyncStorage (no server dependency).
 - **Anti-Theft Location**: Motors report GPS hourly via cellular for up to 30 days post-power-off.
 - **Firestore Integration**: Used for fetching latest GPS coordinates when not connected via Bluetooth, leveraging collection group queries.
+
+### Trip Recording System
+The trip system has been simplified to work on both web (demo mode) and native (real Bluetooth):
+
+**Key Features:**
+- **Demo Mode**: Trips work on web without real Bluetooth - uses "DEMO-MOTOR" as fallback serial
+- **Local Storage Only**: Trips stored in AsyncStorage at `@blade_local_trips` - no server sync required
+- **Telemetry Interval**: 10-second intervals for logging speed, energy, and location
+- **Duration Timer**: 1-second intervals for live duration display
+- **Wh Calculation**: Uses 48V battery voltage × current (from VESC or BMS)
+
+**Trip Requirements:**
+- Only requires user ID (guest mode works)
+- Motor connection NOT required for demo/testing purposes
+- When connected, prefers real serial from telemetry over Bluetooth MAC address
 
 ### Critical: Motor Serial Number Flow
 When connecting to a real motor via Bluetooth:
