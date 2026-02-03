@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Image, Pressable, Modal } from "react-native";
+import { StyleSheet, View, ScrollView, RefreshControl, Image, Pressable, Modal, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
@@ -27,7 +29,7 @@ interface LocationQueryData {
   isLive: boolean;
 }
 
-type InfoHelpKey = 'weather' | 'conditions' | 'speed' | 'battery' | 'power' | 'system' | 'bms' | 'motor' | 'vesc';
+type InfoHelpKey = 'weather' | 'conditions' | 'speed' | 'battery' | 'power' | 'throttle' | 'driveMode' | 'deviceInfo' | 'system' | 'bms' | 'motor' | 'vesc';
 
 const INFO_HELP: Record<InfoHelpKey, { title: string; description: string }> = {
   weather: {
@@ -40,15 +42,27 @@ const INFO_HELP: Record<InfoHelpKey, { title: string; description: string }> = {
   },
   speed: {
     title: "Speed",
-    description: "Current speed of your outboard in kilometers per hour (km/h). This reading comes directly from your motor's GPS or speed sensor for accurate real-time tracking."
+    description: "Current speed in kilometers per hour (km/h). Data comes from two sources: the motor's built-in GPS sensor (primary) and your phone's GPS (backup). The motor GPS provides more accurate readings when connected via Bluetooth."
   },
   battery: {
-    title: "Battery",
-    description: "State of charge (SoC) percentage showing how much battery capacity remains. Monitor this to plan your trip distance and ensure you have enough power to return safely."
+    title: "Battery Level",
+    description: "State of charge (SoC) percentage showing remaining battery capacity. This reading comes from the Battery Management System (BMS) which monitors individual cell voltages for accurate capacity estimation. Plan your trips based on this to ensure safe return."
   },
   power: {
-    title: "Power Consumption",
-    description: "Current power draw in watts (W) showing how much energy your motor is using. Lower throttle settings and efficient cruising reduce power consumption and extend range."
+    title: "Power Output",
+    description: "Current power consumption in kilowatts (kW). Calculated from battery voltage multiplied by current draw. Higher throttle and speed increase power usage. Monitor this to optimize efficiency and extend your range."
+  },
+  throttle: {
+    title: "Throttle Position",
+    description: "Current throttle input as a percentage (0-100%). This shows how much power you're requesting from the motor. Higher throttle means more power and faster battery drain. Efficient cruising typically uses 30-50% throttle."
+  },
+  driveMode: {
+    title: "Drive Mode",
+    description: "Current operating mode of your outboard. ECO mode limits power for extended range. NORMAL mode balances power and efficiency. SPORT mode provides maximum power for performance. Mode affects acceleration response and top speed."
+  },
+  deviceInfo: {
+    title: "Device Information",
+    description: "Connection status, firmware version, and runtime hours for your outboard. Firmware updates improve performance and add features. Runtime hours help track maintenance schedules for optimal motor care."
   },
   system: {
     title: "System Status",
@@ -77,6 +91,7 @@ export default function DashboardScreen() {
     useMotor();
   
   const [infoModal, setInfoModal] = useState<{ visible: boolean; key: InfoHelpKey | null }>({ visible: false, key: null });
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const showInfo = (key: InfoHelpKey) => setInfoModal({ visible: true, key });
   const hideInfo = () => setInfoModal({ visible: false, key: null });
@@ -114,6 +129,154 @@ export default function DashboardScreen() {
   const handleConnect = () => {
     startScan();
     navigation.navigate("BleScanner");
+  };
+
+  const generateStatusPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("en-AU", { 
+        year: "numeric", month: "long", day: "numeric" 
+      });
+      const timeStr = now.toLocaleTimeString("en-AU", { 
+        hour: "2-digit", minute: "2-digit" 
+      });
+
+      const speed = telemetry?.gnss?.speedKmh ?? 0;
+      const battery = telemetry?.bms?.stateOfCharge ?? 0;
+      const voltage = telemetry?.bms?.voltage ?? 48;
+      const current = telemetry?.vesc?.current ?? telemetry?.bms?.current ?? 0;
+      const powerKw = ((voltage * Math.abs(current)) / 1000).toFixed(2);
+      const throttle = telemetry?.motor?.throttle ?? 0;
+      const driveMode = telemetry?.motor?.mode ?? "NORMAL";
+      const firmware = motor?.firmwareVersion ?? "1.0.0";
+      const odometer = telemetry?.infor?.odometer ?? 0;
+      const motorTemp = telemetry?.motor?.temperature ?? 0;
+      const vescTemp = telemetry?.vesc?.mosfetTemp ?? 0;
+      const rpm = telemetry?.vesc?.rpm ?? 0;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D1B2A; color: #EBEFF3; padding: 40px; }
+            .header { text-align: center; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #0A4D6E; }
+            .logo { font-size: 28px; font-weight: 300; letter-spacing: 2px; color: #0A9ED1; margin-bottom: 8px; }
+            .subtitle { font-size: 12px; color: #596F7C; letter-spacing: 3px; text-transform: uppercase; }
+            .date { font-size: 14px; color: #8FA3AD; margin-top: 16px; }
+            .section { margin-bottom: 24px; }
+            .section-title { font-size: 12px; color: #596F7C; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; padding-left: 8px; border-left: 3px solid #0A9ED1; }
+            .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .card { background: #1A2633; border-radius: 12px; padding: 16px; }
+            .card-label { font-size: 11px; color: #596F7C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+            .card-value { font-size: 24px; font-weight: 600; color: #EBEFF3; }
+            .card-unit { font-size: 12px; color: #8FA3AD; margin-left: 4px; }
+            .full-width { grid-column: span 2; }
+            .status-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #2A3440; }
+            .status-label { color: #596F7C; font-size: 13px; }
+            .status-value { color: #EBEFF3; font-size: 13px; font-family: monospace; }
+            .footer { text-align: center; margin-top: 40px; padding-top: 24px; border-top: 1px solid #2A3440; }
+            .footer-text { font-size: 11px; color: #596F7C; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">BLADE<sup style="font-size: 10px;">®</sup> HALO CONNECT</div>
+            <div class="subtitle">Status Report</div>
+            <div class="date">${dateStr} at ${timeStr}</div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Performance</div>
+            <div class="grid">
+              <div class="card">
+                <div class="card-label">Speed</div>
+                <div class="card-value">${speed.toFixed(1)}<span class="card-unit">km/h</span></div>
+              </div>
+              <div class="card">
+                <div class="card-label">Battery</div>
+                <div class="card-value">${battery.toFixed(0)}<span class="card-unit">%</span></div>
+              </div>
+              <div class="card">
+                <div class="card-label">Power</div>
+                <div class="card-value">${powerKw}<span class="card-unit">kW</span></div>
+              </div>
+              <div class="card">
+                <div class="card-label">Throttle</div>
+                <div class="card-value">${throttle.toFixed(0)}<span class="card-unit">%</span></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">System Status</div>
+            <div class="card full-width">
+              <div class="status-row">
+                <span class="status-label">Drive Mode</span>
+                <span class="status-value">${driveMode}</span>
+              </div>
+              <div class="status-row">
+                <span class="status-label">Motor Temperature</span>
+                <span class="status-value">${motorTemp.toFixed(1)}°C</span>
+              </div>
+              <div class="status-row">
+                <span class="status-label">Controller Temperature</span>
+                <span class="status-value">${vescTemp.toFixed(1)}°C</span>
+              </div>
+              <div class="status-row">
+                <span class="status-label">Motor RPM</span>
+                <span class="status-value">${rpm.toFixed(0)}</span>
+              </div>
+              <div class="status-row">
+                <span class="status-label">Runtime</span>
+                <span class="status-value">${odometer.toFixed(1)} hrs</span>
+              </div>
+              <div class="status-row" style="border-bottom: none;">
+                <span class="status-label">Firmware</span>
+                <span class="status-value">v${firmware}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Device</div>
+            <div class="card full-width">
+              <div class="status-row">
+                <span class="status-label">Serial Number</span>
+                <span class="status-value">${motor?.serialNumber ?? '--'}</span>
+              </div>
+              <div class="status-row" style="border-bottom: none;">
+                <span class="status-label">Connection</span>
+                <span class="status-value">${isConnected ? 'Connected' : 'Disconnected'}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <div class="footer-text">Generated by Blade Outboards Halo Connect</div>
+            <div class="footer-text">bladeoutboards.com</div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Share Status Report',
+          UTI: 'com.adobe.pdf'
+        });
+      }
+    } catch (error) {
+      console.error('[Dashboard] PDF generation error:', error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   if (!motor) {
@@ -367,6 +530,15 @@ export default function DashboardScreen() {
         <Animated.View
           entering={FadeInUp.delay(100).duration(400).springify()}
         >
+          <View style={styles.sectionHeader}>
+            <Feather name="navigation-2" size={14} color={theme.textSecondary} />
+            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+              Speed
+            </ThemedText>
+            <Pressable onPress={() => showInfo('speed')} hitSlop={8}>
+              <Feather name="info" size={14} color={theme.textTertiary} />
+            </Pressable>
+          </View>
           <SpeedCard 
             motorSpeed={speed} 
             isConnected={isConnected} 
@@ -375,47 +547,73 @@ export default function DashboardScreen() {
 
         <Animated.View
           entering={FadeInUp.delay(150).duration(400).springify()}
-          style={styles.metricRow}
         >
-          <MetricCard
-            icon="battery-charging"
-            label="Battery"
-            value={Math.round(soc)}
-            unit="%"
-            iconColor={getBatteryColor()}
-            accentGlow={soc < 20}
-          />
-          <View style={{ width: Spacing.md }} />
-          <MetricCard
-            icon="zap"
-            label="Power"
-            value={power.toFixed(1)}
-            unit="kW"
-            trend={power > 0 ? "up" : "stable"}
-            iconColor={BladeColors.accent}
-          />
+          <View style={styles.sectionHeader}>
+            <Feather name="battery-charging" size={14} color={theme.textSecondary} />
+            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+              Battery & Power
+            </ThemedText>
+            <Pressable onPress={() => showInfo('battery')} hitSlop={8} style={{ marginRight: Spacing.sm }}>
+              <Feather name="info" size={14} color={theme.textTertiary} />
+            </Pressable>
+            <Pressable onPress={() => showInfo('power')} hitSlop={8}>
+              <Feather name="zap" size={14} color={theme.textTertiary} />
+            </Pressable>
+          </View>
+          <View style={styles.metricRow}>
+            <MetricCard
+              icon="battery-charging"
+              label="Battery"
+              value={Math.round(soc)}
+              unit="%"
+              iconColor={getBatteryColor()}
+              accentGlow={soc < 20}
+            />
+            <View style={{ width: Spacing.md }} />
+            <MetricCard
+              icon="zap"
+              label="Power"
+              value={power.toFixed(1)}
+              unit="kW"
+              trend={power > 0 ? "up" : "stable"}
+              iconColor={BladeColors.accent}
+            />
+          </View>
         </Animated.View>
 
         <Animated.View
           entering={FadeInUp.delay(200).duration(400).springify()}
-          style={styles.metricRow}
         >
-          <MetricCard
-            icon="percent"
-            label="Throttle"
-            value={vesc?.throttle ?? 0}
-            unit="%"
-            iconColor={BladeColors.marine}
-            accentGlow={(vesc?.throttle ?? 0) > 80}
-          />
-          <View style={{ width: Spacing.md }} />
-          <MetricCard
-            icon={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"}
-            label="Drive Mode"
-            value={driverMode || "--"}
-            iconColor={getDriverModeColor(driverMode)}
-            compact
-          />
+          <View style={styles.sectionHeader}>
+            <Feather name="sliders" size={14} color={theme.textSecondary} />
+            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+              Throttle & Mode
+            </ThemedText>
+            <Pressable onPress={() => showInfo('throttle')} hitSlop={8} style={{ marginRight: Spacing.sm }}>
+              <Feather name="info" size={14} color={theme.textTertiary} />
+            </Pressable>
+            <Pressable onPress={() => showInfo('driveMode')} hitSlop={8}>
+              <Feather name="disc" size={14} color={theme.textTertiary} />
+            </Pressable>
+          </View>
+          <View style={styles.metricRow}>
+            <MetricCard
+              icon="percent"
+              label="Throttle"
+              value={vesc?.throttle ?? 0}
+              unit="%"
+              iconColor={BladeColors.marine}
+              accentGlow={(vesc?.throttle ?? 0) > 80}
+            />
+            <View style={{ width: Spacing.md }} />
+            <MetricCard
+              icon={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"}
+              label="Drive Mode"
+              value={driverMode || "--"}
+              iconColor={getDriverModeColor(driverMode)}
+              compact
+            />
+          </View>
         </Animated.View>
       </View>
 
@@ -561,12 +759,15 @@ export default function DashboardScreen() {
         entering={FadeIn.delay(isConnected ? 600 : 300).duration(400)}
         style={styles.statusSection}
       >
-        <ThemedText
-          type="caption"
-          style={[styles.sectionLabel, { color: theme.textTertiary }]}
-        >
-          DEVICE INFO
-        </ThemedText>
+        <View style={styles.sectionHeader}>
+          <Feather name="info" size={14} color={theme.textSecondary} />
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+            Device Info
+          </ThemedText>
+          <Pressable onPress={() => showInfo('deviceInfo')} hitSlop={8}>
+            <Feather name="info" size={14} color={theme.textTertiary} />
+          </Pressable>
+        </View>
         <View
           style={[
             styles.statusCard,
@@ -681,6 +882,28 @@ export default function DashboardScreen() {
             </ThemedText>
           </View>
         </View>
+      </Animated.View>
+
+      <Animated.View
+        entering={FadeIn.delay(isConnected ? 700 : 400).duration(400)}
+        style={styles.pdfButtonContainer}
+      >
+        <Pressable
+          style={[styles.pdfButton, { backgroundColor: theme.surfaceElevated }]}
+          onPress={generateStatusPdf}
+          disabled={isGeneratingPdf}
+        >
+          {isGeneratingPdf ? (
+            <ActivityIndicator size="small" color={BladeColors.accent} />
+          ) : (
+            <>
+              <Feather name="file-text" size={16} color={BladeColors.accent} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                Export PDF Report
+              </ThemedText>
+            </>
+          )}
+        </Pressable>
       </Animated.View>
 
       <Modal
@@ -821,6 +1044,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
     alignItems: "center",
+  },
+  pdfButtonContainer: {
+    marginTop: Spacing.lg,
+    alignItems: "center",
+  },
+  pdfButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
   },
   headerAccentLine: {
     height: 2,
