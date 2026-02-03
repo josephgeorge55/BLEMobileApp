@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -329,6 +329,35 @@ export default function TripsScreen() {
     isRecording, 
     canStartTrip 
   });
+
+  // Log Start Trip button availability every 5 seconds to debug console
+  const logIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  useEffect(() => {
+    // Start 5-second logging interval
+    logIntervalRef.current = setInterval(() => {
+      const reasons: string[] = [];
+      if (!user?.id) reasons.push("User not signed in");
+      if (!motor?.isConnected) reasons.push("Motor not connected");
+      if (!effectiveSerial) reasons.push("No serial number available");
+      if (isRecording) reasons.push("Already recording");
+      
+      const status = canStartTrip ? "ENABLED" : "DISABLED";
+      const reasonStr = reasons.length > 0 ? reasons.join(", ") : "All requirements met";
+      
+      addDebugLog("INFO", `[Trips] Start Trip button: ${status} - ${reasonStr}`);
+      console.log(`[TripsScreen] === 5s CHECK === Start Trip button: ${status}`);
+      console.log(`[TripsScreen] Reason: ${reasonStr}`);
+      console.log(`[TripsScreen] State: userId=${user?.id || 'NONE'}, motorConnected=${motor?.isConnected}, serial=${effectiveSerial || 'NONE'}, isRecording=${isRecording}`);
+    }, 5000);
+    
+    return () => {
+      if (logIntervalRef.current) {
+        clearInterval(logIntervalRef.current);
+        logIntervalRef.current = null;
+      }
+    };
+  }, [user?.id, motor?.isConnected, effectiveSerial, isRecording, canStartTrip, addDebugLog]);
 
   const renderHeader = () => (
     <View style={styles.headerSection}>

@@ -10,7 +10,7 @@ import type { Trip, TripDataPoint } from "@shared/schema";
 const ACTIVE_TRIP_KEY = "@blade_active_trip";
 const PENDING_DATA_KEY = "@blade_pending_trip_data";
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
-const TRIP_INTERVAL_MS = 5000; // Log telemetry every 5 seconds
+const TRIP_INTERVAL_MS = 10000; // Log telemetry every 10 seconds
 
 interface TripContextType {
   activeTrip: Trip | null;
@@ -197,14 +197,33 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     if (activeTrip && isRecording && motor?.isConnected) {
       // Only start the data recording interval, timer is already running
       if (!recordingRef.current) {
+        console.log("[TripContext] Starting telemetry recording interval (10s)");
+        console.log(`[TripContext] Recording trip: ${activeTrip.id}`);
+        console.log(`[TripContext] Motor: ${activeTrip.motorSerialNumber}`);
+        console.log(`[TripContext] Storage: Local AsyncStorage`);
+        
         recordingRef.current = setInterval(async () => {
-          if (!activeTrip || !telemetry) return;
+          if (!activeTrip || !telemetry) {
+            console.log("[TripContext] Skipping record: no activeTrip or telemetry");
+            return;
+          }
 
           const latitude = telemetry.gnss?.latitude || location?.latitude;
           const longitude = telemetry.gnss?.longitude || location?.longitude;
           const speedKmh = telemetry.gnss?.speed || 0;
-          const powerKw = (telemetry.vesc?.wattage || 0) / 1000;
-          const energyWhThisInterval = powerKw * (TRIP_INTERVAL_MS / 3600000) * 1000;
+          
+          // Calculate Wh from 48V battery: Power(W) = Voltage(V) * Current(A)
+          // Using VESC current if available, otherwise BMS current
+          const batteryVoltage = telemetry.bms?.voltage || 48;
+          const current = telemetry.vesc?.current || telemetry.bms?.current || 0;
+          const powerW = batteryVoltage * Math.abs(current);
+          const energyWhThisInterval = (powerW * (TRIP_INTERVAL_MS / 3600000));
+          
+          console.log(`[TripContext] === TELEMETRY LOG (${TRIP_INTERVAL_MS/1000}s interval) ===`);
+          console.log(`[TripContext] Speed: ${speedKmh.toFixed(1)} km/h`);
+          console.log(`[TripContext] Power: ${powerW.toFixed(0)}W (${batteryVoltage.toFixed(1)}V x ${Math.abs(current).toFixed(1)}A)`);
+          console.log(`[TripContext] Energy this interval: ${energyWhThisInterval.toFixed(2)} Wh`);
+          console.log(`[TripContext] Location: ${latitude?.toFixed(6) || 'N/A'}, ${longitude?.toFixed(6) || 'N/A'}`);
 
           if (latitude && longitude && lastPositionRef.current) {
             const distanceKm = calculateDistance(
@@ -213,6 +232,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
               latitude,
               longitude
             );
+            console.log(`[TripContext] Distance this interval: ${(distanceKm * 1000).toFixed(0)}m`);
             setTripStats(prev => ({
               ...prev,
               totalDistanceKm: prev.totalDistanceKm + distanceKm,
@@ -254,6 +274,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           };
 
           await storeDataPointLocally(activeTrip.id, dataPoint);
+          console.log(`[TripContext] Data point stored locally for trip ${activeTrip.id}`);
 
           const netState = await NetInfo.fetch();
           if (netState.isConnected) {
@@ -262,6 +283,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }, TRIP_INTERVAL_MS);
       }
     } else if (recordingRef.current) {
+      console.log("[TripContext] Stopping telemetry recording interval");
       clearInterval(recordingRef.current);
       recordingRef.current = null;
     }

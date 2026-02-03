@@ -244,49 +244,39 @@ export default function SettingsScreen() {
         </SettingsSection>
       ) : null}
 
-      {user && !isGuestMode ? (() => {
-        const currentSerial = telemetry?.tillerSerialNumber || motor?.serialNumber;
-        const otherRegisteredMotors = registeredMotors.filter(
-          rm => rm.serialNumber !== currentSerial
-        );
-        
-        if (loadingMotors) {
-          return (
-            <SettingsSection title="Other Registered Outboards">
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={theme.primary} />
-                <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
-                  Loading...
-                </ThemedText>
-              </View>
-            </SettingsSection>
-          );
-        }
-        
-        if (otherRegisteredMotors.length > 0) {
-          return (
-            <SettingsSection title="Other Registered Outboards">
-              {otherRegisteredMotors.map((registeredMotor, index) => (
-                <SettingsRow
-                  key={`${registeredMotor.serialNumber}-${index}`}
-                  icon="lock"
-                  title={registeredMotor.name || registeredMotor.serialNumber}
-                  subtitle={registeredMotor.name ? `S/N: ${registeredMotor.serialNumber}` : "Protected"}
-                  onPress={() => {
-                    Alert.alert(
-                      "Connect to Manage",
-                      "Connect to this outboard via Bluetooth to manage its anti-theft settings."
-                    );
-                  }}
-                  iconColor={BladeColors.success}
-                />
-              ))}
-            </SettingsSection>
-          );
-        }
-        
-        return null;
-      })() : null}
+      {user && !isGuestMode ? (
+        <SettingsSection title="Registered Outboards">
+          {loadingMotors ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+                Loading...
+              </ThemedText>
+            </View>
+          ) : registeredMotors.length > 0 ? (
+            registeredMotors.map((registeredMotor, index) => (
+              <SettingsRow
+                key={`${registeredMotor.serialNumber}-${index}`}
+                icon="lock"
+                title={registeredMotor.name || registeredMotor.serialNumber}
+                subtitle={registeredMotor.name ? `S/N: ${registeredMotor.serialNumber}` : "Protected"}
+                onPress={() => handleRemoveMotor(registeredMotor.serialNumber)}
+                iconColor={BladeColors.success}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyRegisteredContainer}>
+              <Feather name="shield-off" size={32} color={theme.textTertiary} />
+              <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: Spacing.sm, textAlign: 'center' }}>
+                No outboards registered for anti-theft protection
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textTertiary, marginTop: Spacing.xs, textAlign: 'center' }}>
+                Connect an outboard via Bluetooth to enable protection
+              </ThemedText>
+            </View>
+          )}
+        </SettingsSection>
+      ) : null}
 
       {motor?.isConnected ? (
         <SettingsSection title="Connected Outboard">
@@ -332,7 +322,14 @@ export default function SettingsScreen() {
                       Protected
                     </ThemedText>
                   </View>
-                ) : null}
+                ) : (
+                  <View style={[styles.badge, { backgroundColor: BladeColors.warning + "20" }]}>
+                    <Feather name="shield-off" size={10} color={BladeColors.warning} />
+                    <ThemedText type="caption" style={{ color: BladeColors.warning, marginLeft: 3 }}>
+                      Unprotected
+                    </ThemedText>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -598,7 +595,8 @@ const styles = StyleSheet.create({
   },
   motorBadges: {
     flexDirection: "row",
-    gap: Spacing.sm,
+    flexWrap: "wrap",
+    gap: Spacing.xs,
     marginTop: Spacing.sm,
   },
   badge: {

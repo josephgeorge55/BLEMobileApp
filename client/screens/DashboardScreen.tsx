@@ -109,7 +109,15 @@ export default function DashboardScreen() {
             Marine Weather
           </ThemedText>
         </View>
-        <WeatherCard />
+        <WeatherCard variant="weather" />
+        
+        <View style={styles.sectionHeader}>
+          <Feather name="navigation" size={14} color={theme.textSecondary} />
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+            Conditions at Sea Level
+          </ThemedText>
+        </View>
+        <WeatherCard variant="conditions" />
         
         <EmptyState
           image={require("../../assets/images/halo-outboard.png")}
@@ -270,7 +278,17 @@ export default function DashboardScreen() {
             Marine Weather
           </ThemedText>
         </View>
-        <WeatherCard />
+        <WeatherCard variant="weather" />
+      </Animated.View>
+      
+      <Animated.View entering={FadeInUp.delay(75).duration(400).springify()}>
+        <View style={styles.sectionHeader}>
+          <Feather name="navigation" size={14} color={theme.textSecondary} />
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+            Conditions at Sea Level
+          </ThemedText>
+        </View>
+        <WeatherCard variant="conditions" />
       </Animated.View>
 
       <View style={styles.metricsGrid}>

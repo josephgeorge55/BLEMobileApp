@@ -25,9 +25,10 @@ import {
 
 interface WeatherCardProps {
   onRefresh?: () => void;
+  variant?: 'full' | 'weather' | 'conditions';
 }
 
-export function WeatherCard({ onRefresh }: WeatherCardProps) {
+export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
   const { theme } = useTheme();
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -183,6 +184,74 @@ export function WeatherCard({ onRefresh }: WeatherCardProps) {
         </View>
       ) : null}
 
+      {/* Conditions-only card for sea level conditions */}
+      {variant === 'conditions' ? (
+        <View style={[styles.container, { backgroundColor: theme.surfaceElevated }]}>
+          <View style={styles.conditionsSection}>
+            <ThemedText type="caption" style={{ color: theme.textTertiary, marginBottom: Spacing.sm }}>
+              Conditions at Sea Level
+            </ThemedText>
+            <View style={styles.conditionsRow}>
+              {/* Wind */}
+              <View style={styles.conditionItem}>
+                <View style={[styles.conditionIcon, { backgroundColor: theme.primary + '15' }]}>
+                  <Feather name="wind" size={18} color={theme.primary} />
+                </View>
+                <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Wind</ThemedText>
+                <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                  {windKnots} kts
+                </ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>{windDir}</ThemedText>
+              </View>
+              
+              {/* Visibility */}
+              <View style={styles.conditionItem}>
+                <View style={[styles.conditionIcon, { backgroundColor: BladeColors.marine + '15' }]}>
+                  <Feather name="eye" size={18} color={BladeColors.marine} />
+                </View>
+                <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Visibility</ThemedText>
+                <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                  {(current.visibility / 1000).toFixed(1)} km
+                </ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  {current.visibility >= 10000 ? 'Clear' : current.visibility >= 5000 ? 'Good' : current.visibility >= 2000 ? 'Moderate' : 'Poor'}
+                </ThemedText>
+              </View>
+              
+              {/* Air Quality */}
+              <View style={styles.conditionItem}>
+                <View style={[styles.conditionIcon, { backgroundColor: (aqiInfo?.color || theme.textTertiary) + '15' }]}>
+                  <Feather name="cloud" size={18} color={aqiInfo?.color || theme.textTertiary} />
+                </View>
+                <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Air Quality</ThemedText>
+                {aqiInfo ? (
+                  <>
+                    <ThemedText type="body" style={{ color: aqiInfo.color, fontWeight: '600' }}>
+                      {aqiInfo.label}
+                    </ThemedText>
+                    <ThemedText type="small" style={{ color: theme.textSecondary }}>AQI {airQuality?.aqi}</ThemedText>
+                  </>
+                ) : (
+                  <ThemedText type="body" style={{ color: theme.textSecondary }}>N/A</ThemedText>
+                )}
+              </View>
+            </View>
+            
+            {/* Air quality warning for poor conditions */}
+            {aqiInfo && airQuality && airQuality.aqi >= 3 ? (
+              <View style={[styles.aqiWarning, { backgroundColor: aqiInfo.color + '15', borderColor: aqiInfo.color + '40' }]}>
+                <Feather name="alert-circle" size={12} color={aqiInfo.color} />
+                <ThemedText type="small" style={{ color: aqiInfo.color, marginLeft: Spacing.xs, flex: 1 }}>
+                  {airQuality.aqi >= 4 ? 'Dense air pollution may reduce visibility' : aqiInfo.description}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
+      {/* Main weather card */}
+      {variant === 'full' || variant === 'weather' ? (
       <View style={[styles.container, { backgroundColor: theme.surfaceElevated }]}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -238,69 +307,73 @@ export function WeatherCard({ onRefresh }: WeatherCardProps) {
           </View>
         </View>
 
-        {/* Air Quality & Conditions Section */}
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
-        
-        <View style={styles.conditionsSection}>
-          <ThemedText type="caption" style={{ color: theme.textTertiary, marginBottom: Spacing.sm }}>
-            Conditions at Sea Level
-          </ThemedText>
-          <View style={styles.conditionsRow}>
-            {/* Wind */}
-            <View style={styles.conditionItem}>
-              <View style={[styles.conditionIcon, { backgroundColor: theme.primary + '15' }]}>
-                <Feather name="wind" size={18} color={theme.primary} />
-              </View>
-              <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Wind</ThemedText>
-              <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
-                {windKnots} kts
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>{windDir}</ThemedText>
-            </View>
+        {/* Air Quality & Conditions Section - only show in 'full' variant */}
+        {variant === 'full' ? (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
             
-            {/* Visibility */}
-            <View style={styles.conditionItem}>
-              <View style={[styles.conditionIcon, { backgroundColor: BladeColors.marine + '15' }]}>
-                <Feather name="eye" size={18} color={BladeColors.marine} />
-              </View>
-              <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Visibility</ThemedText>
-              <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
-                {(current.visibility / 1000).toFixed(1)} km
+            <View style={styles.conditionsSection}>
+              <ThemedText type="caption" style={{ color: theme.textTertiary, marginBottom: Spacing.sm }}>
+                Conditions at Sea Level
               </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {current.visibility >= 10000 ? 'Clear' : current.visibility >= 5000 ? 'Good' : current.visibility >= 2000 ? 'Moderate' : 'Poor'}
-              </ThemedText>
-            </View>
-            
-            {/* Air Quality */}
-            <View style={styles.conditionItem}>
-              <View style={[styles.conditionIcon, { backgroundColor: (aqiInfo?.color || theme.textTertiary) + '15' }]}>
-                <Feather name="cloud" size={18} color={aqiInfo?.color || theme.textTertiary} />
-              </View>
-              <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Air Quality</ThemedText>
-              {aqiInfo ? (
-                <>
-                  <ThemedText type="body" style={{ color: aqiInfo.color, fontWeight: '600' }}>
-                    {aqiInfo.label}
+              <View style={styles.conditionsRow}>
+                {/* Wind */}
+                <View style={styles.conditionItem}>
+                  <View style={[styles.conditionIcon, { backgroundColor: theme.primary + '15' }]}>
+                    <Feather name="wind" size={18} color={theme.primary} />
+                  </View>
+                  <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Wind</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                    {windKnots} kts
                   </ThemedText>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>AQI {airQuality?.aqi}</ThemedText>
-                </>
-              ) : (
-                <ThemedText type="body" style={{ color: theme.textSecondary }}>N/A</ThemedText>
-              )}
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>{windDir}</ThemedText>
+                </View>
+                
+                {/* Visibility */}
+                <View style={styles.conditionItem}>
+                  <View style={[styles.conditionIcon, { backgroundColor: BladeColors.marine + '15' }]}>
+                    <Feather name="eye" size={18} color={BladeColors.marine} />
+                  </View>
+                  <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Visibility</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                    {(current.visibility / 1000).toFixed(1)} km
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    {current.visibility >= 10000 ? 'Clear' : current.visibility >= 5000 ? 'Good' : current.visibility >= 2000 ? 'Moderate' : 'Poor'}
+                  </ThemedText>
+                </View>
+                
+                {/* Air Quality */}
+                <View style={styles.conditionItem}>
+                  <View style={[styles.conditionIcon, { backgroundColor: (aqiInfo?.color || theme.textTertiary) + '15' }]}>
+                    <Feather name="cloud" size={18} color={aqiInfo?.color || theme.textTertiary} />
+                  </View>
+                  <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Air Quality</ThemedText>
+                  {aqiInfo ? (
+                    <>
+                      <ThemedText type="body" style={{ color: aqiInfo.color, fontWeight: '600' }}>
+                        {aqiInfo.label}
+                      </ThemedText>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>AQI {airQuality?.aqi}</ThemedText>
+                    </>
+                  ) : (
+                    <ThemedText type="body" style={{ color: theme.textSecondary }}>N/A</ThemedText>
+                  )}
+                </View>
+              </View>
+              
+              {/* Air quality warning for poor conditions */}
+              {aqiInfo && airQuality && airQuality.aqi >= 3 ? (
+                <View style={[styles.aqiWarning, { backgroundColor: aqiInfo.color + '15', borderColor: aqiInfo.color + '40' }]}>
+                  <Feather name="alert-circle" size={12} color={aqiInfo.color} />
+                  <ThemedText type="small" style={{ color: aqiInfo.color, marginLeft: Spacing.xs, flex: 1 }}>
+                    {airQuality.aqi >= 4 ? 'Dense air pollution may reduce visibility' : aqiInfo.description}
+                  </ThemedText>
+                </View>
+              ) : null}
             </View>
-          </View>
-          
-          {/* Air quality warning for poor conditions */}
-          {aqiInfo && airQuality && airQuality.aqi >= 3 ? (
-            <View style={[styles.aqiWarning, { backgroundColor: aqiInfo.color + '15', borderColor: aqiInfo.color + '40' }]}>
-              <Feather name="alert-circle" size={12} color={aqiInfo.color} />
-              <ThemedText type="small" style={{ color: aqiInfo.color, marginLeft: Spacing.xs, flex: 1 }}>
-                {airQuality.aqi >= 4 ? 'Dense air pollution may reduce visibility' : aqiInfo.description}
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
+          </>
+        ) : null}
 
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
@@ -322,6 +395,7 @@ export function WeatherCard({ onRefresh }: WeatherCardProps) {
           </ThemedText>
         </View>
       </View>
+      ) : null}
     </Animated.View>
   );
 }
