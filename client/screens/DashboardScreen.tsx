@@ -14,6 +14,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { SpeedCard } from "@/components/SpeedCard";
 import { EmptyState } from "@/components/EmptyState";
 import { DebugLogModal } from "@/components/DebugLogModal";
+import { WeatherCard } from "@/components/WeatherCard";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
@@ -74,34 +75,41 @@ export default function DashboardScreen() {
 
   if (!motor) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <View
-          style={[
-            styles.emptyContainer,
-            {
-              paddingTop: headerHeight + Spacing.xl,
-              paddingBottom: tabBarHeight + Spacing.xl,
-            },
-          ]}
-        >
-          <View style={styles.logoHeader}>
-            <View style={styles.logoContainer}>
-              <Image 
-                source={require("../../assets/images/blade-logo-white.png")} 
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </View>
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.xl,
+          paddingBottom: tabBarHeight + Spacing.xl,
+          paddingHorizontal: Spacing.screenPadding,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.logoHeader}>
+          <View style={styles.logoContainer}>
+            <Image 
+              source={require("../../assets/images/blade-logo-white.png")} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
-          <EmptyState
-            image={require("../../assets/images/halo-outboard.png")}
-            title="Connect Your Outboard"
-            description="Tap the Bluetooth button to scan for nearby Blade outboards and view real-time telemetry."
-            actionLabel="Scan for Motors"
-            onAction={handleConnect}
-          />
         </View>
-      </View>
+        
+        <View style={styles.sectionHeader}>
+          <Feather name="cloud" size={14} color={theme.textSecondary} />
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+            Marine Weather
+          </ThemedText>
+        </View>
+        <WeatherCard />
+        
+        <EmptyState
+          image={require("../../assets/images/halo-outboard.png")}
+          title="Connect Your Outboard"
+          description="Tap the Bluetooth button to scan for nearby Blade outboards and view real-time telemetry."
+          actionLabel="Scan for Motors"
+          onAction={handleConnect}
+        />
+      </ScrollView>
     );
   }
 
@@ -243,6 +251,16 @@ export default function DashboardScreen() {
           </View>
         </Animated.View>
       ) : null}
+
+      <Animated.View entering={FadeInUp.delay(50).duration(400).springify()}>
+        <View style={styles.sectionHeader}>
+          <Feather name="cloud" size={14} color={theme.textSecondary} />
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+            Marine Weather
+          </ThemedText>
+        </View>
+        <WeatherCard />
+      </Animated.View>
 
       <View style={styles.metricsGrid}>
         <Animated.View
@@ -737,5 +755,11 @@ const styles = StyleSheet.create({
   connectedMetaText: {
     color: "#596F7C",
     fontSize: 11,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
   },
 });
