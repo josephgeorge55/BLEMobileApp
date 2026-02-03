@@ -84,16 +84,6 @@ export default function DashboardScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoHeader}>
-          <View style={styles.logoContainer}>
-            <Image 
-              source={require("../../assets/images/blade-logo-white.png")} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
-        
         <View style={styles.sectionHeader}>
           <Feather name="cloud" size={14} color={theme.textSecondary} />
           <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
@@ -169,16 +159,6 @@ export default function DashboardScreen() {
         />
       }
     >
-      <View style={styles.logoHeader}>
-        <View style={styles.logoContainer}>
-          <Image 
-            source={require("../../assets/images/blade-logo-white.png")} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-      </View>
-
       {isConnected ? (
         <Animated.View
           entering={FadeInUp.duration(400).springify()}
