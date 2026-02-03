@@ -13,6 +13,7 @@ import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { ThemedText } from "@/components/ThemedText";
 import { SettingsRow, SettingsSection } from "@/components/SettingsRow";
 import { FirmwareUpdateModal } from "@/components/FirmwareUpdateModal";
+import { DebugLogModal } from "@/components/DebugLogModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useSettings } from "@/context/SettingsContext";
@@ -36,7 +37,7 @@ export default function SettingsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
-  const { motor, telemetry, disconnectMotor, startScan } = useMotor();
+  const { motor, telemetry, disconnectMotor, startScan, debugLogs } = useMotor();
   const { user, logout } = useUser();
   const {
     anonymousDataSharing,
@@ -50,6 +51,7 @@ export default function SettingsScreen() {
   const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
   const [loadingMotors, setLoadingMotors] = useState(false);
   const [isLinkingMotor, setIsLinkingMotor] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
   const { isGuestMode } = useUser();
 
   // Check if currently connected motor is registered
@@ -445,6 +447,16 @@ export default function SettingsScreen() {
         />
       </SettingsSection>
 
+      <SettingsSection title="Developer">
+        <SettingsRow
+          icon="terminal"
+          title="Debug Log"
+          subtitle={`${debugLogs.length} entries`}
+          onPress={() => setShowDebugModal(true)}
+          iconColor={BladeColors.marine}
+        />
+      </SettingsSection>
+
       <SettingsSection title="Legal">
         <SettingsRow
           icon="shield"
@@ -535,6 +547,10 @@ export default function SettingsScreen() {
       onClose={() => setFirmwareModalVisible(false)}
     />
 
+    <DebugLogModal
+      visible={showDebugModal}
+      onClose={() => setShowDebugModal(false)}
+    />
         </>
   );
 }

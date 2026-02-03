@@ -1,5 +1,5 @@
-import React, { useEffect, useCallback, useState } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Pressable, Image } from "react-native";
+import React, { useEffect, useCallback } from "react";
+import { StyleSheet, View, ScrollView, RefreshControl, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
@@ -7,12 +7,12 @@ import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
 import { SpeedCard } from "@/components/SpeedCard";
 import { EmptyState } from "@/components/EmptyState";
-import { DebugLogModal } from "@/components/DebugLogModal";
 import { WeatherCard } from "@/components/WeatherCard";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
@@ -32,10 +32,9 @@ export default function DashboardScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
-  const { motor, telemetry, isConnecting, startScan, setLocation, debugLogs } =
+  const { motor, telemetry, isConnecting, startScan, setLocation } =
     useMotor();
 
-  const [showDebugModal, setShowDebugModal] = useState(false);
   const isConnected = motor?.isConnected ?? false;
   const serialNumber = motor?.serialNumber;
 
@@ -82,15 +81,30 @@ export default function DashboardScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoHeader}>
-          <View style={styles.logoContainer}>
+        <Animated.View entering={FadeIn.duration(600)} style={styles.premiumHeader}>
+          <LinearGradient
+            colors={['rgba(10, 77, 110, 0.15)', 'transparent']}
+            style={styles.headerGradient}
+          />
+          <View style={styles.headerContent}>
             <Image 
-              source={require("../../assets/images/blade-logo-white.png")} 
-              style={styles.logo}
+              source={require("../../assets/images/blade-outboards-logo.png")} 
+              style={styles.brandLogo}
               resizeMode="contain"
             />
+            <View style={styles.headerDivider} />
+            <View style={styles.headerTitleContainer}>
+              <View style={styles.headerTitleRow}>
+                <ThemedText type="h3" style={styles.headerTitle}>Halo Connect</ThemedText>
+                <View style={styles.registeredMark}>
+                  <ThemedText type="small" style={styles.registeredText}>R</ThemedText>
+                </View>
+              </View>
+              <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
+            </View>
           </View>
-        </View>
+          <View style={styles.headerAccentLine} />
+        </Animated.View>
         
         <View style={styles.sectionHeader}>
           <Feather name="cloud" size={14} color={theme.textSecondary} />
@@ -167,15 +181,30 @@ export default function DashboardScreen() {
         />
       }
     >
-      <View style={styles.logoHeader}>
-        <View style={styles.logoContainer}>
+      <Animated.View entering={FadeIn.duration(600)} style={styles.premiumHeader}>
+        <LinearGradient
+          colors={['rgba(10, 77, 110, 0.15)', 'transparent']}
+          style={styles.headerGradient}
+        />
+        <View style={styles.headerContent}>
           <Image 
-            source={require("../../assets/images/blade-logo-white.png")} 
-            style={styles.logo}
+            source={require("../../assets/images/blade-outboards-logo.png")} 
+            style={styles.brandLogo}
             resizeMode="contain"
           />
+          <View style={styles.headerDivider} />
+          <View style={styles.headerTitleContainer}>
+            <View style={styles.headerTitleRow}>
+              <ThemedText type="h3" style={styles.headerTitle}>Halo Connect</ThemedText>
+              <View style={styles.registeredMark}>
+                <ThemedText type="small" style={styles.registeredText}>R</ThemedText>
+              </View>
+            </View>
+            <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
+          </View>
         </View>
-      </View>
+        <View style={styles.headerAccentLine} />
+      </Animated.View>
 
       {isConnected ? (
         <Animated.View
@@ -220,16 +249,6 @@ export default function DashboardScreen() {
           </View>
         </Animated.View>
       ) : null}
-
-      <Pressable
-        onPress={() => setShowDebugModal(true)}
-        style={[styles.debugButton, { backgroundColor: theme.surface }]}
-      >
-        <Feather name="terminal" size={14} color={theme.textSecondary} />
-        <ThemedText type="caption" style={{ marginLeft: Spacing.xs, color: theme.textSecondary }}>
-          Debug Log ({debugLogs.length})
-        </ThemedText>
-      </Pressable>
 
       {errorCode ? (
         <Animated.View
@@ -580,11 +599,6 @@ export default function DashboardScreen() {
         </View>
       </Animated.View>
     </ScrollView>
-    
-    <DebugLogModal 
-      visible={showDebugModal} 
-      onClose={() => setShowDebugModal(false)} 
-    />
   </>
   );
 }
@@ -599,22 +613,76 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.screenPadding,
   },
-  logoHeader: {
-    alignItems: "center",
-    justifyContent: "center",
+  premiumHeader: {
     marginBottom: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    position: "relative",
   },
-  logoContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#181F27",
+  headerGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+  },
+  brandLogo: {
+    width: 120,
+    height: 40,
+  },
+  headerDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: BladeColors.accent,
+    opacity: 0.4,
+    marginHorizontal: Spacing.md,
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  registeredMark: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: BladeColors.accent,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 4,
+    marginTop: -6,
   },
-  logo: {
-    width: 32,
-    height: 32,
+  registeredText: {
+    fontSize: 7,
+    color: BladeColors.accent,
+    fontWeight: "700",
+  },
+  headerSubtitle: {
+    color: "#596F7C",
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginTop: 2,
+  },
+  headerAccentLine: {
+    height: 2,
+    backgroundColor: BladeColors.accent,
+    opacity: 0.6,
   },
   metricsGrid: {
     gap: Spacing.md,
@@ -670,15 +738,6 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginVertical: Spacing.xs,
-  },
-  debugButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.md,
   },
   errorBanner: {
     borderRadius: BorderRadius.md,
