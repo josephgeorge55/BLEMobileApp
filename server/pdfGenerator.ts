@@ -102,20 +102,48 @@ function formatCoord(c: { latitude: number; longitude: number } | null | undefin
   return `${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`;
 }
 
+function drawWeatherIcon(doc: PDFKit.PDFDocument, x: number, y: number, size: number, condition: string) {
+  doc.save();
+  const c = condition.toLowerCase();
+  
+  if (c.includes('clear') || c.includes('sun')) {
+    // Sun
+    doc.fillColor('#FDB813').circle(x + size/2, y + size/2, size/3).fill();
+    doc.strokeColor('#FDB813').lineWidth(1.5);
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * Math.PI) / 4;
+      const x1 = x + size/2 + Math.cos(angle) * (size/3 + 2);
+      const y1 = y + size/2 + Math.sin(angle) * (size/3 + 2);
+      const x2 = x + size/2 + Math.cos(angle) * (size/2);
+      const y2 = y + size/2 + Math.sin(angle) * (size/2);
+      doc.moveTo(x1, y1).lineTo(x2, y2).stroke();
+    }
+  } else if (c.includes('rain')) {
+    // Cloud with rain
+    doc.fillColor('#A4A4A4').circle(x + size*0.3, y + size*0.6, size*0.25).fill();
+    doc.circle(x + size*0.5, y + size*0.4, size*0.3).fill();
+    doc.circle(x + size*0.7, y + size*0.6, size*0.25).fill();
+    doc.rect(x + size*0.3, y + size*0.5, size*0.4, size*0.25).fill();
+    
+    doc.strokeColor('#3498DB').lineWidth(1);
+    for (let i = 0; i < 3; i++) {
+      const rx = x + size*0.4 + i*size*0.1;
+      doc.moveTo(rx, y + size*0.75).lineTo(rx - 2, y + size*0.9).stroke();
+    }
+  } else {
+    // Default: Cloud
+    doc.fillColor('#A4A4A4').circle(x + size*0.3, y + size*0.6, size*0.25).fill();
+    doc.circle(x + size*0.5, y + size*0.4, size*0.3).fill();
+    doc.circle(x + size*0.7, y + size*0.6, size*0.25).fill();
+    doc.rect(x + size*0.3, y + size*0.5, size*0.4, size*0.25).fill();
+  }
+  doc.restore();
+}
+
 function formatWeather(w: any): string {
   if (!w) return 'N/A';
   const parts = [];
-  const condition = (w.conditions || '').toLowerCase();
-  
-  // Use text descriptors as drawing fallback for symbols
-  let symbol = 'CLOUDY'; 
-  if (condition.includes('clear') || condition.includes('sun')) symbol = 'SUNNY';
-  else if (condition.includes('rain')) symbol = 'RAINY';
-  else if (condition.includes('storm')) symbol = 'STORMY';
-  else if (condition.includes('snow')) symbol = 'SNOWY';
-  else if (condition.includes('fog') || condition.includes('mist')) symbol = 'FOGGY';
-
-  if (w.conditions) parts.push(`[${symbol}] ${w.conditions}`);
+  if (w.conditions) parts.push(w.conditions);
   if (w.temperature !== undefined) parts.push(`${w.temperature}°C`);
   if (w.humidity !== undefined) parts.push(`${w.humidity}% humidity`);
   if (w.windSpeed !== undefined) parts.push(`Wind: ${w.windSpeed} km/h ${w.windDirection || ''}`);
@@ -776,9 +804,17 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   y += 9;
   doc.text(`Elapsed Time: ${formatDuration(trip.startTime, trip.endTime)}`, MARGIN_LEFT, y);
   y += 11;
-  doc.text(`Start Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 9;
-  doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  const weatherIconSize = 12;
+  const startWeatherCond = trip.startWeather?.conditions || '';
+  const endWeatherCond = trip.endWeather?.conditions || '';
+  
+  drawWeatherIcon(doc, MARGIN_LEFT, y, weatherIconSize, startWeatherCond);
+  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+  doc.text(`Start Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
+  y += 12;
+  
+  drawWeatherIcon(doc, MARGIN_LEFT, y, weatherIconSize, endWeatherCond);
+  doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
   y += 15;
 
   const mapH = 200;
