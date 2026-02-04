@@ -187,32 +187,28 @@ function drawBarcode(doc: PDFKit.PDFDocument, x: number, y: number, width: numbe
 
 function drawCELogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
   doc.save();
-  doc.strokeColor(BLACK).lineWidth(1.5);
-  doc.circle(x + size * 0.3, y + size * 0.5, size * 0.35).stroke();
-  const cX = x + size * 0.3;
-  const cY = y + size * 0.5;
-  doc.fillColor('#fff').rect(cX, cY - size * 0.25, size * 0.4, size * 0.5).fill();
-  
-  doc.strokeColor(BLACK);
-  doc.circle(x + size * 0.7, y + size * 0.5, size * 0.35).stroke();
-  const eX = x + size * 0.7;
-  doc.moveTo(eX, cY).lineTo(eX + size * 0.25, cY).stroke();
+  doc.rect(x, y, size, size).fillColor('#f8f8f8').fill();
+  doc.strokeColor(BLACK).lineWidth(0.5).rect(x, y, size, size).stroke();
+  doc.font('Helvetica-Bold').fontSize(size * 0.55).fillColor(BLACK);
+  doc.text('CE', x + 1, y + size * 0.2, { width: size - 2, align: 'center' });
   doc.restore();
 }
 
 function drawUKCALogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
   doc.save();
-  doc.font('Helvetica-Bold').fontSize(size * 0.4).fillColor(BLACK);
-  doc.text('UKCA', x, y + size * 0.3, { width: size, align: 'center' });
+  doc.rect(x, y, size, size).fillColor('#f8f8f8').fill();
+  doc.strokeColor(BLACK).lineWidth(0.5).rect(x, y, size, size).stroke();
+  doc.font('Helvetica-Bold').fontSize(size * 0.28).fillColor(BLACK);
+  doc.text('UKCA', x, y + size * 0.35, { width: size, align: 'center' });
   doc.restore();
 }
 
 function drawRoHSLogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
   doc.save();
-  doc.strokeColor(GREEN).lineWidth(1.5);
-  doc.circle(x + size * 0.5, y + size * 0.5, size * 0.4).stroke();
-  doc.font('Helvetica-Bold').fontSize(size * 0.25).fillColor(GREEN);
-  doc.text('RoHS', x, y + size * 0.38, { width: size, align: 'center' });
+  doc.rect(x, y, size, size).fillColor('#E8F5E9').fill();
+  doc.strokeColor(GREEN).lineWidth(0.5).rect(x, y, size, size).stroke();
+  doc.font('Helvetica-Bold').fontSize(size * 0.28).fillColor(GREEN);
+  doc.text('RoHS', x, y + size * 0.35, { width: size, align: 'center' });
   doc.restore();
 }
 
@@ -520,30 +516,40 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     doc.save();
     const y = FOOTER_Y;
     doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
-    doc.moveTo(MARGIN_LEFT, y - 5).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y - 5).stroke();
+    doc.moveTo(MARGIN_LEFT, y - 8).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y - 8).stroke();
     
-    drawQRCode(doc, MARGIN_LEFT, y, 35, serial);
-    doc.font('Helvetica').fontSize(4).fillColor(GRAY);
-    doc.text('Serial', MARGIN_LEFT + 8, y + 36);
+    // QR Code for Serial Number
+    const qrSize = 32;
+    drawQRCode(doc, MARGIN_LEFT, y - 2, qrSize, serial);
+    doc.font('Helvetica').fontSize(5).fillColor(GRAY);
+    doc.text('Serial #', MARGIN_LEFT, y + qrSize + 2, { width: qrSize, align: 'center' });
     
-    drawBarcode(doc, MARGIN_LEFT + 45, y + 8, 80, 20, tripId);
-    doc.text('Trip ID', MARGIN_LEFT + 75, y + 30);
+    // Barcode for Trip ID
+    const barcodeX = MARGIN_LEFT + qrSize + 15;
+    drawBarcode(doc, barcodeX, y + 2, 70, 18, tripId);
+    doc.text('Trip ID', barcodeX, y + 22, { width: 70, align: 'center' });
     
-    doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-    doc.text('Blade Marine Technologies Limited', MARGIN_LEFT + 140, y + 5);
-    doc.text(`Report: ${reportId}`, MARGIN_LEFT + 140, y + 14);
-    doc.text(`Generated: ${now.toISOString()}`, MARGIN_LEFT + 140, y + 23);
+    // Company info
+    const infoX = barcodeX + 90;
+    doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+    doc.text('Blade Marine Technologies Limited', infoX, y);
+    doc.font('Helvetica').fontSize(5).fillColor(GRAY);
+    doc.text(`Report: ${reportId}`, infoX, y + 10);
+    doc.text(`${now.toISOString()}`, infoX, y + 18);
     
-    doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_WIDTH / 2 - 20, y + 14, { width: 40, align: 'center' });
+    // Page number centered
+    doc.font('Helvetica').fontSize(7).fillColor(BLACK);
+    doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_WIDTH / 2 - 30, y + 8, { width: 60, align: 'center' });
     
-    const logoSize = 18;
-    const logoY = y + 5;
-    drawCELogo(doc, PAGE_WIDTH - MARGIN_RIGHT - 70, logoY, logoSize);
-    drawUKCALogo(doc, PAGE_WIDTH - MARGIN_RIGHT - 48, logoY, logoSize);
-    drawRoHSLogo(doc, PAGE_WIDTH - MARGIN_RIGHT - 25, logoY, logoSize);
+    // Certification logos on the right
+    const logoSize = 22;
+    const logoY = y;
+    const logoSpacing = logoSize + 5;
+    const logosStartX = PAGE_WIDTH - MARGIN_RIGHT - (logoSize * 3 + 10);
     
-    doc.font('Helvetica').fontSize(4).fillColor(GRAY);
-    doc.text('Certified', PAGE_WIDTH - MARGIN_RIGHT - 55, y + 28);
+    drawCELogo(doc, logosStartX, logoY, logoSize);
+    drawUKCALogo(doc, logosStartX + logoSpacing, logoY, logoSize);
+    drawRoHSLogo(doc, logosStartX + logoSpacing * 2, logoY, logoSize);
     
     doc.restore();
   }
