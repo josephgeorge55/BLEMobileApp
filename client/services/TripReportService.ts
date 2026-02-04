@@ -861,6 +861,7 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
       firmwareVersion: tripData.firmwareVersion,
       phoneAppVersion: tripData.phoneAppVersion,
       phoneName: tripData.phoneName,
+      phoneDeviceType: tripData.phoneDeviceType,
       phoneOS: tripData.phoneOS,
       userEmail: tripData.userEmail,
       userFirestoreId: tripData.userFirestoreId,
@@ -875,6 +876,7 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
       odometerEndKm: tripData.odometerEndKm,
       startLocationAddress: tripData.startLocationAddress,
       endLocationAddress: tripData.endLocationAddress,
+      boatInfo: tripData.boatInfo,
     }),
   });
   
@@ -986,9 +988,11 @@ export const TripReportService = {
     try {
       // Fetch current boat data from Firebase for the user
       let boatInfo = trip.boatInfo;
+      console.log('[TripReportService] Fetching boat data for userId:', trip.userId);
       if (!boatInfo && trip.userId && trip.userId !== 'guest') {
         try {
           const boatData = await getBoatData(trip.userId);
+          console.log('[TripReportService] Boat data fetched:', boatData);
           if (boatData) {
             boatInfo = {
               boatType: boatData.boatType,
@@ -1000,6 +1004,7 @@ export const TripReportService = {
           console.log('[TripReportService] Could not fetch boat data:', err);
         }
       }
+      console.log('[TripReportService] Sending boatInfo to server:', boatInfo);
       
       const tripWithDataPoints = { ...trip, dataPoints, boatInfo };
       

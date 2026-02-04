@@ -622,6 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/trip/report", async (req, res) => {
     try {
       const tripData = req.body;
+      console.log("[PDF] Report request received, boatInfo:", tripData.boatInfo);
       if (!tripData || !tripData.id) {
         return res.status(400).json({ error: "Trip data is required" });
       }

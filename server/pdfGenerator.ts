@@ -55,6 +55,7 @@ interface TripData {
   firmwareVersion?: string;
   phoneAppVersion?: string;
   phoneName?: string;
+  phoneDeviceType?: string;
   phoneOS?: string;
   userEmail?: string;
   userFirestoreId?: string;
@@ -693,7 +694,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   let rightY = y;
 
   // Draw section container for Device Info
-  const deviceInfoHeight = trip.boatInfo ? 260 : 190;
+  // Height: base 200 (for Device Type row) + 70 for boat info section if present
+  const deviceInfoHeight = trip.boatInfo ? 270 : 200;
   drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, deviceInfoHeight, 'Device Information');
   leftY += 8;
   
@@ -712,12 +714,14 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   leftY += 10;
   leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
   leftY = drawTableRow(leftY, ['App Version', s(trip.phoneAppVersion)], [col2, col2]);
-  leftY = drawTableRow(leftY, ['Phone Name', s(trip.phoneName)], [col2, col2], false, '#fff');
-  leftY = drawTableRow(leftY, ['Operating System', s(trip.phoneOS)], [col2, col2]);
-  leftY = drawTableRow(leftY, ['Connection Type', s(trip.connectionType, 'Bluetooth')], [col2, col2], false, '#fff');
+  leftY = drawTableRow(leftY, ['Device Name', s(trip.phoneName)], [col2, col2], false, '#fff');
+  leftY = drawTableRow(leftY, ['Device Type', s(trip.phoneDeviceType)], [col2, col2]);
+  leftY = drawTableRow(leftY, ['Operating System', s(trip.phoneOS)], [col2, col2], false, '#fff');
+  leftY = drawTableRow(leftY, ['Connection Type', s(trip.connectionType, 'Bluetooth')], [col2, col2]);
   leftY += 10;
 
   // Boat Information Section
+  console.log('[PDF] Rendering boat info:', trip.boatInfo);
   if (trip.boatInfo) {
     doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
     doc.text('Boat Information', leftColX, leftY);
