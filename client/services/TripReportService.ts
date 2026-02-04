@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import type { ExtendedTrip, TripReport, TripReportMetadata, TripDataPoint, WeatherSnapshot } from '@/types/TripReport';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import { getBoatData } from '@/lib/firebase';
 
 const BLADE_GREEN = '#8FBC8F';
 
@@ -983,7 +984,24 @@ export function createExtendedTripFromBasic(
 export const TripReportService = {
   generateReport: async (trip: ExtendedTrip, dataPoints: TripDataPoint[]): Promise<{ success: boolean; uri?: string; error?: string }> => {
     try {
-      const tripWithDataPoints = { ...trip, dataPoints };
+      // Fetch current boat data from Firebase for the user
+      let boatInfo = trip.boatInfo;
+      if (!boatInfo && trip.userId && trip.userId !== 'guest') {
+        try {
+          const boatData = await getBoatData(trip.userId);
+          if (boatData) {
+            boatInfo = {
+              boatType: boatData.boatType,
+              lengthMeters: boatData.lengthMeters,
+              weightKg: boatData.weightKg,
+            };
+          }
+        } catch (err) {
+          console.log('[TripReportService] Could not fetch boat data:', err);
+        }
+      }
+      
+      const tripWithDataPoints = { ...trip, dataPoints, boatInfo };
       
       // Use server-side PDF generation for both web and native (identical output)
       const uri = await generatePDFFromServer(tripWithDataPoints as ExtendedTrip);
