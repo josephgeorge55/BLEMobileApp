@@ -670,15 +670,15 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const introTextIt = 'Questo documento contiene dati di telemetria e operativi raccolti da un motore fuoribordo elettrico Blade durante la sessione registrata. I dati includono velocità, consumo energetico, stato della batteria, coordinate GPS e condizioni ambientali. Questo rapporto è generato automaticamente e fornito a scopo di documentazione e analisi.';
   const introTextEs = 'Este documento contiene datos telemétricos y operativos recopilados de un motor fueraborda eléctrico Blade durante la sesión grabada. Los datos incluyen velocidad, consumo de energía, estado de la batería, coordenadas GPS y condiciones ambientales. Este informe se genera automáticamente y se proporciona con fines de documentación y análisis.';
 
-  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
+  doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
   doc.text(`EN: ${introTextEn}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 18;
+  y += 16;
   doc.text(`DE: ${introTextDe}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 18;
+  y += 16;
   doc.text(`IT: ${introTextIt}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 18;
+  y += 16;
   doc.text(`ES: ${introTextEs}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 15;
+  y += 18;
 
   const leftColX = MARGIN_LEFT;
   const rightColX = MARGIN_LEFT + colHalf + 20;
@@ -686,8 +686,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   let rightY = y;
 
   // Draw section container for Device Info
-  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 170, 'Device Information');
-  leftY += 10;
+  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 165, 'Device Information');
+  leftY += 8;
   
   doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
   leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
@@ -713,8 +713,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   (doc as any).x = rightColX;
   
   // Draw section container for Report Info
-  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 170, 'Report Information');
-  rightY += 10;
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 165, 'Report Information');
+  rightY += 8;
   
   doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
   let rx = rightColX;
@@ -797,66 +797,75 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const maxSpd = nv(trip.maxSpeedKmh);
   const avgSpd = nv(trip.avgSpeedKmh);
   
-  const summaryColW = CONTENT_WIDTH / 3;
+  // Two-column layout for Page 2
+  const leftSummaryX = MARGIN_LEFT;
+  const rightSummaryX = MARGIN_LEFT + (CONTENT_WIDTH / 2) + 10;
+  const halfWidth = (CONTENT_WIDTH - 20) / 2;
   
-  // Draw container for summary section
-  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 115, 'Trip Overview');
-  y += 8;
-  
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text('Trip Times', MARGIN_LEFT, y);
-  doc.text('Distance & Speed', MARGIN_LEFT + summaryColW, y);
-  doc.text('Battery & Energy', MARGIN_LEFT + summaryColW * 2, y);
-  y += 10;
+  // Left column: Trip Times & Distance
+  drawSectionBox(leftSummaryX - 4, y - 2, halfWidth + 8, 100, 'Trip Times & Distance');
+  let leftSummaryY = y + 8;
   
   doc.font('Helvetica').fontSize(6).fillColor(BLACK);
-  doc.text(`Start Local: ${startDt.toLocaleString()} (${timeZone})`, MARGIN_LEFT, y, { width: summaryColW - 10 });
-  doc.text(`Dist: ${dist.toFixed(2)} km / ${kmToMi(dist).toFixed(2)} mi / ${kmToNm(dist).toFixed(2)} nm`, MARGIN_LEFT + summaryColW, y);
-  doc.text(`Start SOC: ${n(trip.startBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
-  y += 9;
-  doc.text(`End Local: ${endDt ? endDt.toLocaleString() : 'In Progress'}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
-  doc.text(`Max: ${maxSpd.toFixed(1)} km/h / ${kmhToMph(maxSpd).toFixed(1)} mph / ${kmhToKn(maxSpd).toFixed(1)} kn`, MARGIN_LEFT + summaryColW, y);
-  doc.text(`End SOC: ${n(trip.endBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
-  y += 9;
-  doc.text(`Start UTC: ${startDt.toISOString()}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
-  doc.text(`Avg: ${avgSpd.toFixed(1)} km/h / ${kmhToMph(avgSpd).toFixed(1)} mph / ${kmhToKn(avgSpd).toFixed(1)} kn`, MARGIN_LEFT + summaryColW, y);
-  doc.text(`Energy Consumed: ${n(trip.totalEnergyWh)} Wh`, MARGIN_LEFT + summaryColW * 2, y);
-  y += 9;
-  doc.text(`End UTC: ${endDt ? endDt.toISOString() : 'N/A'}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
-  doc.text(`Odom: ${odomEnd.toFixed(2)} km / ${kmToMi(odomEnd).toFixed(2)} mi`, MARGIN_LEFT + summaryColW, y);
-  doc.text(`Motor MAC: ${serial} (${s(trip.connectionType, 'Classic')})`, MARGIN_LEFT + summaryColW * 2, y);
-  y += 9;
-  doc.text(`Elapsed Time: ${formatDuration(trip.startTime, trip.endTime)}`, MARGIN_LEFT, y);
-  y += 11;
-  const weatherIconSize = 12;
+  doc.text(`Start: ${startDt.toLocaleString()} (${timeZone})`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
+  leftSummaryY += 9;
+  doc.text(`End: ${endDt ? endDt.toLocaleString() : 'In Progress'}`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
+  leftSummaryY += 9;
+  doc.text(`Elapsed: ${formatDuration(trip.startTime, trip.endTime)}`, leftSummaryX, leftSummaryY);
+  leftSummaryY += 12;
+  doc.text(`Distance: ${dist.toFixed(2)} km / ${kmToMi(dist).toFixed(2)} mi / ${kmToNm(dist).toFixed(2)} nm`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
+  leftSummaryY += 9;
+  doc.text(`Max Speed: ${maxSpd.toFixed(1)} km/h / ${kmhToMph(maxSpd).toFixed(1)} mph / ${kmhToKn(maxSpd).toFixed(1)} kn`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
+  leftSummaryY += 9;
+  doc.text(`Avg Speed: ${avgSpd.toFixed(1)} km/h / ${kmhToMph(avgSpd).toFixed(1)} mph / ${kmhToKn(avgSpd).toFixed(1)} kn`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
+  leftSummaryY += 9;
+  doc.text(`Odometer: ${odomEnd.toFixed(2)} km`, leftSummaryX, leftSummaryY);
+  
+  // Right column: Battery, Energy & Weather
+  drawSectionBox(rightSummaryX - 4, y - 2, halfWidth + 8, 100, 'Battery, Energy & Weather');
+  let rightSummaryY = y + 8;
+  
+  doc.text(`Start SOC: ${n(trip.startBatteryPercent, 0)}%   End SOC: ${n(trip.endBatteryPercent, 0)}%`, rightSummaryX, rightSummaryY, { width: halfWidth - 5 });
+  rightSummaryY += 9;
+  doc.text(`Energy Consumed: ${n(trip.totalEnergyWh)} Wh`, rightSummaryX, rightSummaryY);
+  rightSummaryY += 9;
+  doc.text(`Motor: ${serial} (${s(trip.connectionType, 'Classic')})`, rightSummaryX, rightSummaryY, { width: halfWidth - 5 });
+  rightSummaryY += 12;
+  
+  const weatherIconSize = 10;
   const startWeatherCond = trip.startWeather?.conditions || '';
   const endWeatherCond = trip.endWeather?.conditions || '';
   
-  drawWeatherIcon(doc, MARGIN_LEFT, y, weatherIconSize, startWeatherCond);
-  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
-  doc.text(`Start Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
-  y += 12;
+  drawWeatherIcon(doc, rightSummaryX, rightSummaryY, weatherIconSize, startWeatherCond);
+  doc.text(`Start: ${formatWeather(trip.startWeather)}`, rightSummaryX + weatherIconSize + 4, rightSummaryY + 2, { width: halfWidth - weatherIconSize - 10 });
+  rightSummaryY += 14;
   
-  drawWeatherIcon(doc, MARGIN_LEFT, y, weatherIconSize, endWeatherCond);
-  doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
-  y += 12;
+  drawWeatherIcon(doc, rightSummaryX, rightSummaryY, weatherIconSize, endWeatherCond);
+  doc.text(`End: ${formatWeather(trip.endWeather)}`, rightSummaryX + weatherIconSize + 4, rightSummaryY + 2, { width: halfWidth - weatherIconSize - 10 });
   
-  // Location addresses with container
-  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 36, 'Locations');
-  y += 8;
-  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+  y += 108;
+  
+  // Locations (full width)
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 32, 'Locations');
+  y += 6;
+  doc.font('Helvetica').fontSize(5.5).fillColor(BLACK);
   doc.text(`Start: ${s(trip.startLocationAddress, 'GPS coordinates only')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 9;
+  y += 8;
   doc.text(`End: ${s(trip.endLocationAddress, 'GPS coordinates only')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 18;
+  y += 22;
 
-  const mapH = 200;
+  // Map (reduced height)
+  const mapH = 180;
   drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, trip.phoneGPSStart, trip.phoneGPSEnd);
-  y += mapH + 10;
+  y += mapH + 8;
 
-  const graphH = 130;
-  drawGraph(doc, MARGIN_LEFT, y, CONTENT_WIDTH, graphH, 
-    { speed: [], consumption: [], battery: [] }, 'Trip Overview - Speed, Power & Battery');
+  // Graph (reduced height, check if fits before footer)
+  const graphH = 100;
+  const availableHeight = FOOTER_Y - y - 20;
+  if (availableHeight > 80) {
+    drawGraph(doc, MARGIN_LEFT, y, CONTENT_WIDTH, Math.min(graphH, availableHeight), 
+      { speed: [], consumption: [], battery: [] }, 'Trip Overview - Speed, Power & Battery');
+  }
 
   // ========== PAGE 3+: TRIP DETAIL ==========
   for (let seg = 0; seg < detailPages; seg++) {
@@ -986,54 +995,131 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   });
 
   // Draw container for Data Interpretation Guide
-  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 280, 'Data Interpretation Guide');
-  rightY += 10;
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 290, 'Data Interpretation Guide');
+  rightY += 8;
   
-  doc.font('Helvetica').fontSize(5.5).fillColor(BLACK);
-  const interpretGuide = [
-    'SPEED: Displayed in km/h, mph, and knots. Speed is calculated from GPS position changes and motor RPM. Values may fluctuate due to GPS accuracy (±3m) and water current conditions.',
-    'BATTERY SOC: State of Charge percentage from the Battery Management System. Values below 20% indicate low battery; consider returning to dock. Rapid drops may indicate high power draw or cold conditions.',
-    'POWER (kW): Instantaneous power consumption. Normal cruising: 1-3 kW. Sport mode: 4-6 kW. Values above rated max indicate measurement error.',
-    'AMPERAGE: Current draw from battery pack. High amperage (>80A) sustained may trigger thermal protection.',
-    'RPM: Motor rotation speed. Higher RPM does not always mean higher speed (prop slip). Optimal efficiency typically at 60-80% max RPM.',
-    'DRIVE MODES: N=Normal (balanced), E=Eco (max efficiency), S=Sport (max power), D=Dock (low speed), R=Reverse, H=Hydro-regen (energy recovery).',
-    'GPS ACCURACY: Coordinates are recorded at 4-second intervals. Position accuracy depends on satellite visibility and environmental conditions.',
-    'WEATHER DATA: Captured from device location services. May not reflect exact on-water conditions.',
+  // Helper function to draw simple icons
+  function drawGuideIcon(x: number, y: number, type: string) {
+    doc.save();
+    const size = 8;
+    doc.strokeColor(BLADE_GREEN).lineWidth(0.8);
+    
+    switch(type) {
+      case 'speed':
+        // Speedometer - simple gauge
+        doc.circle(x + size/2, y + size/2, size/2 - 1).stroke();
+        doc.moveTo(x + size/2, y + size/2).lineTo(x + size - 2, y + 2).stroke();
+        break;
+      case 'distance':
+        // Road/path
+        doc.moveTo(x, y + size).lineTo(x + size/2, y).lineTo(x + size, y + size).stroke();
+        break;
+      case 'battery':
+        // Battery
+        doc.rect(x + 1, y + 2, size - 2, size - 3).stroke();
+        doc.moveTo(x + size/2 - 1, y + 1).lineTo(x + size/2 + 1, y + 1).stroke();
+        break;
+      case 'energy':
+        // Lightning bolt
+        doc.moveTo(x + size - 2, y).lineTo(x + 2, y + size/2).lineTo(x + size/2, y + size/2)
+          .lineTo(x + 2, y + size).stroke();
+        break;
+      case 'power':
+        // Waveform
+        doc.moveTo(x, y + size/2).lineTo(x + 2, y + 2).lineTo(x + 4, y + size - 2)
+          .lineTo(x + 6, y + 2).lineTo(x + size, y + size/2).stroke();
+        break;
+      case 'rpm':
+        // Circular arrow
+        doc.circle(x + size/2, y + size/2, size/2 - 1).stroke();
+        break;
+      case 'time':
+        // Clock
+        doc.circle(x + size/2, y + size/2, size/2 - 1).stroke();
+        doc.moveTo(x + size/2, y + size/2).lineTo(x + size/2, y + 2).stroke();
+        doc.moveTo(x + size/2, y + size/2).lineTo(x + size - 2, y + size/2).stroke();
+        break;
+      case 'location':
+        // Pin
+        doc.circle(x + size/2, y + 3, 2).stroke();
+        doc.moveTo(x + size/2, y + 5).lineTo(x + size/2, y + size).stroke();
+        break;
+      case 'weather':
+        // Cloud
+        doc.circle(x + 3, y + size - 3, 2).stroke();
+        doc.circle(x + size - 3, y + size - 3, 2).stroke();
+        break;
+      case 'connect':
+        // Signal waves
+        doc.moveTo(x + 2, y + size - 2).lineTo(x + 2, y + size/2).stroke();
+        doc.moveTo(x + size/2, y + size - 2).lineTo(x + size/2, y + 3).stroke();
+        doc.moveTo(x + size - 2, y + size - 2).lineTo(x + size - 2, y).stroke();
+        break;
+      case 'na':
+        // Question mark
+        doc.fontSize(7).text('?', x + 2, y);
+        break;
+      case 'id':
+        // Tag
+        doc.rect(x + 1, y + 2, size - 2, size - 3).stroke();
+        break;
+    }
+    doc.restore();
+  }
+  
+  const guideItems = [
+    { icon: 'speed', title: 'Speed', text: 'Calculated from GPS and motor telemetry. Values in km/h, mph, and kn. Spikes may occur from GPS drift.' },
+    { icon: 'distance', title: 'Distance', text: 'Derived from GPS position changes. Odometer shows total recorded motor distance.' },
+    { icon: 'battery', title: 'Battery SOC', text: 'From Battery Management System. N/A if not connected during session.' },
+    { icon: 'energy', title: 'Energy', text: 'Estimated Wh consumption. Short trips may show zero or incomplete values.' },
+    { icon: 'power', title: 'Power & Amperage', text: 'Instantaneous kW and A demand. May be unavailable based on firmware/connection.' },
+    { icon: 'rpm', title: 'Motor RPM', text: 'Rotational speed. Higher RPM does not always mean higher vessel speed (prop slip).' },
+    { icon: 'time', title: 'Trip Timing', text: 'Start/end in local and UTC. Elapsed time from first to last telemetry packet.' },
+    { icon: 'location', title: 'Location', text: 'GPS from mobile device. Address may be unavailable; only coordinates recorded.' },
+    { icon: 'weather', title: 'Weather', text: 'From device location at trip start/end. May not reflect on-water conditions.' },
+    { icon: 'connect', title: 'Connectivity', text: 'Bluetooth Classic or BLE. Disconnections may cause missing telemetry.' },
+    { icon: 'na', title: 'N/A Values', text: 'Data not reported by motor, battery, or device during this session.' },
+    { icon: 'id', title: 'Identification', text: 'Unique Trip ID and Report ID. Serial number and MAC when available.' },
   ];
   
-  interpretGuide.forEach(line => {
-    doc.text(line, rightColX, rightY, { width: colHalf - 5 });
-    rightY += 22;
+  doc.font('Helvetica').fontSize(5).fillColor(BLACK);
+  guideItems.forEach(item => {
+    drawGuideIcon(rightColX, rightY, item.icon);
+    doc.font('Helvetica-Bold').fontSize(5).text(item.title + ':', rightColX + 12, rightY, { continued: true });
+    doc.font('Helvetica').text(' ' + item.text, { width: colHalf - 18 });
+    rightY += 18;
   });
 
-  y = Math.max(leftY, rightY) + 8;
+  y = Math.max(leftY, rightY) + 6;
   
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
   doc.moveTo(MARGIN_LEFT, y).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y).stroke();
-  y += 8;
+  y += 6;
 
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Legal Disclaimers & Warranty Information', MARGIN_LEFT, y);
-  y += 10;
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
+  doc.text('Legal Disclaimer', MARGIN_LEFT, y);
+  y += 8;
   
   doc.font('Helvetica').fontSize(5).fillColor(GRAY);
   
-  const disclaimers = `ENGLISH: This report is automatically generated by the Blade Outboards mobile application and is provided for informational and documentation purposes only. While Blade Marine Technologies Limited ("Blade") endeavors to ensure the accuracy of data collected from the outboard motor's sensors, GPS receivers, and battery management system, Blade makes no representations or warranties, express or implied, regarding the completeness, accuracy, reliability, or suitability of the information contained herein. Sensor readings may be affected by environmental factors, electromagnetic interference, temperature variations, and hardware calibration. GPS accuracy is subject to satellite availability and atmospheric conditions. Users should not rely solely on this report for navigation, safety decisions, or legal purposes. This report does not constitute a warranty claim, service record, or official documentation for regulatory compliance. Blade expressly disclaims any liability for damages, losses, or injuries arising from the use or interpretation of data in this report. The outboard motor and its components are subject to the terms and conditions of the original purchase warranty, which this report does not extend, modify, or supersede. For warranty claims or technical support, contact Blade Marine Technologies Limited directly with your serial number and proof of purchase.
+  const disclaimer = `This report is automatically generated by the Blade Outboards mobile application and is provided for informational and documentation purposes only. While Blade Marine Technologies Limited ("Blade") makes reasonable efforts to ensure the accuracy of data collected from the outboard motor's sensors, GPS systems, and battery management components, Blade makes no representations or warranties, express or implied, regarding the completeness, accuracy, reliability, or fitness of this information for any particular purpose. Sensor readings may be affected by environmental conditions, electromagnetic interference, temperature variation, device calibration, and connectivity limitations. GPS accuracy is dependent on satellite availability and atmospheric factors.
 
-DEUTSCH: Dieser Bericht wird automatisch von der Blade Outboards Mobilanwendung erstellt und dient ausschließlich Informations- und Dokumentationszwecken. Blade Marine Technologies Limited übernimmt keine Gewährleistung für die Vollständigkeit, Genauigkeit oder Zuverlässigkeit der enthaltenen Daten. Sensorwerte können durch Umweltfaktoren, elektromagnetische Störungen und Temperaturschwankungen beeinflusst werden. Dieser Bericht ersetzt keine Garantieansprüche oder offizielle Servicedokumentation.
+Users should not rely solely on this report for navigation, safety decisions, operational control, or legal purposes. This document does not constitute a warranty claim, official service record, or regulatory compliance documentation. Blade expressly disclaims any liability for loss, damage, injury, or claims arising from the use of, or reliance upon, any data contained herein. The outboard motor and its components remain subject exclusively to the terms of the original purchase warranty, which this report does not extend, modify, or replace.`;
 
-ITALIANO: Questo rapporto è generato automaticamente dall'applicazione mobile Blade Outboards ed è fornito esclusivamente a scopo informativo e documentale. Blade Marine Technologies Limited non fornisce alcuna garanzia riguardo alla completezza, accuratezza o affidabilità dei dati contenuti. Le letture dei sensori possono essere influenzate da fattori ambientali, interferenze elettromagnetiche e variazioni di temperatura.
-
-ESPAÑOL: Este informe se genera automáticamente mediante la aplicación móvil Blade Outboards y se proporciona únicamente con fines informativos y de documentación. Blade Marine Technologies Limited no garantiza la integridad, exactitud o fiabilidad de los datos contenidos. Las lecturas de los sensores pueden verse afectadas por factores ambientales, interferencias electromagnéticas y variaciones de temperatura.`;
-
-  doc.text(disclaimers, MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'justify' });
-  y += 95;
+  doc.text(disclaimer, MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'justify' });
+  y += 52;
 
   doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
   doc.text('SAFE BOATING | SICHERES BOOTFAHREN | NAVIGAZIONE SICURA | NAVEGACIÓN SEGURA', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 10;
-  doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
-  doc.text('Always wear an approved personal flotation device. Never operate a vessel under the influence of alcohol or drugs. Check weather conditions before departure. File a float plan with a responsible person. Maintain proper lookout at all times. Know and obey all maritime regulations.', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
+  y += 9;
+  
+  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
+  const safeBoating = `EN: Always wear an approved personal flotation device. Never operate under the influence of alcohol or drugs. Check weather before departure. File a float plan. Maintain lookout at all times. Know and obey maritime regulations.
+DE: Tragen Sie stets eine zugelassene Rettungsweste. Fahren Sie niemals unter Alkohol- oder Drogeneinfluss. Prüfen Sie vor der Abfahrt das Wetter. Hinterlassen Sie einen Fahrtenplan. Halten Sie stets Ausschau. Beachten Sie alle Seeverkehrsvorschriften.
+IT: Indossare sempre un dispositivo di galleggiamento approvato. Non navigare sotto l'effetto di alcol o droghe. Controllare il meteo prima della partenza. Lasciare un piano di navigazione. Mantenere sempre la vedetta. Rispettare le norme marittime.
+ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia del alcohol o drogas. Consulte el clima antes de zarpar. Deje un plan de navegación. Mantenga vigilancia en todo momento. Conozca y obedezca las regulaciones marítimas.`;
+  
+  doc.text(safeBoating, MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
   doc.end();
 }
