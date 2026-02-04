@@ -804,6 +804,17 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.text(`Odom: ${odomEnd.toFixed(2)} km / ${kmToMi(odomEnd).toFixed(2)} mi`, MARGIN_LEFT + summaryColW, y);
   doc.text(`Motor MAC: ${serial} (${s(trip.connectionType, 'Classic')})`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
+  
+  // Location addresses (moved here)
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
+  doc.text('Locations', MARGIN_LEFT + summaryColW, y);
+  y += 8;
+  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+  doc.text(`Start: ${s(trip.startLocationAddress, 'GPS coordinates only')}`, MARGIN_LEFT + summaryColW, y, { width: summaryColW * 2 - 10 });
+  y += 8;
+  doc.text(`End: ${s(trip.endLocationAddress, 'GPS coordinates only')}`, MARGIN_LEFT + summaryColW, y, { width: summaryColW * 2 - 10 });
+  y += 9;
+
   doc.text(`Elapsed Time: ${formatDuration(trip.startTime, trip.endTime)}`, MARGIN_LEFT, y);
   y += 11;
   const weatherIconSize = 12;
