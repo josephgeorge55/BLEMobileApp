@@ -3,26 +3,47 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
-import type { Trip, TripDataPoint } from "@shared/schema";
+import type { Trip } from "@shared/schema";
+import type { TripDataPoint, TripEndReason } from "@/types/TripReport";
 
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
 const ACTIVE_TRIP_KEY = "@blade_active_trip";
+const TRIP_DATA_POINTS_KEY = "@blade_trip_data_points";
+const DATA_RECORDING_INTERVAL = 4000;
+const MAX_TRIP_DURATION = 8 * 60 * 60;
+const INACTIVITY_TIMEOUT = 600;
+const MIN_TRIP_DURATION = 60;
 
 interface TripStats {
   totalDistanceKm: number;
   totalEnergyWh: number;
   maxSpeedKmh: number;
   avgSpeedKmh: number;
+  maxAmperageDraw: number;
+  maxConsumptionKW: number;
+  avgConsumptionKW: number;
+  rpmMax: number;
+  rpmAvg: number;
+}
+
+interface ExtendedTripLocal extends Trip {
+  phoneGPSStart?: { latitude: number; longitude: number } | null;
+  phoneGPSEnd?: { latitude: number; longitude: number } | null;
+  outboardGPSStart?: { latitude: number; longitude: number } | null;
+  outboardGPSEnd?: { latitude: number; longitude: number } | null;
+  endReason?: TripEndReason;
+  dataPointsCount?: number;
 }
 
 interface TripContextType {
-  activeTrip: Trip | null;
+  activeTrip: ExtendedTripLocal | null;
   isRecording: boolean;
   tripDuration: number;
   tripStats: TripStats;
   isLoading: boolean;
   startTrip: (name?: string) => Promise<boolean>;
-  endTrip: () => Promise<boolean>;
+  endTrip: (reason?: TripEndReason) => Promise<boolean>;
+  getTripDataPoints: (tripId: string) => Promise<TripDataPoint[]>;
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
@@ -31,7 +52,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const { motor, telemetry, location } = useMotor();
   const { user } = useUser();
   
-  const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
+  const [activeTrip, setActiveTrip] = useState<ExtendedTripLocal | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [tripDuration, setTripDuration] = useState(0);
@@ -40,6 +61,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     totalEnergyWh: 0,
     maxSpeedKmh: 0,
     avgSpeedKmh: 0,
+    maxAmperageDraw: 0,
+    maxConsumptionKW: 0,
+    avgConsumptionKW: 0,
+    rpmMax: 0,
+    rpmAvg: 0,
   });
 
   // Refs to store current values for use in interval callbacks
@@ -52,10 +78,16 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   // Refs for timers
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dataTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Refs for calculations
   const lastPositionRef = useRef<{ lat: number; lon: number } | null>(null);
   const speedSamplesRef = useRef<number[]>([]);
+  const consumptionSamplesRef = useRef<number[]>([]);
+  const rpmSamplesRef = useRef<number[]>([]);
+  const dataPointsRef = useRef<TripDataPoint[]>([]);
+  const lastActivityTimeRef = useRef<number>(Date.now());
+  const endTripRef = useRef<((reason?: TripEndReason) => Promise<boolean>) | null>(null);
 
   // Keep refs in sync with state/props
   useEffect(() => { telemetryRef.current = telemetry; }, [telemetry]);
@@ -98,26 +130,59 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }, []);
 
-  // Record data point - uses refs to get fresh values
+  // Record data point - uses refs to get fresh values (every 4 seconds per spec)
   const recordDataPoint = useCallback(() => {
-    console.log("--- [Trip] RECORDING DATA POINT ---");
+    console.log("--- [Trip] RECORDING DATA POINT (4s interval) ---");
     const telem = telemetryRef.current;
     const loc = locationRef.current;
     
-    const lat = telem?.gnss?.latitude || loc?.latitude;
-    const lon = telem?.gnss?.longitude || loc?.longitude;
-    const speed = telem?.gnss?.speed || 0;
+    const phoneLat = loc?.latitude ?? null;
+    const phoneLon = loc?.longitude ?? null;
+    const outboardLat = telem?.gnss?.latitude ?? null;
+    const outboardLon = telem?.gnss?.longitude ?? null;
+    
+    const lat = outboardLat || phoneLat;
+    const lon = outboardLon || phoneLon;
+    const phoneSpeed = loc?.speed ? loc.speed * 3.6 : null;
+    const outboardSpeed = telem?.gnss?.speed ?? null;
+    const speed = outboardSpeed || phoneSpeed || 0;
+    
     const voltage = telem?.bms?.voltage || 48;
     const current = Math.abs(telem?.vesc?.current || telem?.bms?.current || 0);
     const power = voltage * current;
-    const energyWh = power * (10 / 3600); // 10 second interval
+    const consumptionKW = power / 1000;
+    const energyWh = power * (4 / 3600);
+    const rpm = telem?.motor?.motorRPM || 0;
+    const batterySOC = telem?.bms?.capacity ?? null;
+    
+    const isActivity = consumptionKW > 0.1 || rpm > 0 || speed > 1;
+    if (isActivity) {
+      lastActivityTimeRef.current = Date.now();
+    }
 
-    console.log("[Trip] Telemetry source:", telem ? "Motor BLE" : "None");
-    console.log("[Trip] Location source:", loc ? "Phone GPS" : (telem?.gnss ? "Motor GNSS" : "None"));
-    console.log("[Trip] Speed:", speed.toFixed(1), "km/h");
-    console.log("[Trip] Power:", power.toFixed(0), "W (", voltage.toFixed(1), "V x", current.toFixed(1), "A)");
-    console.log("[Trip] Energy this interval:", energyWh.toFixed(3), "Wh");
-    console.log("[Trip] Position:", lat ? `${lat.toFixed(6)}, ${lon?.toFixed(6)}` : "No GPS fix");
+    const dataPoint: TripDataPoint = {
+      timestamp: new Date(),
+      phoneLatitude: phoneLat,
+      phoneLongitude: phoneLon,
+      phoneSpeedKmh: phoneSpeed,
+      outboardLatitude: outboardLat,
+      outboardLongitude: outboardLon,
+      outboardSpeedKmh: outboardSpeed,
+      batterySOC,
+      batteryVoltage: voltage,
+      batteryCurrent: current,
+      consumptionKW,
+      phaseAmperage: telem?.vesc?.current ?? null,
+      rpm,
+      motorTemp: telem?.motor?.temperature ?? null,
+      vescTemp: telem?.vesc?.temperature ?? null,
+      throttlePercent: telem?.vesc?.throttle ?? null,
+      driveMode: null,
+      isReverse: rpm < 0,
+      isHydroRegen: current < 0 && rpm > 0,
+    };
+    
+    dataPointsRef.current.push(dataPoint);
 
     let distanceKm = 0;
     if (lat && lon && lastPositionRef.current) {
@@ -128,8 +193,17 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
 
     speedSamplesRef.current.push(speed);
+    consumptionSamplesRef.current.push(consumptionKW);
+    rpmSamplesRef.current.push(Math.abs(rpm));
+    
     const avgSpeed = speedSamplesRef.current.length > 0
       ? speedSamplesRef.current.reduce((a, b) => a + b, 0) / speedSamplesRef.current.length
+      : 0;
+    const avgConsumption = consumptionSamplesRef.current.length > 0
+      ? consumptionSamplesRef.current.reduce((a, b) => a + b, 0) / consumptionSamplesRef.current.length
+      : 0;
+    const avgRpm = rpmSamplesRef.current.length > 0
+      ? rpmSamplesRef.current.reduce((a, b) => a + b, 0) / rpmSamplesRef.current.length
       : 0;
 
     setTripStats(prev => {
@@ -138,14 +212,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         totalEnergyWh: prev.totalEnergyWh + energyWh,
         maxSpeedKmh: Math.max(prev.maxSpeedKmh, speed),
         avgSpeedKmh: avgSpeed,
+        maxAmperageDraw: Math.max(prev.maxAmperageDraw, current),
+        maxConsumptionKW: Math.max(prev.maxConsumptionKW, consumptionKW),
+        avgConsumptionKW: avgConsumption,
+        rpmMax: Math.max(prev.rpmMax, Math.abs(rpm)),
+        rpmAvg: avgRpm,
       };
-      console.log("[Trip] Updated cumulative stats:");
-      console.log("[Trip]   Total Distance:", newStats.totalDistanceKm.toFixed(3), "km");
-      console.log("[Trip]   Total Energy:", newStats.totalEnergyWh.toFixed(2), "Wh");
-      console.log("[Trip]   Max Speed:", newStats.maxSpeedKmh.toFixed(1), "km/h");
-      console.log("[Trip]   Avg Speed:", newStats.avgSpeedKmh.toFixed(1), "km/h");
-      console.log("[Trip]   Data points recorded:", speedSamplesRef.current.length);
-      console.log("--- [Trip] DATA POINT COMPLETE ---");
+      console.log("[Trip] Data points:", dataPointsRef.current.length);
       return newStats;
     });
   }, [haversine]);
@@ -162,36 +235,53 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       dataTimerRef.current = null;
       console.log("[Trip] Data timer stopped");
     }
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+      console.log("[Trip] Inactivity timer stopped");
+    }
   }, []);
 
   // Start/stop timers based on recording state
   useEffect(() => {
     if (isRecording) {
-      console.log("[Trip] Starting timers...");
+      console.log("[Trip] Starting timers (4s data interval per spec)...");
       
       // Duration timer - every 1 second
       if (!durationTimerRef.current) {
         durationTimerRef.current = setInterval(() => {
-          setTripDuration(prev => prev + 1);
+          setTripDuration(prev => {
+            const newDuration = prev + 1;
+            // Auto-end at 8 hour max
+            if (newDuration >= MAX_TRIP_DURATION) {
+              console.log("[Trip] 8 hour limit reached, auto-ending trip");
+              endTripRef.current?.('auto_8hr_limit');
+            }
+            return newDuration;
+          });
         }, 1000);
         console.log("[Trip] Duration timer started");
       }
       
-      // Data recording timer - every 10 seconds
+      // Data recording timer - every 4 seconds (per PDF spec)
       if (!dataTimerRef.current) {
         dataTimerRef.current = setInterval(() => {
           recordDataPoint();
-        }, 10000);
-        console.log("[Trip] Data timer started");
+          
+          // Check inactivity (600 seconds)
+          const inactiveTime = (Date.now() - lastActivityTimeRef.current) / 1000;
+          if (inactiveTime >= INACTIVITY_TIMEOUT) {
+            console.log("[Trip] 600s inactivity timeout, auto-ending trip");
+            endTripRef.current?.('auto_inactivity_600s');
+          }
+        }, DATA_RECORDING_INTERVAL);
+        console.log("[Trip] Data timer started (4s intervals)");
       }
     } else {
       stopTimers();
     }
 
-    // Cleanup on unmount or when recording changes
-    return () => {
-      // Only stop on unmount, not every render
-    };
+    return () => {};
   }, [isRecording, recordDataPoint, stopTimers]);
 
   // Cleanup on unmount
@@ -226,27 +316,40 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const tripId = `trip_${Date.now()}`;
       const tripName = name || `Trip ${new Date().toLocaleDateString()}`;
 
+      const loc = locationRef.current;
+      const telem = telemetryRef.current;
+      const phoneGPSStart = loc ? { latitude: loc.latitude, longitude: loc.longitude } : null;
+      const outboardGPSStart = telem?.gnss ? { latitude: telem.gnss.latitude, longitude: telem.gnss.longitude } : null;
+
       console.log("[Trip] Creating new trip object:");
       console.log("[Trip]   - ID:", tripId);
       console.log("[Trip]   - Name:", tripName);
       console.log("[Trip]   - Motor Serial:", serial);
       console.log("[Trip]   - User ID:", user.id);
-      console.log("[Trip]   - Start Battery:", telemetryRef.current?.bms?.capacity ?? "N/A");
+      console.log("[Trip]   - Start Battery:", telem?.bms?.capacity ?? "N/A");
+      console.log("[Trip]   - Phone GPS:", phoneGPSStart);
+      console.log("[Trip]   - Outboard GPS:", outboardGPSStart);
 
-      const newTrip: Trip = {
+      const newTrip: ExtendedTripLocal = {
         id: tripId,
         userId: user.id,
         motorSerialNumber: serial,
         name: tripName,
         startTime: new Date(),
         endTime: null,
-        startBatteryPercent: telemetryRef.current?.bms?.capacity ?? null,
+        startBatteryPercent: telem?.bms?.capacity ?? null,
         endBatteryPercent: null,
         totalDistanceKm: 0,
         maxSpeedKmh: 0,
         avgSpeedKmh: 0,
         totalEnergyWh: 0,
         isActive: true,
+        phoneGPSStart,
+        outboardGPSStart,
+        phoneGPSEnd: null,
+        outboardGPSEnd: null,
+        endReason: undefined,
+        dataPointsCount: 0,
       };
 
       // Save to local storage
@@ -262,9 +365,23 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
       // Reset state
       setTripDuration(0);
-      setTripStats({ totalDistanceKm: 0, totalEnergyWh: 0, maxSpeedKmh: 0, avgSpeedKmh: 0 });
+      setTripStats({ 
+        totalDistanceKm: 0, 
+        totalEnergyWh: 0, 
+        maxSpeedKmh: 0, 
+        avgSpeedKmh: 0,
+        maxAmperageDraw: 0,
+        maxConsumptionKW: 0,
+        avgConsumptionKW: 0,
+        rpmMax: 0,
+        rpmAvg: 0,
+      });
       lastPositionRef.current = null;
       speedSamplesRef.current = [];
+      consumptionSamplesRef.current = [];
+      rpmSamplesRef.current = [];
+      dataPointsRef.current = [];
+      lastActivityTimeRef.current = Date.now();
       console.log("[Trip] Trip stats RESET to zero");
 
       // Start recording
@@ -283,8 +400,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id, isRecording]);
 
-  const endTrip = useCallback(async (): Promise<boolean> => {
+  const endTrip = useCallback(async (reason: TripEndReason = 'user_button'): Promise<boolean> => {
     console.log("=== [Trip] END TRIP INITIATED ===");
+    console.log("[Trip] End reason:", reason);
     
     const trip = activeTripRef.current;
     if (!trip) {
@@ -292,62 +410,100 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    console.log("[Trip] Ending trip:", trip.id);
+    const tripDurationSec = Math.floor((Date.now() - new Date(trip.startTime).getTime()) / 1000);
+    
+    // Delete trips under 60 seconds (per spec)
+    if (tripDurationSec < MIN_TRIP_DURATION && reason === 'user_button') {
+      console.log("[Trip] Trip under 60 seconds, will be deleted");
+    }
+
+    console.log("[Trip] Ending trip:", trip.id, "Duration:", tripDurationSec, "s");
     setIsLoading(true);
     
-    console.log("[Trip] Stopping all timers...");
     stopTimers();
-    console.log("[Trip] Timers STOPPED");
 
     try {
       const stats = tripStatsRef.current;
-      console.log("[Trip] Final trip stats:");
-      console.log("[Trip]   - Distance:", stats.totalDistanceKm.toFixed(2), "km");
-      console.log("[Trip]   - Max Speed:", stats.maxSpeedKmh.toFixed(1), "km/h");
-      console.log("[Trip]   - Avg Speed:", stats.avgSpeedKmh.toFixed(1), "km/h");
-      console.log("[Trip]   - Energy Used:", stats.totalEnergyWh.toFixed(1), "Wh");
-      console.log("[Trip]   - End Battery:", telemetryRef.current?.bms?.capacity ?? "N/A");
+      const loc = locationRef.current;
+      const telem = telemetryRef.current;
+      
+      // Get end GPS positions
+      const phoneGPSEnd = loc ? { latitude: loc.latitude, longitude: loc.longitude } : null;
+      const outboardGPSEnd = telem?.gnss ? { latitude: telem.gnss.latitude, longitude: telem.gnss.longitude } : null;
+      
+      // Save data points
+      const tripDataPointsKey = `${TRIP_DATA_POINTS_KEY}_${trip.id}`;
+      await AsyncStorage.setItem(tripDataPointsKey, JSON.stringify(dataPointsRef.current));
+      console.log("[Trip] Saved", dataPointsRef.current.length, "data points");
       
       // Update trip in storage
-      console.log("[Trip] Updating trip in AsyncStorage...");
       const existing = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
       if (existing) {
-        const trips: Trip[] = JSON.parse(existing);
-        const updated = trips.map(t =>
-          t.id === trip.id
-            ? {
-                ...t,
-                endTime: new Date(),
-                isActive: false,
-                endBatteryPercent: telemetryRef.current?.bms?.capacity ?? null,
-                totalDistanceKm: stats.totalDistanceKm,
-                maxSpeedKmh: stats.maxSpeedKmh,
-                avgSpeedKmh: stats.avgSpeedKmh,
-                totalEnergyWh: stats.totalEnergyWh,
-              }
-            : t
-        );
-        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(updated));
-        console.log("[Trip] Trip data SAVED with final stats");
+        let trips: ExtendedTripLocal[] = JSON.parse(existing);
+        
+        // Remove if under 60 seconds
+        if (tripDurationSec < MIN_TRIP_DURATION) {
+          trips = trips.filter(t => t.id !== trip.id);
+          await AsyncStorage.removeItem(tripDataPointsKey);
+          console.log("[Trip] Trip deleted (under 60 seconds)");
+        } else {
+          trips = trips.map(t =>
+            t.id === trip.id
+              ? {
+                  ...t,
+                  endTime: new Date(),
+                  isActive: false,
+                  endBatteryPercent: telem?.bms?.capacity ?? null,
+                  totalDistanceKm: stats.totalDistanceKm,
+                  maxSpeedKmh: stats.maxSpeedKmh,
+                  avgSpeedKmh: stats.avgSpeedKmh,
+                  totalEnergyWh: stats.totalEnergyWh,
+                  phoneGPSEnd,
+                  outboardGPSEnd,
+                  endReason: reason,
+                  dataPointsCount: dataPointsRef.current.length,
+                }
+              : t
+          );
+        }
+        await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(trips));
       }
       
       await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
-      console.log("[Trip] Active trip marker REMOVED");
-
+      
+      // Reset refs
+      dataPointsRef.current = [];
+      
       setActiveTrip(null);
       setIsRecording(false);
-      console.log("[Trip] Recording state set to FALSE");
 
       console.log("=== [Trip] TRIP ENDED SUCCESSFULLY ===");
-      console.log("[Trip] Trip", trip.id, "is now complete and saved");
       return true;
     } catch (err) {
-      console.error("[Trip] END FAILED with error:", err);
+      console.error("[Trip] END FAILED:", err);
       return false;
     } finally {
       setIsLoading(false);
     }
   }, [stopTimers]);
+  
+  // Keep endTripRef in sync
+  useEffect(() => { endTripRef.current = endTrip; }, [endTrip]);
+  
+  // Get trip data points for PDF generation
+  const getTripDataPoints = useCallback(async (tripId: string): Promise<TripDataPoint[]> => {
+    try {
+      const key = `${TRIP_DATA_POINTS_KEY}_${tripId}`;
+      const data = await AsyncStorage.getItem(key);
+      if (data) {
+        return JSON.parse(data);
+      }
+      return [];
+    } catch (err) {
+      console.error("[Trip] Failed to get data points:", err);
+      return [];
+    }
+  }, []);
 
   return (
     <TripContext.Provider 
@@ -358,7 +514,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         tripStats, 
         isLoading, 
         startTrip, 
-        endTrip 
+        endTrip,
+        getTripDataPoints,
       }}
     >
       {children}
