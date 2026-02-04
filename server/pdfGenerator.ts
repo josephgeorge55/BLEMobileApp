@@ -10,7 +10,7 @@ const MARGIN_RIGHT = 72;
 const MARGIN_TOP = 50;
 const MARGIN_BOTTOM = 70;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
-const CONTENT_START_Y = MARGIN_TOP + 15;
+const CONTENT_START_Y = MARGIN_TOP + 35;
 const FOOTER_Y = PAGE_HEIGHT - 55;
 
 const BLADE_GREEN = '#7CB87C';
@@ -555,14 +555,14 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   function addHeader(title: string, subtitle: string) {
     doc.save();
     if (fs.existsSync(logoPath)) {
-      try { doc.image(logoPath, MARGIN_LEFT, 10, { height: 26 }); } catch(e) {}
+      try { doc.image(logoPath, MARGIN_LEFT, 12, { height: 28 }); } catch(e) {}
     }
-    doc.font('Helvetica-Bold').fontSize(13).fillColor(BLACK);
-    doc.text(title, MARGIN_LEFT + 38, 12, { width: 450 });
-    doc.font('Helvetica').fontSize(6.5).fillColor(GRAY);
-    doc.text(subtitle, MARGIN_LEFT + 38, 25, { width: 500 });
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(BLACK);
+    doc.text(title, MARGIN_LEFT + 40, 15, { width: 450 });
+    doc.font('Helvetica').fontSize(7).fillColor(GRAY);
+    doc.text(subtitle, MARGIN_LEFT + 40, 32, { width: 500 });
     doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
-    doc.moveTo(MARGIN_LEFT, MARGIN_TOP - 15).lineTo(PAGE_WIDTH - MARGIN_RIGHT, MARGIN_TOP - 15).stroke();
+    doc.moveTo(MARGIN_LEFT, MARGIN_TOP).lineTo(PAGE_WIDTH - MARGIN_RIGHT, MARGIN_TOP).stroke();
     doc.restore();
   }
 
@@ -811,23 +811,23 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const endWeatherCond = trip.endWeather?.conditions || '';
   
   drawWeatherIcon(doc, MARGIN_LEFT, y, weatherIconSize, startWeatherCond);
-  doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
-  doc.text(`Start Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 2);
-  y += 10;
+  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+  doc.text(`Start Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
+  y += 12;
   
   drawWeatherIcon(doc, MARGIN_LEFT, y, weatherIconSize, endWeatherCond);
-  doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 2);
-  y += 10;
+  doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
+  y += 12;
   
   // Location addresses
   doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
   doc.text('Locations', MARGIN_LEFT, y);
-  y += 8;
-  doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
-  doc.text(`Start: ${s(trip.startLocationAddress, 'GPS only')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 8;
-  doc.text(`End: ${s(trip.endLocationAddress, 'GPS only')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
   y += 10;
+  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+  doc.text(`Start Location: ${s(trip.startLocationAddress, 'GPS coordinates only - address not available')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 9;
+  doc.text(`End Location: ${s(trip.endLocationAddress, 'GPS coordinates only - address not available')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 12;
 
   const mapH = 200;
   drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, trip.phoneGPSStart, trip.phoneGPSEnd);
@@ -878,33 +878,33 @@ export function generateTripPDF(res: Response, trip: TripData): void {
 
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
   doc.text('Trip Summary', leftColX, leftY);
-  leftY += 10;
+  leftY += 12;
   
-    doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
-    doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
-    doc.fillColor(BLACK).text('Metric', leftColX + 3, leftY + 3, { width: col2/2 });
-    doc.text('km', leftColX + col2/2 + 3, leftY + 3, { width: col2/2 });
-    doc.text('mi', leftColX + col2 + 3, leftY + 3, { width: col2/2 });
-    doc.text('nm', leftColX + col2 * 1.5 + 3, leftY + 3, { width: col2/2 });
-    doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
-    doc.moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-    leftY += 12;
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
+  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
+  doc.fillColor(BLACK).text('Metric', leftColX + 3, leftY + 3, { width: col2/2 });
+  doc.text('km', leftColX + col2/2 + 3, leftY + 3, { width: col2/2 });
+  doc.text('mi', leftColX + col2 + 3, leftY + 3, { width: col2/2 });
+  doc.text('nm', leftColX + col2 * 1.5 + 3, leftY + 3, { width: col2/2 });
+  doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
+  doc.moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 13;
 
-    doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
-    doc.text('Distance', leftColX + 3, leftY + 3);
-    doc.text(dist.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
-    doc.text(kmToMi(dist).toFixed(2), leftColX + col2 + 3, leftY + 3);
-    doc.text(kmToNm(dist).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
-    doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 12).lineTo(leftColX + colHalf, leftY + 12).stroke();
-    leftY += 12;
+  doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
+  doc.text('Distance', leftColX + 3, leftY + 3);
+  doc.text(dist.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
+  doc.text(kmToMi(dist).toFixed(2), leftColX + col2 + 3, leftY + 3);
+  doc.text(kmToNm(dist).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
+  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 13;
 
-    doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 12).fill();
-    doc.fillColor(BLACK).text('Odometer', leftColX + 3, leftY + 3);
-    doc.text(odomEnd.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
-    doc.text(kmToMi(odomEnd).toFixed(2), leftColX + col2 + 3, leftY + 3);
-    doc.text(kmToNm(odomEnd).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
-    doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 12).lineTo(leftColX + colHalf, leftY + 12).stroke();
-    leftY += 16;
+  doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 13).fill();
+  doc.fillColor(BLACK).text('Odometer', leftColX + 3, leftY + 3);
+  doc.text(odomEnd.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
+  doc.text(kmToMi(odomEnd).toFixed(2), leftColX + col2 + 3, leftY + 3);
+  doc.text(kmToNm(odomEnd).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
+  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 20;
 
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
   doc.text('Performance Summary', leftColX, leftY);
