@@ -105,14 +105,15 @@ function formatCoord(c: { latitude: number; longitude: number } | null | undefin
 function formatWeather(w: any): string {
   if (!w) return 'N/A';
   const parts = [];
-  const condition = w.conditions?.toLowerCase() || '';
-  let symbol = '☁️'; // Default cloud
-  if (condition.includes('clear') || condition.includes('sun')) symbol = '☀️';
-  else if (condition.includes('rain')) symbol = '🌧️';
-  else if (condition.includes('cloud')) symbol = '☁️';
-  else if (condition.includes('storm')) symbol = '⛈️';
-  else if (condition.includes('snow')) symbol = '❄️';
-  else if (condition.includes('fog') || condition.includes('mist')) symbol = '🌫️';
+  const condition = (w.conditions || '').toLowerCase();
+  
+  // Use text-based symbols for maximum compatibility and clarity
+  let symbol = '[Cloudy]'; 
+  if (condition.includes('clear') || condition.includes('sun')) symbol = '[Sunny]';
+  else if (condition.includes('rain')) symbol = '[Rainy]';
+  else if (condition.includes('storm')) symbol = '[Stormy]';
+  else if (condition.includes('snow')) symbol = '[Snowy]';
+  else if (condition.includes('fog') || condition.includes('mist')) symbol = '[Foggy]';
 
   if (w.conditions) parts.push(`${symbol} ${w.conditions}`);
   if (w.temperature !== undefined) parts.push(`${w.temperature}°C`);
@@ -258,11 +259,12 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
   const innerH = h - padding * 2;
   
   if (startCoord && endCoord) {
-    // Zoom out: Always use at least 0.02 deg span
-    const minLat = Math.min(startCoord.latitude, endCoord.latitude) - 0.01;
-    const maxLat = Math.max(startCoord.latitude, endCoord.latitude) + 0.01;
-    const minLon = Math.min(startCoord.longitude, endCoord.longitude) - 0.01;
-    const maxLon = Math.max(startCoord.longitude, endCoord.longitude) + 0.01;
+    // Zoom out: Always use at least 0.1 deg span for a 10km-style overview
+    const span = 0.05; 
+    const minLat = Math.min(startCoord.latitude, endCoord.latitude) - span;
+    const maxLat = Math.max(startCoord.latitude, endCoord.latitude) + span;
+    const minLon = Math.min(startCoord.longitude, endCoord.longitude) - span;
+    const maxLon = Math.max(startCoord.longitude, endCoord.longitude) + span;
     
     const latRange = maxLat - minLat;
     const lonRange = maxLon - minLon;
@@ -287,6 +289,17 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
     doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
     doc.text('START', startX - 15, startY + 10);
     doc.text('END', endX - 10, endY + 10);
+
+    // Scale Bar (approx 5km based on span)
+    const scaleBarW = (0.045 / lonRange) * innerW; // ~5km
+    const scaleX = x + w - scaleBarW - 15;
+    const scaleY = y + h - 25;
+    doc.strokeColor(BLACK).lineWidth(1.5);
+    doc.moveTo(scaleX, scaleY).lineTo(scaleX + scaleBarW, scaleY).stroke();
+    doc.moveTo(scaleX, scaleY - 3).lineTo(scaleX, scaleY + 3).stroke();
+    doc.moveTo(scaleX + scaleBarW, scaleY - 3).lineTo(scaleX + scaleBarW, scaleY + 3).stroke();
+    doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
+    doc.text('5 km / 2.7 nm', scaleX, scaleY - 10, { width: scaleBarW, align: 'center' });
   } else {
     doc.font('Helvetica').fontSize(10).fillColor(GRAY);
     doc.text('No GPS data available', x + w/2 - 50, y + h/2 - 5);
@@ -745,21 +758,25 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   y += 11;
   
   doc.font('Helvetica').fontSize(6).fillColor(BLACK);
-  doc.text(`Local: ${startDt.toLocaleString()} (${timeZone})`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`Start Local: ${startDt.toLocaleString()} (${timeZone})`, MARGIN_LEFT, y, { width: summaryColW - 10 });
   doc.text(`Dist: ${dist.toFixed(2)} km / ${kmToMi(dist).toFixed(2)} mi / ${kmToNm(dist).toFixed(2)} nm`, MARGIN_LEFT + summaryColW, y);
   doc.text(`Start SOC: ${n(trip.startBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
-  doc.text(`UTC: ${startDt.toISOString()}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`End Local: ${endDt ? endDt.toLocaleString() : 'In Progress'}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
   doc.text(`Max: ${maxSpd.toFixed(1)} km/h / ${kmhToMph(maxSpd).toFixed(1)} mph / ${kmhToKn(maxSpd).toFixed(1)} kn`, MARGIN_LEFT + summaryColW, y);
   doc.text(`End SOC: ${n(trip.endBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
-  doc.text(`Duration: ${formatDuration(trip.startTime, trip.endTime)}`, MARGIN_LEFT, y);
+  doc.text(`Start UTC: ${startDt.toISOString()}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
   doc.text(`Avg: ${avgSpd.toFixed(1)} km/h / ${kmhToMph(avgSpd).toFixed(1)} mph / ${kmhToKn(avgSpd).toFixed(1)} kn`, MARGIN_LEFT + summaryColW, y);
-  doc.text(`Energy: ${n(trip.totalEnergyWh)} Wh`, MARGIN_LEFT + summaryColW * 2, y);
+  doc.text(`Energy Consumed: ${n(trip.totalEnergyWh)} Wh`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
-  doc.text(`Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`End UTC: ${endDt ? endDt.toISOString() : 'N/A'}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
   doc.text(`Odom: ${odomEnd.toFixed(2)} km / ${kmToMi(odomEnd).toFixed(2)} mi`, MARGIN_LEFT + summaryColW, y);
-  doc.text(`BT: ${serial} (${s(trip.connectionType, 'Classic')})`, MARGIN_LEFT + summaryColW * 2, y);
+  doc.text(`Motor MAC: ${serial} (${s(trip.connectionType, 'Classic')})`, MARGIN_LEFT + summaryColW * 2, y);
+  y += 11;
+  doc.text(`Start Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 9;
+  doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
   y += 15;
 
   const mapH = 200;
