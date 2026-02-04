@@ -42,6 +42,12 @@ export type TripEndReason =
   | 'auto_inactivity_600s'
   | 'app_closure';
 
+export interface BoatInfo {
+  boatType: string;
+  lengthMeters: number;
+  weightKg: number;
+}
+
 export interface ExtendedTrip {
   id: string;
   tripId: string;
@@ -99,6 +105,8 @@ export interface ExtendedTrip {
   phoneDeviceType: string | null;
   phoneOS: string | null;
   bluetoothMacAddress: string | null;
+  
+  boatInfo: BoatInfo | null;
 }
 
 export interface TripReportMetadata {

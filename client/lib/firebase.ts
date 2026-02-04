@@ -97,9 +97,17 @@ export interface RegisteredMotor {
   registeredAt: Date;
 }
 
+export interface BoatData {
+  boatType: string;
+  lengthMeters: number;
+  weightKg: number;
+  updatedAt: Date;
+}
+
 export interface UserData {
   email: string;
   registeredMotors: RegisteredMotor[];
+  boatData?: BoatData;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -379,6 +387,93 @@ export async function fetchLatestGPSFromFirestore(
     }
     
     throw error;
+  }
+}
+
+// Save boat data for a user
+export async function saveBoatData(
+  userId: string,
+  boatData: { boatType: string; lengthMeters: number; weightKg: number }
+): Promise<{ success: boolean; error?: string }> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    return { success: false, error: "Database service unavailable." };
+  }
+
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    return { success: false, error: "You need to sign in first." };
+  }
+
+  const effectiveUserId = currentUser.uid;
+
+  try {
+    const userRef = doc(firestore, "users", effectiveUserId);
+    await setDoc(userRef, {
+      boatData: {
+        ...boatData,
+        updatedAt: new Date(),
+      },
+      updatedAt: new Date(),
+    }, { merge: true });
+
+    console.log("[Firebase] Boat data saved successfully");
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Firebase] Error saving boat data:", error);
+    return { success: false, error: error.message || "Failed to save boat data." };
+  }
+}
+
+// Get boat data for a user
+export async function getBoatData(userId: string): Promise<BoatData | null> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    return null;
+  }
+
+  try {
+    const userRef = doc(firestore, "users", userId);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      const data = userDoc.data() as UserData;
+      return data.boatData || null;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[Firebase] Error getting boat data:", error);
+    return null;
+  }
+}
+
+// Delete boat data for a user
+export async function deleteBoatData(userId: string): Promise<{ success: boolean; error?: string }> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    return { success: false, error: "Database service unavailable." };
+  }
+
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    return { success: false, error: "You need to sign in first." };
+  }
+
+  const effectiveUserId = currentUser.uid;
+
+  try {
+    const userRef = doc(firestore, "users", effectiveUserId);
+    await setDoc(userRef, {
+      boatData: null,
+      updatedAt: new Date(),
+    }, { merge: true });
+
+    console.log("[Firebase] Boat data deleted successfully");
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Firebase] Error deleting boat data:", error);
+    return { success: false, error: error.message || "Failed to delete boat data." };
   }
 }
 

@@ -304,3 +304,28 @@ export type LinkMotor = z.infer<typeof linkMotorSchema>;
 export type StartTrip = z.infer<typeof startTripSchema>;
 export type EndTrip = z.infer<typeof endTripSchema>;
 export type TripDataPointInput = z.infer<typeof tripDataPointSchema>;
+
+// Boat data schema for user reporting
+export const boatTypes = [
+  'Inflatable',
+  'Sailboat',
+  'Catamaran',
+  'Fishing Boat',
+  'Day Boat',
+  'Center Console',
+  'Pontoon',
+  'Dinghy',
+  'RIB',
+  'Kayak',
+  'Other',
+] as const;
+
+export const boatDataSchema = z.object({
+  boatType: z.enum(boatTypes),
+  lengthMeters: z.number().positive().max(100),
+  weightKg: z.number().positive().max(100000),
+  updatedAt: z.date().optional(),
+});
+
+export type BoatType = typeof boatTypes[number];
+export type BoatData = z.infer<typeof boatDataSchema>;
