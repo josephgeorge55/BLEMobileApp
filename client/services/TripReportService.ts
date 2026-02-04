@@ -872,6 +872,8 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
       dataPoints: tripData.dataPoints,
       odometerStartKm: tripData.odometerStartKm,
       odometerEndKm: tripData.odometerEndKm,
+      startLocationAddress: tripData.startLocationAddress,
+      endLocationAddress: tripData.endLocationAddress,
     }),
   });
   
@@ -946,8 +948,8 @@ export function createExtendedTripFromBasic(
     outboardGPSStart: basicTrip.outboardGPSStart || null,
     outboardGPSEnd: basicTrip.outboardGPSEnd || null,
     
-    startLocationAddress: null,
-    endLocationAddress: null,
+    startLocationAddress: basicTrip.startLocationAddress || null,
+    endLocationAddress: basicTrip.endLocationAddress || null,
     
     errorCodesStart: [],
     errorCodesDuring: [],

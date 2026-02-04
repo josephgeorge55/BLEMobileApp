@@ -40,6 +40,8 @@ interface TripData {
   phoneGPSEnd?: { latitude: number; longitude: number };
   outboardGPSStart?: { latitude: number; longitude: number };
   outboardGPSEnd?: { latitude: number; longitude: number };
+  startLocationAddress?: string;
+  endLocationAddress?: string;
   startWeather?: { conditions?: string; temperature?: number; humidity?: number; windSpeed?: number; windDirection?: string };
   endWeather?: { conditions?: string; temperature?: number; humidity?: number; windSpeed?: number; windDirection?: string };
   hourlyWeather?: any[];
@@ -815,7 +817,17 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   
   drawWeatherIcon(doc, MARGIN_LEFT, y, weatherIconSize, endWeatherCond);
   doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
-  y += 15;
+  y += 12;
+  
+  // Location addresses
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
+  doc.text('Locations', MARGIN_LEFT, y);
+  y += 10;
+  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+  doc.text(`Start Location: ${s(trip.startLocationAddress, 'GPS coordinates only - address not available')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 9;
+  doc.text(`End Location: ${s(trip.endLocationAddress, 'GPS coordinates only - address not available')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 12;
 
   const mapH = 200;
   drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, trip.phoneGPSStart, trip.phoneGPSEnd);

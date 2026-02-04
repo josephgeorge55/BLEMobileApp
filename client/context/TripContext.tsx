@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
 import { fetchWeather, getWindDirection } from "@/services/weatherService";
@@ -52,6 +53,27 @@ interface ExtendedTripLocal extends Trip {
   startWeather?: WeatherSnapshot | null;
   endWeather?: WeatherSnapshot | null;
   hourlyWeather?: WeatherSnapshot[];
+  startLocationAddress?: string | null;
+  endLocationAddress?: string | null;
+}
+
+async function reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
+  try {
+    const results = await Location.reverseGeocodeAsync({ latitude, longitude });
+    if (results && results.length > 0) {
+      const addr = results[0];
+      const parts = [];
+      if (addr.street) parts.push(addr.street);
+      if (addr.city) parts.push(addr.city);
+      if (addr.region) parts.push(addr.region);
+      if (addr.country) parts.push(addr.country);
+      return parts.length > 0 ? parts.join(', ') : null;
+    }
+    return null;
+  } catch (error) {
+    console.log("[Trip] Reverse geocoding failed:", error);
+    return null;
+  }
 }
 
 interface TripContextType {
@@ -365,6 +387,14 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const phoneGPSStart = loc ? { latitude: loc.latitude, longitude: loc.longitude } : null;
       const outboardGPSStart = telem?.gnss ? { latitude: telem.gnss.latitude, longitude: telem.gnss.longitude } : null;
 
+      // Reverse geocode start location
+      let startLocationAddress: string | null = null;
+      if (loc) {
+        console.log("[Trip] Reverse geocoding start location...");
+        startLocationAddress = await reverseGeocode(loc.latitude, loc.longitude);
+        console.log("[Trip] Start location address:", startLocationAddress);
+      }
+
       // Fetch start weather
       let startWeather: WeatherSnapshot | null = null;
       if (loc) {
@@ -411,6 +441,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         startWeather,
         endWeather: null,
         hourlyWeather: [],
+        startLocationAddress,
+        endLocationAddress: null,
       };
 
       // Save to local storage
@@ -492,6 +524,14 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const phoneGPSEnd = loc ? { latitude: loc.latitude, longitude: loc.longitude } : null;
       const outboardGPSEnd = telem?.gnss ? { latitude: telem.gnss.latitude, longitude: telem.gnss.longitude } : null;
       
+      // Reverse geocode end location
+      let endLocationAddress: string | null = null;
+      if (loc) {
+        console.log("[Trip] Reverse geocoding end location...");
+        endLocationAddress = await reverseGeocode(loc.latitude, loc.longitude);
+        console.log("[Trip] End location address:", endLocationAddress);
+      }
+      
       // Fetch end weather
       let endWeather: WeatherSnapshot | null = null;
       if (loc) {
@@ -548,6 +588,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                   startWeather: startWeatherRef.current,
                   endWeather,
                   hourlyWeather: hourlyWeatherRef.current,
+                  endLocationAddress,
                 }
               : t
           );
