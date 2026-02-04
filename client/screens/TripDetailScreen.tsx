@@ -9,21 +9,25 @@ import {
   Share,
   Platform,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "@/hooks/useTheme";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { useTrip } from "@/context/TripContext";
 import { Card } from "@/components/Card";
 import { OpenStreetMap } from "@/components/OpenStreetMap";
+import { TripReportService } from "@/services/TripReportService";
 import { BladeColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import type { Trip, TripDataPoint } from "@shared/schema";
+import type { Trip } from "@shared/schema";
+import type { TripDataPoint, ExtendedTrip } from "@/types/TripReport";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const LOCAL_TRIPS_KEY = "@blade_local_trips";
 
 const ktsToKmh = (kts: number) => kts * 1.852;
 
@@ -40,11 +44,13 @@ export default function TripDetailScreen() {
   const route = useRoute<TripDetailRouteProp>();
   const navigation = useNavigation();
   const { tripId } = route.params;
+  const { getTripDataPoints } = useTrip();
 
-  const [trip, setTrip] = useState<Trip | null>(null);
+  const [trip, setTrip] = useState<ExtendedTrip | null>(null);
   const [dataPoints, setDataPoints] = useState<TripDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   useEffect(() => {
     fetchTripData();
@@ -52,20 +58,17 @@ export default function TripDetailScreen() {
 
   const fetchTripData = async () => {
     try {
-      const [tripResponse, dataResponse] = await Promise.all([
-        fetch(new URL(`/api/trips/${tripId}`, getApiUrl()).toString()),
-        fetch(new URL(`/api/trips/${tripId}/data`, getApiUrl()).toString()),
-      ]);
-
-      if (tripResponse.ok) {
-        const tripData = await tripResponse.json();
-        setTrip(tripData);
+      const tripsData = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+      if (tripsData) {
+        const trips: ExtendedTrip[] = JSON.parse(tripsData);
+        const foundTrip = trips.find(t => t.id === tripId);
+        if (foundTrip) {
+          setTrip(foundTrip);
+        }
       }
-
-      if (dataResponse.ok) {
-        const pointsData = await dataResponse.json();
-        setDataPoints(pointsData);
-      }
+      
+      const points = await getTripDataPoints(tripId);
+      setDataPoints(points);
     } catch (error) {
       console.error("Error fetching trip data:", error);
     } finally {
@@ -145,198 +148,32 @@ export default function TripDetailScreen() {
     );
   };
 
-  const generatePDFHTML = () => {
-    if (!trip) return "";
-
-    const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
-    const efficiency = trip.totalDistanceKm && trip.totalEnergyWh
-      ? trip.totalEnergyWh / trip.totalDistanceKm
-      : 0;
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Trip Report - ${trip.name || "Trip"}</title>
-          <style>
-            * { box-sizing: border-box; }
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-              padding: 0; 
-              margin: 0;
-              color: #1a1a1a; 
-              background: #ffffff;
-            }
-            .page { padding: 50px; max-width: 800px; margin: 0 auto; }
-            .header { 
-              background: linear-gradient(135deg, #0A4D6E 0%, #063549 100%);
-              color: white;
-              padding: 40px;
-              margin: -50px -50px 40px -50px;
-              text-align: center;
-            }
-            .header-logo { font-size: 14px; letter-spacing: 3px; opacity: 0.9; margin-bottom: 8px; }
-            .header h1 { color: white; margin: 0 0 12px 0; font-size: 32px; font-weight: 700; }
-            .header-date { color: rgba(255,255,255,0.85); font-size: 14px; }
-            .section { margin-bottom: 35px; }
-            .section-title { 
-              color: #0A4D6E; 
-              font-size: 16px; 
-              font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              margin-bottom: 20px; 
-              padding-bottom: 10px;
-              border-bottom: 2px solid #8DC63F;
-            }
-            .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-            .stats-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-            .stat-box { 
-              background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-              border: 1px solid #e2e8f0;
-              border-radius: 12px; 
-              padding: 24px 16px; 
-              text-align: center; 
-            }
-            .stat-value { font-size: 28px; font-weight: 700; color: #0A4D6E; line-height: 1.2; }
-            .stat-value-accent { font-size: 28px; font-weight: 700; color: #8DC63F; line-height: 1.2; }
-            .stat-label { font-size: 11px; color: #64748b; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-            .motor-info {
-              background: #f8fafc;
-              border-radius: 8px;
-              padding: 16px 20px;
-              margin-bottom: 30px;
-              display: flex;
-              justify-content: space-between;
-              border: 1px solid #e2e8f0;
-            }
-            .motor-info-item { text-align: center; }
-            .motor-info-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-            .motor-info-value { font-size: 14px; color: #334155; font-weight: 600; margin-top: 4px; }
-            .footer { 
-              text-align: center; 
-              margin-top: 50px; 
-              padding-top: 30px;
-              border-top: 1px solid #e2e8f0;
-            }
-            .footer-brand { color: #0A4D6E; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
-            .footer-company { color: #94a3b8; font-size: 11px; }
-            .footer-links { margin-top: 12px; font-size: 10px; color: #94a3b8; }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="header">
-              <div class="header-logo">BLADE OUTBOARDS</div>
-              <h1>${trip.name || "Trip Report"}</h1>
-              <div class="header-date">${formatDateTime(trip.startTime)} ${trip.endTime ? "- " + formatDateTime(trip.endTime) : "(In Progress)"}</div>
-            </div>
-            
-            <div class="motor-info">
-              <div class="motor-info-item">
-                <div class="motor-info-label">Motor</div>
-                <div class="motor-info-value">${trip.motorSerialNumber || "Unknown"}</div>
-              </div>
-              <div class="motor-info-item">
-                <div class="motor-info-label">Duration</div>
-                <div class="motor-info-value">${formatDuration(trip.startTime, trip.endTime)}</div>
-              </div>
-              <div class="motor-info-item">
-                <div class="motor-info-label">Data Points</div>
-                <div class="motor-info-value">${dataPoints.length}</div>
-              </div>
-            </div>
-            
-            <div class="section">
-              <div class="section-title">Trip Summary</div>
-              <div class="stats-grid">
-                <div class="stat-box">
-                  <div class="stat-value">${(trip.totalDistanceKm || 0).toFixed(2)}</div>
-                  <div class="stat-label">Distance (km)</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-value-accent">${(trip.maxSpeedKmh || 0).toFixed(1)}</div>
-                  <div class="stat-label">Max Speed (km/h)</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-value">${(trip.avgSpeedKmh || 0).toFixed(1)}</div>
-                  <div class="stat-label">Avg Speed (km/h)</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-value">${formatDuration(trip.startTime, trip.endTime)}</div>
-                  <div class="stat-label">Duration</div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="section">
-              <div class="section-title">Energy Consumption</div>
-              <div class="stats-grid-3">
-                <div class="stat-box">
-                  <div class="stat-value">${(trip.totalEnergyWh || 0).toFixed(0)}</div>
-                  <div class="stat-label">Total Energy (Wh)</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-value">${batteryUsed}%</div>
-                  <div class="stat-label">Battery Used</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-value-accent">${efficiency.toFixed(1)}</div>
-                  <div class="stat-label">Efficiency (Wh/km)</div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="section">
-              <div class="section-title">Battery Status</div>
-              <div class="stats-grid">
-                <div class="stat-box">
-                  <div class="stat-value">${trip.startBatteryPercent || 0}%</div>
-                  <div class="stat-label">Start Level</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-value">${trip.endBatteryPercent || 0}%</div>
-                  <div class="stat-label">End Level</div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              <div class="footer-brand">BLADE OUTBOARDS</div>
-              <div class="footer-company">Blade Marine Technologies Limited</div>
-              <div class="footer-links">www.bladeoutboards.com</div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-  };
-
-  const handleExportPDF = async () => {
+  const handleGenerateReport = async () => {
     if (!trip) return;
 
-    setIsExporting(true);
+    setIsGeneratingReport(true);
     try {
-      const html = generatePDFHTML();
-      const { uri } = await Print.printToFileAsync({ html });
+      const result = await TripReportService.generateReport(trip, dataPoints);
       
-      if (Platform.OS === "web") {
-        const link = document.createElement("a");
-        link.href = uri;
-        link.download = `trip-report-${trip.id}.pdf`;
-        link.click();
-      } else if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "Share Trip Report",
-          UTI: "com.adobe.pdf",
-        });
+      if (result.success && result.uri) {
+        console.log("[TripDetail] Report generated:", result.uri);
+        if (Platform.OS !== "web") {
+          Alert.alert(
+            "Report Generated",
+            "Your professional trip report has been created and is ready to share.",
+            [{ text: "OK" }]
+          );
+        }
+      } else {
+        console.error("[TripDetail] Report generation failed:", result.error);
+        if (Platform.OS !== "web") {
+          Alert.alert("Error", "Failed to generate report. Please try again.");
+        }
       }
     } catch (error) {
-      console.error("Error exporting PDF:", error);
+      console.error("[TripDetail] Error generating report:", error);
     } finally {
-      setIsExporting(false);
+      setIsGeneratingReport(false);
     }
   };
 
@@ -370,17 +207,17 @@ export default function TripDetailScreen() {
     );
   }
 
-  const speedData = dataPoints.filter(p => p.speedKmh != null).map(p => p.speedKmh!);
-  const batteryData = dataPoints.filter(p => p.batteryPercent != null).map(p => p.batteryPercent!);
-  const powerData = dataPoints.filter(p => p.vescWattage != null).map(p => p.vescWattage!);
+  const speedData = dataPoints.filter(p => p.phoneSpeedKmh != null || p.outboardSpeedKmh != null).map(p => p.phoneSpeedKmh ?? p.outboardSpeedKmh ?? 0);
+  const batteryData = dataPoints.filter(p => p.batterySOC != null).map(p => p.batterySOC!);
+  const powerData = dataPoints.filter(p => p.consumptionKW != null).map(p => (p.consumptionKW ?? 0) * 1000);
   const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
 
   const routeCoordinates = useMemo(() => {
     return dataPoints
-      .filter(p => p.latitude != null && p.longitude != null)
+      .filter(p => (p.phoneLatitude != null && p.phoneLongitude != null) || (p.outboardLatitude != null && p.outboardLongitude != null))
       .map(p => ({
-        latitude: p.latitude!,
-        longitude: p.longitude!,
+        latitude: p.phoneLatitude ?? p.outboardLatitude ?? 0,
+        longitude: p.phoneLongitude ?? p.outboardLongitude ?? 0,
       }));
   }, [dataPoints]);
 
@@ -629,20 +466,20 @@ export default function TripDetailScreen() {
         </Pressable>
         
         <Pressable
-          onPress={handleExportPDF}
-          disabled={isExporting}
-          testID="export-pdf-button"
+          onPress={handleGenerateReport}
+          disabled={isGeneratingReport}
+          testID="generate-report-button"
         >
           <LinearGradient
-            colors={[BladeColors.primary, BladeColors.primaryDark]}
+            colors={[BladeColors.accent, BladeColors.accentDark || BladeColors.accent]}
             style={styles.exportButton}
           >
-            {isExporting ? (
+            {isGeneratingReport ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
                 <Feather name="file-text" size={20} color="#FFFFFF" />
-                <Text style={styles.exportButtonText}>Export PDF</Text>
+                <Text style={styles.exportButtonText}>Generate Report</Text>
               </>
             )}
           </LinearGradient>

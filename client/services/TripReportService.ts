@@ -826,3 +826,18 @@ export function createExtendedTripFromBasic(
     bluetoothMacAddress: null,
   };
 }
+
+export const TripReportService = {
+  generateReport: async (trip: ExtendedTrip, dataPoints: TripDataPoint[]): Promise<{ success: boolean; uri?: string; error?: string }> => {
+    try {
+      const tripWithDataPoints = { ...trip, dataPoints };
+      const uri = await generateTripReportPDF(tripWithDataPoints as ExtendedTrip);
+      await shareTripReport(uri);
+      return { success: true, uri };
+    } catch (error) {
+      console.error('[TripReportService] Error generating report:', error);
+      return { success: false, error: String(error) };
+    }
+  },
+  share: shareTripReport,
+};
