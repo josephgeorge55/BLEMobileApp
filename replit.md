@@ -53,8 +53,10 @@ The trip system has been simplified to work on both web (demo mode) and native (
 - **Local Storage Only**: Trips stored in AsyncStorage at `@blade_local_trips` - no server sync required
 - **Telemetry Interval**: 4-second intervals for logging telemetry data points (per PDF spec)
 - **Duration Timer**: 1-second intervals for live duration display
+- **Weather Recording**: Captures weather at trip start, hourly during trip, and at trip end
 - **Wh Calculation**: Uses 48V battery voltage × current (from VESC or BMS)
 - **Data Points Storage**: TripDataPoint arrays stored at `@blade_trip_data_points_{tripId}`
+- **Weather Storage**: Weather snapshots stored at `@blade_trip_weather_{tripId}` (startWeather, endWeather, hourlyWeather[])
 
 **Trip Validation Rules:**
 - Trips under 60 seconds are automatically deleted when ended
