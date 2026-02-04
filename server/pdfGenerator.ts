@@ -595,9 +595,20 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   
   let y = CONTENT_START_Y;
   
+  const introTextEn = 'This document contains telemetry and operational data collected from a Blade electric outboard motor during the recorded session. Data includes speed, power consumption, battery status, GPS coordinates, and environmental conditions. This report is auto-generated and provided for documentation and analysis purposes.';
+  const introTextDe = 'Dieses Dokument enthält Telemetrie- und Betriebsdaten, die während der aufgezeichneten Sitzung von einem Blade-Elektro-Außenbordmotor erfasst wurden. Die Daten umfassen Geschwindigkeit, Stromverbrauch, Batteriestatus, GPS-Koordinaten und Umgebungsbedingungen. Dieser Bericht wird automatisch erstellt und dient Dokumentations- und Analysezwecken.';
+  const introTextIt = 'Questo documento contiene dati di telemetria e operativi raccolti da un motore fuoribordo elettrico Blade durante la sessione registrata. I dati includono velocità, consumo energetico, stato della batteria, coordinate GPS e condizioni ambientali. Questo rapporto è generato automaticamente e fornito a scopo di documentazione e analisi.';
+  const introTextEs = 'Este documento contiene datos telemétricos y operativos recopilados de un motor fueraborda eléctrico Blade durante la sesión grabada. Los datos incluyen velocidad, consumo de energía, estado de la batería, coordenadas GPS y condiciones ambientales. Este informe se genera automáticamente y se proporciona con fines de documentación y análisis.';
+
   doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-  doc.text('This document contains telemetry and operational data collected from a Blade electric outboard motor during the recorded session. Data includes speed, power consumption, battery status, GPS coordinates, and environmental conditions. This report is auto-generated and provided for documentation and analysis purposes.', MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 22;
+  doc.text(`EN: ${introTextEn}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 18;
+  doc.text(`DE: ${introTextDe}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 18;
+  doc.text(`IT: ${introTextIt}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 18;
+  doc.text(`ES: ${introTextEs}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 15;
 
   const leftColX = MARGIN_LEFT;
   const rightColX = MARGIN_LEFT + colHalf + 20;
