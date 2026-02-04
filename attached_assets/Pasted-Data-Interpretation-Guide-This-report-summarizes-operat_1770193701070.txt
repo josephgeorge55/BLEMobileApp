@@ -1,0 +1,39 @@
+Data Interpretation Guide
+
+This report summarizes operating data collected from a Blade electric outboard and associated mobile device during the recorded trip session. Telemetry values are logged at approximately 4-second intervals and may vary depending on connection quality, sensor availability, environmental conditions, and device state.
+
+Speed
+Speed is calculated using GPS position changes and motor telemetry when available. Values are displayed in kilometers per hour (km/h), miles per hour (mph), and knots (kn). Temporary spikes or unrealistic readings may occur due to GPS drift, signal loss, or low sample duration and should be interpreted as measurement artifacts.
+
+Distance and Odometer
+Trip distance is derived from cumulative GPS position changes. Odometer values represent total recorded distance for the motor. Zero or near-zero values may appear during short sessions or when GPS data is unavailable.
+
+Battery State of Charge (SOC)
+Battery SOC is reported by the Battery Management System when available. SOC values may display as N/A if the battery system is not connected or data is not provided during the session.
+
+Energy Consumption
+Energy usage (Wh) represents estimated electrical energy drawn during the trip. Short trips or incomplete telemetry may result in zero or unavailable values.
+
+Power and Amperage
+Power (kW) and current (A) reflect instantaneous electrical demand from the motor system. These values may be unavailable depending on firmware support or connection state. Brief anomalies may occur during connection transitions.
+
+Motor RPM
+RPM indicates motor rotational speed. Higher RPM does not necessarily correspond to higher vessel speed due to propeller slip, load conditions, or water state.
+
+Trip Timing
+Start and end times are recorded in both local device time and UTC. Elapsed time represents total session duration between first and last received telemetry packets.
+
+Location Data
+Start and end locations are derived from the mobile device’s GPS. Address resolution may be unavailable, in which case only coordinates are recorded. GPS accuracy depends on satellite visibility and surrounding environment.
+
+Weather Information
+Weather conditions are sourced from the mobile device location at trip start and end. These values may not reflect precise on-water conditions and are provided for general reference only.
+
+Connectivity
+Data is transmitted via Bluetooth (Classic or BLE depending on configuration). Temporary disconnections may result in missing or partial telemetry.
+
+Unavailable Values (N/A)
+Fields shown as “N/A” indicate data that was not reported by the motor, battery system, or mobile device during this session.
+
+Trip Identification
+Each report is associated with a unique Trip ID and Report ID. Motor identity is referenced by serial number and Bluetooth MAC when available.

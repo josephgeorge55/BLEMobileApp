@@ -641,6 +641,22 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     return y + 12;
   }
 
+  function drawSectionBox(x: number, y: number, width: number, height: number, title?: string): number {
+    doc.save();
+    doc.strokeColor('#c0c0c0').lineWidth(0.5);
+    doc.roundedRect(x, y, width, height, 3).stroke();
+    doc.restore();
+    
+    if (title) {
+      doc.font('Helvetica-Bold').fontSize(7);
+      const titleWidth = doc.widthOfString(title) + 8;
+      doc.fillColor('#ffffff').rect(x + 8, y - 4, titleWidth, 10).fill();
+      doc.fillColor(BLACK);
+      doc.text(title, x + 12, y - 3);
+    }
+    return y + 6;
+  }
+
   const colHalf = (CONTENT_WIDTH - 20) / 2;
   const col2 = colHalf / 2;
 
@@ -669,9 +685,11 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   let leftY = y;
   let rightY = y;
 
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Device Information', leftColX, leftY);
-  leftY += 12;
+  // Draw section container for Device Info
+  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 170, 'Device Information');
+  leftY += 10;
+  
+  doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
   leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
   leftY = drawTableRow(leftY, ['Model Name', 'HALO 6'], [col2, col2]);
   leftY = drawTableRow(leftY, ['Model Number', 'BLD2002015'], [col2, col2], false, '#fff');
@@ -679,11 +697,11 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   leftY = drawTableRow(leftY, ['Firmware Version', s(trip.firmwareVersion)], [col2, col2], false, '#fff');
   leftY = drawTableRow(leftY, ['Hardware Version', 'H32026'], [col2, col2]);
   leftY = drawTableRow(leftY, ['Serial Number', serial], [col2, col2], false, '#fff');
-  leftY += 8;
+  leftY += 10;
 
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
   doc.text('Phone & Application', leftColX, leftY);
-  leftY += 12;
+  leftY += 10;
   leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
   leftY = drawTableRow(leftY, ['App Version', s(trip.phoneAppVersion)], [col2, col2]);
   leftY = drawTableRow(leftY, ['Phone Name', s(trip.phoneName)], [col2, col2], false, '#fff');
@@ -694,9 +712,9 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const origLeft = MARGIN_LEFT;
   (doc as any).x = rightColX;
   
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Report Information', rightColX, rightY);
-  rightY += 12;
+  // Draw section container for Report Info
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 170, 'Report Information');
+  rightY += 10;
   
   doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
   let rx = rightColX;
@@ -781,11 +799,15 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   
   const summaryColW = CONTENT_WIDTH / 3;
   
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  // Draw container for summary section
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 115, 'Trip Overview');
+  y += 8;
+  
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
   doc.text('Trip Times', MARGIN_LEFT, y);
   doc.text('Distance & Speed', MARGIN_LEFT + summaryColW, y);
   doc.text('Battery & Energy', MARGIN_LEFT + summaryColW * 2, y);
-  y += 11;
+  y += 10;
   
   doc.font('Helvetica').fontSize(6).fillColor(BLACK);
   doc.text(`Start Local: ${startDt.toLocaleString()} (${timeZone})`, MARGIN_LEFT, y, { width: summaryColW - 10 });
@@ -819,15 +841,14 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.text(`End Weather: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT + weatherIconSize + 5, y + 3);
   y += 12;
   
-  // Location addresses
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text('Locations', MARGIN_LEFT, y);
-  y += 10;
+  // Location addresses with container
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 36, 'Locations');
+  y += 8;
   doc.font('Helvetica').fontSize(6).fillColor(BLACK);
-  doc.text(`Start Location: ${s(trip.startLocationAddress, 'GPS coordinates only - address not available')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  doc.text(`Start: ${s(trip.startLocationAddress, 'GPS coordinates only')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
   y += 9;
-  doc.text(`End Location: ${s(trip.endLocationAddress, 'GPS coordinates only - address not available')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 12;
+  doc.text(`End: ${s(trip.endLocationAddress, 'GPS coordinates only')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 18;
 
   const mapH = 200;
   drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, trip.phoneGPSStart, trip.phoneGPSEnd);
@@ -876,9 +897,9 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   leftY = y;
   rightY = y;
 
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Trip Summary', leftColX, leftY);
-  leftY += 12;
+  // Draw container for Trip Summary on conclusion
+  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 280, 'Trip Summary');
+  leftY += 10;
   
   doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
   doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
@@ -964,9 +985,9 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     leftY += 13;
   });
 
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Data Interpretation Guide', rightColX, rightY);
-  rightY += 12;
+  // Draw container for Data Interpretation Guide
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 280, 'Data Interpretation Guide');
+  rightY += 10;
   
   doc.font('Helvetica').fontSize(5.5).fillColor(BLACK);
   const interpretGuide = [
