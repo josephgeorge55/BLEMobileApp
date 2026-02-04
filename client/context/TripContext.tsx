@@ -3,16 +3,32 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
+import { fetchWeather, getWindDirection } from "@/services/weatherService";
+import type { WeatherData } from "@/services/weatherService";
 import type { Trip } from "@shared/schema";
-import type { TripDataPoint, TripEndReason } from "@/types/TripReport";
+import type { TripDataPoint, TripEndReason, WeatherSnapshot } from "@/types/TripReport";
 
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
 const ACTIVE_TRIP_KEY = "@blade_active_trip";
 const TRIP_DATA_POINTS_KEY = "@blade_trip_data_points";
+const TRIP_WEATHER_KEY = "@blade_trip_weather";
 const DATA_RECORDING_INTERVAL = 4000;
+const WEATHER_RECORDING_INTERVAL = 60 * 60 * 1000;
 const MAX_TRIP_DURATION = 8 * 60 * 60;
 const INACTIVITY_TIMEOUT = 600;
 const MIN_TRIP_DURATION = 60;
+
+function weatherDataToSnapshot(data: WeatherData): WeatherSnapshot {
+  return {
+    timestamp: new Date(),
+    temperature: data.current.temp,
+    humidity: data.current.humidity,
+    windSpeed: data.current.wind_speed,
+    windDirection: getWindDirection(data.current.wind_deg),
+    conditions: data.current.weather[0]?.description || null,
+    pressure: data.current.pressure,
+  };
+}
 
 interface TripStats {
   totalDistanceKm: number;
@@ -33,6 +49,9 @@ interface ExtendedTripLocal extends Trip {
   outboardGPSEnd?: { latitude: number; longitude: number } | null;
   endReason?: TripEndReason;
   dataPointsCount?: number;
+  startWeather?: WeatherSnapshot | null;
+  endWeather?: WeatherSnapshot | null;
+  hourlyWeather?: WeatherSnapshot[];
 }
 
 interface TripContextType {
@@ -88,6 +107,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const dataPointsRef = useRef<TripDataPoint[]>([]);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const endTripRef = useRef<((reason?: TripEndReason) => Promise<boolean>) | null>(null);
+  const weatherTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hourlyWeatherRef = useRef<WeatherSnapshot[]>([]);
+  const startWeatherRef = useRef<WeatherSnapshot | null>(null);
 
   // Keep refs in sync with state/props
   useEffect(() => { telemetryRef.current = telemetry; }, [telemetry]);
@@ -240,6 +262,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       inactivityTimerRef.current = null;
       console.log("[Trip] Inactivity timer stopped");
     }
+    if (weatherTimerRef.current) {
+      clearInterval(weatherTimerRef.current);
+      weatherTimerRef.current = null;
+      console.log("[Trip] Weather timer stopped");
+    }
   }, []);
 
   // Start/stop timers based on recording state
@@ -276,6 +303,23 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           }
         }, DATA_RECORDING_INTERVAL);
         console.log("[Trip] Data timer started (4s intervals)");
+      }
+      
+      // Weather recording timer - every hour
+      if (!weatherTimerRef.current) {
+        weatherTimerRef.current = setInterval(async () => {
+          const loc = locationRef.current;
+          if (loc) {
+            console.log("[Trip] Fetching hourly weather...");
+            const weatherResult = await fetchWeather(loc.latitude, loc.longitude);
+            if (weatherResult.success && weatherResult.data) {
+              const snapshot = weatherDataToSnapshot(weatherResult.data);
+              hourlyWeatherRef.current.push(snapshot);
+              console.log("[Trip] Hourly weather captured:", snapshot.conditions);
+            }
+          }
+        }, WEATHER_RECORDING_INTERVAL);
+        console.log("[Trip] Weather timer started (1h intervals)");
       }
     } else {
       stopTimers();
@@ -321,6 +365,19 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const phoneGPSStart = loc ? { latitude: loc.latitude, longitude: loc.longitude } : null;
       const outboardGPSStart = telem?.gnss ? { latitude: telem.gnss.latitude, longitude: telem.gnss.longitude } : null;
 
+      // Fetch start weather
+      let startWeather: WeatherSnapshot | null = null;
+      if (loc) {
+        console.log("[Trip] Fetching start weather...");
+        const weatherResult = await fetchWeather(loc.latitude, loc.longitude);
+        if (weatherResult.success && weatherResult.data) {
+          startWeather = weatherDataToSnapshot(weatherResult.data);
+          console.log("[Trip] Start weather captured:", startWeather.conditions);
+        }
+      }
+      startWeatherRef.current = startWeather;
+      hourlyWeatherRef.current = [];
+
       console.log("[Trip] Creating new trip object:");
       console.log("[Trip]   - ID:", tripId);
       console.log("[Trip]   - Name:", tripName);
@@ -329,6 +386,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       console.log("[Trip]   - Start Battery:", telem?.bms?.capacity ?? "N/A");
       console.log("[Trip]   - Phone GPS:", phoneGPSStart);
       console.log("[Trip]   - Outboard GPS:", outboardGPSStart);
+      console.log("[Trip]   - Start Weather:", startWeather?.conditions ?? "N/A");
 
       const newTrip: ExtendedTripLocal = {
         id: tripId,
@@ -350,6 +408,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         outboardGPSEnd: null,
         endReason: undefined,
         dataPointsCount: 0,
+        startWeather,
+        endWeather: null,
+        hourlyWeather: [],
       };
 
       // Save to local storage
@@ -431,10 +492,31 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const phoneGPSEnd = loc ? { latitude: loc.latitude, longitude: loc.longitude } : null;
       const outboardGPSEnd = telem?.gnss ? { latitude: telem.gnss.latitude, longitude: telem.gnss.longitude } : null;
       
+      // Fetch end weather
+      let endWeather: WeatherSnapshot | null = null;
+      if (loc) {
+        console.log("[Trip] Fetching end weather...");
+        const weatherResult = await fetchWeather(loc.latitude, loc.longitude);
+        if (weatherResult.success && weatherResult.data) {
+          endWeather = weatherDataToSnapshot(weatherResult.data);
+          console.log("[Trip] End weather captured:", endWeather.conditions);
+        }
+      }
+      
       // Save data points
       const tripDataPointsKey = `${TRIP_DATA_POINTS_KEY}_${trip.id}`;
       await AsyncStorage.setItem(tripDataPointsKey, JSON.stringify(dataPointsRef.current));
       console.log("[Trip] Saved", dataPointsRef.current.length, "data points");
+      
+      // Save weather data
+      const weatherDataKey = `${TRIP_WEATHER_KEY}_${trip.id}`;
+      const weatherData = {
+        startWeather: startWeatherRef.current,
+        endWeather,
+        hourlyWeather: hourlyWeatherRef.current,
+      };
+      await AsyncStorage.setItem(weatherDataKey, JSON.stringify(weatherData));
+      console.log("[Trip] Saved weather data (start + end + ", hourlyWeatherRef.current.length, " hourly)");
       
       // Update trip in storage
       const existing = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
@@ -445,6 +527,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         if (tripDurationSec < MIN_TRIP_DURATION) {
           trips = trips.filter(t => t.id !== trip.id);
           await AsyncStorage.removeItem(tripDataPointsKey);
+          await AsyncStorage.removeItem(weatherDataKey);
           console.log("[Trip] Trip deleted (under 60 seconds)");
         } else {
           trips = trips.map(t =>
@@ -462,6 +545,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                   outboardGPSEnd,
                   endReason: reason,
                   dataPointsCount: dataPointsRef.current.length,
+                  startWeather: startWeatherRef.current,
+                  endWeather,
+                  hourlyWeather: hourlyWeatherRef.current,
                 }
               : t
           );
@@ -473,6 +559,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       
       // Reset refs
       dataPointsRef.current = [];
+      hourlyWeatherRef.current = [];
+      startWeatherRef.current = null;
       
       setActiveTrip(null);
       setIsRecording(false);
