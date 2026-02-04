@@ -215,23 +215,31 @@ function drawRoHSLogo(doc: PDFKit.PDFDocument, x: number, y: number, size: numbe
 function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, startCoord: any, endCoord: any) {
   doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
   
+  // Land context
   doc.fillColor('#C8D4B8');
   doc.moveTo(x, y).lineTo(x + w * 0.15, y).lineTo(x + w * 0.12, y + h * 0.3)
     .lineTo(x + w * 0.08, y + h * 0.5).lineTo(x, y + h * 0.4).closePath().fill();
-  
   doc.moveTo(x + w * 0.7, y).lineTo(x + w, y).lineTo(x + w, y + h * 0.25)
     .lineTo(x + w * 0.85, y + h * 0.35).lineTo(x + w * 0.75, y + h * 0.2).closePath().fill();
-  
   doc.moveTo(x, y + h * 0.7).lineTo(x + w * 0.25, y + h * 0.65).lineTo(x + w * 0.3, y + h * 0.8)
     .lineTo(x + w * 0.2, y + h).lineTo(x, y + h).closePath().fill();
-  
   doc.moveTo(x + w * 0.6, y + h * 0.75).lineTo(x + w * 0.8, y + h * 0.7).lineTo(x + w, y + h * 0.8)
     .lineTo(x + w, y + h).lineTo(x + w * 0.55, y + h).closePath().fill();
   
+  // Grid and labels
   doc.strokeColor('#9AB4C8').lineWidth(0.3);
+  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
   for (let i = 1; i < 8; i++) {
-    doc.moveTo(x + (w * i / 8), y).lineTo(x + (w * i / 8), y + h).stroke();
-    doc.moveTo(x, y + (h * i / 8)).lineTo(x + w, y + (h * i / 8)).stroke();
+    const gx = x + (w * i / 8);
+    const gy = y + (h * i / 8);
+    doc.moveTo(gx, y).lineTo(gx, y + h).stroke();
+    doc.moveTo(x, gy).lineTo(x + w, gy).stroke();
+    
+    if (startCoord) {
+      // Coordinate markings
+      doc.text(`${(startCoord.longitude + (i-4)*0.01).toFixed(3)}°`, gx - 10, y + h + 2);
+      doc.text(`${(startCoord.latitude + (4-i)*0.01).toFixed(3)}°`, x - 25, gy - 2);
+    }
   }
   
   doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
@@ -241,36 +249,35 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
   const innerH = h - padding * 2;
   
   if (startCoord && endCoord) {
-    const minLat = Math.min(startCoord.latitude, endCoord.latitude);
-    const maxLat = Math.max(startCoord.latitude, endCoord.latitude);
-    const minLon = Math.min(startCoord.longitude, endCoord.longitude);
-    const maxLon = Math.max(startCoord.longitude, endCoord.longitude);
+    // Zoom out: Always use at least 0.02 deg span
+    const minLat = Math.min(startCoord.latitude, endCoord.latitude) - 0.01;
+    const maxLat = Math.max(startCoord.latitude, endCoord.latitude) + 0.01;
+    const minLon = Math.min(startCoord.longitude, endCoord.longitude) - 0.01;
+    const maxLon = Math.max(startCoord.longitude, endCoord.longitude) + 0.01;
     
-    const latRange = maxLat - minLat || 0.01;
-    const lonRange = maxLon - minLon || 0.01;
+    const latRange = maxLat - minLat;
+    const lonRange = maxLon - minLon;
     
-    const startX = x + padding + ((startCoord.longitude - minLon) / lonRange) * innerW * 0.7 + innerW * 0.15;
-    const startY = y + padding + (1 - (startCoord.latitude - minLat) / latRange) * innerH * 0.7 + innerH * 0.15;
-    const endX = x + padding + ((endCoord.longitude - minLon) / lonRange) * innerW * 0.7 + innerW * 0.15;
-    const endY = y + padding + (1 - (endCoord.latitude - minLat) / latRange) * innerH * 0.7 + innerH * 0.15;
+    const startX = x + padding + ((startCoord.longitude - minLon) / lonRange) * innerW;
+    const startY = y + padding + (1 - (startCoord.latitude - minLat) / latRange) * innerH;
+    const endX = x + padding + ((endCoord.longitude - minLon) / lonRange) * innerW;
+    const endY = y + padding + (1 - (endCoord.latitude - minLat) / latRange) * innerH;
     
+    // Smooth route curve
     doc.strokeColor(BLUE).lineWidth(3);
-    const midX = (startX + endX) / 2 + (Math.random() - 0.5) * 30;
-    const midY = (startY + endY) / 2 + (Math.random() - 0.5) * 30;
+    const midX = (startX + endX) / 2 + 10;
+    const midY = (startY + endY) / 2 - 10;
     doc.moveTo(startX, startY).quadraticCurveTo(midX, midY, endX, endY).stroke();
     
-    doc.fillColor(GREEN).circle(startX, startY, 8).fill();
-    doc.fillColor('#fff').circle(startX, startY, 4).fill();
-    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(5);
-    doc.text('S', startX - 2, startY - 3);
-    
-    doc.fillColor(RED).circle(endX, endY, 8).fill();
-    doc.fillColor('#fff').circle(endX, endY, 4).fill();
-    doc.text('E', endX - 2, endY - 3);
+    // Start/End Markers
+    doc.fillColor(GREEN).circle(startX, startY, 7).fill();
+    doc.fillColor('#fff').circle(startX, startY, 3.5).fill();
+    doc.fillColor(RED).circle(endX, endY, 7).fill();
+    doc.fillColor('#fff').circle(endX, endY, 3.5).fill();
     
     doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-    doc.text('START', startX - 15, startY + 12);
-    doc.text('END', endX - 10, endY + 12);
+    doc.text('START', startX - 15, startY + 10);
+    doc.text('END', endX - 10, endY + 10);
   } else {
     doc.font('Helvetica').fontSize(10).fillColor(GRAY);
     doc.text('No GPS data available', x + w/2 - 50, y + h/2 - 5);
@@ -278,11 +285,6 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
   
   doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
   doc.text('Route Map', x + 8, y + 8);
-  
-  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-  doc.strokeColor(BLACK).lineWidth(0.5);
-  doc.moveTo(x + w - 70, y + h - 20).lineTo(x + w - 20, y + h - 20).stroke();
-  doc.text('~1 km', x + w - 55, y + h - 17);
   
   doc.fillColor(GREEN).circle(x + 15, y + h - 15, 4).fill();
   doc.fillColor(BLACK).fontSize(6).text('Start', x + 22, y + h - 17);
