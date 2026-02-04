@@ -686,7 +686,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   let rightY = y;
 
   // Draw section container for Device Info
-  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 165, 'Device Information');
+  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 190, 'Device Information');
   leftY += 8;
   
   doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
@@ -713,7 +713,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   (doc as any).x = rightColX;
   
   // Draw section container for Report Info
-  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 165, 'Report Information');
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 190, 'Report Information');
   rightY += 8;
   
   doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
@@ -905,9 +905,12 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   
   leftY = y;
   rightY = y;
+  
+  const leftBoxHeight = 280;
+  const rightBoxHeight = 290;
 
   // Draw container for Trip Summary on conclusion
-  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 280, 'Trip Summary');
+  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, leftBoxHeight, 'Trip Summary');
   leftY += 10;
   
   doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
@@ -995,7 +998,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   });
 
   // Draw container for Data Interpretation Guide
-  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 290, 'Data Interpretation Guide');
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, rightBoxHeight, 'Data Interpretation Guide');
   rightY += 8;
   
   // Helper function to draw simple icons
@@ -1090,7 +1093,10 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     rightY += 18;
   });
 
-  y = Math.max(leftY, rightY) + 6;
+  // Calculate y based on box bottom edges, not content positions
+  const leftBoxBottom = CONTENT_START_Y - 2 + leftBoxHeight;
+  const rightBoxBottom = CONTENT_START_Y - 2 + rightBoxHeight;
+  y = Math.max(leftBoxBottom, rightBoxBottom) + 10;
   
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
   doc.moveTo(MARGIN_LEFT, y).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y).stroke();
@@ -1120,6 +1126,11 @@ IT: Indossare sempre un dispositivo di galleggiamento approvato. Non navigare so
 ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia del alcohol o drogas. Consulte el clima antes de zarpar. Deje un plan de navegación. Mantenga vigilancia en todo momento. Conozca y obedezca las regulaciones marítimas.`;
   
   doc.text(safeBoating, MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
+  y += 45;
+  
+  // Website
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLADE_GREEN);
+  doc.text('bladeoutboards.com', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
   doc.end();
 }
