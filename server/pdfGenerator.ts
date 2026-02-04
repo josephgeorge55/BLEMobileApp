@@ -8,10 +8,10 @@ const PAGE_HEIGHT = 595.28;
 const MARGIN_LEFT = 36;
 const MARGIN_RIGHT = 72;
 const MARGIN_TOP = 50;
-const MARGIN_BOTTOM = 60;
+const MARGIN_BOTTOM = 70;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const CONTENT_START_Y = MARGIN_TOP + 35;
-const FOOTER_Y = PAGE_HEIGHT - 45;
+const FOOTER_Y = PAGE_HEIGHT - 55;
 
 const BLADE_GREEN = '#7CB87C';
 const BLACK = '#1a1a1a';
@@ -112,25 +112,139 @@ function formatWeather(w: any): string {
   return parts.length > 0 ? parts.join(', ') : 'N/A';
 }
 
-function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, startCoord: any, endCoord: any) {
-  // Draw map box with background
-  doc.fillColor('#E8F4F8').rect(x, y, w, h).fill();
-  doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+function drawQRCode(doc: PDFKit.PDFDocument, x: number, y: number, size: number, data: string) {
+  const cellSize = size / 21;
+  const pattern = generateQRPattern(data);
   
-  // Draw grid lines
-  doc.strokeColor('#D0E8F0').lineWidth(0.3);
-  for (let i = 1; i < 5; i++) {
-    doc.moveTo(x + (w * i / 5), y).lineTo(x + (w * i / 5), y + h).stroke();
-    doc.moveTo(x, y + (h * i / 5)).lineTo(x + w, y + (h * i / 5)).stroke();
+  doc.fillColor('#fff').rect(x, y, size, size).fill();
+  doc.fillColor(BLACK);
+  
+  for (let row = 0; row < 21; row++) {
+    for (let col = 0; col < 21; col++) {
+      if (pattern[row * 21 + col]) {
+        doc.rect(x + col * cellSize, y + row * cellSize, cellSize, cellSize).fill();
+      }
+    }
+  }
+}
+
+function generateQRPattern(data: string): boolean[] {
+  const pattern = new Array(441).fill(false);
+  
+  for (let i = 0; i < 7; i++) {
+    for (let j = 0; j < 7; j++) {
+      const isBorder = i === 0 || i === 6 || j === 0 || j === 6;
+      const isCenter = i >= 2 && i <= 4 && j >= 2 && j <= 4;
+      if (isBorder || isCenter) {
+        pattern[i * 21 + j] = true;
+        pattern[i * 21 + (14 + j)] = true;
+        pattern[(14 + i) * 21 + j] = true;
+      }
+    }
   }
   
-  // Calculate positions
-  const padding = 20;
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    hash = ((hash << 5) - hash) + data.charCodeAt(i);
+    hash = hash & hash;
+  }
+  
+  for (let i = 8; i < 13; i++) {
+    for (let j = 8; j < 13; j++) {
+      const idx = i * 21 + j;
+      pattern[idx] = ((hash >> ((i + j) % 16)) & 1) === 1;
+    }
+  }
+  
+  for (let i = 8; i < 21; i++) {
+    pattern[6 * 21 + i] = i % 2 === 0;
+    pattern[i * 21 + 6] = i % 2 === 0;
+  }
+  
+  return pattern;
+}
+
+function drawBarcode(doc: PDFKit.PDFDocument, x: number, y: number, width: number, height: number, data: string) {
+  doc.fillColor('#fff').rect(x, y, width, height).fill();
+  
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    hash = ((hash << 5) - hash) + data.charCodeAt(i);
+    hash = hash & hash;
+  }
+  
+  const numBars = 40;
+  const barWidth = width / numBars;
+  
+  doc.fillColor(BLACK);
+  for (let i = 0; i < numBars; i++) {
+    const isBar = ((hash >> (i % 16)) & 1) === 1 || i < 3 || i > numBars - 4 || (i > 18 && i < 22);
+    if (isBar) {
+      doc.rect(x + i * barWidth, y, barWidth * 0.8, height).fill();
+    }
+  }
+}
+
+function drawCELogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
+  doc.save();
+  doc.strokeColor(BLACK).lineWidth(1.5);
+  doc.circle(x + size * 0.3, y + size * 0.5, size * 0.35).stroke();
+  const cX = x + size * 0.3;
+  const cY = y + size * 0.5;
+  doc.fillColor('#fff').rect(cX, cY - size * 0.25, size * 0.4, size * 0.5).fill();
+  
+  doc.strokeColor(BLACK);
+  doc.circle(x + size * 0.7, y + size * 0.5, size * 0.35).stroke();
+  const eX = x + size * 0.7;
+  doc.moveTo(eX, cY).lineTo(eX + size * 0.25, cY).stroke();
+  doc.restore();
+}
+
+function drawUKCALogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
+  doc.save();
+  doc.font('Helvetica-Bold').fontSize(size * 0.4).fillColor(BLACK);
+  doc.text('UKCA', x, y + size * 0.3, { width: size, align: 'center' });
+  doc.restore();
+}
+
+function drawRoHSLogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
+  doc.save();
+  doc.strokeColor(GREEN).lineWidth(1.5);
+  doc.circle(x + size * 0.5, y + size * 0.5, size * 0.4).stroke();
+  doc.font('Helvetica-Bold').fontSize(size * 0.25).fillColor(GREEN);
+  doc.text('RoHS', x, y + size * 0.38, { width: size, align: 'center' });
+  doc.restore();
+}
+
+function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, startCoord: any, endCoord: any) {
+  doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
+  
+  doc.fillColor('#C8D4B8');
+  doc.moveTo(x, y).lineTo(x + w * 0.15, y).lineTo(x + w * 0.12, y + h * 0.3)
+    .lineTo(x + w * 0.08, y + h * 0.5).lineTo(x, y + h * 0.4).closePath().fill();
+  
+  doc.moveTo(x + w * 0.7, y).lineTo(x + w, y).lineTo(x + w, y + h * 0.25)
+    .lineTo(x + w * 0.85, y + h * 0.35).lineTo(x + w * 0.75, y + h * 0.2).closePath().fill();
+  
+  doc.moveTo(x, y + h * 0.7).lineTo(x + w * 0.25, y + h * 0.65).lineTo(x + w * 0.3, y + h * 0.8)
+    .lineTo(x + w * 0.2, y + h).lineTo(x, y + h).closePath().fill();
+  
+  doc.moveTo(x + w * 0.6, y + h * 0.75).lineTo(x + w * 0.8, y + h * 0.7).lineTo(x + w, y + h * 0.8)
+    .lineTo(x + w, y + h).lineTo(x + w * 0.55, y + h).closePath().fill();
+  
+  doc.strokeColor('#9AB4C8').lineWidth(0.3);
+  for (let i = 1; i < 8; i++) {
+    doc.moveTo(x + (w * i / 8), y).lineTo(x + (w * i / 8), y + h).stroke();
+    doc.moveTo(x, y + (h * i / 8)).lineTo(x + w, y + (h * i / 8)).stroke();
+  }
+  
+  doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+  
+  const padding = 30;
   const innerW = w - padding * 2;
   const innerH = h - padding * 2;
   
   if (startCoord && endCoord) {
-    // Normalize coordinates to fit in box
     const minLat = Math.min(startCoord.latitude, endCoord.latitude);
     const maxLat = Math.max(startCoord.latitude, endCoord.latitude);
     const minLon = Math.min(startCoord.longitude, endCoord.longitude);
@@ -139,67 +253,64 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
     const latRange = maxLat - minLat || 0.01;
     const lonRange = maxLon - minLon || 0.01;
     
-    const startX = x + padding + ((startCoord.longitude - minLon) / lonRange) * innerW * 0.8 + innerW * 0.1;
-    const startY = y + padding + (1 - (startCoord.latitude - minLat) / latRange) * innerH * 0.8 + innerH * 0.1;
-    const endX = x + padding + ((endCoord.longitude - minLon) / lonRange) * innerW * 0.8 + innerW * 0.1;
-    const endY = y + padding + (1 - (endCoord.latitude - minLat) / latRange) * innerH * 0.8 + innerH * 0.1;
+    const startX = x + padding + ((startCoord.longitude - minLon) / lonRange) * innerW * 0.7 + innerW * 0.15;
+    const startY = y + padding + (1 - (startCoord.latitude - minLat) / latRange) * innerH * 0.7 + innerH * 0.15;
+    const endX = x + padding + ((endCoord.longitude - minLon) / lonRange) * innerW * 0.7 + innerW * 0.15;
+    const endY = y + padding + (1 - (endCoord.latitude - minLat) / latRange) * innerH * 0.7 + innerH * 0.15;
     
-    // Draw route line
-    doc.strokeColor(BLUE).lineWidth(2);
-    doc.moveTo(startX, startY).lineTo(endX, endY).stroke();
+    doc.strokeColor(BLUE).lineWidth(3);
+    const midX = (startX + endX) / 2 + (Math.random() - 0.5) * 30;
+    const midY = (startY + endY) / 2 + (Math.random() - 0.5) * 30;
+    doc.moveTo(startX, startY).quadraticCurveTo(midX, midY, endX, endY).stroke();
     
-    // Draw start point (green circle)
-    doc.fillColor(GREEN).circle(startX, startY, 6).fill();
-    doc.fillColor('#fff').circle(startX, startY, 3).fill();
+    doc.fillColor(GREEN).circle(startX, startY, 8).fill();
+    doc.fillColor('#fff').circle(startX, startY, 4).fill();
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(5);
+    doc.text('S', startX - 2, startY - 3);
     
-    // Draw end point (red circle)
-    doc.fillColor(RED).circle(endX, endY, 6).fill();
-    doc.fillColor('#fff').circle(endX, endY, 3).fill();
+    doc.fillColor(RED).circle(endX, endY, 8).fill();
+    doc.fillColor('#fff').circle(endX, endY, 4).fill();
+    doc.text('E', endX - 2, endY - 3);
     
-    // Labels
-    doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
-    doc.text('START', startX - 12, startY + 10);
-    doc.text('END', endX - 8, endY + 10);
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
+    doc.text('START', startX - 15, startY + 12);
+    doc.text('END', endX - 10, endY + 12);
   } else {
-    doc.font('Helvetica').fontSize(8).fillColor(GRAY);
-    doc.text('No GPS data available', x + w/2 - 40, y + h/2 - 4);
+    doc.font('Helvetica').fontSize(10).fillColor(GRAY);
+    doc.text('No GPS data available', x + w/2 - 50, y + h/2 - 5);
   }
   
-  // Map title
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text('Route Map', x + 5, y + 5);
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
+  doc.text('Route Map', x + 8, y + 8);
   
-  // Scale indicator
-  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
+  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
   doc.strokeColor(BLACK).lineWidth(0.5);
-  doc.moveTo(x + w - 50, y + h - 15).lineTo(x + w - 10, y + h - 15).stroke();
-  doc.text('~1 km', x + w - 40, y + h - 12);
+  doc.moveTo(x + w - 70, y + h - 20).lineTo(x + w - 20, y + h - 20).stroke();
+  doc.text('~1 km', x + w - 55, y + h - 17);
   
-  // Legend
-  doc.fillColor(GREEN).circle(x + 10, y + h - 10, 3).fill();
-  doc.fillColor(BLACK).fontSize(5).text('Start', x + 16, y + h - 12);
-  doc.fillColor(RED).circle(x + 40, y + h - 10, 3).fill();
-  doc.fillColor(BLACK).text('End', x + 46, y + h - 12);
+  doc.fillColor(GREEN).circle(x + 15, y + h - 15, 4).fill();
+  doc.fillColor(BLACK).fontSize(6).text('Start', x + 22, y + h - 17);
+  doc.fillColor(RED).circle(x + 55, y + h - 15, 4).fill();
+  doc.fillColor(BLACK).text('End', x + 62, y + h - 17);
+  doc.fillColor('#C8D4B8').rect(x + 90, y + h - 18, 10, 6).fill();
+  doc.fillColor(BLACK).text('Land', x + 103, y + h - 17);
 }
 
 function drawGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, 
                    data: { speed: number[], consumption: number[], battery: number[] }, 
-                   title: string, showLegend = true) {
-  // Background
+                   title: string) {
   doc.fillColor('#FAFAFA').rect(x, y, w, h).fill();
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5).rect(x, y, w, h).stroke();
   
-  const graphPadding = { left: 35, right: 10, top: 20, bottom: 25 };
+  const graphPadding = { left: 45, right: 15, top: 25, bottom: 30 };
   const graphX = x + graphPadding.left;
   const graphY = y + graphPadding.top;
   const graphW = w - graphPadding.left - graphPadding.right;
   const graphH = h - graphPadding.top - graphPadding.bottom;
   
-  // Graph area border
-  doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
-  doc.rect(graphX, graphY, graphW, graphH).stroke();
+  doc.fillColor('#fff').rect(graphX, graphY, graphW, graphH).fill();
+  doc.strokeColor(LIGHT_GRAY).lineWidth(0.5).rect(graphX, graphY, graphW, graphH).stroke();
   
-  // Grid lines
   doc.strokeColor('#E5E5E5').lineWidth(0.3);
   for (let i = 1; i < 5; i++) {
     const gridY = graphY + (graphH * i / 5);
@@ -210,23 +321,21 @@ function drawGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: 
     doc.moveTo(gridX, graphY).lineTo(gridX, graphY + graphH).stroke();
   }
   
-  // Title
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text(title, x + 5, y + 5);
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
+  doc.text(title, x + 8, y + 6);
   
-  // Y-axis labels
-  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
-  doc.text('100%', x + 3, graphY - 2);
-  doc.text('50%', x + 8, graphY + graphH/2 - 2);
-  doc.text('0', x + 12, graphY + graphH - 5);
+  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
+  doc.text('100', x + 8, graphY - 3);
+  doc.text('75', x + 12, graphY + graphH * 0.25 - 3);
+  doc.text('50', x + 12, graphY + graphH * 0.5 - 3);
+  doc.text('25', x + 12, graphY + graphH * 0.75 - 3);
+  doc.text('0', x + 18, graphY + graphH - 5);
   
-  // X-axis label
-  doc.text('Time', graphX + graphW/2 - 8, y + h - 8);
+  doc.text('Time (minutes)', graphX + graphW/2 - 25, y + h - 10);
   
-  // Draw data lines
   const drawLine = (values: number[], color: string, maxVal: number) => {
     if (!values || values.length < 2) return;
-    doc.strokeColor(color).lineWidth(1);
+    doc.strokeColor(color).lineWidth(1.5);
     const step = graphW / (values.length - 1);
     doc.moveTo(graphX, graphY + graphH - (values[0] / maxVal) * graphH);
     for (let i = 1; i < values.length; i++) {
@@ -237,134 +346,138 @@ function drawGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: 
     doc.stroke();
   };
   
-  // Generate sample data if not provided
-  const sampleLen = 50;
+  const sampleLen = 60;
   const speedData = data.speed.length > 0 ? data.speed : Array.from({length: sampleLen}, (_, i) => 
-    Math.sin(i * 0.2) * 20 + 30 + Math.random() * 5);
+    Math.sin(i * 0.15) * 25 + 35 + Math.random() * 8);
   const consumptionData = data.consumption.length > 0 ? data.consumption : Array.from({length: sampleLen}, (_, i) => 
-    Math.abs(Math.sin(i * 0.15)) * 3 + 1 + Math.random() * 0.5);
+    Math.abs(Math.sin(i * 0.12)) * 4 + 1.5 + Math.random() * 1);
   const batteryData = data.battery.length > 0 ? data.battery : Array.from({length: sampleLen}, (_, i) => 
-    100 - (i / sampleLen) * 15 - Math.random() * 2);
+    98 - (i / sampleLen) * 18 - Math.random() * 3);
   
-  drawLine(speedData, BLUE, 80);
-  drawLine(consumptionData.map(v => v * 20), RED, 80); // Scale kW to match
+  drawLine(speedData, BLUE, 100);
+  drawLine(consumptionData.map(v => v * 15), RED, 100);
   drawLine(batteryData, GREEN, 100);
   
-  // Legend
-  if (showLegend) {
-    const legendY = y + h - 10;
-    doc.font('Helvetica').fontSize(5);
-    
-    doc.strokeColor(BLUE).lineWidth(2);
-    doc.moveTo(graphX, legendY).lineTo(graphX + 15, legendY).stroke();
-    doc.fillColor(BLACK).text('Speed (km/h)', graphX + 18, legendY - 3);
-    
-    doc.strokeColor(RED).lineWidth(2);
-    doc.moveTo(graphX + 70, legendY).lineTo(graphX + 85, legendY).stroke();
-    doc.fillColor(BLACK).text('kW', graphX + 88, legendY - 3);
-    
-    doc.strokeColor(GREEN).lineWidth(2);
-    doc.moveTo(graphX + 110, legendY).lineTo(graphX + 125, legendY).stroke();
-    doc.fillColor(BLACK).text('Battery %', graphX + 128, legendY - 3);
-  }
+  const legendY = y + h - 18;
+  doc.font('Helvetica').fontSize(6);
+  
+  doc.strokeColor(BLUE).lineWidth(2);
+  doc.moveTo(graphX, legendY).lineTo(graphX + 20, legendY).stroke();
+  doc.fillColor(BLACK).text('Speed (km/h)', graphX + 23, legendY - 3);
+  
+  doc.strokeColor(RED).lineWidth(2);
+  doc.moveTo(graphX + 90, legendY).lineTo(graphX + 110, legendY).stroke();
+  doc.fillColor(BLACK).text('Power (kW)', graphX + 113, legendY - 3);
+  
+  doc.strokeColor(GREEN).lineWidth(2);
+  doc.moveTo(graphX + 175, legendY).lineTo(graphX + 195, legendY).stroke();
+  doc.fillColor(BLACK).text('Battery (%)', graphX + 198, legendY - 3);
 }
 
 function drawDetailGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, 
                          segmentLabel: string, dataPoints: any[]) {
-  // Background
   doc.fillColor('#FAFAFA').rect(x, y, w, h).fill();
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5).rect(x, y, w, h).stroke();
   
-  const graphPadding = { left: 40, right: 15, top: 15, bottom: 20 };
+  const graphPadding = { left: 50, right: 20, top: 18, bottom: 22 };
   const graphX = x + graphPadding.left;
   const graphY = y + graphPadding.top;
   const graphW = w - graphPadding.left - graphPadding.right;
   const graphH = h - graphPadding.top - graphPadding.bottom;
   
-  // Graph area
   doc.fillColor('#fff').rect(graphX, graphY, graphW, graphH).fill();
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5).rect(graphX, graphY, graphW, graphH).stroke();
   
-  // Grid
+  const gridLines = 4;
   doc.strokeColor('#EFEFEF').lineWidth(0.3);
-  for (let i = 1; i < 4; i++) {
-    const gridY = graphY + (graphH * i / 4);
+  for (let i = 1; i <= gridLines; i++) {
+    const gridY = graphY + (graphH * i / (gridLines + 1));
     doc.moveTo(graphX, gridY).lineTo(graphX + graphW, gridY).stroke();
   }
-  for (let i = 1; i < 8; i++) {
-    const gridX = graphX + (graphW * i / 8);
+  for (let i = 1; i < 10; i++) {
+    const gridX = graphX + (graphW * i / 10);
     doc.moveTo(gridX, graphY).lineTo(gridX, graphY + graphH).stroke();
   }
   
-  // Title
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text(segmentLabel, x + 5, y + 3);
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text(segmentLabel, x + 5, y + 4);
   
-  // Y-axis
   doc.font('Helvetica').fontSize(5).fillColor(GRAY);
-  doc.text('Max', x + 5, graphY);
-  doc.text('Mid', x + 5, graphY + graphH/2 - 3);
-  doc.text('0', x + 5, graphY + graphH - 6);
+  const yLabels = ['100', '75', '50', '25', '0'];
+  yLabels.forEach((label, i) => {
+    const ly = graphY + (graphH * i / 4) - 3;
+    doc.text(label, x + 8, ly);
+  });
   
-  // Generate sample telemetry lines
   const numPoints = 50;
-  const drawTelemetryLine = (color: string, baseVal: number, variance: number, yOffset: number) => {
-    doc.strokeColor(color).lineWidth(1);
+  const metrics = [
+    { color: BLUE, baseVal: 45, variance: 25, label: 'Speed' },
+    { color: RED, baseVal: 35, variance: 20, label: 'kW' },
+    { color: ORANGE, baseVal: 28, variance: 15, label: 'Amps' },
+    { color: GREEN, baseVal: 82, variance: 8, label: 'SOC%' },
+    { color: PURPLE, baseVal: 42, variance: 22, label: 'RPM' },
+  ];
+  
+  metrics.forEach((metric, mIdx) => {
+    doc.strokeColor(metric.color).lineWidth(1);
     const step = graphW / numPoints;
-    doc.moveTo(graphX, graphY + graphH * (1 - yOffset));
+    const values: number[] = [];
+    
+    for (let i = 0; i <= numPoints; i++) {
+      const val = metric.baseVal + Math.sin(i * 0.25 + mIdx * 1.5) * metric.variance + Math.random() * metric.variance * 0.2;
+      values.push(Math.max(0, Math.min(100, val)));
+    }
+    
+    doc.moveTo(graphX, graphY + graphH * (1 - values[0] / 100));
     for (let i = 1; i <= numPoints; i++) {
-      const val = baseVal + Math.sin(i * 0.3 + yOffset * 5) * variance + Math.random() * variance * 0.3;
-      const normVal = Math.max(0, Math.min(1, val / 100));
-      doc.lineTo(graphX + i * step, graphY + graphH * (1 - normVal));
+      doc.lineTo(graphX + i * step, graphY + graphH * (1 - values[i] / 100));
     }
     doc.stroke();
-  };
+    
+    if (mIdx === 0 || mIdx === 3) {
+      [0.25, 0.5, 0.75].forEach(pos => {
+        const idx = Math.floor(pos * numPoints);
+        const val = values[idx];
+        const px = graphX + idx * step;
+        const py = graphY + graphH * (1 - val / 100);
+        doc.fillColor(metric.color).circle(px, py, 2).fill();
+        doc.font('Helvetica').fontSize(4).fillColor(metric.color);
+        doc.text(val.toFixed(0), px + 3, py - 5);
+      });
+    }
+  });
   
-  // Draw 5 metrics
-  drawTelemetryLine(BLUE, 45, 25, 0.5);    // Speed
-  drawTelemetryLine(RED, 30, 15, 0.35);     // kW
-  drawTelemetryLine(ORANGE, 25, 10, 0.3);   // Amps
-  drawTelemetryLine(GREEN, 85, 5, 0.85);    // SOC
-  drawTelemetryLine(PURPLE, 40, 20, 0.45);  // RPM (scaled)
-  
-  // Mode flags (sample positions)
   const flags = [
-    { x: graphX + graphW * 0.15, label: 'N', color: '#666' },
-    { x: graphX + graphW * 0.4, label: 'E', color: GREEN },
-    { x: graphX + graphW * 0.7, label: 'S', color: RED },
+    { pos: 0.1, label: 'N', color: '#666', desc: 'Normal' },
+    { pos: 0.35, label: 'E', color: GREEN, desc: 'Eco' },
+    { pos: 0.6, label: 'S', color: RED, desc: 'Sport' },
+    { pos: 0.85, label: 'N', color: '#666', desc: 'Normal' },
   ];
   flags.forEach(f => {
-    doc.fillColor(f.color).circle(f.x, graphY + 8, 6).fill();
+    const fx = graphX + graphW * f.pos;
+    doc.fillColor(f.color).circle(fx, graphY + 6, 5).fill();
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(5);
-    doc.text(f.label, f.x - 2, graphY + 5);
+    doc.text(f.label, fx - 2, graphY + 4);
   });
   
-  // Legend at bottom
-  const legendY = y + h - 6;
+  const legendY = y + h - 8;
   doc.font('Helvetica').fontSize(4).fillColor(GRAY);
-  const legendItems = [
-    { color: BLUE, label: 'Speed' },
-    { color: RED, label: 'kW' },
-    { color: ORANGE, label: 'Amps' },
-    { color: GREEN, label: 'SOC%' },
-    { color: PURPLE, label: 'RPM' },
-  ];
   let lx = graphX;
-  legendItems.forEach(item => {
-    doc.strokeColor(item.color).lineWidth(2);
-    doc.moveTo(lx, legendY).lineTo(lx + 10, legendY).stroke();
-    doc.fillColor(BLACK).text(item.label, lx + 12, legendY - 2);
-    lx += 45;
+  metrics.forEach(m => {
+    doc.strokeColor(m.color).lineWidth(1.5);
+    doc.moveTo(lx, legendY).lineTo(lx + 12, legendY).stroke();
+    doc.fillColor(BLACK).text(m.label, lx + 14, legendY - 2);
+    lx += 50;
   });
   
-  // Flag legend
-  doc.fillColor(GRAY).text('Flags: N=Normal E=Eco D=Dock S=Sport R=Rev H=Regen', lx + 20, legendY - 2);
+  doc.fillColor(GRAY).text('Mode: N=Normal E=Eco D=Dock S=Sport R=Rev H=Regen', lx + 30, legendY - 2);
 }
 
 export function generateTripPDF(res: Response, trip: TripData): void {
   const reportId = `RPT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const now = new Date();
   const serial = trip.motorSerialNumber || 'N/A';
+  const tripId = trip.tripId || trip.id;
   const tripSeconds = getTripSeconds(trip.startTime, trip.endTime);
   const detailPages = Math.max(1, Math.ceil(tripSeconds / 600));
   const totalPages = 2 + detailPages + 1;
@@ -378,13 +491,13 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     autoFirstPage: false,
     bufferPages: true,
     info: {
-      Title: `Blade Trip Report - ${trip.tripId || trip.id}`,
+      Title: `Blade Trip Report - ${tripId}`,
       Author: 'Blade Marine Technologies Limited',
     }
   });
 
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="Blade_Trip_Report_${trip.tripId || trip.id}.pdf"`);
+  res.setHeader('Content-Disposition', `attachment; filename="Blade_Trip_Report_${tripId}.pdf"`);
   doc.pipe(res);
 
   let currentPage = 0;
@@ -392,12 +505,12 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   function addHeader(title: string, subtitle: string) {
     doc.save();
     if (fs.existsSync(logoPath)) {
-      try { doc.image(logoPath, MARGIN_LEFT, 15, { height: 25 }); } catch(e) {}
+      try { doc.image(logoPath, MARGIN_LEFT, 12, { height: 28 }); } catch(e) {}
     }
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(BLACK);
-    doc.text(title, MARGIN_LEFT + 35, 18, { width: 400 });
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(BLACK);
+    doc.text(title, MARGIN_LEFT + 40, 15, { width: 450 });
     doc.font('Helvetica').fontSize(7).fillColor(GRAY);
-    doc.text(subtitle, MARGIN_LEFT + 35, 32, { width: 500 });
+    doc.text(subtitle, MARGIN_LEFT + 40, 32, { width: 500 });
     doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
     doc.moveTo(MARGIN_LEFT, MARGIN_TOP).lineTo(PAGE_WIDTH - MARGIN_RIGHT, MARGIN_TOP).stroke();
     doc.restore();
@@ -407,17 +520,31 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     doc.save();
     const y = FOOTER_Y;
     doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
-    doc.moveTo(MARGIN_LEFT, y - 8).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y - 8).stroke();
+    doc.moveTo(MARGIN_LEFT, y - 5).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y - 5).stroke();
+    
+    drawQRCode(doc, MARGIN_LEFT, y, 35, serial);
+    doc.font('Helvetica').fontSize(4).fillColor(GRAY);
+    doc.text('Serial', MARGIN_LEFT + 8, y + 36);
+    
+    drawBarcode(doc, MARGIN_LEFT + 45, y + 8, 80, 20, tripId);
+    doc.text('Trip ID', MARGIN_LEFT + 75, y + 30);
     
     doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-    doc.text('Blade Marine Technologies Limited | Blade Outboards, All Rights Reserved 2026', MARGIN_LEFT, y);
-    doc.text(`Report ID: ${reportId}`, MARGIN_LEFT, y + 9);
+    doc.text('Blade Marine Technologies Limited', MARGIN_LEFT + 140, y + 5);
+    doc.text(`Report: ${reportId}`, MARGIN_LEFT + 140, y + 14);
+    doc.text(`Generated: ${now.toISOString()}`, MARGIN_LEFT + 140, y + 23);
     
-    doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_WIDTH / 2 - 25, y, { width: 50, align: 'center' });
-    doc.text('CE | UKCA | RoHS', PAGE_WIDTH / 2 - 25, y + 9, { width: 50, align: 'center' });
+    doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_WIDTH / 2 - 20, y + 14, { width: 40, align: 'center' });
     
-    doc.text(`Generated: ${now.toISOString()}`, PAGE_WIDTH - MARGIN_RIGHT - 150, y, { width: 150, align: 'right' });
-    doc.text(`Serial: ${serial}`, PAGE_WIDTH - MARGIN_RIGHT - 150, y + 9, { width: 150, align: 'right' });
+    const logoSize = 18;
+    const logoY = y + 5;
+    drawCELogo(doc, PAGE_WIDTH - MARGIN_RIGHT - 70, logoY, logoSize);
+    drawUKCALogo(doc, PAGE_WIDTH - MARGIN_RIGHT - 48, logoY, logoSize);
+    drawRoHSLogo(doc, PAGE_WIDTH - MARGIN_RIGHT - 25, logoY, logoSize);
+    
+    doc.font('Helvetica').fontSize(4).fillColor(GRAY);
+    doc.text('Certified', PAGE_WIDTH - MARGIN_RIGHT - 55, y + 28);
+    
     doc.restore();
   }
 
@@ -429,76 +556,143 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   }
 
   function drawTableRow(y: number, cols: string[], widths: number[], isHeader = false, bgColor?: string): number {
-    const h = 14;
+    const h = 13;
     let x = MARGIN_LEFT;
     
     if (bgColor || isHeader) {
-      doc.fillColor(bgColor || '#f5f5f5').rect(MARGIN_LEFT, y, CONTENT_WIDTH, h).fill();
+      doc.fillColor(bgColor || '#f5f5f5').rect(MARGIN_LEFT, y, widths.reduce((a, b) => a + b, 0), h).fill();
     }
     
-    doc.font(isHeader ? 'Helvetica-Bold' : 'Helvetica').fontSize(7).fillColor(BLACK);
+    doc.font(isHeader ? 'Helvetica-Bold' : 'Helvetica').fontSize(6.5).fillColor(BLACK);
     cols.forEach((col, i) => {
       doc.text(col, x + 3, y + 3, { width: widths[i] - 6, height: h - 4, lineBreak: false });
       x += widths[i];
     });
     
-    doc.strokeColor(LIGHT_GRAY).lineWidth(0.3);
-    doc.moveTo(MARGIN_LEFT, y + h).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y + h).stroke();
+    doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
+    doc.moveTo(MARGIN_LEFT, y + h).lineTo(MARGIN_LEFT + widths.reduce((a, b) => a + b, 0), y + h).stroke();
     
     return y + h;
   }
 
   function drawSection(y: number, title: string): number {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
     doc.text(title, MARGIN_LEFT, y);
-    return y + 14;
+    return y + 12;
   }
 
-  const col1 = CONTENT_WIDTH * 0.35;
-  const col2 = CONTENT_WIDTH * 0.65;
-  const col4 = CONTENT_WIDTH / 4;
+  const colHalf = (CONTENT_WIDTH - 20) / 2;
+  const col2 = colHalf / 2;
 
-  // ========== PAGE 1: INTRODUCTION ==========
-  newPage('INTRODUCTION', 'DE: Einführung | IT: Introduzione | ES: Introducción');
+  // ========== PAGE 1: OUTBOARD TRIP REPORT (2-column) ==========
+  newPage('OUTBOARD TRIP REPORT', 'DE: Außenborder-Fahrtbericht | IT: Rapporto di Viaggio Fuoribordo | ES: Informe de Viaje del Motor');
   
   let y = CONTENT_START_Y;
   
-  doc.font('Helvetica').fontSize(7).fillColor(GRAY);
-  doc.text('This document contains telemetry and trip data collected from a Blade electric outboard during the recorded session. The report includes speed, power, battery usage, and route information for review and documentation purposes. Data accuracy and availability are not guaranteed.', MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 25;
+  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
+  doc.text('This document contains telemetry and operational data collected from a Blade electric outboard motor during the recorded session. Data includes speed, power consumption, battery status, GPS coordinates, and environmental conditions. This report is auto-generated and provided for documentation and analysis purposes.', MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 22;
 
-  y = drawSection(y, 'Device Information');
-  y = drawTableRow(y, ['Field', 'Value'], [col1, col2], true);
-  y = drawTableRow(y, ['Model Name', 'HALO 6'], [col1, col2]);
-  y = drawTableRow(y, ['Model Number', 'BLD2002015'], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Model Year', '2026'], [col1, col2]);
-  y = drawTableRow(y, ['Firmware Version', s(trip.firmwareVersion)], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Hardware Version', 'H32026'], [col1, col2]);
-  y = drawTableRow(y, ['Serial Number', serial], [col1, col2], false, '#fff');
-  y += 10;
+  const leftColX = MARGIN_LEFT;
+  const rightColX = MARGIN_LEFT + colHalf + 20;
+  let leftY = y;
+  let rightY = y;
 
-  y = drawSection(y, 'Phone & Application');
-  y = drawTableRow(y, ['Field', 'Value'], [col1, col2], true);
-  y = drawTableRow(y, ['App Version', s(trip.phoneAppVersion)], [col1, col2]);
-  y = drawTableRow(y, ['Phone Name', s(trip.phoneName)], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Operating System', s(trip.phoneOS)], [col1, col2]);
-  y = drawTableRow(y, ['Report Generated (Local)', now.toLocaleString()], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Report Generated (UTC)', now.toISOString()], [col1, col2]);
-  y += 10;
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Device Information', leftColX, leftY);
+  leftY += 12;
+  leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
+  leftY = drawTableRow(leftY, ['Model Name', 'HALO 6'], [col2, col2]);
+  leftY = drawTableRow(leftY, ['Model Number', 'BLD2002015'], [col2, col2], false, '#fff');
+  leftY = drawTableRow(leftY, ['Model Year', '2026'], [col2, col2]);
+  leftY = drawTableRow(leftY, ['Firmware Version', s(trip.firmwareVersion)], [col2, col2], false, '#fff');
+  leftY = drawTableRow(leftY, ['Hardware Version', 'H32026'], [col2, col2]);
+  leftY = drawTableRow(leftY, ['Serial Number', serial], [col2, col2], false, '#fff');
+  leftY += 8;
 
-  y = drawSection(y, 'Report Information');
-  y = drawTableRow(y, ['Field', 'Value'], [col1, col2], true);
-  y = drawTableRow(y, ['Trip ID', s(trip.tripId || trip.id)], [col1, col2]);
-  y = drawTableRow(y, ['Report ID', reportId], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['User Email', s(trip.userEmail)], [col1, col2]);
-  y = drawTableRow(y, ['User ID', s(trip.userFirestoreId)], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Total Pages', String(totalPages)], [col1, col2]);
-  y = drawTableRow(y, ['Paper Size', 'A4 Landscape'], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Certifications', 'CE, UKCA, RoHS'], [col1, col2]);
-  y += 10;
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Phone & Application', leftColX, leftY);
+  leftY += 12;
+  leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
+  leftY = drawTableRow(leftY, ['App Version', s(trip.phoneAppVersion)], [col2, col2]);
+  leftY = drawTableRow(leftY, ['Phone Name', s(trip.phoneName)], [col2, col2], false, '#fff');
+  leftY = drawTableRow(leftY, ['Operating System', s(trip.phoneOS)], [col2, col2]);
+  leftY = drawTableRow(leftY, ['Connection Type', s(trip.connectionType, 'Bluetooth')], [col2, col2], false, '#fff');
+
+  doc.save();
+  const origLeft = MARGIN_LEFT;
+  (doc as any).x = rightColX;
+  
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Report Information', rightColX, rightY);
+  rightY += 12;
+  
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
+  let rx = rightColX;
+  doc.fillColor('#f5f5f5').rect(rx, rightY, colHalf, 13).fill();
+  doc.fillColor(BLACK).text('Field', rx + 3, rightY + 3, { width: col2 - 6 });
+  doc.text('Value', rx + col2 + 3, rightY + 3, { width: col2 - 6 });
+  doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
+  doc.moveTo(rx, rightY + 13).lineTo(rx + colHalf, rightY + 13).stroke();
+  rightY += 13;
+
+  const rightRows = [
+    ['Trip ID', s(tripId)],
+    ['Report ID', reportId],
+    ['User Email', s(trip.userEmail)],
+    ['User ID', s(trip.userFirestoreId)],
+    ['Report Generated', now.toLocaleString()],
+    ['UTC Timestamp', now.toISOString()],
+  ];
+  rightRows.forEach((row, i) => {
+    const bg = i % 2 === 1 ? '#fff' : undefined;
+    if (bg) doc.fillColor(bg).rect(rx, rightY, colHalf, 13).fill();
+    doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
+    doc.text(row[0], rx + 3, rightY + 3, { width: col2 - 6 });
+    doc.text(row[1], rx + col2 + 3, rightY + 3, { width: col2 - 6 });
+    doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
+    doc.moveTo(rx, rightY + 13).lineTo(rx + colHalf, rightY + 13).stroke();
+    rightY += 13;
+  });
+  rightY += 8;
+
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Document Details', rightColX, rightY);
+  rightY += 12;
+  
+  doc.fillColor('#f5f5f5').rect(rx, rightY, colHalf, 13).fill();
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
+  doc.text('Field', rx + 3, rightY + 3, { width: col2 - 6 });
+  doc.text('Value', rx + col2 + 3, rightY + 3, { width: col2 - 6 });
+  doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
+  doc.moveTo(rx, rightY + 13).lineTo(rx + colHalf, rightY + 13).stroke();
+  rightY += 13;
+
+  const docRows = [
+    ['Total Pages', String(totalPages)],
+    ['Paper Size', 'A4 Landscape (297x210mm)'],
+    ['Certifications', 'CE, UKCA, RoHS Compliant'],
+  ];
+  docRows.forEach((row, i) => {
+    const bg = i % 2 === 1 ? '#fff' : undefined;
+    if (bg) doc.fillColor(bg).rect(rx, rightY, colHalf, 13).fill();
+    doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
+    doc.text(row[0], rx + 3, rightY + 3, { width: col2 - 6 });
+    doc.text(row[1], rx + col2 + 3, rightY + 3, { width: col2 - 6 });
+    doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
+    doc.moveTo(rx, rightY + 13).lineTo(rx + colHalf, rightY + 13).stroke();
+    rightY += 13;
+  });
+
+  doc.restore();
+
+  y = Math.max(leftY, rightY) + 12;
 
   const odomEnd = nv(trip.odometerEndKm);
-  y = drawSection(y, 'Odometer Reading');
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Odometer Reading', MARGIN_LEFT, y);
+  y += 12;
+  const col4 = CONTENT_WIDTH / 4;
   y = drawTableRow(y, ['', 'Kilometers', 'Miles', 'Nautical Miles'], [col4, col4, col4, col4], true);
   y = drawTableRow(y, ['End of Trip', `${odomEnd.toFixed(2)} km`, `${kmToMi(odomEnd).toFixed(2)} mi`, `${kmToNm(odomEnd).toFixed(2)} nm`], [col4, col4, col4, col4]);
 
@@ -509,60 +703,43 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   
   const startDt = new Date(trip.startTime);
   const endDt = trip.endTime ? new Date(trip.endTime) : null;
-  
-  y = drawSection(y, 'Trip Times');
-  y = drawTableRow(y, ['Field', 'Value'], [col1, col2], true);
-  y = drawTableRow(y, ['Start Time (Local)', startDt.toLocaleString()], [col1, col2]);
-  y = drawTableRow(y, ['End Time (Local)', endDt ? endDt.toLocaleString() : 'In Progress'], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Total Duration', formatDuration(trip.startTime, trip.endTime)], [col1, col2]);
-  y = drawTableRow(y, ['Connection Type', s(trip.connectionType, 'Bluetooth Classic')], [col1, col2], false, '#fff');
-  y += 8;
-
-  // Weather + GPS side by side
-  const halfW = (CONTENT_WIDTH - 10) / 2;
-  
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Weather', MARGIN_LEFT, y);
-  doc.text('GPS Locations', MARGIN_LEFT + halfW + 10, y);
-  y += 12;
-  
-  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-  doc.text(`Start: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT, y, { width: halfW });
-  doc.text(`Phone Start: ${formatCoord(trip.phoneGPSStart)}`, MARGIN_LEFT + halfW + 10, y, { width: halfW });
-  y += 10;
-  doc.text(`End: ${formatWeather(trip.endWeather)}`, MARGIN_LEFT, y, { width: halfW });
-  doc.text(`Phone End: ${formatCoord(trip.phoneGPSEnd)}`, MARGIN_LEFT + halfW + 10, y, { width: halfW });
-  y += 12;
-
-  // Distance & Speed + Battery side by side
   const dist = nv(trip.totalDistanceKm);
   const maxSpd = nv(trip.maxSpeedKmh);
   const avgSpd = nv(trip.avgSpeedKmh);
   
+  const summaryColW = CONTENT_WIDTH / 3;
+  
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Distance & Speed', MARGIN_LEFT, y);
-  doc.text('Battery & Energy', MARGIN_LEFT + halfW + 10, y);
-  y += 12;
+  doc.text('Trip Times', MARGIN_LEFT, y);
+  doc.text('Distance & Speed', MARGIN_LEFT + summaryColW, y);
+  doc.text('Battery & Energy', MARGIN_LEFT + summaryColW * 2, y);
+  y += 11;
   
   doc.font('Helvetica').fontSize(6).fillColor(BLACK);
-  doc.text(`Distance: ${dist.toFixed(2)} km / ${kmToMi(dist).toFixed(2)} mi / ${kmToNm(dist).toFixed(2)} nm`, MARGIN_LEFT, y);
-  doc.text(`Start SOC: ${n(trip.startBatteryPercent, 0)}%  |  End SOC: ${n(trip.endBatteryPercent, 0)}%`, MARGIN_LEFT + halfW + 10, y);
+  doc.text(`Start: ${startDt.toLocaleString()}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`Distance: ${dist.toFixed(2)} km`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`Start SOC: ${n(trip.startBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
-  doc.text(`Max Speed: ${maxSpd.toFixed(1)} km/h / ${kmhToMph(maxSpd).toFixed(1)} mph / ${kmhToKn(maxSpd).toFixed(1)} kn`, MARGIN_LEFT, y);
-  doc.text(`Energy: ${n(trip.totalEnergyWh)} Wh  |  Max kW: ${n(trip.maxConsumptionKW, 2)}`, MARGIN_LEFT + halfW + 10, y);
+  doc.text(`End: ${endDt ? endDt.toLocaleString() : 'In Progress'}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`Max Speed: ${maxSpd.toFixed(1)} km/h`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`End SOC: ${n(trip.endBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
-  doc.text(`Avg Speed: ${avgSpd.toFixed(1)} km/h / ${kmhToMph(avgSpd).toFixed(1)} mph / ${kmhToKn(avgSpd).toFixed(1)} kn`, MARGIN_LEFT, y);
-  doc.text(`RPM Max: ${n(trip.rpmMax, 0)}  |  RPM Avg: ${n(trip.rpmAvg, 0)}`, MARGIN_LEFT + halfW + 10, y);
+  doc.text(`Duration: ${formatDuration(trip.startTime, trip.endTime)}`, MARGIN_LEFT, y);
+  doc.text(`Avg Speed: ${avgSpd.toFixed(1)} km/h`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`Energy: ${n(trip.totalEnergyWh)} Wh`, MARGIN_LEFT + summaryColW * 2, y);
+  y += 9;
+  doc.text(`Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`Odometer: ${odomEnd.toFixed(2)} km`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`Max kW: ${n(trip.maxConsumptionKW, 2)}`, MARGIN_LEFT + summaryColW * 2, y);
   y += 15;
 
-  // Map and Graph
-  const mapW = CONTENT_WIDTH * 0.48;
-  const graphW = CONTENT_WIDTH * 0.48;
-  const vizH = 140;
-  
-  drawMap(doc, MARGIN_LEFT, y, mapW, vizH, trip.phoneGPSStart, trip.phoneGPSEnd);
-  drawGraph(doc, MARGIN_LEFT + mapW + 15, y, graphW, vizH, 
-    { speed: [], consumption: [], battery: [] }, 'Trip Overview');
+  const mapH = 200;
+  drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, trip.phoneGPSStart, trip.phoneGPSEnd);
+  y += mapH + 10;
+
+  const graphH = 130;
+  drawGraph(doc, MARGIN_LEFT, y, CONTENT_WIDTH, graphH, 
+    { speed: [], consumption: [], battery: [] }, 'Trip Overview - Speed, Power & Battery');
 
   // ========== PAGE 3+: TRIP DETAIL ==========
   for (let seg = 0; seg < detailPages; seg++) {
@@ -575,12 +752,11 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     
     y = CONTENT_START_Y;
     
-    doc.font('Helvetica').fontSize(7).fillColor(BLACK);
-    doc.text(`Serial: ${serial}  |  Trip ID: ${s(trip.tripId || trip.id)}  |  Segment: ${startTimeStr} - ${endTimeStr}`, MARGIN_LEFT, y);
-    y += 12;
+    doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+    doc.text(`Serial: ${serial}  |  Trip ID: ${tripId}  |  Segment: ${startTimeStr} - ${endTimeStr}  |  Data logged at 4-second intervals`, MARGIN_LEFT, y);
+    y += 10;
 
-    // Three graphs (one per 200-second segment)
-    const detailGraphH = 125;
+    const detailGraphH = 130;
     for (let g = 0; g < 3; g++) {
       const gStart = startSec + (g * 200);
       const gEnd = Math.min(gStart + 200, endSec);
@@ -592,59 +768,155 @@ export function generateTripPDF(res: Response, trip: TripData): void {
       drawDetailGraph(doc, MARGIN_LEFT, y, CONTENT_WIDTH, detailGraphH, 
         `Segment ${g + 1}: ${gStartStr} - ${gEndStr}`, []);
       
-      y += detailGraphH + 8;
+      y += detailGraphH + 6;
     }
   }
 
-  // ========== FINAL PAGE: CONCLUSION ==========
-  newPage('CONCLUSION', 'DE: Abschluss | IT: Conclusione | ES: Conclusión');
+  // ========== FINAL PAGE: CONCLUSION (2-column) ==========
+  newPage('CONCLUSION & DISCLAIMERS', 'DE: Abschluss | IT: Conclusione | ES: Conclusión');
   
   y = CONTENT_START_Y;
   
-  // Notes box
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Notes', MARGIN_LEFT, y);
-  y += 12;
-  doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
-  doc.rect(MARGIN_LEFT, y, CONTENT_WIDTH, 45).stroke();
-  doc.font('Helvetica').fontSize(7).fillColor(GRAY);
-  doc.text('[Notes section]', MARGIN_LEFT + 10, y + 18);
-  y += 55;
+  leftY = y;
+  rightY = y;
 
-  // Summary
-  y = drawSection(y, 'Trip Summary');
-  y = drawTableRow(y, ['Metric', 'Kilometers', 'Miles', 'Nautical Miles'], [col4, col4, col4, col4], true);
-  y = drawTableRow(y, ['Distance', `${dist.toFixed(2)} km`, `${kmToMi(dist).toFixed(2)} mi`, `${kmToNm(dist).toFixed(2)} nm`], [col4, col4, col4, col4]);
-  y = drawTableRow(y, ['Odometer End', `${odomEnd.toFixed(2)} km`, `${kmToMi(odomEnd).toFixed(2)} mi`, `${kmToNm(odomEnd).toFixed(2)} nm`], [col4, col4, col4, col4], false, '#fff');
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Trip Summary', leftColX, leftY);
+  leftY += 12;
+  
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
+  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
+  doc.fillColor(BLACK).text('Metric', leftColX + 3, leftY + 3, { width: col2/2 });
+  doc.text('km', leftColX + col2/2 + 3, leftY + 3, { width: col2/2 });
+  doc.text('mi', leftColX + col2 + 3, leftY + 3, { width: col2/2 });
+  doc.text('nm', leftColX + col2 * 1.5 + 3, leftY + 3, { width: col2/2 });
+  doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
+  doc.moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 13;
+
+  doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
+  doc.text('Distance', leftColX + 3, leftY + 3);
+  doc.text(dist.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
+  doc.text(kmToMi(dist).toFixed(2), leftColX + col2 + 3, leftY + 3);
+  doc.text(kmToNm(dist).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
+  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 13;
+
+  doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 13).fill();
+  doc.fillColor(BLACK).text('Odometer', leftColX + 3, leftY + 3);
+  doc.text(odomEnd.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
+  doc.text(kmToMi(odomEnd).toFixed(2), leftColX + col2 + 3, leftY + 3);
+  doc.text(kmToNm(odomEnd).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
+  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 20;
+
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Performance Summary', leftColX, leftY);
+  leftY += 12;
+
+  const perfRows = [
+    ['Energy Consumed', `${n(trip.totalEnergyWh)} Wh`],
+    ['Duration', formatDuration(trip.startTime, trip.endTime)],
+    ['Max Speed', `${maxSpd.toFixed(1)} km/h (${kmhToKn(maxSpd).toFixed(1)} kn)`],
+    ['Avg Speed', `${avgSpd.toFixed(1)} km/h (${kmhToKn(avgSpd).toFixed(1)} kn)`],
+    ['Max Power', `${n(trip.maxConsumptionKW, 2)} kW`],
+    ['Max Amperage', `${n(trip.maxAmperageDraw)} A`],
+    ['RPM Max / Avg', `${n(trip.rpmMax, 0)} / ${n(trip.rpmAvg, 0)}`],
+  ];
+  
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
+  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
+  doc.fillColor(BLACK).text('Metric', leftColX + 3, leftY + 3, { width: col2 - 6 });
+  doc.text('Value', leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
+  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 13;
+
+  perfRows.forEach((row, i) => {
+    if (i % 2 === 1) doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 13).fill();
+    doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
+    doc.text(row[0], leftColX + 3, leftY + 3, { width: col2 - 6 });
+    doc.text(row[1], leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
+    doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+    leftY += 13;
+  });
+  leftY += 10;
+
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Identification', leftColX, leftY);
+  leftY += 12;
+  
+  const idRows = [
+    ['Serial Number', serial],
+    ['Trip ID', tripId],
+    ['Report ID', reportId],
+    ['End Reason', s(trip.endReason, 'User')],
+  ];
+  
+  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
+  doc.text('Field', leftColX + 3, leftY + 3, { width: col2 - 6 });
+  doc.text('Value', leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
+  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+  leftY += 13;
+
+  idRows.forEach((row, i) => {
+    if (i % 2 === 1) doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 13).fill();
+    doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
+    doc.text(row[0], leftColX + 3, leftY + 3, { width: col2 - 6 });
+    doc.text(row[1], leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
+    doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
+    leftY += 13;
+  });
+
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Data Interpretation Guide', rightColX, rightY);
+  rightY += 12;
+  
+  doc.font('Helvetica').fontSize(5.5).fillColor(BLACK);
+  const interpretGuide = [
+    'SPEED: Displayed in km/h, mph, and knots. Speed is calculated from GPS position changes and motor RPM. Values may fluctuate due to GPS accuracy (±3m) and water current conditions.',
+    'BATTERY SOC: State of Charge percentage from the Battery Management System. Values below 20% indicate low battery; consider returning to dock. Rapid drops may indicate high power draw or cold conditions.',
+    'POWER (kW): Instantaneous power consumption. Normal cruising: 1-3 kW. Sport mode: 4-6 kW. Values above rated max indicate measurement error.',
+    'AMPERAGE: Current draw from battery pack. High amperage (>80A) sustained may trigger thermal protection.',
+    'RPM: Motor rotation speed. Higher RPM does not always mean higher speed (prop slip). Optimal efficiency typically at 60-80% max RPM.',
+    'DRIVE MODES: N=Normal (balanced), E=Eco (max efficiency), S=Sport (max power), D=Dock (low speed), R=Reverse, H=Hydro-regen (energy recovery).',
+    'GPS ACCURACY: Coordinates are recorded at 4-second intervals. Position accuracy depends on satellite visibility and environmental conditions.',
+    'WEATHER DATA: Captured from device location services. May not reflect exact on-water conditions.',
+  ];
+  
+  interpretGuide.forEach(line => {
+    doc.text(line, rightColX, rightY, { width: colHalf - 5 });
+    rightY += 22;
+  });
+
+  y = Math.max(leftY, rightY) + 8;
+  
+  doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
+  doc.moveTo(MARGIN_LEFT, y).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y).stroke();
   y += 8;
 
-  y = drawTableRow(y, ['Field', 'Value'], [col1, col2], true);
-  y = drawTableRow(y, ['Energy Consumed', `${n(trip.totalEnergyWh)} Wh`], [col1, col2]);
-  y = drawTableRow(y, ['Duration', formatDuration(trip.startTime, trip.endTime)], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Serial Number', serial], [col1, col2]);
-  y = drawTableRow(y, ['Trip ID', s(trip.tripId || trip.id)], [col1, col2], false, '#fff');
-  y = drawTableRow(y, ['Report ID', reportId], [col1, col2]);
-  y += 12;
-
-  // Disclaimers
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Disclaimers', MARGIN_LEFT, y);
+  doc.text('Legal Disclaimers & Warranty Information', MARGIN_LEFT, y);
   y += 10;
-  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-  doc.text('EN: This report is auto-generated. Data accuracy depends on sensor readings and GPS signal. Blade Marine Technologies Limited is not liable for inaccuracies.', MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 10;
-  doc.text('DE: Dieser Bericht wird automatisch erstellt. Die Datengenauigkeit hängt von Sensorwerten und GPS-Signal ab.', MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 10;
-  doc.text('IT: Questo report è generato automaticamente. L\'accuratezza dei dati dipende dalle letture dei sensori.', MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 10;
-  doc.text('ES: Este informe se genera automáticamente. La precisión depende de las lecturas de los sensores.', MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 12;
+  
+  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
+  
+  const disclaimers = `ENGLISH: This report is automatically generated by the Blade Outboards mobile application and is provided for informational and documentation purposes only. While Blade Marine Technologies Limited ("Blade") endeavors to ensure the accuracy of data collected from the outboard motor's sensors, GPS receivers, and battery management system, Blade makes no representations or warranties, express or implied, regarding the completeness, accuracy, reliability, or suitability of the information contained herein. Sensor readings may be affected by environmental factors, electromagnetic interference, temperature variations, and hardware calibration. GPS accuracy is subject to satellite availability and atmospheric conditions. Users should not rely solely on this report for navigation, safety decisions, or legal purposes. This report does not constitute a warranty claim, service record, or official documentation for regulatory compliance. Blade expressly disclaims any liability for damages, losses, or injuries arising from the use or interpretation of data in this report. The outboard motor and its components are subject to the terms and conditions of the original purchase warranty, which this report does not extend, modify, or supersede. For warranty claims or technical support, contact Blade Marine Technologies Limited directly with your serial number and proof of purchase.
+
+DEUTSCH: Dieser Bericht wird automatisch von der Blade Outboards Mobilanwendung erstellt und dient ausschließlich Informations- und Dokumentationszwecken. Blade Marine Technologies Limited übernimmt keine Gewährleistung für die Vollständigkeit, Genauigkeit oder Zuverlässigkeit der enthaltenen Daten. Sensorwerte können durch Umweltfaktoren, elektromagnetische Störungen und Temperaturschwankungen beeinflusst werden. Dieser Bericht ersetzt keine Garantieansprüche oder offizielle Servicedokumentation.
+
+ITALIANO: Questo rapporto è generato automaticamente dall'applicazione mobile Blade Outboards ed è fornito esclusivamente a scopo informativo e documentale. Blade Marine Technologies Limited non fornisce alcuna garanzia riguardo alla completezza, accuratezza o affidabilità dei dati contenuti. Le letture dei sensori possono essere influenzate da fattori ambientali, interferenze elettromagnetiche e variazioni di temperatura.
+
+ESPAÑOL: Este informe se genera automáticamente mediante la aplicación móvil Blade Outboards y se proporciona únicamente con fines informativos y de documentación. Blade Marine Technologies Limited no garantiza la integridad, exactitud o fiabilidad de los datos contenidos. Las lecturas de los sensores pueden verse afectadas por factores ambientales, interferencias electromagnéticas y variaciones de temperatura.`;
+
+  doc.text(disclaimers, MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'justify' });
+  y += 95;
 
   doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text('Safe Boating | Sicheres Bootfahren | Navigazione Sicura | Navegación Segura', MARGIN_LEFT, y);
+  doc.text('SAFE BOATING | SICHERES BOOTFAHREN | NAVIGAZIONE SICURA | NAVEGACIÓN SEGURA', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
   y += 10;
-  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-  doc.text('Always boat safely. Never boat under the influence. Always wear a life jacket.', MARGIN_LEFT, y);
+  doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
+  doc.text('Always wear an approved personal flotation device. Never operate a vessel under the influence of alcohol or drugs. Check weather conditions before departure. File a float plan with a responsible person. Maintain proper lookout at all times. Know and obey all maritime regulations.', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
   doc.end();
 }
