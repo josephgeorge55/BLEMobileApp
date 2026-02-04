@@ -49,6 +49,10 @@ function kmToMiles(km: number): number {
   return km * 0.621371;
 }
 
+function safeNum(val: number | null | undefined, defaultVal: number = 0): number {
+  return val != null && !isNaN(val) ? val : defaultVal;
+}
+
 function kmToNauticalMiles(km: number): number {
   return km * 0.539957;
 }
@@ -364,9 +368,9 @@ function generatePage1(report: TripReport, logoBase64: string): string {
         <h2>Odometer</h2>
         <table>
           <tr><th>Unit</th><th>End Reading</th></tr>
-          <tr><td>Kilometers</td><td>${trip.odometerEndKm.toFixed(2)} km</td></tr>
-          <tr><td>Miles</td><td>${kmToMiles(trip.odometerEndKm).toFixed(2)} mi</td></tr>
-          <tr><td>Nautical Miles</td><td>${kmToNauticalMiles(trip.odometerEndKm).toFixed(2)} nm</td></tr>
+          <tr><td>Kilometers</td><td>${safeNum(trip.odometerEndKm).toFixed(2)} km</td></tr>
+          <tr><td>Miles</td><td>${kmToMiles(safeNum(trip.odometerEndKm)).toFixed(2)} mi</td></tr>
+          <tr><td>Nautical Miles</td><td>${kmToNauticalMiles(safeNum(trip.odometerEndKm)).toFixed(2)} nm</td></tr>
         </table>
 
         <h2>GPS Coordinates @ Generation</h2>
@@ -406,7 +410,7 @@ function generatePage2(report: TripReport, logoBase64: string): string {
             <td>${trip.endWeather?.windSpeed || 'N/A'} km/h ${trip.endWeather?.windDirection || ''}</td>
             <td>${trip.endWeather?.humidity || 'N/A'}%</td>
           </tr>
-          ${trip.hourlyWeather.map((w, i) => `
+          ${(trip.hourlyWeather || []).map((w, i) => `
             <tr>
               <td>Hour ${i + 1}</td>
               <td>${w.conditions || 'N/A'}</td>
@@ -468,21 +472,21 @@ function generatePage2(report: TripReport, logoBase64: string): string {
           <tr><th>Metric</th><th>km/km/h</th><th>mi/mph</th><th>nm/knots</th></tr>
           <tr>
             <td>Total Distance</td>
-            <td>${trip.totalDistanceKm.toFixed(2)} km</td>
-            <td>${kmToMiles(trip.totalDistanceKm).toFixed(2)} mi</td>
-            <td>${kmToNauticalMiles(trip.totalDistanceKm).toFixed(2)} nm</td>
+            <td>${safeNum(trip.totalDistanceKm).toFixed(2)} km</td>
+            <td>${kmToMiles(safeNum(trip.totalDistanceKm)).toFixed(2)} mi</td>
+            <td>${kmToNauticalMiles(safeNum(trip.totalDistanceKm)).toFixed(2)} nm</td>
           </tr>
           <tr>
             <td>Max Speed (Phone)</td>
-            <td>${trip.maxSpeedKmh.toFixed(1)} km/h</td>
-            <td>${kmhToMph(trip.maxSpeedKmh).toFixed(1)} mph</td>
-            <td>${kmhToKnots(trip.maxSpeedKmh).toFixed(1)} kn</td>
+            <td>${safeNum(trip.maxSpeedKmh).toFixed(1)} km/h</td>
+            <td>${kmhToMph(safeNum(trip.maxSpeedKmh)).toFixed(1)} mph</td>
+            <td>${kmhToKnots(safeNum(trip.maxSpeedKmh)).toFixed(1)} kn</td>
           </tr>
           <tr>
             <td>Avg Speed (Phone)</td>
-            <td>${trip.avgSpeedKmh.toFixed(1)} km/h</td>
-            <td>${kmhToMph(trip.avgSpeedKmh).toFixed(1)} mph</td>
-            <td>${kmhToKnots(trip.avgSpeedKmh).toFixed(1)} kn</td>
+            <td>${safeNum(trip.avgSpeedKmh).toFixed(1)} km/h</td>
+            <td>${kmhToMph(safeNum(trip.avgSpeedKmh)).toFixed(1)} mph</td>
+            <td>${kmhToKnots(safeNum(trip.avgSpeedKmh)).toFixed(1)} kn</td>
           </tr>
         </table>
 
@@ -492,31 +496,31 @@ function generatePage2(report: TripReport, logoBase64: string): string {
           <tr><td>Starting Battery SOC</td><td>${trip.startBatteryPercent ?? 'N/A'}%</td></tr>
           <tr><td>Ending Battery SOC</td><td>${trip.endBatteryPercent ?? 'N/A'}%</td></tr>
           <tr><td>3rd Party Battery?</td><td>False</td></tr>
-          <tr><td>Wh Consumed</td><td>${trip.totalEnergyWh.toFixed(1)} Wh</td></tr>
-          <tr><td>Max Amperage Draw</td><td>${trip.maxAmperageDraw.toFixed(1)} A</td></tr>
-          <tr><td>Max Consumption</td><td>${trip.maxConsumptionKW.toFixed(2)} kW</td></tr>
-          <tr><td>Avg Consumption</td><td>${trip.avgConsumptionKW.toFixed(2)} kW</td></tr>
+          <tr><td>Wh Consumed</td><td>${safeNum(trip.totalEnergyWh).toFixed(1)} Wh</td></tr>
+          <tr><td>Max Amperage Draw</td><td>${safeNum(trip.maxAmperageDraw).toFixed(1)} A</td></tr>
+          <tr><td>Max Consumption</td><td>${safeNum(trip.maxConsumptionKW).toFixed(2)} kW</td></tr>
+          <tr><td>Avg Consumption</td><td>${safeNum(trip.avgConsumptionKW).toFixed(2)} kW</td></tr>
         </table>
 
         <h2>RPM Statistics</h2>
         <table>
           <tr><th>RPM Max</th><th>RPM Average</th></tr>
-          <tr><td>${trip.rpmMax}</td><td>${trip.rpmAvg.toFixed(0)}</td></tr>
+          <tr><td>${safeNum(trip.rpmMax)}</td><td>${safeNum(trip.rpmAvg).toFixed(0)}</td></tr>
         </table>
 
         <h2>Error Codes</h2>
         <table>
           <tr><th>Phase</th><th>Codes</th></tr>
-          <tr><td>Starting</td><td>${trip.errorCodesStart.length > 0 ? trip.errorCodesStart.map(e => e.code).join(', ') : 'None'}</td></tr>
-          <tr><td>During</td><td>${trip.errorCodesDuring.length > 0 ? trip.errorCodesDuring.map(e => e.code).join(', ') : 'None'}</td></tr>
-          <tr><td>Ending</td><td>${trip.errorCodesEnd.length > 0 ? trip.errorCodesEnd.map(e => e.code).join(', ') : 'None'}</td></tr>
+          <tr><td>Starting</td><td>${(trip.errorCodesStart?.length || 0) > 0 ? trip.errorCodesStart.map(e => e.code).join(', ') : 'None'}</td></tr>
+          <tr><td>During</td><td>${(trip.errorCodesDuring?.length || 0) > 0 ? trip.errorCodesDuring.map(e => e.code).join(', ') : 'None'}</td></tr>
+          <tr><td>Ending</td><td>${(trip.errorCodesEnd?.length || 0) > 0 ? trip.errorCodesEnd.map(e => e.code).join(', ') : 'None'}</td></tr>
         </table>
 
         <h2>Route Map</h2>
         <div class="map-placeholder">
           [Route Map: ${trip.phoneGPSStart ? `Start: ${trip.phoneGPSStart.latitude.toFixed(4)}, ${trip.phoneGPSStart.longitude.toFixed(4)}` : 'No GPS'} → 
           ${trip.phoneGPSEnd ? `End: ${trip.phoneGPSEnd.latitude.toFixed(4)}, ${trip.phoneGPSEnd.longitude.toFixed(4)}` : 'No GPS'}]
-          <br/>Distance: ${trip.totalDistanceKm.toFixed(2)} km
+          <br/>Distance: ${safeNum(trip.totalDistanceKm).toFixed(2)} km
         </div>
 
         <h2>Trip Overview Graph</h2>
@@ -610,27 +614,27 @@ function generatePage4(report: TripReport, logoBase64: string, pageNum: number):
           <tr><th>Metric</th><th>km</th><th>mi</th><th>nm</th></tr>
           <tr>
             <td>Distance Traveled</td>
-            <td>${trip.totalDistanceKm.toFixed(2)}</td>
-            <td>${kmToMiles(trip.totalDistanceKm).toFixed(2)}</td>
-            <td>${kmToNauticalMiles(trip.totalDistanceKm).toFixed(2)}</td>
+            <td>${safeNum(trip.totalDistanceKm).toFixed(2)}</td>
+            <td>${kmToMiles(safeNum(trip.totalDistanceKm)).toFixed(2)}</td>
+            <td>${kmToNauticalMiles(safeNum(trip.totalDistanceKm)).toFixed(2)}</td>
           </tr>
           <tr>
             <td>Odometer Start</td>
-            <td>${trip.odometerStartKm.toFixed(2)}</td>
-            <td>${kmToMiles(trip.odometerStartKm).toFixed(2)}</td>
-            <td>${kmToNauticalMiles(trip.odometerStartKm).toFixed(2)}</td>
+            <td>${safeNum(trip.odometerStartKm).toFixed(2)}</td>
+            <td>${kmToMiles(safeNum(trip.odometerStartKm)).toFixed(2)}</td>
+            <td>${kmToNauticalMiles(safeNum(trip.odometerStartKm)).toFixed(2)}</td>
           </tr>
           <tr>
             <td>Odometer End</td>
-            <td>${trip.odometerEndKm.toFixed(2)}</td>
-            <td>${kmToMiles(trip.odometerEndKm).toFixed(2)}</td>
-            <td>${kmToNauticalMiles(trip.odometerEndKm).toFixed(2)}</td>
+            <td>${safeNum(trip.odometerEndKm).toFixed(2)}</td>
+            <td>${kmToMiles(safeNum(trip.odometerEndKm)).toFixed(2)}</td>
+            <td>${kmToNauticalMiles(safeNum(trip.odometerEndKm)).toFixed(2)}</td>
           </tr>
         </table>
 
         <table>
           <tr><th>Field</th><th>Value</th></tr>
-          <tr><td>Consumption</td><td>${trip.totalEnergyWh.toFixed(1)} Wh</td></tr>
+          <tr><td>Consumption</td><td>${safeNum(trip.totalEnergyWh).toFixed(1)} Wh</td></tr>
           <tr><td>Total Trip Time</td><td>${formatDuration(tripDurationSec)}</td></tr>
           <tr><td>Location</td><td>${trip.startLocationAddress || 'N/A'}</td></tr>
           <tr><td>Serial Number</td><td>${trip.motorSerialNumber}</td></tr>
