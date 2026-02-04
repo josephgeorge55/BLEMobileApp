@@ -107,13 +107,13 @@ function formatWeather(w: any): string {
   const parts = [];
   const condition = (w.conditions || '').toLowerCase();
   
-  // Use text-based symbols for maximum compatibility and clarity
-  let symbol = '[Cloudy]'; 
-  if (condition.includes('clear') || condition.includes('sun')) symbol = '[Sunny]';
-  else if (condition.includes('rain')) symbol = '[Rainy]';
-  else if (condition.includes('storm')) symbol = '[Stormy]';
-  else if (condition.includes('snow')) symbol = '[Snowy]';
-  else if (condition.includes('fog') || condition.includes('mist')) symbol = '[Foggy]';
+  // Use emojis for weather - supported by standard PDF viewers
+  let symbol = '☁️'; 
+  if (condition.includes('clear') || condition.includes('sun')) symbol = '☀️';
+  else if (condition.includes('rain')) symbol = '🌧️';
+  else if (condition.includes('storm')) symbol = '⛈️';
+  else if (condition.includes('snow')) symbol = '❄️';
+  else if (condition.includes('fog') || condition.includes('mist')) symbol = '🌫️';
 
   if (w.conditions) parts.push(`${symbol} ${w.conditions}`);
   if (w.temperature !== undefined) parts.push(`${w.temperature}°C`);
@@ -773,6 +773,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.text(`End UTC: ${endDt ? endDt.toISOString() : 'N/A'}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
   doc.text(`Odom: ${odomEnd.toFixed(2)} km / ${kmToMi(odomEnd).toFixed(2)} mi`, MARGIN_LEFT + summaryColW, y);
   doc.text(`Motor MAC: ${serial} (${s(trip.connectionType, 'Classic')})`, MARGIN_LEFT + summaryColW * 2, y);
+  y += 9;
+  doc.text(`Elapsed Time: ${formatDuration(trip.startTime, trip.endTime)}`, MARGIN_LEFT, y);
   y += 11;
   doc.text(`Start Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
   y += 9;
