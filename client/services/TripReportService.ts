@@ -755,7 +755,68 @@ export async function generateTripReportPDF(trip: ExtendedTrip): Promise<string>
   }
 }
 
+async function generateReportHTML(trip: ExtendedTrip): Promise<string> {
+  const reportId = generateUniqueId();
+  const now = new Date();
+  
+  const tripDurationSec = trip.endTime 
+    ? Math.floor((new Date(trip.endTime).getTime() - new Date(trip.startTime).getTime()) / 1000)
+    : 0;
+  
+  const detailPages = Math.max(1, Math.ceil(tripDurationSec / 600));
+  const totalPages = 2 + detailPages + 1;
+  
+  const metadata: TripReportMetadata = {
+    reportId,
+    generatedAt: now,
+    generatedAtUTC: formatDateUTC(now),
+    generatedAtLocal: formatDateLocal(now),
+    generatedAtTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    phoneIPAddress: null,
+    phoneIPLocation: null,
+    gpsCoordinatesAtGeneration: trip.phoneGPSEnd,
+    weatherAtGeneration: trip.endWeather,
+    pageCount: totalPages,
+    pdfStandard: 'PDF 1.7',
+    fontsUsed: ['Inter', 'System'],
+    paperSize: 'A4 Landscape',
+  };
+
+  const report: TripReport = { trip, metadata };
+  const logoBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  
+  let pagesHtml = '';
+  pagesHtml += generatePage1(report, logoBase64);
+  pagesHtml += generatePage2(report, logoBase64);
+  
+  for (let i = 0; i < detailPages; i++) {
+    const startSec = i * 600;
+    const endSec = Math.min((i + 1) * 600, tripDurationSec);
+    pagesHtml += generatePage3(report, logoBase64, 3 + i, startSec, endSec, totalPages);
+  }
+  
+  pagesHtml += generatePage4(report, logoBase64, totalPages);
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Trip Report - ${trip.tripId || trip.id}</title>
+      <style>${getBaseStyles()}</style>
+    </head>
+    <body>
+      ${pagesHtml}
+    </body>
+    </html>
+  `;
+}
+
 export async function shareTripReport(pdfUri: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    return;
+  }
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(pdfUri, {
       mimeType: 'application/pdf',
@@ -764,6 +825,73 @@ export async function shareTripReport(pdfUri: string): Promise<void> {
   } else {
     throw new Error('Sharing is not available on this device');
   }
+}
+
+async function generatePDFForWeb(html: string, filename: string): Promise<void> {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    throw new Error('Could not open print window. Please allow popups.');
+  }
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${filename}</title>
+      <style>
+        @media print {
+          @page { size: A4 landscape; margin: 0; }
+          body { margin: 0; }
+        }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .download-banner {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: #1a5f2a;
+          color: white;
+          padding: 12px 20px;
+          text-align: center;
+          z-index: 9999;
+          font-size: 14px;
+        }
+        .download-banner button {
+          background: white;
+          color: #1a5f2a;
+          border: none;
+          padding: 8px 20px;
+          margin-left: 15px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: bold;
+        }
+        .download-banner button:hover {
+          background: #e0e0e0;
+        }
+        @media print {
+          .download-banner { display: none !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="download-banner">
+        <span>Trip Report Ready!</span>
+        <button onclick="window.print()">Print / Save as PDF</button>
+        <button onclick="window.close()">Close</button>
+      </div>
+      <div style="padding-top: 60px;">
+        ${html}
+      </div>
+      <script>
+        document.title = '${filename}';
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 export function createExtendedTripFromBasic(
@@ -835,6 +963,14 @@ export const TripReportService = {
   generateReport: async (trip: ExtendedTrip, dataPoints: TripDataPoint[]): Promise<{ success: boolean; uri?: string; error?: string }> => {
     try {
       const tripWithDataPoints = { ...trip, dataPoints };
+      
+      if (Platform.OS === 'web') {
+        const html = await generateReportHTML(tripWithDataPoints as ExtendedTrip);
+        const filename = `Blade_Trip_Report_${trip.id}_${new Date().toISOString().split('T')[0]}.pdf`;
+        await generatePDFForWeb(html, filename);
+        return { success: true, uri: 'web-print' };
+      }
+      
       const uri = await generateTripReportPDF(tripWithDataPoints as ExtendedTrip);
       await shareTripReport(uri);
       return { success: true, uri };
