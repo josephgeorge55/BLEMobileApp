@@ -14,6 +14,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { SettingsRow, SettingsSection } from "@/components/SettingsRow";
 import { FirmwareUpdateModal } from "@/components/FirmwareUpdateModal";
 import { DebugLogModal } from "@/components/DebugLogModal";
+import { BoatSettingsModal } from "@/components/BoatSettingsModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useSettings } from "@/context/SettingsContext";
@@ -23,7 +24,9 @@ import {
   registerMotorForUser, 
   getRegisteredMotors, 
   removeMotorForUser,
-  type RegisteredMotor 
+  getBoatData,
+  type RegisteredMotor,
+  type BoatData
 } from "@/lib/firebase";
 
 const APP_VERSION = Constants.expoConfig?.version || "1.0.0";
@@ -52,6 +55,8 @@ export default function SettingsScreen() {
   const [loadingMotors, setLoadingMotors] = useState(false);
   const [isLinkingMotor, setIsLinkingMotor] = useState(false);
   const [showDebugModal, setShowDebugModal] = useState(false);
+  const [showBoatModal, setShowBoatModal] = useState(false);
+  const [boatData, setBoatData] = useState<BoatData | null>(null);
   const { isGuestMode } = useUser();
 
   // Check if currently connected motor is registered
@@ -59,14 +64,26 @@ export default function SettingsScreen() {
     rm => rm.serialNumber === motor.serialNumber || rm.serialNumber === telemetry?.tillerSerialNumber
   );
 
-  // Load registered motors when user is logged in
+  // Load registered motors and boat data when user is logged in
   useEffect(() => {
     if (user?.id) {
       loadRegisteredMotors();
+      loadBoatData();
     } else {
       setRegisteredMotors([]);
+      setBoatData(null);
     }
   }, [user?.id]);
+
+  const loadBoatData = async () => {
+    if (!user?.id) return;
+    try {
+      const data = await getBoatData(user.id);
+      setBoatData(data);
+    } catch (error) {
+      console.error("Failed to load boat data:", error);
+    }
+  };
 
   const loadRegisteredMotors = async () => {
     if (!user?.id) return;
@@ -240,6 +257,24 @@ export default function SettingsScreen() {
             onPress={handleLogout}
             destructive
             showChevron={false}
+          />
+        </SettingsSection>
+      ) : null}
+
+      {user && !isGuestMode ? (
+        <SettingsSection title="My Boat">
+          <SettingsRow
+            icon="anchor"
+            title={boatData ? boatData.boatType : "Add Boat Information"}
+            subtitle={boatData 
+              ? `${(boatData.lengthMeters * 3.28084).toFixed(1)} ft / ${boatData.weightKg.toFixed(0)} kg`
+              : "Enter your boat details for trip reports"
+            }
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowBoatModal(true);
+            }}
+            iconColor={boatData ? BladeColors.marine : theme.textSecondary}
           />
         </SettingsSection>
       ) : null}
@@ -570,6 +605,15 @@ export default function SettingsScreen() {
       visible={showDebugModal}
       onClose={() => setShowDebugModal(false)}
     />
+
+    {user?.id ? (
+      <BoatSettingsModal
+        visible={showBoatModal}
+        onClose={() => setShowBoatModal(false)}
+        userId={user.id}
+        onSaved={loadBoatData}
+      />
+    ) : null}
         </>
   );
 }

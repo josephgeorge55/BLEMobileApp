@@ -23,6 +23,12 @@ const GREEN = '#22C55E';
 const ORANGE = '#F97316';
 const PURPLE = '#8B5CF6';
 
+interface BoatInfo {
+  boatType: string;
+  lengthMeters: number;
+  weightKg: number;
+}
+
 interface TripData {
   id: string;
   tripId?: string;
@@ -61,6 +67,7 @@ interface TripData {
   dataPoints?: any[];
   odometerStartKm?: number;
   odometerEndKm?: number;
+  boatInfo?: BoatInfo;
 }
 
 function s(val: any, def = 'N/A'): string {
@@ -686,7 +693,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   let rightY = y;
 
   // Draw section container for Device Info
-  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, 190, 'Device Information');
+  const deviceInfoHeight = trip.boatInfo ? 260 : 190;
+  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, deviceInfoHeight, 'Device Information');
   leftY += 8;
   
   doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
@@ -707,13 +715,29 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   leftY = drawTableRow(leftY, ['Phone Name', s(trip.phoneName)], [col2, col2], false, '#fff');
   leftY = drawTableRow(leftY, ['Operating System', s(trip.phoneOS)], [col2, col2]);
   leftY = drawTableRow(leftY, ['Connection Type', s(trip.connectionType, 'Bluetooth')], [col2, col2], false, '#fff');
+  leftY += 10;
+
+  // Boat Information Section
+  if (trip.boatInfo) {
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
+    doc.text('Boat Information', leftColX, leftY);
+    leftY += 10;
+    leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
+    leftY = drawTableRow(leftY, ['Type', trip.boatInfo.boatType], [col2, col2]);
+    const lengthFt = (trip.boatInfo.lengthMeters * 3.28084).toFixed(1);
+    const lengthM = trip.boatInfo.lengthMeters.toFixed(1);
+    leftY = drawTableRow(leftY, ['Length', `${lengthFt} ft (${lengthM} m)`], [col2, col2], false, '#fff');
+    const weightLbs = (trip.boatInfo.weightKg * 2.20462).toFixed(0);
+    const weightKg = trip.boatInfo.weightKg.toFixed(0);
+    leftY = drawTableRow(leftY, ['Weight', `${weightLbs} lbs (${weightKg} kg)`], [col2, col2]);
+  }
 
   doc.save();
   const origLeft = MARGIN_LEFT;
   (doc as any).x = rightColX;
   
   // Draw section container for Report Info
-  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, 190, 'Report Information');
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, deviceInfoHeight, 'Report Information');
   rightY += 8;
   
   doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);

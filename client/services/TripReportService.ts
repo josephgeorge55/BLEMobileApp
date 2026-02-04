@@ -975,6 +975,8 @@ export function createExtendedTripFromBasic(
     phoneDeviceType: Device.deviceType ? String(Device.deviceType) : null,
     phoneOS: `${Platform.OS} ${Platform.Version}`,
     bluetoothMacAddress: null,
+    
+    boatInfo: basicTrip.boatInfo || null,
   };
 }
 
