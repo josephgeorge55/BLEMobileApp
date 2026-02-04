@@ -837,56 +837,74 @@ async function generatePDFForWeb(html: string, filename: string): Promise<void> 
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${filename}</title>
+      <title>Generating PDF...</title>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
       <style>
-        @media print {
-          @page { size: A4 landscape; margin: 0; }
-          body { margin: 0; }
-        }
-        body {
+        body { 
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          margin: 0;
+          padding: 20px;
+          background: #f5f5f5;
         }
-        .download-banner {
+        .loading {
           position: fixed;
           top: 0;
           left: 0;
           right: 0;
-          background: #1a5f2a;
-          color: white;
-          padding: 12px 20px;
-          text-align: center;
+          bottom: 0;
+          background: rgba(255,255,255,0.95);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
           z-index: 9999;
-          font-size: 14px;
         }
-        .download-banner button {
-          background: white;
-          color: #1a5f2a;
-          border: none;
-          padding: 8px 20px;
-          margin-left: 15px;
-          border-radius: 4px;
-          cursor: pointer;
-          font-weight: bold;
+        .loading h2 { color: #1a5f2a; margin-bottom: 10px; }
+        .loading p { color: #666; }
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid #e0e0e0;
+          border-top-color: #1a5f2a;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 20px;
         }
-        .download-banner button:hover {
-          background: #e0e0e0;
-        }
-        @media print {
-          .download-banner { display: none !important; }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #report-content { display: none; }
       </style>
     </head>
     <body>
-      <div class="download-banner">
-        <span>Trip Report Ready!</span>
-        <button onclick="window.print()">Print / Save as PDF</button>
-        <button onclick="window.close()">Close</button>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <h2>Generating Your PDF Report</h2>
+        <p>This may take a few seconds...</p>
       </div>
-      <div style="padding-top: 60px;">
+      <div id="report-content">
         ${html}
       </div>
       <script>
-        document.title = '${filename}';
+        window.onload = function() {
+          const element = document.getElementById('report-content');
+          const filename = '${filename}';
+          
+          const opt = {
+            margin: 0,
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'pt', format: 'a4', orientation: 'landscape' },
+            pagebreak: { mode: ['css', 'legacy'], before: '.page' }
+          };
+          
+          element.style.display = 'block';
+          
+          html2pdf().set(opt).from(element).save().then(function() {
+            document.getElementById('loading').innerHTML = '<h2 style="color: #1a5f2a;">PDF Downloaded!</h2><p>Check your downloads folder.</p><button onclick="window.close()" style="margin-top: 20px; padding: 10px 30px; background: #1a5f2a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">Close Window</button>';
+          }).catch(function(err) {
+            document.getElementById('loading').innerHTML = '<h2 style="color: #c00;">Error generating PDF</h2><p>' + err + '</p><button onclick="window.close()" style="margin-top: 20px; padding: 10px 30px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>';
+          });
+        };
       </script>
     </body>
     </html>
