@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   Alert,
   Platform,
@@ -55,13 +55,12 @@ function TripButton({
 
   return (
     <View>
-      <TouchableOpacity
-        activeOpacity={0.7}
+      <Pressable
         onPress={handlePress}
         disabled={!canPress}
-        style={[
+        style={({ pressed }) => [
           styles.tripButton,
-          { backgroundColor: bgColor }
+          { backgroundColor: bgColor, opacity: pressed ? 0.7 : 1 }
         ]}
         testID={isStart ? "start-trip-btn" : "end-trip-btn"}
       >
@@ -73,7 +72,7 @@ function TripButton({
             <Text style={styles.tripButtonText}>{label}</Text>
           </>
         )}
-      </TouchableOpacity>
+      </Pressable>
       {!canPress && disabledReasons && disabledReasons.length > 0 ? (
         <View style={styles.reasonsContainer}>
           {disabledReasons.map((reason, idx) => (
@@ -223,11 +222,13 @@ export default function TripsScreen() {
   };
 
   const renderTrip = ({ item }: { item: Trip }) => (
-    <TouchableOpacity 
-      activeOpacity={0.8}
-      onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}
+    <Card 
+      style={[styles.card, item.isActive && styles.activeCard]}
+      onPress={() => {
+        console.log("[Trips] Trip card pressed, navigating to TripDetail:", item.id);
+        navigation.navigate("TripDetail", { tripId: item.id });
+      }}
     >
-      <Card style={[styles.card, item.isActive && styles.activeCard]}>
         <View style={styles.cardHeader}>
           <Feather 
             name={item.isActive ? "navigation" : "anchor"} 
@@ -279,8 +280,7 @@ export default function TripsScreen() {
             <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Wh</Text>
           </View>
         </View>
-      </Card>
-    </TouchableOpacity>
+    </Card>
   );
 
   const ListHeader = () => (

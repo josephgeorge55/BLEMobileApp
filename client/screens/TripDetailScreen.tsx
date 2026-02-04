@@ -190,28 +190,6 @@ export default function TripDetailScreen() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.backgroundRoot }]}>
-        <ActivityIndicator size="large" color={BladeColors.primary} />
-      </View>
-    );
-  }
-
-  if (!trip) {
-    return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.backgroundRoot }]}>
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} />
-        <Text style={[styles.errorText, { color: theme.text }]}>Trip not found</Text>
-      </View>
-    );
-  }
-
-  const speedData = dataPoints.filter(p => p.phoneSpeedKmh != null || p.outboardSpeedKmh != null).map(p => p.phoneSpeedKmh ?? p.outboardSpeedKmh ?? 0);
-  const batteryData = dataPoints.filter(p => p.batterySOC != null).map(p => p.batterySOC!);
-  const powerData = dataPoints.filter(p => p.consumptionKW != null).map(p => (p.consumptionKW ?? 0) * 1000);
-  const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
-
   const routeCoordinates = useMemo(() => {
     return dataPoints
       .filter(p => (p.phoneLatitude != null && p.phoneLongitude != null) || (p.outboardLatitude != null && p.outboardLongitude != null))
@@ -240,6 +218,28 @@ export default function TripDetailScreen() {
       longitudeDelta: lngDelta,
     };
   }, [routeCoordinates]);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.backgroundRoot }]}>
+        <ActivityIndicator size="large" color={BladeColors.primary} />
+      </View>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.backgroundRoot }]}>
+        <Feather name="alert-circle" size={48} color={theme.textSecondary} />
+        <Text style={[styles.errorText, { color: theme.text }]}>Trip not found</Text>
+      </View>
+    );
+  }
+
+  const speedData = dataPoints.filter(p => p.phoneSpeedKmh != null || p.outboardSpeedKmh != null).map(p => p.phoneSpeedKmh ?? p.outboardSpeedKmh ?? 0);
+  const batteryData = dataPoints.filter(p => p.batterySOC != null).map(p => p.batterySOC!);
+  const powerData = dataPoints.filter(p => p.consumptionKW != null).map(p => (p.consumptionKW ?? 0) * 1000);
+  const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
