@@ -1,5 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import type { ExtendedTrip, TripReport, TripReportMetadata, TripDataPoint, WeatherSnapshot } from '@/types/TripReport';
 import Constants from 'expo-constants';
@@ -827,7 +828,7 @@ export async function shareTripReport(pdfUri: string): Promise<void> {
   }
 }
 
-async function generatePDFFromServer(tripData: ExtendedTrip): Promise<void> {
+async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
   const { getApiUrl } = await import('../lib/query-client');
   const baseUrl = getApiUrl();
   const url = new URL('/api/trip/report', baseUrl);
@@ -850,8 +851,27 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<void> {
       endBatteryPercent: tripData.endBatteryPercent,
       phoneGPSStart: tripData.phoneGPSStart,
       phoneGPSEnd: tripData.phoneGPSEnd,
+      outboardGPSStart: tripData.outboardGPSStart,
+      outboardGPSEnd: tripData.outboardGPSEnd,
       startWeather: tripData.startWeather,
       endWeather: tripData.endWeather,
+      hourlyWeather: tripData.hourlyWeather,
+      connectionType: tripData.connectionType,
+      firmwareVersion: tripData.firmwareVersion,
+      phoneAppVersion: tripData.phoneAppVersion,
+      phoneName: tripData.phoneName,
+      phoneOS: tripData.phoneOS,
+      userEmail: tripData.userEmail,
+      userFirestoreId: tripData.userFirestoreId,
+      endReason: tripData.endReason,
+      maxAmperageDraw: tripData.maxAmperageDraw,
+      maxConsumptionKW: tripData.maxConsumptionKW,
+      avgConsumptionKW: tripData.avgConsumptionKW,
+      rpmMax: tripData.rpmMax,
+      rpmAvg: tripData.rpmAvg,
+      dataPoints: tripData.dataPoints,
+      odometerStartKm: tripData.odometerStartKm,
+      odometerEndKm: tripData.odometerEndKm,
     }),
   });
   
@@ -860,16 +880,35 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<void> {
   }
   
   const blob = await response.blob();
-  const pdfUrl = URL.createObjectURL(blob);
   
-  const link = document.createElement('a');
-  link.href = pdfUrl;
-  link.download = `Blade_Trip_Report_${tripData.id}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+  if (Platform.OS === 'web') {
+    const pdfUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `Blade_Trip_Report_${tripData.id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+    return 'web-download';
+  } else {
+    const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+    const fileUri = `${cacheDir}Blade_Trip_Report_${tripData.id}.pdf`;
+    const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+      reader.onloadend = async () => {
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+          await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: 'base64' });
+          resolve(fileUri);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
 }
 
 export function createExtendedTripFromBasic(
@@ -942,13 +981,14 @@ export const TripReportService = {
     try {
       const tripWithDataPoints = { ...trip, dataPoints };
       
-      if (Platform.OS === 'web') {
-        await generatePDFFromServer(tripWithDataPoints as ExtendedTrip);
-        return { success: true, uri: 'server-pdf' };
+      // Use server-side PDF generation for both web and native (identical output)
+      const uri = await generatePDFFromServer(tripWithDataPoints as ExtendedTrip);
+      
+      // On native, share the downloaded PDF
+      if (Platform.OS !== 'web' && uri !== 'web-download') {
+        await shareTripReport(uri);
       }
       
-      const uri = await generateTripReportPDF(tripWithDataPoints as ExtendedTrip);
-      await shareTripReport(uri);
       return { success: true, uri };
     } catch (error) {
       console.error('[TripReportService] Error generating report:', error);
