@@ -51,14 +51,51 @@ The trip system has been simplified to work on both web (demo mode) and native (
 **Key Features:**
 - **Demo Mode**: Trips work on web without real Bluetooth - uses "DEMO-MOTOR" as fallback serial
 - **Local Storage Only**: Trips stored in AsyncStorage at `@blade_local_trips` - no server sync required
-- **Telemetry Interval**: 10-second intervals for logging speed, energy, and location
+- **Telemetry Interval**: 4-second intervals for logging telemetry data points (per PDF spec)
 - **Duration Timer**: 1-second intervals for live duration display
 - **Wh Calculation**: Uses 48V battery voltage × current (from VESC or BMS)
+- **Data Points Storage**: TripDataPoint arrays stored at `@blade_trip_data_points_{tripId}`
+
+**Trip Validation Rules:**
+- Trips under 60 seconds are automatically deleted when ended
+- Maximum 8-hour trip limit with auto-end
+- 600-second inactivity timeout triggers auto-end
+- End reasons tracked: user_button, auto_8hr_limit, auto_inactivity_600s, app_closure
+
+**Extended Telemetry Tracking:**
+- Phone GPS (latitude, longitude, speed)
+- Outboard GPS (from GNSS frame)
+- Battery SOC, voltage, current
+- Consumption (kW), phase amperage
+- RPM, motor temp, VESC temp
+- Throttle percent, drive mode
+- Hydro-regen and reverse detection
 
 **Trip Requirements:**
 - Only requires user ID (guest mode works)
 - Motor connection NOT required for demo/testing purposes
 - When connected, prefers real serial from telemetry over Bluetooth MAC address
+
+### PDF Report Generation
+Professional engineering-style PDF reports for completed trips:
+
+**Service:** `client/services/TripReportService.ts`
+**Types:** `client/types/TripReport.ts`
+
+**PDF Structure (A4 Landscape):**
+1. **Page 1 - Introduction**: Device info, firmware version, user info, report metadata
+2. **Page 2 - Trip Summary**: Weather, GPS start/end, battery usage, route map, overview graph
+3. **Pages 3+ - Trip Detail**: One page per 600-second segment with 3 graphs each (speed, consumption, battery)
+4. **Final Page - Conclusion**: Notes, disclaimers, multi-language safety reminders (EN, DE, IT, ES)
+
+**Header/Footer Features:**
+- Blade Outboards logo
+- Multi-language page titles
+- Report ID with QR code placeholder
+- Serial number with barcode placeholder
+- CE/UKCA/RoHS certification logos
+- Page numbering
+- Generation timestamp (UTC and local)
 
 ### Critical: Motor Serial Number Flow
 When connecting to a real motor via Bluetooth:
