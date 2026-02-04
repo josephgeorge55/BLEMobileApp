@@ -18,6 +18,7 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { generateTripPDF } from "./pdfGenerator";
 
 const LOG_DIR = join(process.cwd(), "logs");
 const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
@@ -615,6 +616,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting trip:", error);
       res.status(500).json({ error: "Failed to delete trip" });
+    }
+  });
+
+  app.post("/api/trip/report", async (req, res) => {
+    try {
+      const tripData = req.body;
+      if (!tripData || !tripData.id) {
+        return res.status(400).json({ error: "Trip data is required" });
+      }
+      generateTripPDF(res, tripData);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ error: "Failed to generate PDF report" });
     }
   });
 

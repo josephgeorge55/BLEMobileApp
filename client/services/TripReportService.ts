@@ -827,89 +827,49 @@ export async function shareTripReport(pdfUri: string): Promise<void> {
   }
 }
 
-async function generatePDFForWeb(html: string, filename: string): Promise<void> {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    throw new Error('Could not open print window. Please allow popups.');
+async function generatePDFFromServer(tripData: ExtendedTrip): Promise<void> {
+  const { getApiUrl } = await import('../lib/query-client');
+  const baseUrl = getApiUrl();
+  const url = new URL('/api/trip/report', baseUrl);
+  
+  const response = await fetch(url.href, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: tripData.id,
+      tripId: tripData.tripId,
+      name: tripData.name,
+      motorSerialNumber: tripData.motorSerialNumber,
+      startTime: tripData.startTime,
+      endTime: tripData.endTime,
+      totalDistanceKm: tripData.totalDistanceKm,
+      maxSpeedKmh: tripData.maxSpeedKmh,
+      avgSpeedKmh: tripData.avgSpeedKmh,
+      totalEnergyWh: tripData.totalEnergyWh,
+      startBatteryPercent: tripData.startBatteryPercent,
+      endBatteryPercent: tripData.endBatteryPercent,
+      phoneGPSStart: tripData.phoneGPSStart,
+      phoneGPSEnd: tripData.phoneGPSEnd,
+      startWeather: tripData.startWeather,
+      endWeather: tripData.endWeather,
+    }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to generate PDF from server');
   }
   
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Generating PDF...</title>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-      <style>
-        body { 
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          margin: 0;
-          padding: 20px;
-          background: #f5f5f5;
-        }
-        .loading {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(255,255,255,0.95);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          z-index: 9999;
-        }
-        .loading h2 { color: #1a5f2a; margin-bottom: 10px; }
-        .loading p { color: #666; }
-        .spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid #e0e0e0;
-          border-top-color: #1a5f2a;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin-bottom: 20px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        #report-content { display: none; }
-      </style>
-    </head>
-    <body>
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <h2>Generating Your PDF Report</h2>
-        <p>This may take a few seconds...</p>
-      </div>
-      <div id="report-content">
-        ${html}
-      </div>
-      <script>
-        window.onload = function() {
-          const element = document.getElementById('report-content');
-          const filename = '${filename}';
-          
-          const opt = {
-            margin: 0,
-            filename: filename,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
-            jsPDF: { unit: 'pt', format: 'a4', orientation: 'landscape' },
-            pagebreak: { mode: ['css', 'legacy'], before: '.page' }
-          };
-          
-          element.style.display = 'block';
-          
-          html2pdf().set(opt).from(element).save().then(function() {
-            document.getElementById('loading').innerHTML = '<h2 style="color: #1a5f2a;">PDF Downloaded!</h2><p>Check your downloads folder.</p><button onclick="window.close()" style="margin-top: 20px; padding: 10px 30px; background: #1a5f2a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">Close Window</button>';
-          }).catch(function(err) {
-            document.getElementById('loading').innerHTML = '<h2 style="color: #c00;">Error generating PDF</h2><p>' + err + '</p><button onclick="window.close()" style="margin-top: 20px; padding: 10px 30px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>';
-          });
-        };
-      </script>
-    </body>
-    </html>
-  `);
-  printWindow.document.close();
+  const blob = await response.blob();
+  const pdfUrl = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.href = pdfUrl;
+  link.download = `Blade_Trip_Report_${tripData.id}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
 }
 
 export function createExtendedTripFromBasic(
@@ -983,10 +943,8 @@ export const TripReportService = {
       const tripWithDataPoints = { ...trip, dataPoints };
       
       if (Platform.OS === 'web') {
-        const html = await generateReportHTML(tripWithDataPoints as ExtendedTrip);
-        const filename = `Blade_Trip_Report_${trip.id}_${new Date().toISOString().split('T')[0]}.pdf`;
-        await generatePDFForWeb(html, filename);
-        return { success: true, uri: 'web-print' };
+        await generatePDFFromServer(tripWithDataPoints as ExtendedTrip);
+        return { success: true, uri: 'server-pdf' };
       }
       
       const uri = await generateTripReportPDF(tripWithDataPoints as ExtendedTrip);
