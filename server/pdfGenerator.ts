@@ -105,7 +105,16 @@ function formatCoord(c: { latitude: number; longitude: number } | null | undefin
 function formatWeather(w: any): string {
   if (!w) return 'N/A';
   const parts = [];
-  if (w.conditions) parts.push(w.conditions);
+  const condition = w.conditions?.toLowerCase() || '';
+  let symbol = '☁️'; // Default cloud
+  if (condition.includes('clear') || condition.includes('sun')) symbol = '☀️';
+  else if (condition.includes('rain')) symbol = '🌧️';
+  else if (condition.includes('cloud')) symbol = '☁️';
+  else if (condition.includes('storm')) symbol = '⛈️';
+  else if (condition.includes('snow')) symbol = '❄️';
+  else if (condition.includes('fog') || condition.includes('mist')) symbol = '🌫️';
+
+  if (w.conditions) parts.push(`${symbol} ${w.conditions}`);
   if (w.temperature !== undefined) parts.push(`${w.temperature}°C`);
   if (w.humidity !== undefined) parts.push(`${w.humidity}% humidity`);
   if (w.windSpeed !== undefined) parts.push(`Wind: ${w.windSpeed} km/h ${w.windDirection || ''}`);
@@ -722,6 +731,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   
   const startDt = new Date(trip.startTime);
   const endDt = trip.endTime ? new Date(trip.endTime) : null;
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const dist = nv(trip.totalDistanceKm);
   const maxSpd = nv(trip.maxSpeedKmh);
   const avgSpd = nv(trip.avgSpeedKmh);
@@ -735,21 +745,21 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   y += 11;
   
   doc.font('Helvetica').fontSize(6).fillColor(BLACK);
-  doc.text(`Start: ${startDt.toLocaleString()}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
-  doc.text(`Distance: ${dist.toFixed(2)} km`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`Local: ${startDt.toLocaleString()} (${timeZone})`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`Dist: ${dist.toFixed(2)} km / ${kmToMi(dist).toFixed(2)} mi / ${kmToNm(dist).toFixed(2)} nm`, MARGIN_LEFT + summaryColW, y);
   doc.text(`Start SOC: ${n(trip.startBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
-  doc.text(`End: ${endDt ? endDt.toLocaleString() : 'In Progress'}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
-  doc.text(`Max Speed: ${maxSpd.toFixed(1)} km/h`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`UTC: ${startDt.toISOString()}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
+  doc.text(`Max: ${maxSpd.toFixed(1)} km/h / ${kmhToMph(maxSpd).toFixed(1)} mph / ${kmhToKn(maxSpd).toFixed(1)} kn`, MARGIN_LEFT + summaryColW, y);
   doc.text(`End SOC: ${n(trip.endBatteryPercent, 0)}%`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
   doc.text(`Duration: ${formatDuration(trip.startTime, trip.endTime)}`, MARGIN_LEFT, y);
-  doc.text(`Avg Speed: ${avgSpd.toFixed(1)} km/h`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`Avg: ${avgSpd.toFixed(1)} km/h / ${kmhToMph(avgSpd).toFixed(1)} mph / ${kmhToKn(avgSpd).toFixed(1)} kn`, MARGIN_LEFT + summaryColW, y);
   doc.text(`Energy: ${n(trip.totalEnergyWh)} Wh`, MARGIN_LEFT + summaryColW * 2, y);
   y += 9;
   doc.text(`Weather: ${formatWeather(trip.startWeather)}`, MARGIN_LEFT, y, { width: summaryColW - 10 });
-  doc.text(`Odometer: ${odomEnd.toFixed(2)} km`, MARGIN_LEFT + summaryColW, y);
-  doc.text(`Max kW: ${n(trip.maxConsumptionKW, 2)}`, MARGIN_LEFT + summaryColW * 2, y);
+  doc.text(`Odom: ${odomEnd.toFixed(2)} km / ${kmToMi(odomEnd).toFixed(2)} mi`, MARGIN_LEFT + summaryColW, y);
+  doc.text(`BT: ${serial} (${s(trip.connectionType, 'Classic')})`, MARGIN_LEFT + summaryColW * 2, y);
   y += 15;
 
   const mapH = 200;
