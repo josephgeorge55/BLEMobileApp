@@ -107,15 +107,15 @@ function formatWeather(w: any): string {
   const parts = [];
   const condition = (w.conditions || '').toLowerCase();
   
-  // Use emojis for weather - supported by standard PDF viewers
-  let symbol = '☁️'; 
-  if (condition.includes('clear') || condition.includes('sun')) symbol = '☀️';
-  else if (condition.includes('rain')) symbol = '🌧️';
-  else if (condition.includes('storm')) symbol = '⛈️';
-  else if (condition.includes('snow')) symbol = '❄️';
-  else if (condition.includes('fog') || condition.includes('mist')) symbol = '🌫️';
+  // Use text descriptors as drawing fallback for symbols
+  let symbol = 'CLOUDY'; 
+  if (condition.includes('clear') || condition.includes('sun')) symbol = 'SUNNY';
+  else if (condition.includes('rain')) symbol = 'RAINY';
+  else if (condition.includes('storm')) symbol = 'STORMY';
+  else if (condition.includes('snow')) symbol = 'SNOWY';
+  else if (condition.includes('fog') || condition.includes('mist')) symbol = 'FOGGY';
 
-  if (w.conditions) parts.push(`${symbol} ${w.conditions}`);
+  if (w.conditions) parts.push(`[${symbol}] ${w.conditions}`);
   if (w.temperature !== undefined) parts.push(`${w.temperature}°C`);
   if (w.humidity !== undefined) parts.push(`${w.humidity}% humidity`);
   if (w.windSpeed !== undefined) parts.push(`Wind: ${w.windSpeed} km/h ${w.windDirection || ''}`);
