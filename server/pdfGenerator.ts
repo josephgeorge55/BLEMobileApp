@@ -1310,5 +1310,18 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLADE_GREEN);
   doc.text('bladeoutboards.com', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
+  // Company chop (bottom right of conclusion page only)
+  const chopPath = path.join(process.cwd(), 'server', 'company-chop.png');
+  try {
+    if (fs.existsSync(chopPath)) {
+      const chopSize = 55;
+      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize;
+      const chopY = FOOTER_Y - chopSize - 10;
+      doc.image(chopPath, chopX, chopY, { width: chopSize, height: chopSize });
+    }
+  } catch (e) {
+    // Chop image not available, skip
+  }
+
   doc.end();
 }
