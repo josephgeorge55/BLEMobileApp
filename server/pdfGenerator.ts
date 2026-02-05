@@ -1069,133 +1069,46 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   
   y = CONTENT_START_Y;
   
+  // Row 1: Trip Summary (left) and Data Interpretation Guide (right)
+  const row1Height = 175;
   leftY = y;
   rightY = y;
+
+  // LEFT: Trip Summary box
+  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, row1Height, 'Trip Summary');
+  leftY += 8;
   
-  const leftBoxHeight = 220;
-  const rightBoxHeight = 220;
-  const co2BoxHeight = 50;
-  const usesBoxHeight = 70;
-
-  // Draw container for Trip Summary on conclusion
-  drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, leftBoxHeight, 'Trip Summary');
-  leftY += 10;
-  
-  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
-  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
-  doc.fillColor(BLACK).text('Metric', leftColX + 3, leftY + 3, { width: col2/2 });
-  doc.text('km', leftColX + col2/2 + 3, leftY + 3, { width: col2/2 });
-  doc.text('mi', leftColX + col2 + 3, leftY + 3, { width: col2/2 });
-  doc.text('nm', leftColX + col2 * 1.5 + 3, leftY + 3, { width: col2/2 });
-  doc.strokeColor(LIGHT_GRAY).lineWidth(0.2);
-  doc.moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-  leftY += 13;
-
-  doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
-  doc.text('Distance', leftColX + 3, leftY + 3);
-  doc.text(dist.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
-  doc.text(kmToMi(dist).toFixed(2), leftColX + col2 + 3, leftY + 3);
-  doc.text(kmToNm(dist).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
-  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-  leftY += 13;
-
-  doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 13).fill();
-  doc.fillColor(BLACK).text('Odometer', leftColX + 3, leftY + 3);
-  doc.text(odomEnd.toFixed(2), leftColX + col2/2 + 3, leftY + 3);
-  doc.text(kmToMi(odomEnd).toFixed(2), leftColX + col2 + 3, leftY + 3);
-  doc.text(kmToNm(odomEnd).toFixed(2), leftColX + col2 * 1.5 + 3, leftY + 3);
-  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-  leftY += 20;
-
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Performance Summary', leftColX, leftY);
-  leftY += 12;
-
+  // Performance metrics table (compact)
   const perfRows = [
-    ['Energy Consumed', `${n(trip.totalEnergyWh)} Wh`],
+    ['Distance', `${dist.toFixed(2)} km / ${kmToMi(dist).toFixed(2)} mi / ${kmToNm(dist).toFixed(2)} nm`],
+    ['Odometer', `${odomEnd.toFixed(2)} km`],
     ['Duration', formatDuration(trip.startTime, trip.endTime)],
-    ['CO2 Saved', `${co2Saved.toFixed(2)} kg`],
+    ['Energy', `${n(trip.totalEnergyWh)} Wh`],
     ['Max Speed', `${maxSpd.toFixed(1)} km/h (${kmhToKn(maxSpd).toFixed(1)} kn)`],
     ['Avg Speed', `${avgSpd.toFixed(1)} km/h (${kmhToKn(avgSpd).toFixed(1)} kn)`],
     ['Max Power', `${n(trip.maxConsumptionKW, 2)} kW`],
-    ['Max Amperage', `${n(trip.maxAmperageDraw)} A`],
-    ['RPM Max / Avg', `${n(trip.rpmMax, 0)} / ${n(trip.rpmAvg, 0)}`],
-  ];
-  
-  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
-  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
-  doc.fillColor(BLACK).text('Metric', leftColX + 3, leftY + 3, { width: col2 - 6 });
-  doc.text('Value', leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
-  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-  leftY += 13;
-
-  perfRows.forEach((row, i) => {
-    if (i % 2 === 1) doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 13).fill();
-    doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
-    doc.text(row[0], leftColX + 3, leftY + 3, { width: col2 - 6 });
-    doc.text(row[1], leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
-    doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-    leftY += 13;
-  });
-  leftY += 10;
-
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
-  doc.text('Identification', leftColX, leftY);
-  leftY += 12;
-  
-  const idRows = [
-    ['Serial Number', serial],
-    ['Trip ID', tripId],
-    ['Report ID', reportId],
+    ['RPM Max/Avg', `${n(trip.rpmMax, 0)} / ${n(trip.rpmAvg, 0)}`],
+    ['Serial', serial],
+    ['Trip ID', tripId.substring(0, 20)],
     ['End Reason', s(trip.endReason, 'User')],
   ];
   
-  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 13).fill();
-  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BLACK);
-  doc.text('Field', leftColX + 3, leftY + 3, { width: col2 - 6 });
-  doc.text('Value', leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
-  doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-  leftY += 13;
+  doc.font('Helvetica-Bold').fontSize(5.5).fillColor(BLACK);
+  doc.fillColor('#f5f5f5').rect(leftColX, leftY, colHalf, 11).fill();
+  doc.fillColor(BLACK).text('Metric', leftColX + 3, leftY + 2, { width: col2 - 6 });
+  doc.text('Value', leftColX + col2 + 3, leftY + 2, { width: col2 - 6 });
+  leftY += 11;
 
-  idRows.forEach((row, i) => {
-    if (i % 2 === 1) doc.fillColor('#fff').rect(leftColX, leftY, colHalf, 13).fill();
-    doc.font('Helvetica').fontSize(6.5).fillColor(BLACK);
-    doc.text(row[0], leftColX + 3, leftY + 3, { width: col2 - 6 });
-    doc.text(row[1], leftColX + col2 + 3, leftY + 3, { width: col2 - 6 });
-    doc.strokeColor(LIGHT_GRAY).moveTo(leftColX, leftY + 13).lineTo(leftColX + colHalf, leftY + 13).stroke();
-    leftY += 13;
+  perfRows.forEach((row, i) => {
+    if (i % 2 === 0) doc.fillColor('#fafafa').rect(leftColX, leftY, colHalf, 11).fill();
+    doc.font('Helvetica').fontSize(5.5).fillColor(BLACK);
+    doc.text(row[0], leftColX + 3, leftY + 2, { width: col2 - 6 });
+    doc.text(row[1], leftColX + col2 + 3, leftY + 2, { width: col2 - 6 });
+    leftY += 11;
   });
 
-  // CO2 Environmental Impact tile (below Trip Summary on left side)
-  const co2TileY = CONTENT_START_Y - 2 + leftBoxHeight + 8;
-  drawSectionBox(leftColX - 4, co2TileY, colHalf + 8, co2BoxHeight, 'Environmental Impact');
-  
-  // Draw leaf icon
-  const leafX = leftColX + 8;
-  const leafY = co2TileY + 18;
-  doc.save();
-  doc.strokeColor('#228B22').fillColor('#228B22').lineWidth(1.5);
-  doc.moveTo(leafX, leafY + 12).quadraticCurveTo(leafX + 6, leafY, leafX + 18, leafY + 4)
-     .quadraticCurveTo(leafX + 12, leafY + 10, leafX, leafY + 12).fill();
-  doc.strokeColor('#228B22').lineWidth(0.8);
-  doc.moveTo(leafX + 2, leafY + 10).quadraticCurveTo(leafX + 10, leafY + 6, leafX + 16, leafY + 5).stroke();
-  doc.restore();
-  
-  doc.font('Helvetica-Bold').fontSize(14).fillColor('#228B22');
-  doc.text(`${co2Saved.toFixed(2)} kg`, leftColX + 35, co2TileY + 14);
-  doc.font('Helvetica').fontSize(7).fillColor(GRAY);
-  doc.text('CO2 Saved vs Petrol Outboard', leftColX + 35, co2TileY + 30);
-
-  // Report Uses tile (below CO2 on left side)
-  const usesTileY = co2TileY + co2BoxHeight + 8;
-  drawSectionBox(leftColX - 4, usesTileY, colHalf + 8, usesBoxHeight, 'Report Uses');
-  
-  doc.font('Helvetica').fontSize(5.5).fillColor(BLACK);
-  const usesText = `This report can be used for: Social media sharing to showcase your eco-friendly boating adventures; Personal record keeping and trip logging; Maintenance records to track motor usage and performance over time; Efficiency analysis to optimize battery consumption and range; Warranty documentation as proof of proper usage; Service records for technicians and authorized dealers; Insurance claims requiring trip data and telemetry documentation.`;
-  doc.text(usesText, leftColX + 2, usesTileY + 12, { width: colHalf - 4, align: 'justify' });
-
-  // Draw container for Data Interpretation Guide
-  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, rightBoxHeight, 'Data Interpretation Guide');
+  // RIGHT: Data Interpretation Guide box
+  drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, row1Height, 'Data Interpretation Guide');
   rightY += 8;
   
   // Helper function to draw simple icons
@@ -1285,66 +1198,82 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     drawGuideIcon(rightColX, rightY, item.icon);
     doc.font('Helvetica-Bold').fontSize(5).text(item.title + ':', rightColX + 12, rightY, { continued: true });
     doc.font('Helvetica').text(' ' + item.text, { width: colHalf - 18 });
-    rightY += 16;
+    rightY += 14;
   });
 
-  // Calculate y based on box bottom edges, not content positions
-  const leftSideBottom = usesTileY + usesBoxHeight;
-  const rightBoxBottom = CONTENT_START_Y - 2 + rightBoxHeight;
-  y = Math.max(leftSideBottom, rightBoxBottom) + 10;
+  // Row 2: Environmental Impact (left) and Report Uses (right)
+  const row2Y = CONTENT_START_Y + row1Height + 5;
+  const row2Height = 55;
+  
+  // LEFT: Environmental Impact with leaf icon
+  drawSectionBox(leftColX - 4, row2Y - 2, colHalf + 8, row2Height, 'Environmental Impact');
+  
+  // Draw leaf icon
+  const leafX = leftColX + 8;
+  const leafY = row2Y + 15;
+  doc.save();
+  doc.strokeColor('#228B22').fillColor('#228B22').lineWidth(1.5);
+  doc.moveTo(leafX, leafY + 12).quadraticCurveTo(leafX + 6, leafY, leafX + 18, leafY + 4)
+     .quadraticCurveTo(leafX + 12, leafY + 10, leafX, leafY + 12).fill();
+  doc.strokeColor('#228B22').lineWidth(0.8);
+  doc.moveTo(leafX + 2, leafY + 10).quadraticCurveTo(leafX + 10, leafY + 6, leafX + 16, leafY + 5).stroke();
+  doc.restore();
+  
+  doc.font('Helvetica-Bold').fontSize(14).fillColor('#228B22');
+  doc.text(`${co2Saved.toFixed(2)} kg`, leftColX + 35, row2Y + 12);
+  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
+  doc.text('CO2 Saved vs Petrol Outboard', leftColX + 35, row2Y + 28);
+
+  // RIGHT: Report Uses
+  drawSectionBox(rightColX - 4, row2Y - 2, colHalf + 8, row2Height, 'Report Uses');
+  
+  doc.font('Helvetica').fontSize(5).fillColor(BLACK);
+  const usesText = `Social sharing • Record keeping • Maintenance logs • Efficiency analysis • Warranty documentation • Service records • Insurance claims`;
+  doc.text(usesText, rightColX + 2, row2Y + 12, { width: colHalf - 4 });
+
+  // Calculate y for remaining content
+  y = row2Y + row2Height + 8;
   
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
   doc.moveTo(MARGIN_LEFT, y).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y).stroke();
-  y += 6;
+  y += 5;
 
-  // ISO Standards Section - compact 2-column layout
-  doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
-  doc.text('ISO Standards Used:', MARGIN_LEFT, y);
-  y += 8;
+  // ISO Standards - single line
+  doc.font('Helvetica-Bold').fontSize(5).fillColor(BLACK);
+  doc.text('ISO Standards: ', MARGIN_LEFT, y, { continued: true });
+  doc.font('Helvetica').fontSize(4.5).fillColor(GRAY);
+  doc.text('8178-4 (CO2) • 16315 (Electric propulsion) • 12217 (Stability) • 10005 (Quality) • 19650 (Information) • 8601 (Date/time) • WGS 84 (GPS)');
+  y += 10;
+
+  // Legal Disclaimer - compact
+  doc.font('Helvetica-Bold').fontSize(5).fillColor(BLACK);
+  doc.text('Legal Disclaimer: ', MARGIN_LEFT, y, { continued: true });
+  doc.font('Helvetica').fontSize(4.5).fillColor(GRAY);
+  const disclaimer = `This report is for informational purposes only. Blade Marine Technologies Limited makes no warranties regarding accuracy or fitness for any purpose. Data may be affected by environmental conditions, connectivity, and device calibration. Do not rely on this report for navigation, safety, or legal purposes. See full terms at bladeoutboards.com/terms.`;
+  doc.text(disclaimer, { width: CONTENT_WIDTH - 60 });
+  y += 22;
+
+  // Safe Boating - compact single section
+  doc.font('Helvetica-Bold').fontSize(5).fillColor(BLACK);
+  doc.text('SAFE BOATING', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
+  y += 7;
   
   doc.font('Helvetica').fontSize(4.5).fillColor(GRAY);
-  const isoCol1 = `ISO 8178-4: Exhaust emission (CO2 baseline)  •  ISO 16315: Electric propulsion for small craft  •  ISO 12217: Stability & buoyancy  •  ISO 10005: Quality management`;
-  const isoCol2 = `ISO 19650: Information organization  •  ISO 8601: Date/time formatting  •  WGS 84: GPS coordinate reference`;
-  doc.text(isoCol1 + '  •  ' + isoCol2, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 12;
-
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text('Legal Disclaimer', MARGIN_LEFT, y);
-  y += 8;
-  
-  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
-  
-  const disclaimer = `This report is automatically generated by the Blade Outboards mobile application and is provided for informational and documentation purposes only. While Blade Marine Technologies Limited ("Blade") makes reasonable efforts to ensure the accuracy of data collected from the outboard motor's sensors, GPS systems, and battery management components, Blade makes no representations or warranties, express or implied, regarding the completeness, accuracy, reliability, or fitness of this information for any particular purpose. Sensor readings may be affected by environmental conditions, electromagnetic interference, temperature variation, device calibration, and connectivity limitations. GPS accuracy is dependent on satellite availability and atmospheric factors.
-
-Users should not rely solely on this report for navigation, safety decisions, operational control, or legal purposes. This document does not constitute a warranty claim, official service record, or regulatory compliance documentation. Blade expressly disclaims any liability for loss, damage, injury, or claims arising from the use of, or reliance upon, any data contained herein. The outboard motor and its components remain subject exclusively to the terms of the original purchase warranty, which this report does not extend, modify, or replace.`;
-
-  doc.text(disclaimer, MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'justify' });
-  y += 52;
-
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text('SAFE BOATING | SICHERES BOOTFAHREN | NAVIGAZIONE SICURA | NAVEGACIÓN SEGURA', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 9;
-  
-  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
-  const safeBoating = `EN: Always wear an approved personal flotation device. Never operate under the influence of alcohol or drugs. Check weather before departure. File a float plan. Maintain lookout at all times. Know and obey maritime regulations.
-DE: Tragen Sie stets eine zugelassene Rettungsweste. Fahren Sie niemals unter Alkohol- oder Drogeneinfluss. Prüfen Sie vor der Abfahrt das Wetter. Hinterlassen Sie einen Fahrtenplan. Halten Sie stets Ausschau. Beachten Sie alle Seeverkehrsvorschriften.
-IT: Indossare sempre un dispositivo di galleggiamento approvato. Non navigare sotto l'effetto di alcol o droghe. Controllare il meteo prima della partenza. Lasciare un piano di navigazione. Mantenere sempre la vedetta. Rispettare le norme marittime.
-ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia del alcohol o drogas. Consulte el clima antes de zarpar. Deje un plan de navegación. Mantenga vigilancia en todo momento. Conozca y obedezca las regulaciones marítimas.`;
-  
+  const safeBoating = `Always wear a PFD. Never operate under influence. Check weather. File float plan. Maintain lookout. Obey maritime regulations.`;
   doc.text(safeBoating, MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 45;
+  y += 12;
   
   // Website
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLADE_GREEN);
   doc.text('bladeoutboards.com', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
-  // Company chop (bottom right of conclusion page only)
+  // Company chop (bottom right of conclusion page)
   const chopPath = path.join(process.cwd(), 'server', 'company-chop.png');
   try {
     if (fs.existsSync(chopPath)) {
-      const chopSize = 55;
-      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 5;
-      const chopY = y - 50; // Moved up ~15%
+      const chopSize = 50;
+      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 10;
+      const chopY = PAGE_HEIGHT - FOOTER_Y - chopSize + 20;
       doc.image(chopPath, chopX, chopY, { height: chopSize });
     }
   } catch (e) {
