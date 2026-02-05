@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Platform, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import MainTabNavigator from "@/navigation/MainTabNavigator";
@@ -7,6 +7,7 @@ import BleScannerModal from "@/screens/BleScannerModal";
 import AuthScreen from "@/screens/AuthScreen";
 import TripDetailScreen from "@/screens/TripDetailScreen";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useMotor } from "@/context/MotorContext";
 import { useUser } from "@/context/UserContext";
@@ -51,13 +52,6 @@ function MainWithFab() {
   );
 }
 
-function LoadingScreen() {
-  return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={BladeColors.accent} />
-    </View>
-  );
-}
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
@@ -125,11 +119,5 @@ const styles = StyleSheet.create({
   fabContainer: {
     position: "absolute",
     right: Spacing.fabOffset,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#0B1120",
   },
 });
