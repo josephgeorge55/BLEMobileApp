@@ -1316,7 +1316,7 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
     if (fs.existsSync(chopPath)) {
       const chopSize = 55;
       const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 5;
-      const chopY = y - 40;
+      const chopY = y - 50; // Moved up ~15%
       doc.image(chopPath, chopX, chopY, { height: chopSize });
     }
   } catch (e) {
