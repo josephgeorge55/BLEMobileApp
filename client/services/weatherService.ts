@@ -21,6 +21,8 @@ export interface CurrentWeather {
   clouds: number;
   weather: WeatherCondition[];
   dt: number;
+  sunrise?: number;
+  sunset?: number;
 }
 
 export interface HourlyWeather {

@@ -36,6 +36,12 @@ const kgToLbs = (kg: number) => kg / 0.453592;
 const tonToKg = (ton: number) => ton * 1000;
 const kgToTon = (kg: number) => kg / 1000;
 
+const explicitWords = ['fuck', 'shit', 'ass', 'bitch', 'damn', 'cunt', 'dick', 'cock', 'pussy', 'whore', 'slut', 'bastard', 'nigger', 'faggot'];
+const containsExplicitContent = (text: string): boolean => {
+  const lowerText = text.toLowerCase();
+  return explicitWords.some(word => lowerText.includes(word));
+};
+
 export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSettingsModalProps) {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
@@ -49,6 +55,8 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingData, setExistingData] = useState<BoatData | null>(null);
+  const [vesselName, setVesselName] = useState("");
+  const [vin, setVin] = useState("");
 
   useEffect(() => {
     if (visible && userId) {
@@ -75,10 +83,14 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
         } else {
           setWeightValue(data.weightKg.toFixed(0));
         }
+        setVesselName(data.vesselName || "");
+        setVin(data.vin || "");
       } else {
         setBoatType("");
         setLengthValue("");
         setWeightValue("");
+        setVesselName("");
+        setVin("");
       }
     } catch (error) {
       console.error("Error loading boat data:", error);
@@ -106,6 +118,11 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
       return;
     }
 
+    if (vesselName && containsExplicitContent(vesselName)) {
+      Alert.alert("Invalid Name", "Please use appropriate language for the vessel name.");
+      return;
+    }
+
     const lengthMeters = lengthUnit === "ft" ? ftToM(lengthNum) : lengthNum;
     let weightKg: number;
     if (weightUnit === "lbs") {
@@ -124,6 +141,8 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
         boatType,
         lengthMeters,
         weightKg,
+        vesselName: vesselName.trim() || undefined,
+        vin: vin.trim() || undefined,
       });
 
       if (result.success) {
@@ -359,6 +378,41 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
               </View>
             </View>
 
+            <View style={styles.section}>
+              <ThemedText type="caption" style={styles.sectionLabel}>Vessel Name (Optional)</ThemedText>
+              <TextInput
+                style={[
+                  styles.fullInput,
+                  { backgroundColor: theme.surfaceElevated, color: theme.text, borderColor: theme.border },
+                ]}
+                value={vesselName}
+                onChangeText={setVesselName}
+                placeholder="Enter vessel name"
+                placeholderTextColor={theme.textTertiary}
+                maxLength={50}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.section}>
+              <ThemedText type="caption" style={styles.sectionLabel}>VIN / HIN (Optional)</ThemedText>
+              <TextInput
+                style={[
+                  styles.fullInput,
+                  { backgroundColor: theme.surfaceElevated, color: theme.text, borderColor: theme.border },
+                ]}
+                value={vin}
+                onChangeText={setVin}
+                placeholder="Enter VIN or HIN number"
+                placeholderTextColor={theme.textTertiary}
+                maxLength={30}
+                autoCapitalize="characters"
+              />
+              <ThemedText type="caption" style={[styles.helperText, { color: theme.textTertiary }]}>
+                Hull Identification Number for registration
+              </ThemedText>
+            </View>
+
             <Pressable
               style={[styles.saveButton, { backgroundColor: theme.primary }]}
               onPress={handleSave}
@@ -462,6 +516,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     fontSize: 16,
     borderWidth: 1,
+  },
+  fullInput: {
+    height: 48,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    fontSize: 16,
+    borderWidth: 1,
+  },
+  helperText: {
+    marginTop: Spacing.xs,
+    fontSize: 12,
   },
   unitToggle: {
     flexDirection: "row",

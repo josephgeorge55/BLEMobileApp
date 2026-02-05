@@ -28,6 +28,8 @@ export interface WeatherSnapshot {
   windDirection: string | null;
   conditions: string | null;
   pressure: number | null;
+  sunrise: string | null;
+  sunset: string | null;
 }
 
 export interface ErrorCode {
@@ -46,6 +48,8 @@ export interface BoatInfo {
   boatType: string;
   lengthMeters: number;
   weightKg: number;
+  vesselName?: string;
+  vin?: string;
 }
 
 export interface ExtendedTrip {

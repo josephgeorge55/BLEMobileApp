@@ -101,6 +101,8 @@ export interface BoatData {
   boatType: string;
   lengthMeters: number;
   weightKg: number;
+  vesselName?: string;
+  vin?: string;
   updatedAt: Date;
 }
 
@@ -393,7 +395,7 @@ export async function fetchLatestGPSFromFirestore(
 // Save boat data for a user
 export async function saveBoatData(
   userId: string,
-  boatData: { boatType: string; lengthMeters: number; weightKg: number }
+  boatData: { boatType: string; lengthMeters: number; weightKg: number; vesselName?: string; vin?: string }
 ): Promise<{ success: boolean; error?: string }> {
   const firestore = getFirestoreDb();
   if (!firestore) {
