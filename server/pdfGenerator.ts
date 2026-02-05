@@ -299,6 +299,14 @@ function drawRoHSLogo(doc: PDFKit.PDFDocument, x: number, y: number, size: numbe
 function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, startCoord: any, endCoord: any) {
   doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
   
+  // If no GPS data available, show a placeholder message
+  if (!startCoord && !endCoord) {
+    doc.font('Helvetica').fontSize(8).fillColor('#666');
+    doc.text('No GPS data recorded for this trip', x + w/2 - 60, y + h/2 - 4);
+    doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+    return;
+  }
+  
   // Land context
   doc.fillColor('#C8D4B8');
   doc.moveTo(x, y).lineTo(x + w * 0.15, y).lineTo(x + w * 0.12, y + h * 0.3)
