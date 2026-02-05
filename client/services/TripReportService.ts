@@ -877,6 +877,8 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
     endTime: tripData.endTime,
     totalDistanceKm: tripData.totalDistanceKm,
     maxSpeedKmh: tripData.maxSpeedKmh,
+    maxPhoneSpeedKmh: tripData.maxPhoneSpeedKmh,
+    maxOutboardSpeedKmh: tripData.maxOutboardSpeedKmh,
     avgSpeedKmh: tripData.avgSpeedKmh,
     totalEnergyWh: tripData.totalEnergyWh,
     startBatteryPercent: tripData.startBatteryPercent,
@@ -1019,6 +1021,8 @@ export function createExtendedTripFromBasic(
     endBatteryPercent: basicTrip.endBatteryPercent ?? null,
     totalDistanceKm: basicTrip.totalDistanceKm || 0,
     maxSpeedKmh: basicTrip.maxSpeedKmh || 0,
+    maxPhoneSpeedKmh: basicTrip.maxPhoneSpeedKmh || 0,
+    maxOutboardSpeedKmh: basicTrip.maxOutboardSpeedKmh || 0,
     avgSpeedKmh: basicTrip.avgSpeedKmh || 0,
     totalEnergyWh: basicTrip.totalEnergyWh || 0,
     
@@ -1095,7 +1099,27 @@ export const TripReportService = {
         }
       }
       
-      const tripWithDataPoints = { ...trip, dataPoints, boatInfo };
+      // Calculate max speeds from dataPoints
+      let maxPhoneSpeedKmh = 0;
+      let maxOutboardSpeedKmh = 0;
+      for (const dp of dataPoints) {
+        if (dp.phoneSpeedKmh !== null && dp.phoneSpeedKmh > maxPhoneSpeedKmh) {
+          maxPhoneSpeedKmh = dp.phoneSpeedKmh;
+        }
+        if (dp.outboardSpeedKmh !== null && dp.outboardSpeedKmh > maxOutboardSpeedKmh) {
+          maxOutboardSpeedKmh = dp.outboardSpeedKmh;
+        }
+      }
+      logPdf('DATA', `Max Phone GPS Speed: ${maxPhoneSpeedKmh.toFixed(1)} km/h`);
+      logPdf('DATA', `Max Outboard GPS Speed: ${maxOutboardSpeedKmh.toFixed(1)} km/h`);
+      
+      const tripWithDataPoints = { 
+        ...trip, 
+        dataPoints, 
+        boatInfo,
+        maxPhoneSpeedKmh,
+        maxOutboardSpeedKmh,
+      };
       
       logPdf('INFO', 'Calling server for PDF generation...');
       const uri = await generatePDFFromServer(tripWithDataPoints as ExtendedTrip);

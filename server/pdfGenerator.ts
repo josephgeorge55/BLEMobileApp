@@ -46,6 +46,8 @@ interface TripData {
   endTime?: string;
   totalDistanceKm?: number;
   maxSpeedKmh?: number;
+  maxPhoneSpeedKmh?: number;
+  maxOutboardSpeedKmh?: number;
   avgSpeedKmh?: number;
   totalEnergyWh?: number;
   startBatteryPercent?: number;
@@ -879,6 +881,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const dist = nv(trip.totalDistanceKm);
   const maxSpd = nv(trip.maxSpeedKmh);
+  const maxPhoneSpd = nv(trip.maxPhoneSpeedKmh);
+  const maxOutboardSpd = nv(trip.maxOutboardSpeedKmh);
   const avgSpd = nv(trip.avgSpeedKmh);
   
   // Two-column layout for Page 2
@@ -899,7 +903,9 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   leftSummaryY += 12;
   doc.text(`Distance: ${dist.toFixed(2)} km / ${kmToMi(dist).toFixed(2)} mi / ${kmToNm(dist).toFixed(2)} nm`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
   leftSummaryY += 9;
-  doc.text(`Max Speed: ${maxSpd.toFixed(1)} km/h / ${kmhToMph(maxSpd).toFixed(1)} mph / ${kmhToKn(maxSpd).toFixed(1)} kn`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
+  doc.text(`Max Speed (Phone GPS): ${maxPhoneSpd.toFixed(1)} km/h / ${kmhToMph(maxPhoneSpd).toFixed(1)} mph / ${kmhToKn(maxPhoneSpd).toFixed(1)} kn`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
+  leftSummaryY += 9;
+  doc.text(`Max Speed (Outboard GPS): ${maxOutboardSpd.toFixed(1)} km/h / ${kmhToMph(maxOutboardSpd).toFixed(1)} mph / ${kmhToKn(maxOutboardSpd).toFixed(1)} kn`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
   leftSummaryY += 9;
   doc.text(`Avg Speed: ${avgSpd.toFixed(1)} km/h / ${kmhToMph(avgSpd).toFixed(1)} mph / ${kmhToKn(avgSpd).toFixed(1)} kn`, leftSummaryX, leftSummaryY, { width: halfWidth - 5 });
   leftSummaryY += 9;
@@ -1101,7 +1107,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     ['Odometer', `${odomEnd.toFixed(2)} km`],
     ['Duration', formatDuration(trip.startTime, trip.endTime)],
     ['Energy', `${n(trip.totalEnergyWh)} Wh`],
-    ['Max Speed', `${maxSpd.toFixed(1)} km/h (${kmhToKn(maxSpd).toFixed(1)} kn)`],
+    ['Max Speed (Phone)', `${maxPhoneSpd.toFixed(1)} km/h (${kmhToKn(maxPhoneSpd).toFixed(1)} kn)`],
+    ['Max Speed (Outboard)', `${maxOutboardSpd.toFixed(1)} km/h (${kmhToKn(maxOutboardSpd).toFixed(1)} kn)`],
     ['Avg Speed', `${avgSpd.toFixed(1)} km/h (${kmhToKn(avgSpd).toFixed(1)} kn)`],
     ['Max Power', `${n(trip.maxConsumptionKW, 2)} kW`],
     ['RPM Max/Avg', `${n(trip.rpmMax, 0)} / ${n(trip.rpmAvg, 0)}`],
