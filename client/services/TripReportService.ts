@@ -6,6 +6,7 @@ import type { ExtendedTrip, TripReport, TripReportMetadata, TripDataPoint, Weath
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { getBoatData } from '@/lib/firebase';
+import { logPdf } from '@/lib/pdf-logger';
 
 const BLADE_GREEN = '#8FBC8F';
 
@@ -854,14 +855,18 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
-  console.log('[TripReportService] Starting PDF generation for trip:', tripData.id);
-  console.log('[TripReportService] Platform:', Platform.OS);
+  logPdf('INFO', `Starting PDF generation for trip: ${tripData.id}`);
+  logPdf('INFO', `Platform: ${Platform.OS}`);
+  logPdf('DATA', `Trip data: distance=${tripData.totalDistanceKm?.toFixed(2)}km, duration=${tripData.startTime ? 'set' : 'missing'}`);
+  logPdf('DATA', `GPS Start: ${tripData.phoneGPSStart ? `${tripData.phoneGPSStart.latitude.toFixed(4)},${tripData.phoneGPSStart.longitude.toFixed(4)}` : 'N/A'}`);
+  logPdf('DATA', `GPS End: ${tripData.phoneGPSEnd ? `${tripData.phoneGPSEnd.latitude.toFixed(4)},${tripData.phoneGPSEnd.longitude.toFixed(4)}` : 'N/A'}`);
+  logPdf('DATA', `Weather: ${tripData.startWeather ? 'present' : 'missing'}`);
   
   const { getApiUrl } = await import('../lib/query-client');
   const baseUrl = getApiUrl();
   const url = new URL('/api/trip/report', baseUrl);
   
-  console.log('[TripReportService] API URL:', url.href);
+  logPdf('INFO', `API URL: ${url.href}`);
   
   const requestBody = JSON.stringify({
     id: tripData.id,
@@ -908,24 +913,32 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
     errorCodesEnd: tripData.errorCodesEnd,
   });
   
-  console.log('[TripReportService] Sending request to server, body size:', requestBody.length, 'bytes');
+  logPdf('INFO', `Sending request to server, body size: ${requestBody.length} bytes`);
   
-  const response = await fetch(url.href, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: requestBody,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url.href, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
+    });
+  } catch (fetchError: any) {
+    logPdf('ERROR', `Network error: ${fetchError.message}`);
+    throw new Error(`Network error while generating PDF: ${fetchError.message}`);
+  }
   
-  console.log('[TripReportService] Server response status:', response.status);
-  console.log('[TripReportService] Server response headers:', Object.fromEntries(response.headers.entries()));
+  logPdf('INFO', `Server response status: ${response.status}`);
   
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error');
-    console.error('[TripReportService] Server error:', response.status, errorText);
+    logPdf('ERROR', `Server error ${response.status}: ${errorText}`);
     throw new Error(`Failed to generate PDF from server: ${response.status} - ${errorText}`);
   }
   
+  logPdf('SUCCESS', 'Server responded successfully');
+  
   if (Platform.OS === 'web') {
+    logPdf('INFO', 'Processing web PDF download...');
     const blob = await response.blob();
     const pdfUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -935,49 +948,49 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+    logPdf('SUCCESS', 'PDF downloaded in browser');
     return 'web-download';
   } else {
-    // Native (iOS/Android) PDF handling
-    console.log('[TripReportService] Processing native PDF response...');
+    logPdf('INFO', `Processing native ${Platform.OS} PDF...`);
     try {
-      console.log('[TripReportService] Getting arrayBuffer from response...');
+      logPdf('INFO', 'Getting arrayBuffer from response...');
       const arrayBuffer = await response.arrayBuffer();
       
       if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-        console.error('[TripReportService] Empty arrayBuffer received');
+        logPdf('ERROR', 'Empty arrayBuffer received from server');
         throw new Error('Received empty PDF data from server');
       }
       
-      console.log('[TripReportService] Received PDF data:', arrayBuffer.byteLength, 'bytes');
+      logPdf('INFO', `Received PDF data: ${arrayBuffer.byteLength} bytes`);
       
       const fileName = `Blade_Trip_Report_${tripData.id}.pdf`;
-      console.log('[TripReportService] Creating file:', fileName);
+      logPdf('INFO', `Creating file: ${fileName}`);
       console.log('[TripReportService] Cache path:', Paths.cache);
       
       const pdfFile = new FSFile(Paths.cache, fileName);
-      console.log('[TripReportService] File URI will be:', pdfFile.uri);
+      logPdf('INFO', `File URI will be: ${pdfFile.uri}`);
       
-      console.log('[TripReportService] Converting to base64...');
+      logPdf('INFO', 'Converting to base64...');
       const base64Data = arrayBufferToBase64(arrayBuffer);
+      logPdf('INFO', `Base64 string length: ${base64Data.length}`);
       
-      console.log('[TripReportService] Writing file with base64 encoding...');
+      logPdf('INFO', 'Writing file with base64 encoding...');
       await pdfFile.write(base64Data, { encoding: 'base64' });
-      console.log('[TripReportService] File write complete');
+      logPdf('INFO', 'File write complete');
       
-      console.log('[TripReportService] Checking file info...');
+      logPdf('INFO', 'Checking file info...');
       const fileInfo = pdfFile.info();
-      console.log('[TripReportService] File exists:', fileInfo.exists);
+      logPdf('INFO', `File exists: ${fileInfo.exists}`);
       
       if (!fileInfo.exists) {
-        console.error('[TripReportService] File does not exist after write');
+        logPdf('ERROR', 'File does not exist after write!');
         throw new Error('PDF file was not saved correctly');
       }
       
-      console.log('[TripReportService] PDF saved successfully to:', pdfFile.uri);
+      logPdf('SUCCESS', `PDF saved to: ${pdfFile.uri}`);
       return pdfFile.uri;
-    } catch (error) {
-      console.error('[TripReportService] Native PDF error:', error);
-      console.error('[TripReportService] Error stack:', error instanceof Error ? error.stack : 'No stack');
+    } catch (error: any) {
+      logPdf('ERROR', `Native PDF error: ${error.message || String(error)}`);
       throw new Error(`Failed to save PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -1052,56 +1065,53 @@ export function createExtendedTripFromBasic(
 
 export const TripReportService = {
   generateReport: async (trip: ExtendedTrip, dataPoints: TripDataPoint[]): Promise<{ success: boolean; uri?: string; error?: string }> => {
-    console.log('[TripReportService] ====== REPORT GENERATION START ======');
-    console.log('[TripReportService] Trip ID:', trip.id);
-    console.log('[TripReportService] Data points count:', dataPoints.length);
-    console.log('[TripReportService] Platform:', Platform.OS);
-    console.log('[TripReportService] Trip start time:', trip.startTime);
-    console.log('[TripReportService] Trip end time:', trip.endTime);
+    logPdf('INFO', '====== REPORT GENERATION START ======');
+    logPdf('INFO', `Trip ID: ${trip.id}`);
+    logPdf('INFO', `Data points count: ${dataPoints.length}`);
+    logPdf('INFO', `Platform: ${Platform.OS}`);
+    logPdf('DATA', `Trip start: ${trip.startTime}`);
+    logPdf('DATA', `Trip end: ${trip.endTime || 'active'}`);
+    logPdf('DATA', `Motor: ${trip.motorSerialNumber}`);
+    logPdf('DATA', `User: ${trip.userId}`);
     
     try {
-      // Fetch current boat data from Firebase for the user
       let boatInfo = trip.boatInfo;
-      console.log('[TripReportService] Fetching boat data for userId:', trip.userId);
+      logPdf('INFO', `Fetching boat data for user: ${trip.userId}`);
       if (!boatInfo && trip.userId && trip.userId !== 'guest') {
         try {
           const boatData = await getBoatData(trip.userId);
-          console.log('[TripReportService] Boat data fetched:', boatData);
           if (boatData) {
+            logPdf('DATA', `Boat data found: type=${boatData.boatType}, length=${boatData.lengthMeters}m`);
             boatInfo = {
               boatType: boatData.boatType,
               lengthMeters: boatData.lengthMeters,
               weightKg: boatData.weightKg,
             };
+          } else {
+            logPdf('WARN', 'No boat data found for user');
           }
-        } catch (err) {
-          console.log('[TripReportService] Could not fetch boat data:', err);
+        } catch (err: any) {
+          logPdf('WARN', `Could not fetch boat data: ${err.message || String(err)}`);
         }
       }
-      console.log('[TripReportService] Sending boatInfo to server:', boatInfo);
       
       const tripWithDataPoints = { ...trip, dataPoints, boatInfo };
       
-      // Use server-side PDF generation for both web and native (identical output)
-      console.log('[TripReportService] Calling generatePDFFromServer...');
+      logPdf('INFO', 'Calling server for PDF generation...');
       const uri = await generatePDFFromServer(tripWithDataPoints as ExtendedTrip);
-      console.log('[TripReportService] PDF generated, URI:', uri);
+      logPdf('SUCCESS', `PDF generated, URI: ${uri}`);
       
-      // On native, share the downloaded PDF
       if (Platform.OS !== 'web' && uri !== 'web-download') {
-        console.log('[TripReportService] Sharing PDF on native platform...');
+        logPdf('INFO', 'Opening share dialog...');
         await shareTripReport(uri);
-        console.log('[TripReportService] Share completed');
+        logPdf('SUCCESS', 'Share completed');
       }
       
-      console.log('[TripReportService] ====== REPORT GENERATION SUCCESS ======');
+      logPdf('SUCCESS', '====== REPORT GENERATION COMPLETE ======');
       return { success: true, uri };
-    } catch (error) {
-      console.error('[TripReportService] ====== REPORT GENERATION FAILED ======');
-      console.error('[TripReportService] Error generating report:', error);
-      console.error('[TripReportService] Error type:', typeof error);
-      console.error('[TripReportService] Error message:', error instanceof Error ? error.message : String(error));
-      console.error('[TripReportService] Error stack:', error instanceof Error ? error.stack : 'No stack');
+    } catch (error: any) {
+      logPdf('ERROR', '====== REPORT GENERATION FAILED ======');
+      logPdf('ERROR', `Error: ${error.message || String(error)}`);
       return { success: false, error: String(error) };
     }
   },

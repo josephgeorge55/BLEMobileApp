@@ -31,6 +31,7 @@ import {
   type RegisteredMotor 
 } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
+import { setPdfLogCallback, getPendingLogs, clearPendingLogs } from "@/lib/pdf-logger";
 import type { Trip } from "@shared/schema";
 
 interface Props {
@@ -38,7 +39,7 @@ interface Props {
   onClose: () => void;
 }
 
-type TabType = "bluetooth" | "antitheft" | "location" | "trips";
+type TabType = "bluetooth" | "antitheft" | "location" | "trips" | "pdf";
 
 interface DebugLogEntry {
   timestamp: string;
@@ -62,6 +63,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastLocationResult, setLastLocationResult] = useState<any>(null);
+  const [pdfLogs, setPdfLogs] = useState<DebugLogEntry[]>([]);
 
   const addAntiTheftLog = useCallback((level: string, message: string) => {
     setAntiTheftLogs(prev => [...prev.slice(-99), {
@@ -86,6 +88,25 @@ export function DebugLogModal({ visible, onClose }: Props) {
       message
     }]);
   }, []);
+
+  const addPdfLog = useCallback((level: string, message: string) => {
+    setPdfLogs(prev => [...prev.slice(-99), {
+      timestamp: new Date().toISOString(),
+      level,
+      message
+    }]);
+  }, []);
+
+  useEffect(() => {
+    setPdfLogCallback(addPdfLog);
+    const pending = getPendingLogs();
+    pending.forEach(log => addPdfLog(log.level, log.message));
+    clearPendingLogs();
+    
+    return () => {
+      setPdfLogCallback(null);
+    };
+  }, [addPdfLog]);
 
   const loadRegisteredMotors = useCallback(async () => {
     if (!user?.id || isGuestMode) {
@@ -452,6 +473,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
       case "antitheft": return antiTheftLogs;
       case "location": return locationLogs;
       case "trips": return tripLogs;
+      case "pdf": return pdfLogs;
     }
   };
 
@@ -509,6 +531,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
           {renderTab("antitheft", "Anti-Theft", "shield")}
           {renderTab("location", "Location", "map-pin")}
           {renderTab("trips", "Trips", "navigation")}
+          {renderTab("pdf", "PDF", "file-text")}
         </ScrollView>
 
         <View style={[styles.statusBar, { backgroundColor: theme.surface }]}>
