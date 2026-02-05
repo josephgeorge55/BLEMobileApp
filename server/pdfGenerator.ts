@@ -183,52 +183,79 @@ function formatErrorCodes(codes: ErrorCode[] | undefined): string {
 }
 
 function drawQRCode(doc: PDFKit.PDFDocument, x: number, y: number, size: number, data: string) {
-  const cellSize = size / 21;
-  const pattern = generateQRPattern(data);
+  const gridSize = 25;
+  const cellSize = size / gridSize;
+  const pattern = generateQRPattern(data, gridSize);
   
   doc.fillColor('#fff').rect(x, y, size, size).fill();
   doc.fillColor(BLACK);
   
-  for (let row = 0; row < 21; row++) {
-    for (let col = 0; col < 21; col++) {
-      if (pattern[row * 21 + col]) {
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      if (pattern[row * gridSize + col]) {
         doc.rect(x + col * cellSize, y + row * cellSize, cellSize, cellSize).fill();
       }
     }
   }
 }
 
-function generateQRPattern(data: string): boolean[] {
-  const pattern = new Array(441).fill(false);
+function generateQRPattern(data: string, gridSize: number): boolean[] {
+  const pattern = new Array(gridSize * gridSize).fill(false);
   
-  for (let i = 0; i < 7; i++) {
-    for (let j = 0; j < 7; j++) {
-      const isBorder = i === 0 || i === 6 || j === 0 || j === 6;
-      const isCenter = i >= 2 && i <= 4 && j >= 2 && j <= 4;
-      if (isBorder || isCenter) {
-        pattern[i * 21 + j] = true;
-        pattern[i * 21 + (14 + j)] = true;
-        pattern[(14 + i) * 21 + j] = true;
+  // Draw 3 finder patterns (top-left, top-right, bottom-left) - 7x7 each
+  function drawFinderPattern(startRow: number, startCol: number) {
+    for (let i = 0; i < 7; i++) {
+      for (let j = 0; j < 7; j++) {
+        const isBorder = i === 0 || i === 6 || j === 0 || j === 6;
+        const isCenter = i >= 2 && i <= 4 && j >= 2 && j <= 4;
+        if (isBorder || isCenter) {
+          const row = startRow + i;
+          const col = startCol + j;
+          if (row < gridSize && col < gridSize) {
+            pattern[row * gridSize + col] = true;
+          }
+        }
       }
     }
   }
   
+  drawFinderPattern(0, 0);  // Top-left
+  drawFinderPattern(0, gridSize - 7);  // Top-right
+  drawFinderPattern(gridSize - 7, 0);  // Bottom-left
+  
+  // Alignment pattern in bottom-right area (5x5)
+  const alignX = gridSize - 9;
+  const alignY = gridSize - 9;
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 5; j++) {
+      const isBorder = i === 0 || i === 4 || j === 0 || j === 4;
+      const isCenter = i === 2 && j === 2;
+      if (isBorder || isCenter) {
+        pattern[(alignY + i) * gridSize + (alignX + j)] = true;
+      }
+    }
+  }
+  
+  // Timing patterns
+  for (let i = 8; i < gridSize - 8; i++) {
+    pattern[6 * gridSize + i] = i % 2 === 0;
+    pattern[i * gridSize + 6] = i % 2 === 0;
+  }
+  
+  // Data area - hash-based pseudo-random fill
   let hash = 0;
   for (let i = 0; i < data.length; i++) {
     hash = ((hash << 5) - hash) + data.charCodeAt(i);
     hash = hash & hash;
   }
   
-  for (let i = 8; i < 13; i++) {
-    for (let j = 8; j < 13; j++) {
-      const idx = i * 21 + j;
-      pattern[idx] = ((hash >> ((i + j) % 16)) & 1) === 1;
+  for (let i = 9; i < gridSize - 9; i++) {
+    for (let j = 9; j < gridSize - 9; j++) {
+      if (i !== 6 && j !== 6) {
+        const idx = i * gridSize + j;
+        pattern[idx] = ((hash >> ((i * j) % 16)) & 1) === 1;
+      }
     }
-  }
-  
-  for (let i = 8; i < 21; i++) {
-    pattern[6 * 21 + i] = i % 2 === 0;
-    pattern[i * 21 + 6] = i % 2 === 0;
   }
   
   return pattern;
@@ -255,25 +282,31 @@ function drawBarcode(doc: PDFKit.PDFDocument, x: number, y: number, width: numbe
   }
 }
 
+function drawCertificationLogos(doc: PDFKit.PDFDocument, x: number, y: number, width: number, height: number) {
+  const certLogoPath = path.join(process.cwd(), 'server', 'ceukrohs-logo.png');
+  try {
+    if (fs.existsSync(certLogoPath)) {
+      doc.image(certLogoPath, x, y, { width: width, height: height });
+    } else {
+      doc.font('Helvetica').fontSize(6).fillColor(GRAY);
+      doc.text('CE | UKCA | RoHS', x, y + height / 3, { width: width, align: 'center' });
+    }
+  } catch (e) {
+    doc.font('Helvetica').fontSize(6).fillColor(GRAY);
+    doc.text('CE | UKCA | RoHS', x, y + height / 3, { width: width, align: 'center' });
+  }
+}
+
 function drawCELogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
-  doc.save();
-  doc.rect(x, y, size, size).fillColor('#f8f8f8').fill();
-  doc.strokeColor(BLACK).lineWidth(0.5).rect(x, y, size, size).stroke();
-  doc.font('Helvetica-Bold').fontSize(size * 0.55).fillColor(BLACK);
-  doc.text('CE', x + 1, y + size * 0.2, { width: size - 2, align: 'center' });
-  doc.restore();
+  // Kept for backward compatibility but no longer used
 }
 
 function drawUKCALogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
-  doc.save();
-  doc.rect(x, y, size, size).fillColor('#f8f8f8').fill();
-  doc.strokeColor(BLACK).lineWidth(0.5).rect(x, y, size, size).stroke();
-  doc.font('Helvetica-Bold').fontSize(size * 0.28).fillColor(BLACK);
-  doc.text('UKCA', x, y + size * 0.35, { width: size, align: 'center' });
-  doc.restore();
+  // Kept for backward compatibility but no longer used
 }
 
 function drawRoHSLogo(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
+  // Kept for backward compatibility but no longer used
   doc.save();
   doc.rect(x, y, size, size).fillColor('#E8F5E9').fill();
   doc.strokeColor(GREEN).lineWidth(0.5).rect(x, y, size, size).stroke();
@@ -605,8 +638,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     doc.moveTo(MARGIN_LEFT, y - 8).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y - 8).stroke();
     
     // QR Code for Serial Number
-    const qrSize = 32;
-    drawQRCode(doc, MARGIN_LEFT, y - 2, qrSize, serial);
+    const qrSize = 28;
+    drawQRCode(doc, MARGIN_LEFT, y, qrSize, serial);
     doc.font('Helvetica').fontSize(5).fillColor(GRAY);
     doc.text('Serial #', MARGIN_LEFT, y + qrSize + 2, { width: qrSize, align: 'center' });
     
@@ -627,15 +660,13 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     doc.font('Helvetica').fontSize(7).fillColor(BLACK);
     doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_WIDTH / 2 - 30, y + 8, { width: 60, align: 'center' });
     
-    // Certification logos on the right
-    const logoSize = 22;
+    // Certification logos on the right (using actual image)
+    const logoWidth = 80;
+    const logoHeight = 24;
     const logoY = y;
-    const logoSpacing = logoSize + 5;
-    const logosStartX = PAGE_WIDTH - MARGIN_RIGHT - (logoSize * 3 + 10);
+    const logosStartX = PAGE_WIDTH - MARGIN_RIGHT - logoWidth;
     
-    drawCELogo(doc, logosStartX, logoY, logoSize);
-    drawUKCALogo(doc, logosStartX + logoSpacing, logoY, logoSize);
-    drawRoHSLogo(doc, logosStartX + logoSpacing * 2, logoY, logoSize);
+    drawCertificationLogos(doc, logosStartX, logoY, logoWidth, logoHeight);
     
     doc.restore();
   }
@@ -912,7 +943,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   y += 128;
   
   // Error Codes Section
-  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 45, 'Error Codes (E00-E99)');
+  const errorBoxHeight = 32;
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, errorBoxHeight, 'Error Codes (E00-E99)');
   y += 6;
   const errorColWidth = CONTENT_WIDTH / 3;
   doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
@@ -924,7 +956,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.text(formatErrorCodes(trip.errorCodesStart), MARGIN_LEFT, y, { width: errorColWidth - 5 });
   doc.text(formatErrorCodes(trip.errorCodesDuring), MARGIN_LEFT + errorColWidth, y, { width: errorColWidth - 5 });
   doc.text(formatErrorCodes(trip.errorCodesEnd), MARGIN_LEFT + errorColWidth * 2, y, { width: errorColWidth - 5 });
-  y += 20;
+  y += errorBoxHeight - 12;
   
   // Locations (full width)
   drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 32, 'Locations');
@@ -1184,21 +1216,16 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.moveTo(MARGIN_LEFT, y).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y).stroke();
   y += 6;
 
-  // ISO Standards Section
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-  doc.text('ISO Standards Used for Calculations', MARGIN_LEFT, y);
+  // ISO Standards Section - compact 2-column layout
+  doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
+  doc.text('ISO Standards Used:', MARGIN_LEFT, y);
   y += 8;
   
-  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
-  const isoStandards = `• ISO 8178-4: Reciprocating internal combustion engines - Exhaust emission measurement (CO2 comparison baseline)
-• ISO 16315: Electric propulsion for small craft (battery & motor performance metrics)
-• ISO 12217: Stability and buoyancy assessment and categorization for small craft
-• ISO 10005: Quality management systems - Quality plans (report structure)
-• ISO 19650: Organization of information about construction works - BIM (data organization)
-• ISO 8601: Date and time format standards (timestamp formatting)
-• WGS 84: World Geodetic System (GPS coordinate reference)`;
-  doc.text(isoStandards, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 40;
+  doc.font('Helvetica').fontSize(4.5).fillColor(GRAY);
+  const isoCol1 = `ISO 8178-4: Exhaust emission (CO2 baseline)  •  ISO 16315: Electric propulsion for small craft  •  ISO 12217: Stability & buoyancy  •  ISO 10005: Quality management`;
+  const isoCol2 = `ISO 19650: Information organization  •  ISO 8601: Date/time formatting  •  WGS 84: GPS coordinate reference`;
+  doc.text(isoCol1 + '  •  ' + isoCol2, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 12;
 
   doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
   doc.text('Legal Disclaimer', MARGIN_LEFT, y);
