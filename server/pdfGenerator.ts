@@ -971,21 +971,40 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.text(`Trip Start (UTC): ${tripStartUTC}  |  Trip End (UTC): ${tripEndUTC}`, MARGIN_LEFT, y);
   y += 14;
   
-  // Large detailed map (60% of page height)
-  const mapDetailHeight = Math.floor((FOOTER_Y - CONTENT_START_Y - 60) * 0.6);
+  // Large detailed map (70% of available height)
+  const mapDetailHeight = Math.floor((FOOTER_Y - CONTENT_START_Y - 40) * 0.7);
   drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, mapDetailHeight + 10, 'Route Map');
   y += 6;
   drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapDetailHeight, trip.phoneGPSStart, trip.phoneGPSEnd);
   y += mapDetailHeight + 14;
   
-  // GPS Coordinates detail
-  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 60, 'GPS Coordinates');
+  // Calculate straight-line distance using Haversine formula
+  function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+  
+  const straightLineKm = (trip.phoneGPSStart && trip.phoneGPSEnd) 
+    ? haversineDistance(trip.phoneGPSStart.latitude, trip.phoneGPSStart.longitude, 
+                        trip.phoneGPSEnd.latitude, trip.phoneGPSEnd.longitude)
+    : 0;
+  const totalRouteKm = trip.totalDistanceKm || 0;
+  
+  // GPS Coordinates and Distance detail
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 70, 'GPS Coordinates & Distance');
   y += 8;
   
-  const coordColWidth = CONTENT_WIDTH / 2;
+  const coordColWidth = CONTENT_WIDTH / 3;
   doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
   doc.text('Start Location', MARGIN_LEFT, y, { width: coordColWidth });
   doc.text('End Location', MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  doc.text('Distance Traveled', MARGIN_LEFT + coordColWidth * 2, y, { width: coordColWidth });
   y += 10;
   
   doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
@@ -994,14 +1013,25 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const endLat = trip.phoneGPSEnd?.latitude?.toFixed(6) || 'N/A';
   const endLon = trip.phoneGPSEnd?.longitude?.toFixed(6) || 'N/A';
   
-  doc.text(`Latitude: ${startLat}`, MARGIN_LEFT, y, { width: coordColWidth });
-  doc.text(`Latitude: ${endLat}`, MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  doc.text(`Lat: ${startLat}`, MARGIN_LEFT, y, { width: coordColWidth });
+  doc.text(`Lat: ${endLat}`, MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  doc.font('Helvetica-Bold').fontSize(5.5).fillColor(BLACK);
+  doc.text('Straight Line:', MARGIN_LEFT + coordColWidth * 2, y, { width: coordColWidth });
   y += 8;
-  doc.text(`Longitude: ${startLon}`, MARGIN_LEFT, y, { width: coordColWidth });
-  doc.text(`Longitude: ${endLon}`, MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  
+  doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
+  doc.text(`Lon: ${startLon}`, MARGIN_LEFT, y, { width: coordColWidth });
+  doc.text(`Lon: ${endLon}`, MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  doc.text(`${straightLineKm.toFixed(2)} km / ${kmToMi(straightLineKm).toFixed(2)} mi / ${kmToNm(straightLineKm).toFixed(2)} NM`, MARGIN_LEFT + coordColWidth * 2, y, { width: coordColWidth });
+  y += 10;
+  
+  doc.text(s(trip.startLocationAddress, 'Address N/A'), MARGIN_LEFT, y, { width: coordColWidth - 5 });
+  doc.text(s(trip.endLocationAddress, 'Address N/A'), MARGIN_LEFT + coordColWidth, y, { width: coordColWidth - 5 });
+  doc.font('Helvetica-Bold').fontSize(5.5).fillColor(BLACK);
+  doc.text('Total Route:', MARGIN_LEFT + coordColWidth * 2, y, { width: coordColWidth });
   y += 8;
-  doc.text(s(trip.startLocationAddress, 'Address not available'), MARGIN_LEFT, y, { width: coordColWidth - 5 });
-  doc.text(s(trip.endLocationAddress, 'Address not available'), MARGIN_LEFT + coordColWidth, y, { width: coordColWidth - 5 });
+  doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
+  doc.text(`${Number(totalRouteKm).toFixed(2)} km / ${kmToMi(Number(totalRouteKm)).toFixed(2)} mi / ${kmToNm(Number(totalRouteKm)).toFixed(2)} NM`, MARGIN_LEFT + coordColWidth * 2, y, { width: coordColWidth });
 
   // ========== PAGE 4+: TRIP DETAIL ==========
   for (let seg = 0; seg < detailPages; seg++) {
