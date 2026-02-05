@@ -387,7 +387,7 @@ export default function DashboardScreen() {
   if (!motor) {
     return (
       <ScrollView
-        style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+        style={[styles.container, { backgroundColor: "#FFFFFF" }]}
         contentContainerStyle={{
           paddingTop: insets.top + Spacing.lg,
           paddingBottom: tabBarHeight + Spacing.xl,
@@ -492,7 +492,7 @@ export default function DashboardScreen() {
   return (
     <>
     <ScrollView
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+      style={[styles.container, { backgroundColor: "#FFFFFF" }]}
       contentContainerStyle={{
         paddingTop: insets.top + Spacing.lg,
         paddingBottom: tabBarHeight + Spacing["4xl"],
