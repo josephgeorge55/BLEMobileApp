@@ -1273,13 +1273,13 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLADE_GREEN);
   doc.text('bladeoutboards.com', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
-  // Company chop (bottom right of conclusion page)
+  // Company chop (bottom right, above footer line and UKCA logos)
   const chopPath = path.join(process.cwd(), 'server', 'company-chop.png');
   try {
     if (fs.existsSync(chopPath)) {
-      const chopSize = 50;
-      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 10;
-      const chopY = PAGE_HEIGHT - FOOTER_Y - chopSize + 20;
+      const chopSize = 45;
+      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 25;
+      const chopY = FOOTER_Y - 8 - chopSize - 5; // Above footer line
       doc.image(chopPath, chopX, chopY, { height: chopSize });
     }
   } catch (e) {
