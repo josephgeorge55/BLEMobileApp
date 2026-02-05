@@ -704,7 +704,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const col2 = colHalf / 2;
 
   // ========== PAGE 1: OUTBOARD TRIP REPORT (2-column) ==========
-  newPage('OUTBOARD TRIP REPORT', 'DE: Außenborder-Fahrtbericht | IT: Rapporto di Viaggio Fuoribordo | ES: Informe de Viaje del Motor');
+  newPage('OUTBOARD TRIP REPORT', 'Electric Motor Performance & Telemetry Documentation');
   
   let y = CONTENT_START_Y;
   
