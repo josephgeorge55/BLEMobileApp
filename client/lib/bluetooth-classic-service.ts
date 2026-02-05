@@ -27,8 +27,10 @@ let disconnectSubscription: any = null;
 let dataBuffer = "";
 
 export async function initializeClassic(): Promise<boolean> {
-  if (Platform.OS === "web") {
-    console.log("Bluetooth Classic not available on web platform");
+  // Bluetooth Classic is only available on Android
+  // iOS uses BLE exclusively - react-native-bluetooth-classic is Android-only
+  if (Platform.OS !== "android") {
+    console.log("Bluetooth Classic only available on Android, current platform:", Platform.OS);
     return false;
   }
 

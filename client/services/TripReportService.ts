@@ -833,17 +833,24 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   console.log('[TripReportService] Converting ArrayBuffer to base64, size:', buffer.byteLength);
   const bytes = new Uint8Array(buffer);
   
-  // Use chunked approach for large files to avoid call stack issues on Android
-  const chunkSize = 8192;
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength));
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  // Base64 character table
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  const len = bytes.length;
+  
+  for (let i = 0; i < len; i += 3) {
+    const byte1 = bytes[i];
+    const byte2 = i + 1 < len ? bytes[i + 1] : 0;
+    const byte3 = i + 2 < len ? bytes[i + 2] : 0;
+    
+    result += chars[byte1 >> 2];
+    result += chars[((byte1 & 3) << 4) | (byte2 >> 4)];
+    result += i + 1 < len ? chars[((byte2 & 15) << 2) | (byte3 >> 6)] : '=';
+    result += i + 2 < len ? chars[byte3 & 63] : '=';
   }
   
-  const base64 = btoa(binary);
-  console.log('[TripReportService] Base64 conversion complete, length:', base64.length);
-  return base64;
+  console.log('[TripReportService] Base64 conversion complete, length:', result.length);
+  return result;
 }
 
 async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
