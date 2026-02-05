@@ -99,6 +99,28 @@ Professional engineering-style PDF reports for completed trips:
 - Page numbering
 - Generation timestamp (UTC and local)
 
+**Page 1 - Introduction:**
+- Device info, firmware version, user info, report metadata
+- GS1 SKU: 199284191679 (fixed value)
+- CO2 Saved: trip minutes × 0.14833 kg
+- Boat info: vessel name (profanity-filtered), VIN/HIN, type, length, weight
+
+**Page 2 - Trip Summary:**
+- Weather with sunrise/sunset times
+- GPS start/end coordinates and addresses
+- Battery usage, route map, overview graph
+- Error codes section (E00-E99): At Start, During Trip, At End phases
+
+**Pages 3+ - Trip Detail:**
+- One page per 600-second segment with 3 graphs (speed, consumption, battery)
+
+**Page 4 - Conclusion:**
+- Trip summary with distance, odometer, performance metrics
+- CO2 Saved displayed in performance summary
+- Data interpretation guide
+- ISO Standards Used: ISO 8178-4, 16315, 12217, 10005, 19650, 8601, WGS 84
+- Legal disclaimer and multi-language safe boating reminders
+
 ### Critical: Motor Serial Number Flow
 When connecting to a real motor via Bluetooth:
 1. **Initial Connection**: Motor's `serialNumber` is set to the Bluetooth MAC address (e.g., `AA:BB:CC:DD:EE:FF`)
