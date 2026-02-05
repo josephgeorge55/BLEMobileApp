@@ -1311,13 +1311,18 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
   doc.text('bladeoutboards.com', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
   // Company chop (bottom right of conclusion page only)
-  const chopPath = path.join(process.cwd(), 'server', 'company-chop.png');
+  const chopPath = path.join(__dirname, 'company-chop.png');
+  console.log('[PDF] Loading company chop from:', chopPath);
   try {
     if (fs.existsSync(chopPath)) {
+      console.log('[PDF] Company chop file found');
       const chopSize = 50;
       const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 10;
-      const chopY = y - 35;
+      const chopY = y - 30;
       doc.image(chopPath, chopX, chopY, { width: chopSize });
+      console.log('[PDF] Company chop rendered at:', chopX, chopY);
+    } else {
+      console.log('[PDF] Company chop file NOT found at path');
     }
   } catch (e) {
     console.error('[PDF] Failed to load company chop:', e);
