@@ -576,7 +576,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const tripMinutes = tripSeconds / 60;
   const co2Saved = calculateCO2Saved(tripMinutes);
   const detailPages = Math.max(1, Math.ceil(tripSeconds / 600));
-  const totalPages = 2 + detailPages + 1;
+  const totalPages = 3 + detailPages + 1; // Page 1: Intro, Page 2: Summary, Page 3: Map Detail, Pages 4+: Trip Detail, Final: Conclusion
   
   const logoPath = path.join(process.cwd(), 'server', 'blade-logo.png');
   
@@ -956,7 +956,54 @@ export function generateTripPDF(res: Response, trip: TripData): void {
       { speed: [], consumption: [], battery: [] }, 'Trip Overview - Speed, Power & Battery');
   }
 
-  // ========== PAGE 3+: TRIP DETAIL ==========
+  // ========== PAGE 3: MAP DETAIL ==========
+  newPage('MAP DETAIL', 'Route Visualization & GPS Coordinates');
+  
+  y = CONTENT_START_Y;
+  
+  // Trip info header
+  const tripStartUTC = trip.startTime ? new Date(trip.startTime).toISOString() : 'N/A';
+  const tripEndUTC = trip.endTime ? new Date(trip.endTime).toISOString() : 'N/A';
+  
+  doc.font('Helvetica').fontSize(6).fillColor(BLACK);
+  doc.text(`Serial: ${serial}  |  Trip ID: ${tripId}`, MARGIN_LEFT, y);
+  y += 10;
+  doc.text(`Trip Start (UTC): ${tripStartUTC}  |  Trip End (UTC): ${tripEndUTC}`, MARGIN_LEFT, y);
+  y += 14;
+  
+  // Large detailed map (60% of page height)
+  const mapDetailHeight = Math.floor((FOOTER_Y - CONTENT_START_Y - 60) * 0.6);
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, mapDetailHeight + 10, 'Route Map');
+  y += 6;
+  drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapDetailHeight, trip.phoneGPSStart, trip.phoneGPSEnd);
+  y += mapDetailHeight + 14;
+  
+  // GPS Coordinates detail
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 60, 'GPS Coordinates');
+  y += 8;
+  
+  const coordColWidth = CONTENT_WIDTH / 2;
+  doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
+  doc.text('Start Location', MARGIN_LEFT, y, { width: coordColWidth });
+  doc.text('End Location', MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  y += 10;
+  
+  doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
+  const startLat = trip.phoneGPSStart?.latitude?.toFixed(6) || 'N/A';
+  const startLon = trip.phoneGPSStart?.longitude?.toFixed(6) || 'N/A';
+  const endLat = trip.phoneGPSEnd?.latitude?.toFixed(6) || 'N/A';
+  const endLon = trip.phoneGPSEnd?.longitude?.toFixed(6) || 'N/A';
+  
+  doc.text(`Latitude: ${startLat}`, MARGIN_LEFT, y, { width: coordColWidth });
+  doc.text(`Latitude: ${endLat}`, MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  y += 8;
+  doc.text(`Longitude: ${startLon}`, MARGIN_LEFT, y, { width: coordColWidth });
+  doc.text(`Longitude: ${endLon}`, MARGIN_LEFT + coordColWidth, y, { width: coordColWidth });
+  y += 8;
+  doc.text(s(trip.startLocationAddress, 'Address not available'), MARGIN_LEFT, y, { width: coordColWidth - 5 });
+  doc.text(s(trip.endLocationAddress, 'Address not available'), MARGIN_LEFT + coordColWidth, y, { width: coordColWidth - 5 });
+
+  // ========== PAGE 4+: TRIP DETAIL ==========
   for (let seg = 0; seg < detailPages; seg++) {
     const startSec = seg * 600;
     const endSec = Math.min((seg + 1) * 600, tripSeconds);
