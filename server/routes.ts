@@ -620,15 +620,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/trip/report", async (req, res) => {
+    console.log("[PDF] ====== PDF GENERATION REQUEST START ======");
     try {
       const tripData = req.body;
-      console.log("[PDF] Report request received, boatInfo:", tripData.boatInfo);
+      console.log("[PDF] Trip ID:", tripData?.id);
+      console.log("[PDF] Motor serial:", tripData?.motorSerialNumber);
+      console.log("[PDF] Boat info:", JSON.stringify(tripData?.boatInfo));
+      console.log("[PDF] Data points count:", tripData?.dataPoints?.length || 0);
+      console.log("[PDF] Start time:", tripData?.startTime);
+      console.log("[PDF] End time:", tripData?.endTime);
+      
       if (!tripData || !tripData.id) {
+        console.error("[PDF] Missing trip data or ID");
         return res.status(400).json({ error: "Trip data is required" });
       }
+      
+      console.log("[PDF] Calling generateTripPDF...");
       generateTripPDF(res, tripData);
     } catch (error) {
-      console.error("Error generating PDF:", error);
+      console.error("[PDF] ====== PDF GENERATION FAILED ======");
+      console.error("[PDF] Error:", error);
+      console.error("[PDF] Error stack:", error instanceof Error ? error.stack : 'No stack');
       res.status(500).json({ error: "Failed to generate PDF report" });
     }
   });

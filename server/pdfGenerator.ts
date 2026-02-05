@@ -568,6 +568,10 @@ function drawDetailGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: numbe
 }
 
 export function generateTripPDF(res: Response, trip: TripData): void {
+  console.log('[PDF Generator] ====== GENERATING PDF ======');
+  console.log('[PDF Generator] Trip ID:', trip.id);
+  console.log('[PDF Generator] Motor serial:', trip.motorSerialNumber);
+  
   const reportId = `RPT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const now = new Date();
   const serial = trip.motorSerialNumber || 'N/A';
@@ -578,7 +582,12 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const detailPages = Math.max(1, Math.ceil(tripSeconds / 600));
   const totalPages = 3 + detailPages + 1; // Page 1: Intro, Page 2: Summary, Page 3: Map Detail, Pages 4+: Trip Detail, Final: Conclusion
   
+  console.log('[PDF Generator] Trip seconds:', tripSeconds);
+  console.log('[PDF Generator] CO2 saved:', co2Saved, 'kg');
+  console.log('[PDF Generator] Total pages:', totalPages);
+  
   const logoPath = path.join(process.cwd(), 'server', 'blade-logo.png');
+  console.log('[PDF Generator] Logo path:', logoPath);
   
   const doc = new PDFDocument({
     size: 'A4',
@@ -1286,5 +1295,8 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
     console.error('[PDF] Company chop error:', e);
   }
 
+  console.log('[PDF Generator] ====== PDF GENERATION COMPLETE ======');
+  console.log('[PDF Generator] Calling doc.end()...');
   doc.end();
+  console.log('[PDF Generator] PDF stream ended successfully');
 }
