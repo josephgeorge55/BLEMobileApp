@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { Platform } from "react-native";
+import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useMotor } from "./MotorContext";
@@ -13,6 +13,7 @@ const LOCAL_TRIPS_KEY = "@blade_local_trips";
 const ACTIVE_TRIP_KEY = "@blade_active_trip";
 const TRIP_DATA_POINTS_KEY = "@blade_trip_data_points";
 const TRIP_WEATHER_KEY = "@blade_trip_weather";
+const TRIP_RECORDING_STATE_KEY = "@blade_trip_recording_state";
 const DATA_RECORDING_INTERVAL = 4000;
 const WEATHER_RECORDING_INTERVAL = 60 * 60 * 1000;
 const MAX_TRIP_DURATION = 8 * 60 * 60;
@@ -364,6 +365,112 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       stopTimers();
     };
   }, [stopTimers]);
+
+  // Persist trip state when app goes to background
+  const persistTripState = useCallback(async () => {
+    const trip = activeTripRef.current;
+    if (!trip || !isRecording) return;
+    
+    console.log("[Trip] Persisting trip state to storage (background)...");
+    try {
+      // Save current data points
+      const tripDataPointsKey = `${TRIP_DATA_POINTS_KEY}_${trip.id}`;
+      await AsyncStorage.setItem(tripDataPointsKey, JSON.stringify(dataPointsRef.current));
+      
+      // Save recording state (stats, samples, etc.)
+      const recordingState = {
+        tripId: trip.id,
+        tripDuration: tripDuration,
+        tripStats: tripStatsRef.current,
+        speedSamples: speedSamplesRef.current,
+        consumptionSamples: consumptionSamplesRef.current,
+        rpmSamples: rpmSamplesRef.current,
+        lastPosition: lastPositionRef.current,
+        lastActivityTime: lastActivityTimeRef.current,
+        startWeather: startWeatherRef.current,
+        hourlyWeather: hourlyWeatherRef.current,
+        dataPointsCount: dataPointsRef.current.length,
+        persistedAt: Date.now(),
+      };
+      await AsyncStorage.setItem(TRIP_RECORDING_STATE_KEY, JSON.stringify(recordingState));
+      console.log("[Trip] State persisted successfully, dataPoints:", dataPointsRef.current.length);
+    } catch (err) {
+      console.error("[Trip] Failed to persist state:", err);
+    }
+  }, [isRecording, tripDuration]);
+
+  // Restore trip state when app returns from background
+  const restoreTripState = useCallback(async () => {
+    const trip = activeTripRef.current;
+    if (!trip) return;
+    
+    console.log("[Trip] Restoring trip state from storage (foreground)...");
+    try {
+      const stateJson = await AsyncStorage.getItem(TRIP_RECORDING_STATE_KEY);
+      if (!stateJson) return;
+      
+      const state = JSON.parse(stateJson);
+      if (state.tripId !== trip.id) {
+        console.log("[Trip] Stored state is for different trip, ignoring");
+        return;
+      }
+      
+      // Restore data points
+      const tripDataPointsKey = `${TRIP_DATA_POINTS_KEY}_${trip.id}`;
+      const dataPointsJson = await AsyncStorage.getItem(tripDataPointsKey);
+      if (dataPointsJson) {
+        dataPointsRef.current = JSON.parse(dataPointsJson);
+      }
+      
+      // Restore other state
+      speedSamplesRef.current = state.speedSamples || [];
+      consumptionSamplesRef.current = state.consumptionSamples || [];
+      rpmSamplesRef.current = state.rpmSamples || [];
+      lastPositionRef.current = state.lastPosition || null;
+      lastActivityTimeRef.current = state.lastActivityTime || Date.now();
+      startWeatherRef.current = state.startWeather || null;
+      hourlyWeatherRef.current = state.hourlyWeather || [];
+      
+      // Calculate actual duration (persisted + time since persisted)
+      const timeSincePersisted = Math.floor((Date.now() - state.persistedAt) / 1000);
+      const actualDuration = state.tripDuration + timeSincePersisted;
+      setTripDuration(actualDuration);
+      setTripStats(state.tripStats);
+      
+      console.log("[Trip] State restored, duration:", actualDuration, "dataPoints:", dataPointsRef.current.length);
+    } catch (err) {
+      console.error("[Trip] Failed to restore state:", err);
+    }
+  }, []);
+
+  // Handle AppState changes for background/foreground transitions
+  useEffect(() => {
+    const appStateRef = { current: AppState.currentState };
+    
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      console.log("[Trip] AppState changed:", appStateRef.current, "->", nextAppState);
+      
+      if (isRecording) {
+        if (appStateRef.current === "active" && nextAppState.match(/inactive|background/)) {
+          // App going to background - persist state
+          console.log("[Trip] App going to background, persisting state...");
+          await persistTripState();
+        } else if (appStateRef.current.match(/inactive|background/) && nextAppState === "active") {
+          // App returning to foreground - restore state and continue
+          console.log("[Trip] App returning to foreground, restoring state...");
+          await restoreTripState();
+        }
+      }
+      
+      appStateRef.current = nextAppState;
+    };
+    
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    
+    return () => {
+      subscription.remove();
+    };
+  }, [isRecording, persistTripState, restoreTripState]);
 
   const startTrip = useCallback(async (name?: string): Promise<boolean> => {
     console.log("=== [Trip] START TRIP INITIATED ===");
