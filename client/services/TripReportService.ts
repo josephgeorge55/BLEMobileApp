@@ -1,6 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import { Paths, File as FSFile } from 'expo-file-system';
 import { Platform } from 'react-native';
 import type { ExtendedTrip, TripReport, TripReportMetadata, TripDataPoint, WeatherSnapshot } from '@/types/TripReport';
 import Constants from 'expo-constants';
@@ -829,64 +829,76 @@ export async function shareTripReport(pdfUri: string): Promise<void> {
   }
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
   const { getApiUrl } = await import('../lib/query-client');
   const baseUrl = getApiUrl();
   const url = new URL('/api/trip/report', baseUrl);
   
+  const requestBody = JSON.stringify({
+    id: tripData.id,
+    tripId: tripData.tripId,
+    name: tripData.name,
+    motorSerialNumber: tripData.motorSerialNumber,
+    startTime: tripData.startTime,
+    endTime: tripData.endTime,
+    totalDistanceKm: tripData.totalDistanceKm,
+    maxSpeedKmh: tripData.maxSpeedKmh,
+    avgSpeedKmh: tripData.avgSpeedKmh,
+    totalEnergyWh: tripData.totalEnergyWh,
+    startBatteryPercent: tripData.startBatteryPercent,
+    endBatteryPercent: tripData.endBatteryPercent,
+    phoneGPSStart: tripData.phoneGPSStart,
+    phoneGPSEnd: tripData.phoneGPSEnd,
+    outboardGPSStart: tripData.outboardGPSStart,
+    outboardGPSEnd: tripData.outboardGPSEnd,
+    startWeather: tripData.startWeather,
+    endWeather: tripData.endWeather,
+    hourlyWeather: tripData.hourlyWeather,
+    connectionType: tripData.connectionType,
+    firmwareVersion: tripData.firmwareVersion,
+    phoneAppVersion: tripData.phoneAppVersion,
+    phoneName: tripData.phoneName,
+    phoneDeviceType: tripData.phoneDeviceType,
+    phoneOS: tripData.phoneOS,
+    userEmail: tripData.userEmail,
+    userFirestoreId: tripData.userFirestoreId,
+    endReason: tripData.endReason,
+    maxAmperageDraw: tripData.maxAmperageDraw,
+    maxConsumptionKW: tripData.maxConsumptionKW,
+    avgConsumptionKW: tripData.avgConsumptionKW,
+    rpmMax: tripData.rpmMax,
+    rpmAvg: tripData.rpmAvg,
+    dataPoints: tripData.dataPoints,
+    odometerStartKm: tripData.odometerStartKm,
+    odometerEndKm: tripData.odometerEndKm,
+    startLocationAddress: tripData.startLocationAddress,
+    endLocationAddress: tripData.endLocationAddress,
+    boatInfo: tripData.boatInfo,
+  });
+  
   const response = await fetch(url.href, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: tripData.id,
-      tripId: tripData.tripId,
-      name: tripData.name,
-      motorSerialNumber: tripData.motorSerialNumber,
-      startTime: tripData.startTime,
-      endTime: tripData.endTime,
-      totalDistanceKm: tripData.totalDistanceKm,
-      maxSpeedKmh: tripData.maxSpeedKmh,
-      avgSpeedKmh: tripData.avgSpeedKmh,
-      totalEnergyWh: tripData.totalEnergyWh,
-      startBatteryPercent: tripData.startBatteryPercent,
-      endBatteryPercent: tripData.endBatteryPercent,
-      phoneGPSStart: tripData.phoneGPSStart,
-      phoneGPSEnd: tripData.phoneGPSEnd,
-      outboardGPSStart: tripData.outboardGPSStart,
-      outboardGPSEnd: tripData.outboardGPSEnd,
-      startWeather: tripData.startWeather,
-      endWeather: tripData.endWeather,
-      hourlyWeather: tripData.hourlyWeather,
-      connectionType: tripData.connectionType,
-      firmwareVersion: tripData.firmwareVersion,
-      phoneAppVersion: tripData.phoneAppVersion,
-      phoneName: tripData.phoneName,
-      phoneDeviceType: tripData.phoneDeviceType,
-      phoneOS: tripData.phoneOS,
-      userEmail: tripData.userEmail,
-      userFirestoreId: tripData.userFirestoreId,
-      endReason: tripData.endReason,
-      maxAmperageDraw: tripData.maxAmperageDraw,
-      maxConsumptionKW: tripData.maxConsumptionKW,
-      avgConsumptionKW: tripData.avgConsumptionKW,
-      rpmMax: tripData.rpmMax,
-      rpmAvg: tripData.rpmAvg,
-      dataPoints: tripData.dataPoints,
-      odometerStartKm: tripData.odometerStartKm,
-      odometerEndKm: tripData.odometerEndKm,
-      startLocationAddress: tripData.startLocationAddress,
-      endLocationAddress: tripData.endLocationAddress,
-      boatInfo: tripData.boatInfo,
-    }),
+    body: requestBody,
   });
   
   if (!response.ok) {
-    throw new Error('Failed to generate PDF from server');
+    const errorText = await response.text().catch(() => 'Unknown error');
+    console.error('[TripReportService] Server error:', response.status, errorText);
+    throw new Error(`Failed to generate PDF from server: ${response.status}`);
   }
   
-  const blob = await response.blob();
-  
   if (Platform.OS === 'web') {
+    const blob = await response.blob();
     const pdfUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = pdfUrl;
@@ -897,22 +909,32 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
     setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
     return 'web-download';
   } else {
-    const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
-    const fileUri = `${cacheDir}Blade_Trip_Report_${tripData.id}.pdf`;
-    const reader = new FileReader();
-    return new Promise((resolve, reject) => {
-      reader.onloadend = async () => {
-        try {
-          const base64 = (reader.result as string).split(',')[1];
-          await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: 'base64' });
-          resolve(fileUri);
-        } catch (e) {
-          reject(e);
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    try {
+      const arrayBuffer = await response.arrayBuffer();
+      
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        throw new Error('Received empty PDF data from server');
+      }
+      
+      console.log('[TripReportService] Received PDF data:', arrayBuffer.byteLength, 'bytes');
+      
+      const fileName = `Blade_Trip_Report_${tripData.id}.pdf`;
+      const pdfFile = new FSFile(Paths.cache, fileName);
+      
+      const base64Data = arrayBufferToBase64(arrayBuffer);
+      await pdfFile.write(base64Data, { encoding: 'base64' });
+      
+      const fileInfo = pdfFile.info();
+      if (!fileInfo.exists) {
+        throw new Error('PDF file was not saved correctly');
+      }
+      
+      console.log('[TripReportService] PDF saved to:', pdfFile.uri);
+      return pdfFile.uri;
+    } catch (error) {
+      console.error('[TripReportService] Native PDF error:', error);
+      throw new Error(`Failed to save PDF: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 
