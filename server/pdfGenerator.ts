@@ -1314,13 +1314,13 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
   const chopPath = path.join(process.cwd(), 'server', 'company-chop.png');
   try {
     if (fs.existsSync(chopPath)) {
-      const chopSize = 55;
-      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize;
-      const chopY = FOOTER_Y - chopSize - 10;
-      doc.image(chopPath, chopX, chopY, { width: chopSize, height: chopSize });
+      const chopSize = 50;
+      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 10;
+      const chopY = y - 35;
+      doc.image(chopPath, chopX, chopY, { width: chopSize });
     }
   } catch (e) {
-    // Chop image not available, skip
+    console.error('[PDF] Failed to load company chop:', e);
   }
 
   doc.end();
