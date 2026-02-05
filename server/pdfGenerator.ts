@@ -183,7 +183,7 @@ function formatErrorCodes(codes: ErrorCode[] | undefined): string {
 }
 
 function drawQRCode(doc: PDFKit.PDFDocument, x: number, y: number, size: number, data: string) {
-  const gridSize = 25;
+  const gridSize = 21;
   const cellSize = size / gridSize;
   const pattern = generateQRPattern(data, gridSize);
   
@@ -202,59 +202,40 @@ function drawQRCode(doc: PDFKit.PDFDocument, x: number, y: number, size: number,
 function generateQRPattern(data: string, gridSize: number): boolean[] {
   const pattern = new Array(gridSize * gridSize).fill(false);
   
-  // Draw 3 finder patterns (top-left, top-right, bottom-left) - 7x7 each
+  // Draw 3 finder patterns (7x7 squares at corners)
   function drawFinderPattern(startRow: number, startCol: number) {
     for (let i = 0; i < 7; i++) {
       for (let j = 0; j < 7; j++) {
         const isBorder = i === 0 || i === 6 || j === 0 || j === 6;
         const isCenter = i >= 2 && i <= 4 && j >= 2 && j <= 4;
         if (isBorder || isCenter) {
-          const row = startRow + i;
-          const col = startCol + j;
-          if (row < gridSize && col < gridSize) {
-            pattern[row * gridSize + col] = true;
-          }
+          pattern[(startRow + i) * gridSize + (startCol + j)] = true;
         }
       }
     }
   }
   
   drawFinderPattern(0, 0);  // Top-left
-  drawFinderPattern(0, gridSize - 7);  // Top-right
-  drawFinderPattern(gridSize - 7, 0);  // Bottom-left
+  drawFinderPattern(0, 14); // Top-right  
+  drawFinderPattern(14, 0); // Bottom-left
   
-  // Alignment pattern in bottom-right area (5x5)
-  const alignX = gridSize - 9;
-  const alignY = gridSize - 9;
-  for (let i = 0; i < 5; i++) {
-    for (let j = 0; j < 5; j++) {
-      const isBorder = i === 0 || i === 4 || j === 0 || j === 4;
-      const isCenter = i === 2 && j === 2;
-      if (isBorder || isCenter) {
-        pattern[(alignY + i) * gridSize + (alignX + j)] = true;
-      }
-    }
-  }
-  
-  // Timing patterns
-  for (let i = 8; i < gridSize - 8; i++) {
+  // Timing patterns (alternating dots between finder patterns)
+  for (let i = 8; i < 13; i++) {
     pattern[6 * gridSize + i] = i % 2 === 0;
     pattern[i * gridSize + 6] = i % 2 === 0;
   }
   
-  // Data area - hash-based pseudo-random fill
+  // Simple data fill based on string hash
   let hash = 0;
   for (let i = 0; i < data.length; i++) {
     hash = ((hash << 5) - hash) + data.charCodeAt(i);
     hash = hash & hash;
   }
   
-  for (let i = 9; i < gridSize - 9; i++) {
-    for (let j = 9; j < gridSize - 9; j++) {
-      if (i !== 6 && j !== 6) {
-        const idx = i * gridSize + j;
-        pattern[idx] = ((hash >> ((i * j) % 16)) & 1) === 1;
-      }
+  // Fill center area with sparse pattern
+  for (let i = 9; i < 12; i++) {
+    for (let j = 9; j < 12; j++) {
+      pattern[i * gridSize + j] = ((hash >> ((i + j) % 8)) & 1) === 1;
     }
   }
   
@@ -282,18 +263,18 @@ function drawBarcode(doc: PDFKit.PDFDocument, x: number, y: number, width: numbe
   }
 }
 
-function drawCertificationLogos(doc: PDFKit.PDFDocument, x: number, y: number, width: number, height: number) {
+function drawCertificationLogos(doc: PDFKit.PDFDocument, x: number, y: number, height: number) {
   const certLogoPath = path.join(process.cwd(), 'server', 'ceukrohs-logo.png');
   try {
     if (fs.existsSync(certLogoPath)) {
-      doc.image(certLogoPath, x, y, { width: width, height: height });
+      doc.image(certLogoPath, x, y, { height: height });
     } else {
       doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-      doc.text('CE | UKCA | RoHS', x, y + height / 3, { width: width, align: 'center' });
+      doc.text('CE | UKCA | RoHS', x, y + height / 3);
     }
   } catch (e) {
     doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-    doc.text('CE | UKCA | RoHS', x, y + height / 3, { width: width, align: 'center' });
+    doc.text('CE | UKCA | RoHS', x, y + height / 3);
   }
 }
 
@@ -660,13 +641,12 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     doc.font('Helvetica').fontSize(7).fillColor(BLACK);
     doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_WIDTH / 2 - 30, y + 8, { width: 60, align: 'center' });
     
-    // Certification logos on the right (using actual image)
-    const logoWidth = 80;
-    const logoHeight = 24;
-    const logoY = y;
-    const logosStartX = PAGE_WIDTH - MARGIN_RIGHT - logoWidth;
+    // Certification logos on the right (using actual image, maintain aspect ratio)
+    const logoHeight = 18;
+    const logoY = y + 2;
+    const logosStartX = PAGE_WIDTH - MARGIN_RIGHT - 70;
     
-    drawCertificationLogos(doc, logosStartX, logoY, logoWidth, logoHeight);
+    drawCertificationLogos(doc, logosStartX, logoY, logoHeight);
     
     doc.restore();
   }
