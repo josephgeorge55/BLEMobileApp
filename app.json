@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.bladeoutboards.app",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Blade Outboards uses your location to show your position relative to your outboard motor.",
         "NSBluetoothAlwaysUsageDescription": "Blade Outboards uses Bluetooth to connect to your outboard motor for real-time telemetry.",
         "NSBluetoothPeripheralUsageDescription": "Blade Outboards uses Bluetooth to communicate with your outboard motor."
