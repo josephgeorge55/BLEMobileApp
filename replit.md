@@ -45,6 +45,27 @@ The application comprises an Expo/React Native mobile client and an Express.js b
 - **Anti-Theft Location**: Motors report GPS hourly via cellular for up to 30 days post-power-off.
 - **Firestore Integration**: Used for fetching latest GPS coordinates when not connected via Bluetooth, leveraging collection group queries.
 
+### Bluetooth Platform Support
+**Android:**
+- BLE (Bluetooth Low Energy): Full support via `react-native-ble-plx`
+- Bluetooth Classic: Full support via `react-native-bluetooth-classic` for serial data transfer
+- Both protocols work simultaneously for device discovery and connection
+
+**iOS:**
+- BLE (Bluetooth Low Energy): Full support via `react-native-ble-plx`
+- Bluetooth Classic: NOT supported (iOS restriction - `react-native-bluetooth-classic` is Android-only)
+- BleScannerModal skips Bluetooth Classic initialization on iOS to prevent crashes
+
+**Web:**
+- Mock mode only - no real Bluetooth support
+- Demo devices provided for testing
+
+### PDF Generation
+- Server-side PDF generation using PDFKit
+- Custom base64 encoding (not btoa) for React Native compatibility on iOS/Android
+- Graceful handling of missing GPS data with placeholder messages
+- Works on all platforms: iOS, Android, and Web
+
 ### Trip Recording System
 The trip system has been simplified to work on both web (demo mode) and native (real Bluetooth):
 
