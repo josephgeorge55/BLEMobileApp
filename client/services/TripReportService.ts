@@ -883,6 +883,9 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
     startLocationAddress: tripData.startLocationAddress,
     endLocationAddress: tripData.endLocationAddress,
     boatInfo: tripData.boatInfo,
+    errorCodesStart: tripData.errorCodesStart,
+    errorCodesDuring: tripData.errorCodesDuring,
+    errorCodesEnd: tripData.errorCodesEnd,
   });
   
   const response = await fetch(url.href, {

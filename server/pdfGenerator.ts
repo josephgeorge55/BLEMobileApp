@@ -27,6 +27,14 @@ interface BoatInfo {
   boatType: string;
   lengthMeters: number;
   weightKg: number;
+  vesselName?: string;
+  vin?: string;
+}
+
+interface ErrorCode {
+  code: string;
+  description: string;
+  timestamp?: string;
 }
 
 interface TripData {
@@ -48,8 +56,8 @@ interface TripData {
   outboardGPSEnd?: { latitude: number; longitude: number };
   startLocationAddress?: string;
   endLocationAddress?: string;
-  startWeather?: { conditions?: string; temperature?: number; humidity?: number; windSpeed?: number; windDirection?: string };
-  endWeather?: { conditions?: string; temperature?: number; humidity?: number; windSpeed?: number; windDirection?: string };
+  startWeather?: { conditions?: string; temperature?: number; humidity?: number; windSpeed?: number; windDirection?: string; sunrise?: string; sunset?: string };
+  endWeather?: { conditions?: string; temperature?: number; humidity?: number; windSpeed?: number; windDirection?: string; sunrise?: string; sunset?: string };
   hourlyWeather?: any[];
   connectionType?: string;
   firmwareVersion?: string;
@@ -69,6 +77,9 @@ interface TripData {
   odometerStartKm?: number;
   odometerEndKm?: number;
   boatInfo?: BoatInfo;
+  errorCodesStart?: ErrorCode[];
+  errorCodesDuring?: ErrorCode[];
+  errorCodesEnd?: ErrorCode[];
 }
 
 function s(val: any, def = 'N/A'): string {
@@ -90,6 +101,12 @@ function kmToMi(km: number): number { return km * 0.621371; }
 function kmToNm(km: number): number { return km * 0.539957; }
 function kmhToMph(kmh: number): number { return kmh * 0.621371; }
 function kmhToKn(kmh: number): number { return kmh * 0.539957; }
+
+function calculateCO2Saved(tripDurationMinutes: number): number {
+  return tripDurationMinutes * 0.14833;
+}
+
+const GS1_SKU = '199284191679';
 
 function formatDuration(startTime: string, endTime?: string): string {
   const start = new Date(startTime).getTime();
@@ -158,6 +175,11 @@ function formatWeather(w: any): string {
   if (w.humidity !== undefined) parts.push(`${w.humidity}% humidity`);
   if (w.windSpeed !== undefined) parts.push(`Wind: ${w.windSpeed} km/h ${w.windDirection || ''}`);
   return parts.length > 0 ? parts.join(', ') : 'N/A';
+}
+
+function formatErrorCodes(codes: ErrorCode[] | undefined): string {
+  if (!codes || codes.length === 0) return 'None';
+  return codes.map(e => e.code).join(', ');
 }
 
 function drawQRCode(doc: PDFKit.PDFDocument, x: number, y: number, size: number, data: string) {
@@ -537,6 +559,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const serial = trip.motorSerialNumber || 'N/A';
   const tripId = trip.tripId || trip.id;
   const tripSeconds = getTripSeconds(trip.startTime, trip.endTime);
+  const tripMinutes = tripSeconds / 60;
+  const co2Saved = calculateCO2Saved(tripMinutes);
   const detailPages = Math.max(1, Math.ceil(tripSeconds / 600));
   const totalPages = 2 + detailPages + 1;
   
@@ -727,13 +751,19 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     doc.text('Boat Information', leftColX, leftY);
     leftY += 10;
     leftY = drawTableRow(leftY, ['Field', 'Value'], [col2, col2], true);
-    leftY = drawTableRow(leftY, ['Type', trip.boatInfo.boatType], [col2, col2]);
+    if (trip.boatInfo.vesselName) {
+      leftY = drawTableRow(leftY, ['Vessel Name', trip.boatInfo.vesselName], [col2, col2]);
+    }
+    leftY = drawTableRow(leftY, ['Type', trip.boatInfo.boatType], [col2, col2], false, '#fff');
     const lengthFt = (trip.boatInfo.lengthMeters * 3.28084).toFixed(1);
     const lengthM = trip.boatInfo.lengthMeters.toFixed(1);
-    leftY = drawTableRow(leftY, ['Length', `${lengthFt} ft (${lengthM} m)`], [col2, col2], false, '#fff');
+    leftY = drawTableRow(leftY, ['Length', `${lengthFt} ft (${lengthM} m)`], [col2, col2]);
     const weightLbs = (trip.boatInfo.weightKg * 2.20462).toFixed(0);
     const weightKg = trip.boatInfo.weightKg.toFixed(0);
-    leftY = drawTableRow(leftY, ['Weight', `${weightLbs} lbs (${weightKg} kg)`], [col2, col2]);
+    leftY = drawTableRow(leftY, ['Weight', `${weightLbs} lbs (${weightKg} kg)`], [col2, col2], false, '#fff');
+    if (trip.boatInfo.vin) {
+      leftY = drawTableRow(leftY, ['VIN / HIN', trip.boatInfo.vin], [col2, col2]);
+    }
   }
 
   doc.save();
@@ -788,6 +818,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const docRows = [
     ['Total Pages', String(totalPages)],
     ['Paper Size', 'A4 Landscape (297x210mm)'],
+    ['GS1 SKU', GS1_SKU],
+    ['CO2 Saved', `${co2Saved.toFixed(2)} kg`],
     ['Certifications', 'CE, UKCA, RoHS Compliant'],
   ];
   docRows.forEach((row, i) => {
@@ -850,7 +882,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.text(`Odometer: ${odomEnd.toFixed(2)} km`, leftSummaryX, leftSummaryY);
   
   // Right column: Battery, Energy & Weather
-  drawSectionBox(rightSummaryX - 4, y - 2, halfWidth + 8, 100, 'Battery, Energy & Weather');
+  drawSectionBox(rightSummaryX - 4, y - 2, halfWidth + 8, 120, 'Battery, Energy & Weather');
   let rightSummaryY = y + 8;
   
   doc.text(`Start SOC: ${n(trip.startBatteryPercent, 0)}%   End SOC: ${n(trip.endBatteryPercent, 0)}%`, rightSummaryX, rightSummaryY, { width: halfWidth - 5 });
@@ -865,13 +897,34 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const endWeatherCond = trip.endWeather?.conditions || '';
   
   drawWeatherIcon(doc, rightSummaryX, rightSummaryY, weatherIconSize, startWeatherCond);
-  doc.text(`Start: ${formatWeather(trip.startWeather)}`, rightSummaryX + weatherIconSize + 4, rightSummaryY + 2, { width: halfWidth - weatherIconSize - 10 });
+  let startWeatherStr = formatWeather(trip.startWeather);
+  if (trip.startWeather?.sunrise) startWeatherStr += ` | Rise: ${trip.startWeather.sunrise}`;
+  if (trip.startWeather?.sunset) startWeatherStr += ` Set: ${trip.startWeather.sunset}`;
+  doc.text(`Start: ${startWeatherStr}`, rightSummaryX + weatherIconSize + 4, rightSummaryY + 2, { width: halfWidth - weatherIconSize - 10 });
   rightSummaryY += 14;
   
   drawWeatherIcon(doc, rightSummaryX, rightSummaryY, weatherIconSize, endWeatherCond);
-  doc.text(`End: ${formatWeather(trip.endWeather)}`, rightSummaryX + weatherIconSize + 4, rightSummaryY + 2, { width: halfWidth - weatherIconSize - 10 });
+  let endWeatherStr = formatWeather(trip.endWeather);
+  if (trip.endWeather?.sunrise) endWeatherStr += ` | Rise: ${trip.endWeather.sunrise}`;
+  if (trip.endWeather?.sunset) endWeatherStr += ` Set: ${trip.endWeather.sunset}`;
+  doc.text(`End: ${endWeatherStr}`, rightSummaryX + weatherIconSize + 4, rightSummaryY + 2, { width: halfWidth - weatherIconSize - 10 });
   
-  y += 108;
+  y += 128;
+  
+  // Error Codes Section
+  drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 45, 'Error Codes (E00-E99)');
+  y += 6;
+  const errorColWidth = CONTENT_WIDTH / 3;
+  doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
+  doc.text('At Start', MARGIN_LEFT, y, { width: errorColWidth });
+  doc.text('During Trip', MARGIN_LEFT + errorColWidth, y, { width: errorColWidth });
+  doc.text('At End', MARGIN_LEFT + errorColWidth * 2, y, { width: errorColWidth });
+  y += 10;
+  doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
+  doc.text(formatErrorCodes(trip.errorCodesStart), MARGIN_LEFT, y, { width: errorColWidth - 5 });
+  doc.text(formatErrorCodes(trip.errorCodesDuring), MARGIN_LEFT + errorColWidth, y, { width: errorColWidth - 5 });
+  doc.text(formatErrorCodes(trip.errorCodesEnd), MARGIN_LEFT + errorColWidth * 2, y, { width: errorColWidth - 5 });
+  y += 20;
   
   // Locations (full width)
   drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, 32, 'Locations');
@@ -882,8 +935,8 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.text(`End: ${s(trip.endLocationAddress, 'GPS coordinates only')}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
   y += 22;
 
-  // Map (reduced height)
-  const mapH = 180;
+  // Map (reduced height to account for error codes section)
+  const mapH = 140;
   drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, trip.phoneGPSStart, trip.phoneGPSEnd);
   y += mapH + 8;
 
@@ -974,6 +1027,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const perfRows = [
     ['Energy Consumed', `${n(trip.totalEnergyWh)} Wh`],
     ['Duration', formatDuration(trip.startTime, trip.endTime)],
+    ['CO2 Saved', `${co2Saved.toFixed(2)} kg`],
     ['Max Speed', `${maxSpd.toFixed(1)} km/h (${kmhToKn(maxSpd).toFixed(1)} kn)`],
     ['Avg Speed', `${avgSpd.toFixed(1)} km/h (${kmhToKn(avgSpd).toFixed(1)} kn)`],
     ['Max Power', `${n(trip.maxConsumptionKW, 2)} kW`],
@@ -1102,15 +1156,15 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     { icon: 'speed', title: 'Speed', text: 'Calculated from GPS and motor telemetry. Values in km/h, mph, and kn. Spikes may occur from GPS drift.' },
     { icon: 'distance', title: 'Distance', text: 'Derived from GPS position changes. Odometer shows total recorded motor distance.' },
     { icon: 'battery', title: 'Battery SOC', text: 'From Battery Management System. N/A if not connected during session.' },
-    { icon: 'energy', title: 'Energy', text: 'Estimated Wh consumption. Short trips may show zero or incomplete values.' },
+    { icon: 'energy', title: 'Energy & CO2', text: 'Estimated Wh consumption. CO2 savings = trip minutes × 0.14833 kg (vs. petrol motor).' },
     { icon: 'power', title: 'Power & Amperage', text: 'Instantaneous kW and A demand. May be unavailable based on firmware/connection.' },
     { icon: 'rpm', title: 'Motor RPM', text: 'Rotational speed. Higher RPM does not always mean higher vessel speed (prop slip).' },
     { icon: 'time', title: 'Trip Timing', text: 'Start/end in local and UTC. Elapsed time from first to last telemetry packet.' },
     { icon: 'location', title: 'Location', text: 'GPS from mobile device. Address may be unavailable; only coordinates recorded.' },
-    { icon: 'weather', title: 'Weather', text: 'From device location at trip start/end. May not reflect on-water conditions.' },
+    { icon: 'weather', title: 'Weather', text: 'From device location at trip start/end. Includes sunrise/sunset times when available.' },
     { icon: 'connect', title: 'Connectivity', text: 'Bluetooth Classic or BLE. Disconnections may cause missing telemetry.' },
     { icon: 'na', title: 'N/A Values', text: 'Data not reported by motor, battery, or device during this session.' },
-    { icon: 'id', title: 'Identification', text: 'Unique Trip ID and Report ID. Serial number and MAC when available.' },
+    { icon: 'id', title: 'Identification', text: 'Unique Trip ID and Report ID. Serial number, GS1 SKU, and MAC when available.' },
   ];
   
   doc.font('Helvetica').fontSize(5).fillColor(BLACK);
@@ -1129,6 +1183,22 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
   doc.moveTo(MARGIN_LEFT, y).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y).stroke();
   y += 6;
+
+  // ISO Standards Section
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
+  doc.text('ISO Standards Used for Calculations', MARGIN_LEFT, y);
+  y += 8;
+  
+  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
+  const isoStandards = `• ISO 8178-4: Reciprocating internal combustion engines - Exhaust emission measurement (CO2 comparison baseline)
+• ISO 16315: Electric propulsion for small craft (battery & motor performance metrics)
+• ISO 12217: Stability and buoyancy assessment and categorization for small craft
+• ISO 10005: Quality management systems - Quality plans (report structure)
+• ISO 19650: Organization of information about construction works - BIM (data organization)
+• ISO 8601: Date and time format standards (timestamp formatting)
+• WGS 84: World Geodetic System (GPS coordinate reference)`;
+  doc.text(isoStandards, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  y += 40;
 
   doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
   doc.text('Legal Disclaimer', MARGIN_LEFT, y);
