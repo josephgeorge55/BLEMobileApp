@@ -129,10 +129,24 @@ export default function BleScannerModal() {
     let classicInitSuccess = false;
 
     try {
-      const [bleInitialized, classicInitialized] = await Promise.all([
-        initializeBle(),
-        initializeClassic(),
-      ]);
+      // Initialize BLE first (works on iOS and Android)
+      let bleInitialized = false;
+      let classicInitialized = false;
+      
+      try {
+        bleInitialized = await initializeBle();
+      } catch (bleError) {
+        console.warn("BLE initialization error:", bleError);
+      }
+      
+      // Bluetooth Classic only works on Android - skip on iOS to prevent crashes
+      if (Platform.OS === "android") {
+        try {
+          classicInitialized = await initializeClassic();
+        } catch (classicError) {
+          console.warn("Bluetooth Classic initialization error:", classicError);
+        }
+      }
       
       bleInitSuccess = bleInitialized;
       classicInitSuccess = classicInitialized;

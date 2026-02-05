@@ -166,12 +166,36 @@ export default function TripDetailScreen() {
         }
       } else {
         console.error("[TripDetail] Report generation failed:", result.error);
+        const errorMessage = result.error || "Failed to generate report";
+        
+        // Provide more helpful error messages
+        let userMessage = "Failed to generate report. Please try again.";
+        if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+          userMessage = "Unable to connect to the server. Please check your internet connection and try again.";
+        } else if (errorMessage.includes("PDF") || errorMessage.includes("save")) {
+          userMessage = "Unable to save the report to your device. Please ensure you have sufficient storage space.";
+        }
+        
         if (Platform.OS !== "web") {
-          Alert.alert("Error", "Failed to generate report. Please try again.");
+          Alert.alert("Report Error", userMessage);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("[TripDetail] Error generating report:", error);
+      
+      // Handle specific error types with helpful messages
+      const errorMessage = error?.message || String(error);
+      let userMessage = "An unexpected error occurred while generating the report.";
+      
+      if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+        userMessage = "Unable to connect to the server. Please check your internet connection.";
+      } else if (errorMessage.includes("timeout")) {
+        userMessage = "The report is taking too long to generate. Please try again later.";
+      }
+      
+      if (Platform.OS !== "web") {
+        Alert.alert("Report Error", userMessage);
+      }
     } finally {
       setIsGeneratingReport(false);
     }
