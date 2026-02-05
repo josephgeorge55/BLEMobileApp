@@ -1310,59 +1310,18 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
   doc.font('Helvetica-Bold').fontSize(8).fillColor(BLADE_GREEN);
   doc.text('bladeoutboards.com', MARGIN_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
 
-  // Company chop (bottom right of conclusion page only) - drawn directly
-  const chopSize = 55;
-  const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 5;
-  const chopY = y - 40;
-  const chopCenterX = chopX + chopSize / 2;
-  const chopCenterY = chopY + chopSize / 2;
-  const chopRadius = chopSize / 2;
-  const CHOP_RED = '#8B1A1A';
-  
-  // Outer circle
-  doc.circle(chopCenterX, chopCenterY, chopRadius).lineWidth(2).stroke(CHOP_RED);
-  // Inner circle
-  doc.circle(chopCenterX, chopCenterY, chopRadius * 0.75).lineWidth(1.5).stroke(CHOP_RED);
-  
-  // Curved text around top - BLADE OUTBOARDS
-  doc.fontSize(4).fillColor(CHOP_RED).font('Helvetica-Bold');
-  const topText = 'BLADE OUTBOARDS';
-  const arcRadius = chopRadius * 0.87;
-  const startAngle = -Math.PI * 0.75;
-  const endAngle = -Math.PI * 0.25;
-  const angleStep = (endAngle - startAngle) / (topText.length - 1);
-  for (let i = 0; i < topText.length; i++) {
-    const angle = startAngle + i * angleStep;
-    const charX = chopCenterX + arcRadius * Math.cos(angle);
-    const charY = chopCenterY + arcRadius * Math.sin(angle);
-    doc.save();
-    doc.translate(charX, charY);
-    doc.rotate((angle + Math.PI / 2) * 180 / Math.PI);
-    doc.text(topText[i], -2, -2, { width: 10 });
-    doc.restore();
+  // Company chop (bottom right of conclusion page only)
+  try {
+    const chopPath = path.join(__dirname, 'company-chop.png');
+    if (fs.existsSync(chopPath)) {
+      const chopSize = 55;
+      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 5;
+      const chopY = y - 40;
+      doc.image(chopPath, chopX, chopY, { fit: [chopSize, chopSize] });
+    }
+  } catch (e) {
+    console.error('[PDF] Company chop error:', e);
   }
-  
-  // Curved text around bottom - BLADEMARINELTD
-  const bottomText = 'BLADEMARINELTD';
-  const bottomStartAngle = Math.PI * 0.75;
-  const bottomEndAngle = Math.PI * 0.25;
-  const bottomAngleStep = (bottomEndAngle - bottomStartAngle) / (bottomText.length - 1);
-  for (let i = 0; i < bottomText.length; i++) {
-    const angle = bottomStartAngle + i * bottomAngleStep;
-    const charX = chopCenterX + arcRadius * Math.cos(angle);
-    const charY = chopCenterY + arcRadius * Math.sin(angle);
-    doc.save();
-    doc.translate(charX, charY);
-    doc.rotate((angle - Math.PI / 2) * 180 / Math.PI);
-    doc.text(bottomText[i], -2, -2, { width: 10 });
-    doc.restore();
-  }
-  
-  // Center text
-  doc.font('Helvetica-Bold').fontSize(5).fillColor(CHOP_RED);
-  doc.text('Co. Reg. No.', chopCenterX - 12, chopCenterY - 6, { width: 24, align: 'center' });
-  doc.fontSize(6);
-  doc.text('77940605', chopCenterX - 12, chopCenterY + 1, { width: 24, align: 'center' });
 
   doc.end();
 }
