@@ -343,55 +343,75 @@ export default function BleScannerModal() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
-      // Show anti-theft modal for logged-in users (not guest mode)
+      // Always navigate back to Dashboard after successful connection
+      console.log("[BleScanner] Connection successful, navigating to Dashboard...");
+      navigation.goBack();
+      
+      // For logged-in users (not guest mode), check anti-theft registration in background
       if (user && !isGuestMode) {
-        // Wait for real serial number from INFOR G1 frame (poll for up to 3 seconds)
-        addDebugLog("INFO", "[AntiTheft] Waiting for motor serial from INFOR G1...");
-        let realSerial: string | null = null;
-        
-        for (let attempt = 0; attempt < 6; attempt++) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const currentMotor = motorRef.current;
-          if (currentMotor?.serialNumber && !currentMotor.serialNumber.includes(':')) {
-            realSerial = currentMotor.serialNumber;
-            addDebugLog("INFO", `[AntiTheft] Got real serial: ${realSerial}`);
-            break;
-          }
-        }
-        
-        if (!realSerial) {
-          // Couldn't get real serial, use the device serial (may be BT address)
-          addDebugLog("INFO", "[AntiTheft] WARNING: Could not get real serial, using device serial");
-          realSerial = device.serialNumber;
-        }
-        
-        // Check if motor is already registered to this user
-        try {
-          const isAlreadyRegistered = await isMotorRegisteredToUser(user.id, realSerial);
+        // Check anti-theft in background after navigation
+        setTimeout(async () => {
+          addDebugLog("INFO", "[AntiTheft] Checking motor registration in background...");
+          let realSerial: string | null = null;
           
-          if (isAlreadyRegistered) {
-            // Motor is already linked to this account
-            addDebugLog("INFO", `[AntiTheft] Motor ${realSerial} already registered to user`);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert(
-              "Already Protected",
-              `This motor (${realSerial}) is already linked to your account with anti-theft protection enabled.`,
-              [{ text: "Continue", onPress: () => navigation.goBack() }]
-            );
-          } else {
-            // Motor is not registered, show the anti-theft modal
-            addDebugLog("INFO", `[AntiTheft] Motor ${realSerial} not registered, showing modal`);
-            setPairedMotor({ name: device.name, serialNumber: realSerial });
-            setShowAntiTheftModal(true);
+          // Wait briefly for real serial from INFOR G1 frame
+          for (let attempt = 0; attempt < 4; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const currentMotor = motorRef.current;
+            if (currentMotor?.serialNumber && !currentMotor.serialNumber.includes(':')) {
+              realSerial = currentMotor.serialNumber;
+              addDebugLog("INFO", `[AntiTheft] Got real serial: ${realSerial}`);
+              break;
+            }
           }
-        } catch (error: any) {
-          addDebugLog("ERROR", `[AntiTheft] Error checking registration: ${error.message}`);
-          // If we can't check, show the modal anyway
-          setPairedMotor({ name: device.name, serialNumber: realSerial });
-          setShowAntiTheftModal(true);
-        }
-      } else {
-        navigation.goBack();
+          
+          if (!realSerial) {
+            addDebugLog("INFO", "[AntiTheft] Could not get real serial, using device serial");
+            realSerial = device.serialNumber;
+          }
+          
+          // Skip if serial is still a BT address
+          if (realSerial.includes(':')) {
+            addDebugLog("INFO", "[AntiTheft] Serial is BT address, skipping registration check");
+            return;
+          }
+          
+          try {
+            const isAlreadyRegistered = await isMotorRegisteredToUser(user.id, realSerial);
+            
+            if (!isAlreadyRegistered) {
+              // Motor is not registered, prompt user with Alert
+              addDebugLog("INFO", `[AntiTheft] Motor ${realSerial} not registered, prompting user`);
+              Alert.alert(
+                "Enable Anti-Theft?",
+                `Would you like to link this motor (${realSerial}) to your account for anti-theft protection?`,
+                [
+                  { text: "Later", style: "cancel" },
+                  { 
+                    text: "Enable", 
+                    onPress: async () => {
+                      try {
+                        const result = await registerMotorForUser(user.id, realSerial!, device.name);
+                        if (result.success) {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          Alert.alert("Protected", `Motor ${realSerial} is now protected with anti-theft.`);
+                        } else {
+                          Alert.alert("Error", result.error || "Failed to enable anti-theft protection.");
+                        }
+                      } catch (err: any) {
+                        Alert.alert("Error", err.message || "Failed to enable anti-theft protection.");
+                      }
+                    }
+                  }
+                ]
+              );
+            } else {
+              addDebugLog("INFO", `[AntiTheft] Motor ${realSerial} already registered`);
+            }
+          } catch (error: any) {
+            addDebugLog("ERROR", `[AntiTheft] Error checking registration: ${error.message}`);
+          }
+        }, 100);
       }
     } catch (error) {
       setShowConnectingModal(false);
