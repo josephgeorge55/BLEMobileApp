@@ -1316,10 +1316,11 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
   try {
     if (fs.existsSync(chopPath)) {
       console.log('[PDF] Company chop file found');
+      const chopBuffer = fs.readFileSync(chopPath);
       const chopSize = 50;
       const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 10;
       const chopY = y - 30;
-      doc.image(chopPath, chopX, chopY, { width: chopSize });
+      doc.image(chopBuffer, chopX, chopY, { width: chopSize, height: chopSize });
       console.log('[PDF] Company chop rendered at:', chopX, chopY);
     } else {
       console.log('[PDF] Company chop file NOT found at path');
