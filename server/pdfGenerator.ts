@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import { companyChopBase64 } from './companyChopData';
 
 const PAGE_WIDTH = 841.89;
 const PAGE_HEIGHT = 595.28;
@@ -1312,13 +1313,11 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
 
   // Company chop (bottom right of conclusion page only)
   try {
-    const chopPath = path.join(__dirname, 'company-chop.png');
-    if (fs.existsSync(chopPath)) {
-      const chopSize = 55;
-      const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 5;
-      const chopY = y - 40;
-      doc.image(chopPath, chopX, chopY, { fit: [chopSize, chopSize] });
-    }
+    const chopBuffer = Buffer.from(companyChopBase64, 'base64');
+    const chopSize = 55;
+    const chopX = PAGE_WIDTH - MARGIN_RIGHT - chopSize - 5;
+    const chopY = y - 40;
+    doc.image(chopBuffer, chopX, chopY, { fit: [chopSize, chopSize] });
   } catch (e) {
     console.error('[PDF] Company chop error:', e);
   }
