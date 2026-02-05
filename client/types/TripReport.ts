@@ -70,6 +70,8 @@ export interface ExtendedTrip {
   endBatteryPercent: number | null;
   totalDistanceKm: number;
   maxSpeedKmh: number;
+  maxPhoneSpeedKmh: number;
+  maxOutboardSpeedKmh: number;
   avgSpeedKmh: number;
   totalEnergyWh: number;
   
