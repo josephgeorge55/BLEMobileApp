@@ -644,7 +644,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     // Certification logos on the right (using actual image, maintain aspect ratio)
     const logoHeight = 18;
     const logoY = y + 2;
-    const logosStartX = PAGE_WIDTH - MARGIN_RIGHT - 70;
+    const logosStartX = PAGE_WIDTH - MARGIN_RIGHT - 90;
     
     drawCertificationLogos(doc, logosStartX, logoY, logoHeight);
     
@@ -709,18 +709,14 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   let y = CONTENT_START_Y;
   
   const introTextEn = 'This document contains telemetry and operational data collected from a Blade electric outboard motor during the recorded session. Data includes speed, power consumption, battery status, GPS coordinates, and environmental conditions. This report is auto-generated and provided for documentation and analysis purposes.';
-  const introTextDe = 'Dieses Dokument enthält Telemetrie- und Betriebsdaten, die während der aufgezeichneten Sitzung von einem Blade-Elektro-Außenbordmotor erfasst wurden. Die Daten umfassen Geschwindigkeit, Stromverbrauch, Batteriestatus, GPS-Koordinaten und Umgebungsbedingungen. Dieser Bericht wird automatisch erstellt und dient Dokumentations- und Analysezwecken.';
-  const introTextIt = 'Questo documento contiene dati di telemetria e operativi raccolti da un motore fuoribordo elettrico Blade durante la sessione registrata. I dati includono velocità, consumo energetico, stato della batteria, coordinate GPS e condizioni ambientali. Questo rapporto è generato automaticamente e fornito a scopo di documentazione e analisi.';
-  const introTextEs = 'Este documento contiene datos telemétricos y operativos recopilados de un motor fueraborda eléctrico Blade durante la sesión grabada. Los datos incluyen velocidad, consumo de energía, estado de la batería, coordenadas GPS y condiciones ambientales. Este informe se genera automáticamente y se proporciona con fines de documentación y análisis.';
+  const introTextDe = 'Dieses Dokument enthält Telemetrie- und Betriebsdaten eines Blade-Elektro-Außenbordmotors. Automatisch erstellt für Dokumentations- und Analysezwecke.';
+  const introTextIt = 'Questo documento contiene dati di telemetria e operativi di un motore fuoribordo elettrico Blade. Generato automaticamente a scopo di documentazione e analisi.';
+  const introTextEs = 'Este documento contiene datos telemétricos y operativos de un motor fueraborda eléctrico Blade. Generado automáticamente con fines de documentación y análisis.';
 
   doc.font('Helvetica').fontSize(5.5).fillColor(GRAY);
   doc.text(`EN: ${introTextEn}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
   y += 16;
-  doc.text(`DE: ${introTextDe}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 16;
-  doc.text(`IT: ${introTextIt}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
-  y += 16;
-  doc.text(`ES: ${introTextEs}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
+  doc.text(`DE: ${introTextDe}  IT: ${introTextIt}  ES: ${introTextEs}`, MARGIN_LEFT, y, { width: CONTENT_WIDTH });
   y += 18;
 
   const leftColX = MARGIN_LEFT;
