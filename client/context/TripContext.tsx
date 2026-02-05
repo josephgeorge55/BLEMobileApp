@@ -19,6 +19,12 @@ const MAX_TRIP_DURATION = 8 * 60 * 60;
 const INACTIVITY_TIMEOUT = 600;
 const MIN_TRIP_DURATION = 60;
 
+function formatUnixToTime(unixTimestamp?: number): string | null {
+  if (!unixTimestamp) return null;
+  const date = new Date(unixTimestamp * 1000);
+  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
 function weatherDataToSnapshot(data: WeatherData): WeatherSnapshot {
   return {
     timestamp: new Date(),
@@ -28,6 +34,8 @@ function weatherDataToSnapshot(data: WeatherData): WeatherSnapshot {
     windDirection: getWindDirection(data.current.wind_deg),
     conditions: data.current.weather[0]?.description || null,
     pressure: data.current.pressure,
+    sunrise: formatUnixToTime(data.current.sunrise),
+    sunset: formatUnixToTime(data.current.sunset),
   };
 }
 
