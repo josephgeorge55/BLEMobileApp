@@ -1072,8 +1072,10 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   leftY = y;
   rightY = y;
   
-  const leftBoxHeight = 280;
-  const rightBoxHeight = 290;
+  const leftBoxHeight = 220;
+  const rightBoxHeight = 220;
+  const co2BoxHeight = 50;
+  const usesBoxHeight = 70;
 
   // Draw container for Trip Summary on conclusion
   drawSectionBox(leftColX - 4, leftY - 2, colHalf + 8, leftBoxHeight, 'Trip Summary');
@@ -1164,6 +1166,34 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     leftY += 13;
   });
 
+  // CO2 Environmental Impact tile (below Trip Summary on left side)
+  const co2TileY = CONTENT_START_Y - 2 + leftBoxHeight + 8;
+  drawSectionBox(leftColX - 4, co2TileY, colHalf + 8, co2BoxHeight, 'Environmental Impact');
+  
+  // Draw leaf icon
+  const leafX = leftColX + 8;
+  const leafY = co2TileY + 18;
+  doc.save();
+  doc.strokeColor('#228B22').fillColor('#228B22').lineWidth(1.5);
+  doc.moveTo(leafX, leafY + 12).quadraticCurveTo(leafX + 6, leafY, leafX + 18, leafY + 4)
+     .quadraticCurveTo(leafX + 12, leafY + 10, leafX, leafY + 12).fill();
+  doc.strokeColor('#228B22').lineWidth(0.8);
+  doc.moveTo(leafX + 2, leafY + 10).quadraticCurveTo(leafX + 10, leafY + 6, leafX + 16, leafY + 5).stroke();
+  doc.restore();
+  
+  doc.font('Helvetica-Bold').fontSize(14).fillColor('#228B22');
+  doc.text(`${co2Saved.toFixed(2)} kg`, leftColX + 35, co2TileY + 14);
+  doc.font('Helvetica').fontSize(7).fillColor(GRAY);
+  doc.text('CO2 Saved vs Petrol Outboard', leftColX + 35, co2TileY + 30);
+
+  // Report Uses tile (below CO2 on left side)
+  const usesTileY = co2TileY + co2BoxHeight + 8;
+  drawSectionBox(leftColX - 4, usesTileY, colHalf + 8, usesBoxHeight, 'Report Uses');
+  
+  doc.font('Helvetica').fontSize(5.5).fillColor(BLACK);
+  const usesText = `This report can be used for: Social media sharing to showcase your eco-friendly boating adventures; Personal record keeping and trip logging; Maintenance records to track motor usage and performance over time; Efficiency analysis to optimize battery consumption and range; Warranty documentation as proof of proper usage; Service records for technicians and authorized dealers; Insurance claims requiring trip data and telemetry documentation.`;
+  doc.text(usesText, leftColX + 2, usesTileY + 12, { width: colHalf - 4, align: 'justify' });
+
   // Draw container for Data Interpretation Guide
   drawSectionBox(rightColX - 4, rightY - 2, colHalf + 8, rightBoxHeight, 'Data Interpretation Guide');
   rightY += 8;
@@ -1238,18 +1268,16 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   }
   
   const guideItems = [
-    { icon: 'speed', title: 'Speed', text: 'Calculated from GPS and motor telemetry. Values in km/h, mph, and kn. Spikes may occur from GPS drift.' },
-    { icon: 'distance', title: 'Distance', text: 'Derived from GPS position changes. Odometer shows total recorded motor distance.' },
-    { icon: 'battery', title: 'Battery SOC', text: 'From Battery Management System. N/A if not connected during session.' },
-    { icon: 'energy', title: 'Energy & CO2', text: 'Estimated Wh consumption. CO2 savings = trip minutes × 0.14833 kg (vs. petrol motor).' },
-    { icon: 'power', title: 'Power & Amperage', text: 'Instantaneous kW and A demand. May be unavailable based on firmware/connection.' },
-    { icon: 'rpm', title: 'Motor RPM', text: 'Rotational speed. Higher RPM does not always mean higher vessel speed (prop slip).' },
-    { icon: 'time', title: 'Trip Timing', text: 'Start/end in local and UTC. Elapsed time from first to last telemetry packet.' },
-    { icon: 'location', title: 'Location', text: 'GPS from mobile device. Address may be unavailable; only coordinates recorded.' },
-    { icon: 'weather', title: 'Weather', text: 'From device location at trip start/end. Includes sunrise/sunset times when available.' },
-    { icon: 'connect', title: 'Connectivity', text: 'Bluetooth Classic or BLE. Disconnections may cause missing telemetry.' },
-    { icon: 'na', title: 'N/A Values', text: 'Data not reported by motor, battery, or device during this session.' },
-    { icon: 'id', title: 'Identification', text: 'Unique Trip ID and Report ID. Serial number, GS1 SKU, and MAC when available.' },
+    { icon: 'speed', title: 'Speed', text: 'GPS and motor telemetry. Values in km/h, mph, kn.' },
+    { icon: 'distance', title: 'Distance', text: 'GPS position changes. Odometer = total motor distance.' },
+    { icon: 'battery', title: 'Battery', text: 'BMS state of charge. N/A if not connected.' },
+    { icon: 'energy', title: 'Energy/CO2', text: 'Wh consumed. CO2 = minutes × 0.14833 kg.' },
+    { icon: 'power', title: 'Power', text: 'Instantaneous kW and A demand from VESC.' },
+    { icon: 'rpm', title: 'RPM', text: 'Motor rotational speed from telemetry.' },
+    { icon: 'time', title: 'Timing', text: 'Start/end times in local and UTC.' },
+    { icon: 'location', title: 'Location', text: 'GPS coordinates from mobile device.' },
+    { icon: 'weather', title: 'Weather', text: 'Conditions at trip start/end with sunrise/sunset.' },
+    { icon: 'na', title: 'N/A', text: 'Data not reported during this session.' },
   ];
   
   doc.font('Helvetica').fontSize(5).fillColor(BLACK);
@@ -1257,13 +1285,13 @@ export function generateTripPDF(res: Response, trip: TripData): void {
     drawGuideIcon(rightColX, rightY, item.icon);
     doc.font('Helvetica-Bold').fontSize(5).text(item.title + ':', rightColX + 12, rightY, { continued: true });
     doc.font('Helvetica').text(' ' + item.text, { width: colHalf - 18 });
-    rightY += 18;
+    rightY += 16;
   });
 
   // Calculate y based on box bottom edges, not content positions
-  const leftBoxBottom = CONTENT_START_Y - 2 + leftBoxHeight;
+  const leftSideBottom = usesTileY + usesBoxHeight;
   const rightBoxBottom = CONTENT_START_Y - 2 + rightBoxHeight;
-  y = Math.max(leftBoxBottom, rightBoxBottom) + 10;
+  y = Math.max(leftSideBottom, rightBoxBottom) + 10;
   
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
   doc.moveTo(MARGIN_LEFT, y).lineTo(PAGE_WIDTH - MARGIN_RIGHT, y).stroke();
