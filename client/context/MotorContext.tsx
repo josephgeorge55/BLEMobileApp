@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   parseBLEFrame,
@@ -78,6 +79,7 @@ const MotorContext = createContext<MotorContextType | undefined>(undefined);
 
 const MOTOR_STORAGE_KEY = "@blade_motor";
 const LOCATION_STORAGE_KEY = "@blade_last_location";
+const BLE_CONNECTION_KEY = "@blade_ble_connection";
 const MAX_DEBUG_LOGS = 200;
 
 export function MotorProvider({ children }: { children: React.ReactNode }) {
@@ -123,6 +125,31 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadStoredData();
+  }, []);
+
+  // Handle AppState changes for graceful BLE handling during background/foreground
+  useEffect(() => {
+    const appStateRef = { current: AppState.currentState };
+    
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      console.log("[Motor] AppState changed:", appStateRef.current, "->", nextAppState);
+      
+      if (appStateRef.current.match(/inactive|background/) && nextAppState === "active") {
+        // App returning to foreground - check BLE connection status
+        console.log("[Motor] App returning to foreground, checking connection state...");
+        // Note: BLE reconnection is handled by ble-service.ts and bluetooth-classic-service.ts
+        // The onDisconnected callbacks will update motor state if disconnected
+        // We just need to ensure telemetry continues flowing if still connected
+      }
+      
+      appStateRef.current = nextAppState;
+    };
+    
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const loadStoredData = async () => {
