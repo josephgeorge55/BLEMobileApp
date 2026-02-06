@@ -209,7 +209,7 @@ struct BladeOutboardsLiveActivity: Widget {
     }
 }
 
-@available(iOS 16.2, *)
+@main
 struct BladeOutboardsWidgetBundle: WidgetBundle {
     var body: some Widget {
         BladeOutboardsLiveActivity()

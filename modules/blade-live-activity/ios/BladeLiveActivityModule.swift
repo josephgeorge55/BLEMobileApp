@@ -60,14 +60,10 @@ public class BladeLiveActivityModule: Module {
                 tripDuration: tripDuration
             )
 
-            do {
-                for activity in Activity<BladeOutboardsAttributes>.activities {
-                    await activity.update(ActivityContent<BladeOutboardsAttributes.ContentState>(state: state, staleDate: nil))
-                }
-                return true
-            } catch {
-                return false
+            for activity in Activity<BladeOutboardsAttributes>.activities {
+                await activity.update(ActivityContent<BladeOutboardsAttributes.ContentState>(state: state, staleDate: nil))
             }
+            return true
         }
 
         AsyncFunction("endLiveActivity") { () -> Bool in
@@ -75,15 +71,11 @@ public class BladeLiveActivityModule: Module {
                 return false
             }
 
-            do {
-                for activity in Activity<BladeOutboardsAttributes>.activities {
-                    await activity.end(nil, dismissalPolicy: .immediate)
-                }
-                self.currentActivityId = nil
-                return true
-            } catch {
-                return false
+            for activity in Activity<BladeOutboardsAttributes>.activities {
+                await activity.end(nil, dismissalPolicy: .immediate)
             }
+            self.currentActivityId = nil
+            return true
         }
 
         AsyncFunction("isLiveActivitySupported") { () -> Bool in

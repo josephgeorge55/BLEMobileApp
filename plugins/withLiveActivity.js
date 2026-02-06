@@ -133,6 +133,36 @@ function withLiveActivity(config) {
 
     var mainTarget = project.getFirstTarget();
     if (mainTarget && productRefUuid) {
+      var proxyUuid = project.generateUuid();
+      var depUuid = project.generateUuid();
+      var projectUuid = project.getFirstProject().uuid;
+
+      objects.PBXContainerItemProxy = objects.PBXContainerItemProxy || {};
+      objects.PBXContainerItemProxy[proxyUuid] = {
+        isa: "PBXContainerItemProxy",
+        containerPortal: projectUuid,
+        proxyType: 1,
+        remoteGlobalIDString: target.uuid,
+        remoteInfo: '"' + EXT_NAME + '"',
+      };
+      objects.PBXContainerItemProxy[proxyUuid + "_comment"] = "PBXContainerItemProxy";
+
+      objects.PBXTargetDependency = objects.PBXTargetDependency || {};
+      objects.PBXTargetDependency[depUuid] = {
+        isa: "PBXTargetDependency",
+        target: target.uuid,
+        targetProxy: proxyUuid,
+      };
+      objects.PBXTargetDependency[depUuid + "_comment"] = "PBXTargetDependency";
+
+      var mainNativeTargetForDep = objects.PBXNativeTarget[mainTarget.firstTarget.uuid];
+      if (mainNativeTargetForDep) {
+        if (!mainNativeTargetForDep.dependencies) {
+          mainNativeTargetForDep.dependencies = [];
+        }
+        mainNativeTargetForDep.dependencies.push({ value: depUuid, comment: "PBXTargetDependency" });
+      }
+
       var embedPhaseUuid = project.generateUuid();
       var buildFileUuid = project.generateUuid();
 
