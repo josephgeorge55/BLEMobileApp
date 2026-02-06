@@ -197,7 +197,7 @@ function withAppleWatch(config) {
       comment: 'Embed Watch Content',
     });
 
-    var projectUuid = project.getFirstProject().firstProject.project;
+    var projectUuid = project.getFirstProject().uuid;
 
     if (!objects.PBXContainerItemProxy) {
       objects.PBXContainerItemProxy = {};
