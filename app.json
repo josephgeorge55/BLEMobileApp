@@ -85,7 +85,8 @@
         }
       ],
       "./plugins/withLiveActivity",
-      "./plugins/withAndroidForegroundService"
+      "./plugins/withAndroidForegroundService",
+      "./plugins/withAppleWatch"
     ],
     "experiments": {
       "reactCompiler": true
