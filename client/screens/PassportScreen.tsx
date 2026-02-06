@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Sharing from "expo-sharing";
@@ -45,6 +46,7 @@ export default function PassportScreen() {
   const headerHeight = useHeaderHeight();
   const { user } = useUser();
   const { motor } = useMotor();
+  const navigation = useNavigation();
   const cardRef = useRef<View>(null);
 
   const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
@@ -258,6 +260,30 @@ export default function PassportScreen() {
       <View style={[styles.screen, styles.centered]}>
         <ActivityIndicator size="large" color={BladeColors.primary} />
         <Text style={styles.loadingText}>Loading passport...</Text>
+      </View>
+    );
+  }
+
+  if (!isLoading && registeredMotors.length === 0) {
+    return (
+      <View style={[styles.screen, styles.centered, { paddingHorizontal: Spacing.xl }]}>
+        <View style={styles.lockedCard}>
+          <Feather name="lock" size={48} color="#D1D5DB" />
+          <Text style={styles.lockedTitle}>Passport Locked</Text>
+          <Text style={styles.lockedDescription}>
+            Your outboard motor must be linked to your account via Anti-Theft
+            protection before you can access your digital passport. Connect your
+            motor via Bluetooth and enable Anti-Theft to register it.
+          </Text>
+          <Pressable
+            style={styles.lockedButton}
+            onPress={() => navigation.goBack()}
+            testID="button-go-back"
+          >
+            <Feather name="arrow-left" size={16} color="#FFFFFF" />
+            <Text style={styles.lockedButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -657,5 +683,56 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: BladeColors.primary,
+  },
+  lockedCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "#E8ECF0",
+    padding: 32,
+    alignItems: "center",
+    gap: Spacing.md,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 2px 12px rgba(0, 0, 0, 0.06)",
+      },
+      ios: {
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  lockedTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginTop: Spacing.sm,
+  },
+  lockedDescription: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  lockedButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1F2937",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  lockedButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });
