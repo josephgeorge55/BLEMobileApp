@@ -145,6 +145,9 @@ function withAppleWatch(config) {
           buildConfig.buildSettings.CURRENT_PROJECT_VERSION = "1";
           buildConfig.buildSettings.ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "YES";
           buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
+          buildConfig.buildSettings.CODE_SIGNING_ALLOWED = "NO";
+          buildConfig.buildSettings.CODE_SIGN_IDENTITY = '""';
+          buildConfig.buildSettings.CODE_SIGNING_REQUIRED = "NO";
           if (devTeam) {
             buildConfig.buildSettings.DEVELOPMENT_TEAM = devTeam;
           }
