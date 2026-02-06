@@ -326,7 +326,7 @@ function tile2lat(y: number, z: number): number {
 
 function fetchTile(z: number, x: number, y: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const url = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    const url = `https://basemaps.cartocdn.com/light_nolabels/${z}/${x}/${y}@2x.png`;
     https.get(url, {
       headers: { 'User-Agent': 'BladeOutboards/1.0 PDFReport' }
     }, (response) => {
@@ -378,8 +378,10 @@ async function prefetchMapTiles(coords: { lat: number; lon: number }[]): Promise
     if (c.lon > maxLon) maxLon = c.lon;
   }
 
-  const latPad = Math.max((maxLat - minLat) * 0.1, 0.005);
-  const lonPad = Math.max((maxLon - minLon) * 0.1, 0.005);
+  const latSpan = maxLat - minLat;
+  const lonSpan = maxLon - minLon;
+  const latPad = Math.max(latSpan * 0.3, 0.008);
+  const lonPad = Math.max(lonSpan * 0.3, 0.008);
   minLat -= latPad;
   maxLat += latPad;
   minLon -= lonPad;
@@ -389,12 +391,12 @@ async function prefetchMapTiles(coords: { lat: number; lon: number }[]): Promise
   for (let z = 16; z >= 2; z--) {
     const tileXMin = lon2tile(minLon, z);
     const tileXMax = lon2tile(maxLon, z);
-    const span = tileXMax - tileXMin + 1;
-    if (span >= 3 && span <= 6) {
-      zoom = z;
-      break;
-    }
-    if (span < 3 && z <= 14) {
+    const tileYMin = lat2tile(maxLat, z);
+    const tileYMax = lat2tile(minLat, z);
+    const spanX = tileXMax - tileXMin + 1;
+    const spanY = tileYMax - tileYMin + 1;
+    const totalTiles = spanX * spanY;
+    if (totalTiles <= 30 && spanX >= 2 && spanY >= 2) {
       zoom = z;
       break;
     }
@@ -422,26 +424,36 @@ async function prefetchMapTiles(coords: { lat: number; lon: number }[]): Promise
 
   if (tiles.size === 0) return null;
 
+  console.log(`[PDF Generator] Tile cache: ${tiles.size} tiles at zoom ${zoom} (${maxTileX - minTileX + 1}x${maxTileY - minTileY + 1})`);
   return { tiles, zoom, minTileX, maxTileX, minTileY, maxTileY };
+}
+
+function lonToMercX(lon: number): number {
+  return (lon + 180) / 360;
+}
+
+function latToMercY(lat: number): number {
+  const latRad = lat * Math.PI / 180;
+  return (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2;
 }
 
 function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number,
                  coords: { lat: number; lon: number }[], tileCache: TileCache | null) {
+  doc.fillColor('#E8ECEF').rect(x, y, w, h).fill();
+
   if (coords.length === 0) {
-    doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
-    doc.font('Helvetica').fontSize(8).fillColor('#666');
-    doc.text('No GPS data recorded for this trip', x + w/2 - 60, y + h/2 - 4);
-    doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+    doc.font('Helvetica').fontSize(9).fillColor('#999');
+    doc.text('No GPS data recorded for this trip', x, y + h/2 - 5, { width: w, align: 'center' });
+    doc.strokeColor('#ccc').lineWidth(0.5).rect(x, y, w, h).stroke();
     return;
   }
 
   if (!tileCache || tileCache.tiles.size === 0) {
-    doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
-    doc.font('Helvetica').fontSize(8).fillColor('#666');
-    doc.text('Map tiles unavailable', x + w/2 - 40, y + h/2 - 4);
-    doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+    doc.font('Helvetica').fontSize(9).fillColor('#999');
+    doc.text('Map tiles unavailable', x, y + h/2 - 5, { width: w, align: 'center' });
+    doc.strokeColor('#ccc').lineWidth(0.5).rect(x, y, w, h).stroke();
 
-    if (coords.length >= 2) {
+    if (coords.length >= 1) {
       let cMinLat = Infinity, cMaxLat = -Infinity, cMinLon = Infinity, cMaxLon = -Infinity;
       for (const c of coords) {
         if (c.lat < cMinLat) cMinLat = c.lat;
@@ -449,114 +461,126 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
         if (c.lon < cMinLon) cMinLon = c.lon;
         if (c.lon > cMaxLon) cMaxLon = c.lon;
       }
-      const cLatPad = Math.max((cMaxLat - cMinLat) * 0.1, 0.005);
-      const cLonPad = Math.max((cMaxLon - cMinLon) * 0.1, 0.005);
+      const cLatPad = Math.max((cMaxLat - cMinLat) * 0.15, 0.003);
+      const cLonPad = Math.max((cMaxLon - cMinLon) * 0.15, 0.003);
       cMinLat -= cLatPad; cMaxLat += cLatPad; cMinLon -= cLonPad; cMaxLon += cLonPad;
-      const latRange = cMaxLat - cMinLat || 0.01;
-      const lonRange = cMaxLon - cMinLon || 0.01;
+      const minMercY = latToMercY(cMaxLat);
+      const maxMercY = latToMercY(cMinLat);
+      const minMercX = lonToMercX(cMinLon);
+      const maxMercX = lonToMercX(cMaxLon);
+      const mercRangeX = maxMercX - minMercX || 0.0001;
+      const mercRangeY = maxMercY - minMercY || 0.0001;
 
-      doc.strokeColor(BLUE).lineWidth(2);
-      doc.moveTo(x + ((coords[0].lon - cMinLon) / lonRange) * w, y + (1 - (coords[0].lat - cMinLat) / latRange) * h);
-      for (let i = 1; i < coords.length; i++) {
-        doc.lineTo(x + ((coords[i].lon - cMinLon) / lonRange) * w, y + (1 - (coords[i].lat - cMinLat) / latRange) * h);
+      const toX = (lon: number) => x + ((lonToMercX(lon) - minMercX) / mercRangeX) * w;
+      const toY = (lat: number) => y + ((latToMercY(lat) - minMercY) / mercRangeY) * h;
+
+      if (coords.length >= 2) {
+        doc.strokeColor(BLUE).lineWidth(2);
+        doc.moveTo(toX(coords[0].lon), toY(coords[0].lat));
+        for (let i = 1; i < coords.length; i++) doc.lineTo(toX(coords[i].lon), toY(coords[i].lat));
+        doc.stroke();
       }
-      doc.stroke();
 
-      const sx = x + ((coords[0].lon - cMinLon) / lonRange) * w;
-      const sy = y + (1 - (coords[0].lat - cMinLat) / latRange) * h;
-      const ex = x + ((coords[coords.length - 1].lon - cMinLon) / lonRange) * w;
-      const ey = y + (1 - (coords[coords.length - 1].lat - cMinLat) / latRange) * h;
-      doc.fillColor(GREEN).circle(sx, sy, 5).fill();
-      doc.fillColor('#fff').circle(sx, sy, 2.5).fill();
-      doc.fillColor(RED).circle(ex, ey, 5).fill();
-      doc.fillColor('#fff').circle(ex, ey, 2.5).fill();
+      doc.fillColor(GREEN).circle(toX(coords[0].lon), toY(coords[0].lat), 5).fill();
+      doc.fillColor('#fff').circle(toX(coords[0].lon), toY(coords[0].lat), 2.5).fill();
+      if (coords.length >= 2) {
+        doc.fillColor(RED).circle(toX(coords[coords.length - 1].lon), toY(coords[coords.length - 1].lat), 5).fill();
+        doc.fillColor('#fff').circle(toX(coords[coords.length - 1].lon), toY(coords[coords.length - 1].lat), 2.5).fill();
+      }
     }
     return;
   }
 
   const { zoom, minTileX, maxTileX, minTileY, maxTileY, tiles } = tileCache;
+  const n = Math.pow(2, zoom);
 
-  const gridMinLon = tile2lon(minTileX, zoom);
-  const gridMaxLon = tile2lon(maxTileX + 1, zoom);
-  const gridMinLat = tile2lat(maxTileY + 1, zoom);
-  const gridMaxLat = tile2lat(minTileY, zoom);
+  const gridMinMercX = minTileX / n;
+  const gridMaxMercX = (maxTileX + 1) / n;
+  const gridMinMercY = minTileY / n;
+  const gridMaxMercY = (maxTileY + 1) / n;
 
-  const gridLonRange = gridMaxLon - gridMinLon;
-  const gridLatRange = gridMaxLat - gridMinLat;
+  const gridMercW = gridMaxMercX - gridMinMercX;
+  const gridMercH = gridMaxMercY - gridMinMercY;
+
+  const tileScaleX = w / gridMercW;
+  const tileScaleY = h / gridMercH;
+  const uniformScale = Math.min(tileScaleX, tileScaleY);
+
+  const renderedW = gridMercW * uniformScale;
+  const renderedH = gridMercH * uniformScale;
+  const offsetX = x + (w - renderedW) / 2;
+  const offsetY = y + (h - renderedH) / 2;
 
   doc.save();
   doc.rect(x, y, w, h).clip();
 
   const tilesWide = maxTileX - minTileX + 1;
   const tilesHigh = maxTileY - minTileY + 1;
-  const tileDrawW = w / tilesWide;
-  const tileDrawH = h / tilesHigh;
+  const tileDrawW = renderedW / tilesWide;
+  const tileDrawH = renderedH / tilesHigh;
 
   for (let tx = minTileX; tx <= maxTileX; tx++) {
     for (let ty = minTileY; ty <= maxTileY; ty++) {
       const key = `${tx}:${ty}`;
       const tileBuf = tiles.get(key);
-      const drawX = x + (tx - minTileX) * tileDrawW;
-      const drawY = y + (ty - minTileY) * tileDrawH;
+      const drawX = offsetX + (tx - minTileX) * tileDrawW;
+      const drawY = offsetY + (ty - minTileY) * tileDrawH;
       if (tileBuf) {
         try {
           doc.image(tileBuf, drawX, drawY, { width: tileDrawW + 0.5, height: tileDrawH + 0.5 });
         } catch (e) {
-          doc.fillColor('#B8D4E8').rect(drawX, drawY, tileDrawW, tileDrawH).fill();
+          doc.fillColor('#E8ECEF').rect(drawX, drawY, tileDrawW, tileDrawH).fill();
         }
       } else {
-        doc.fillColor('#B8D4E8').rect(drawX, drawY, tileDrawW, tileDrawH).fill();
+        doc.fillColor('#E8ECEF').rect(drawX, drawY, tileDrawW, tileDrawH).fill();
       }
     }
   }
 
+  const toMapX = (lon: number) => offsetX + ((lonToMercX(lon) - gridMinMercX) / gridMercW) * renderedW;
+  const toMapY = (lat: number) => offsetY + ((latToMercY(lat) - gridMinMercY) / gridMercH) * renderedH;
+
   if (coords.length >= 2) {
-    doc.strokeColor(BLUE).lineWidth(2.5);
-    doc.moveTo(
-      x + ((coords[0].lon - gridMinLon) / gridLonRange) * w,
-      y + (1 - (coords[0].lat - gridMinLat) / gridLatRange) * h
-    );
-    for (let i = 1; i < coords.length; i++) {
-      doc.lineTo(
-        x + ((coords[i].lon - gridMinLon) / gridLonRange) * w,
-        y + (1 - (coords[i].lat - gridMinLat) / gridLatRange) * h
-      );
-    }
+    doc.strokeColor('#1A73E8').lineWidth(3).opacity(0.3);
+    doc.moveTo(toMapX(coords[0].lon), toMapY(coords[0].lat));
+    for (let i = 1; i < coords.length; i++) doc.lineTo(toMapX(coords[i].lon), toMapY(coords[i].lat));
+    doc.stroke();
+
+    doc.strokeColor('#1A73E8').lineWidth(1.5).opacity(1);
+    doc.moveTo(toMapX(coords[0].lon), toMapY(coords[0].lat));
+    for (let i = 1; i < coords.length; i++) doc.lineTo(toMapX(coords[i].lon), toMapY(coords[i].lat));
     doc.stroke();
   }
 
+  const markerR = Math.max(4, Math.min(7, h * 0.04));
   if (coords.length >= 1) {
-    const sx = x + ((coords[0].lon - gridMinLon) / gridLonRange) * w;
-    const sy = y + (1 - (coords[0].lat - gridMinLat) / gridLatRange) * h;
-    doc.fillColor(GREEN).circle(sx, sy, 7).fill();
-    doc.fillColor('#fff').circle(sx, sy, 3.5).fill();
-    doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-    doc.text('START', sx - 15, sy + 10);
+    const sx = toMapX(coords[0].lon);
+    const sy = toMapY(coords[0].lat);
+    doc.fillColor('#34A853').circle(sx, sy, markerR).fill();
+    doc.fillColor('#fff').circle(sx, sy, markerR * 0.45).fill();
   }
 
   if (coords.length >= 2) {
-    const ex = x + ((coords[coords.length - 1].lon - gridMinLon) / gridLonRange) * w;
-    const ey = y + (1 - (coords[coords.length - 1].lat - gridMinLat) / gridLatRange) * h;
-    doc.fillColor(RED).circle(ex, ey, 7).fill();
-    doc.fillColor('#fff').circle(ex, ey, 3.5).fill();
-    doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-    doc.text('END', ex - 10, ey + 10);
+    const ex = toMapX(coords[coords.length - 1].lon);
+    const ey = toMapY(coords[coords.length - 1].lat);
+    doc.fillColor('#EA4335').circle(ex, ey, markerR).fill();
+    doc.fillColor('#fff').circle(ex, ey, markerR * 0.45).fill();
   }
 
   doc.restore();
 
-  doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+  doc.strokeColor('#ccc').lineWidth(0.5).rect(x, y, w, h).stroke();
 
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
-  doc.text('Route Map', x + 8, y + 8);
+  const legendY = y + h - 14;
+  const legendX = x + 8;
+  doc.fillColor('#34A853').circle(legendX + 4, legendY + 4, 3).fill();
+  doc.font('Helvetica').fontSize(5.5).fillColor('#333');
+  doc.text('Start', legendX + 10, legendY + 1);
+  doc.fillColor('#EA4335').circle(legendX + 40, legendY + 4, 3).fill();
+  doc.fillColor('#333').text('End', legendX + 46, legendY + 1);
 
-  doc.fillColor(GREEN).circle(x + 15, y + h - 15, 4).fill();
-  doc.fillColor(BLACK).fontSize(6).text('Start', x + 22, y + h - 17);
-  doc.fillColor(RED).circle(x + 55, y + h - 15, 4).fill();
-  doc.fillColor(BLACK).text('End', x + 62, y + h - 17);
-
-  doc.font('Helvetica').fontSize(4).fillColor(GRAY);
-  doc.text('© OpenStreetMap contributors', x + w - 100, y + h - 10);
+  doc.font('Helvetica').fontSize(3.5).fillColor('#999');
+  doc.text('CARTO, OpenStreetMap', x + w - 80, y + h - 9);
 }
 
 function drawGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, 
