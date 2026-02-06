@@ -50,7 +50,7 @@ function withAppleWatch(config) {
   config = withXcodeProject(config, (mod) => {
     const project = mod.modResults;
     const mainBundleId =
-      mod.ios?.bundleIdentifier || "com.bladeoutboards.app";
+      mod.ios?.bundleIdentifier || "app.replit.bladeoutboards";
 
     var appExtensions = mod.extra?.eas?.build?.experimental?.ios?.appExtensions || [];
     var watchConfig = appExtensions.find(function(ext) { return ext.targetName === WATCH_TARGET_NAME; });

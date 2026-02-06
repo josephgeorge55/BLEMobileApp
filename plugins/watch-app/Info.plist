@@ -21,7 +21,7 @@
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>WKCompanionAppBundleIdentifier</key>
-    <string>com.bladeoutboards.app</string>
+    <string>app.replit.bladeoutboards</string>
     <key>WKRunsIndependentlyOfCompanionApp</key>
     <false/>
 </dict>

@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bladeoutboards.app",
+      "bundleIdentifier": "app.replit.bladeoutboards",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Blade Outboards uses your location to show your position relative to your outboard motor.",
@@ -100,12 +100,12 @@
               "appExtensions": [
                 {
                   "targetName": "BladeOutboardsWidgetExtension",
-                  "bundleIdentifier": "com.bladeoutboards.app.widget",
+                  "bundleIdentifier": "app.replit.bladeoutboards.widget",
                   "entitlements": {}
                 },
                 {
                   "targetName": "BladeOutboardsWatch",
-                  "bundleIdentifier": "com.bladeoutboards.app.watchkitapp",
+                  "bundleIdentifier": "app.replit.bladeoutboards.watchkitapp",
                   "entitlements": {}
                 }
               ]

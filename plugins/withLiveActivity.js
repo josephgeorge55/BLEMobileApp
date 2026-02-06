@@ -52,7 +52,7 @@ function withLiveActivity(config) {
   config = withXcodeProject(config, (mod) => {
     const project = mod.modResults;
     const mainBundleId =
-      mod.ios?.bundleIdentifier || "com.bladeoutboards.app";
+      mod.ios?.bundleIdentifier || "app.replit.bladeoutboards";
 
     var appExtensions = mod.extra?.eas?.build?.experimental?.ios?.appExtensions || [];
     var extConfig = appExtensions.find(function(ext) { return ext.targetName === EXT_NAME; });
