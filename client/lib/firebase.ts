@@ -154,9 +154,10 @@ export async function registerMotorForUser(
 ): Promise<{ success: boolean; error?: string }> {
   console.log("[Firebase] registerMotorForUser called:", { userId, serialNumber, motorName });
   
-  // Validate serial number format - skip Bluetooth MAC addresses
-  if (!serialNumber || serialNumber.includes(':')) {
-    console.error("[Firebase] Invalid serial number (looks like Bluetooth address):", serialNumber);
+  // Validate serial number format - skip Bluetooth MAC addresses and iOS BLE UUIDs
+  const isPlaceholderSerial = !serialNumber || serialNumber.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(serialNumber);
+  if (isPlaceholderSerial) {
+    console.error("[Firebase] Invalid serial number (placeholder/device ID):", serialNumber);
     return { success: false, error: "Motor serial number not yet received. Please wait for the motor to send its identity." };
   }
   

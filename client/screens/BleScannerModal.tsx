@@ -290,7 +290,7 @@ export default function BleScannerModal() {
           onConnected: async (connectedDevice) => {
             addDebugLog("INFO", `Bluetooth Classic connected callback: ${connectedDevice.name}`);
             console.log("Bluetooth Classic connected:", connectedDevice.name);
-            await connectToMotor(device.serialNumber);
+            await connectToMotor(device.id);
           },
           onDisconnected: (deviceId) => {
             addDebugLog("INFO", `Bluetooth Classic disconnected callback: ${deviceId}`);
@@ -323,7 +323,7 @@ export default function BleScannerModal() {
           onConnected: async (connectedDevice) => {
             addDebugLog("INFO", `BLE connected callback: ${connectedDevice.name}`);
             console.log("BLE connected:", connectedDevice.name);
-            await connectToMotor(device.serialNumber);
+            await connectToMotor(device.id);
           },
           onDisconnected: (deviceId) => {
             addDebugLog("INFO", `BLE disconnected callback: ${deviceId}`);
@@ -358,26 +358,28 @@ export default function BleScannerModal() {
         setTimeout(async () => {
           addDebugLog("INFO", "[AntiTheft] Checking motor registration in background...");
           let realSerial: string | null = null;
+          const isPlaceholder = (s: string) => 
+            !s || s.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s);
           
           // Wait briefly for real serial from INFOR G1 frame
-          for (let attempt = 0; attempt < 4; attempt++) {
+          for (let attempt = 0; attempt < 6; attempt++) {
             await new Promise(resolve => setTimeout(resolve, 500));
             const currentMotor = motorRef.current;
-            if (currentMotor?.serialNumber && !currentMotor.serialNumber.includes(':')) {
+            if (currentMotor?.serialNumber && !isPlaceholder(currentMotor.serialNumber)) {
               realSerial = currentMotor.serialNumber;
-              addDebugLog("INFO", `[AntiTheft] Got real serial: ${realSerial}`);
+              addDebugLog("INFO", `[AntiTheft] Got real serial from telemetry: ${realSerial}`);
               break;
             }
           }
           
           if (!realSerial) {
-            addDebugLog("INFO", "[AntiTheft] Could not get real serial, using device serial");
-            realSerial = device.serialNumber;
+            addDebugLog("INFO", "[AntiTheft] Could not get real serial from telemetry data, skipping registration");
+            return;
           }
           
-          // Skip if serial is still a BT address
-          if (realSerial.includes(':')) {
-            addDebugLog("INFO", "[AntiTheft] Serial is BT address, skipping registration check");
+          // Skip if serial is still a placeholder (BT address or UUID)
+          if (isPlaceholder(realSerial)) {
+            addDebugLog("INFO", "[AntiTheft] Serial is still a placeholder, skipping registration check");
             return;
           }
           
@@ -447,9 +449,9 @@ export default function BleScannerModal() {
       const serialToRegister = pairedMotor.serialNumber;
       const motorName = pairedMotor.name;
       
-      // Validate serial number format
-      if (serialToRegister.includes(':')) {
-        addDebugLog("ERROR", "[AntiTheft] Serial still contains BT address format");
+      // Validate serial number format (not a BT address or iOS UUID)
+      if (serialToRegister.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(serialToRegister)) {
+        addDebugLog("ERROR", "[AntiTheft] Serial is still a device ID placeholder");
         Alert.alert(
           "Registration Issue",
           "Could not retrieve motor serial number. Please try enabling anti-theft from Settings later."

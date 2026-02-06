@@ -140,18 +140,18 @@ export default function SettingsScreen() {
       return;
     }
     
-    // Prefer real serial number from telemetry over Bluetooth MAC address
+    // Prefer real serial number from telemetry over BLE device ID placeholder
     const rawSerial = motor.serialNumber;
     const tillerSerial = telemetry?.tillerSerialNumber;
-    const isBluetoothAddress = rawSerial?.includes(':');
+    const isPlaceholderSerial = rawSerial?.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(rawSerial || '');
     
-    // Use tiller serial if motor serial looks like a Bluetooth address
-    const serialNumber = (isBluetoothAddress && tillerSerial) ? tillerSerial : rawSerial;
+    // Use tiller serial if motor serial is a placeholder (BT address or iOS UUID)
+    const serialNumber = (isPlaceholderSerial && tillerSerial) ? tillerSerial : rawSerial;
     
-    console.log("[SettingsScreen] Linking motor:", { rawSerial, tillerSerial, isBluetoothAddress, serialNumber });
+    console.log("[SettingsScreen] Linking motor:", { rawSerial, tillerSerial, isPlaceholderSerial, serialNumber });
     
-    // Validate we have a real serial number
-    if (!serialNumber || serialNumber.includes(':')) {
+    // Validate we have a real serial number (not a BT address or iOS BLE UUID)
+    if (!serialNumber || serialNumber.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(serialNumber)) {
       Alert.alert(
         "Waiting for Motor Identity",
         "The motor hasn't sent its serial number yet. Please wait a few seconds and try again.",

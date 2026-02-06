@@ -169,17 +169,18 @@ export function DebugLogModal({ visible, onClose }: Props) {
     // Check motor state
     const motorSerial = motor?.serialNumber;
     const tillerSerial = telemetry?.tillerSerialNumber;
-    const isBluetoothAddress = motorSerial?.includes(':');
-    const effectiveSerial = (isBluetoothAddress && tillerSerial) ? tillerSerial : motorSerial;
+    const isDeviceId = motorSerial ? (motorSerial.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(motorSerial)) : false;
+    const effectiveSerial = (isDeviceId && tillerSerial) ? tillerSerial : motorSerial;
     
     addAntiTheftLog("INFO", `Motor connected: ${motor?.isConnected}`);
     addAntiTheftLog("INFO", `Motor serialNumber: ${motorSerial || 'null'}`);
     addAntiTheftLog("INFO", `Telemetry tillerSerialNumber: ${tillerSerial || 'null'}`);
-    addAntiTheftLog("INFO", `Is Bluetooth address: ${isBluetoothAddress}`);
+    addAntiTheftLog("INFO", `Is device ID placeholder: ${isDeviceId}`);
     addAntiTheftLog("INFO", `Effective serial: ${effectiveSerial || 'null'}`);
     
+    const isPlaceholder = (s: string) => s.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s);
     // Attempt registration if we have all the pieces
-    if (user?.id && !isGuestMode && effectiveSerial && !effectiveSerial.includes(':')) {
+    if (user?.id && !isGuestMode && effectiveSerial && !isPlaceholder(effectiveSerial)) {
       addAntiTheftLog("INFO", "Attempting test registration...");
       try {
         const result = await registerMotorForUser(user.id, effectiveSerial, "Debug Test Motor");
@@ -197,7 +198,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
       if (!user?.id) addAntiTheftLog("WARN", "- No user ID");
       if (isGuestMode) addAntiTheftLog("WARN", "- Guest mode active");
       if (!effectiveSerial) addAntiTheftLog("WARN", "- No serial number");
-      if (effectiveSerial?.includes(':')) addAntiTheftLog("WARN", "- Serial is Bluetooth address");
+      if (effectiveSerial && isPlaceholder(effectiveSerial)) addAntiTheftLog("WARN", "- Serial is device ID placeholder");
     }
   };
 
@@ -207,8 +208,9 @@ export function DebugLogModal({ visible, onClose }: Props) {
     // Get effective serial number
     const motorSerial = motor?.serialNumber;
     const tillerSerial = telemetry?.tillerSerialNumber;
-    const isBluetoothAddress = motorSerial?.includes(':');
-    const effectiveSerial = (isBluetoothAddress && tillerSerial) ? tillerSerial : motorSerial;
+    const isDeviceId = motorSerial ? (motorSerial.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(motorSerial)) : false;
+    const effectiveSerial = (isDeviceId && tillerSerial) ? tillerSerial : motorSerial;
+    const isPlaceholderCheck = (s: string) => s.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s);
     
     addLocationLog("INFO", `Motor serialNumber: ${motorSerial || 'null'}`);
     addLocationLog("INFO", `Telemetry tillerSerialNumber: ${tillerSerial || 'null'}`);
@@ -216,14 +218,14 @@ export function DebugLogModal({ visible, onClose }: Props) {
     
     // Try registered motors if no connected motor
     let serialToLookup = effectiveSerial;
-    if (!serialToLookup || serialToLookup.includes(':')) {
+    if (!serialToLookup || isPlaceholderCheck(serialToLookup)) {
       if (registeredMotors.length > 0) {
         serialToLookup = registeredMotors[0].serialNumber;
         addLocationLog("INFO", `Using first registered motor: ${serialToLookup}`);
       }
     }
     
-    if (!serialToLookup || serialToLookup.includes(':')) {
+    if (!serialToLookup || isPlaceholderCheck(serialToLookup)) {
       addLocationLog("ERROR", "No valid serial number for location lookup");
       return;
     }
@@ -276,8 +278,8 @@ export function DebugLogModal({ visible, onClose }: Props) {
     // Check motor state
     const motorSerial = motor?.serialNumber;
     const tillerSerial = telemetry?.tillerSerialNumber;
-    const isBluetoothAddress = motorSerial?.includes(':');
-    const effectiveSerial = (isBluetoothAddress && tillerSerial) ? tillerSerial : motorSerial;
+    const isDeviceId = motorSerial ? (motorSerial.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(motorSerial)) : false;
+    const effectiveSerial = (isDeviceId && tillerSerial) ? tillerSerial : motorSerial;
     
     addTripLog("INFO", `Motor connected: ${motor?.isConnected}`);
     addTripLog("INFO", `Motor serialNumber: ${motorSerial || 'null'}`);

@@ -287,14 +287,16 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
           addDebugLog("PARSE", `INFOR G1: firmware=${data.firmwareVersion}, serial=${data.serialNumber}`);
           inforG1Ref.current = data;
           
-          // Update motor with real serial number from Bluetooth data
-          // This is critical for real Bluetooth connections where initial serial is just the device address
+          // Update motor with real serial number from Bluetooth telemetry data (INFOR G1 frame)
+          // Initial serial is the BLE device ID (MAC on Android, UUID on iOS) - always update with real serial from telemetry
           const currentMotor = motorRef.current;
           if (data.serialNumber && currentMotor) {
             const currentSerial = currentMotor.serialNumber;
-            // Only update if we have a different, valid serial number (not a Bluetooth address like "AA:BB:CC:DD:EE:FF")
-            if (data.serialNumber !== currentSerial && !data.serialNumber.includes(':')) {
-              addDebugLog("INFO", `Updating motor serial from ${currentSerial} to ${data.serialNumber}`);
+            const isValidNewSerial = data.serialNumber !== currentSerial && 
+              !data.serialNumber.includes(':') && 
+              !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(data.serialNumber);
+            if (isValidNewSerial) {
+              addDebugLog("INFO", `Updating motor serial from ${currentSerial} to ${data.serialNumber} (from INFOR G1 telemetry)`);
               setMotor({
                 ...currentMotor,
                 serialNumber: data.serialNumber,

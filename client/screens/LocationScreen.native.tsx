@@ -40,14 +40,15 @@ export default function LocationScreen() {
   const isConnected = motor?.isConnected;
   
   // Get the effective serial number:
-  // 1. If connected and motor has a valid serial (not Bluetooth MAC address), use it
-  // 2. If connected but motor.serialNumber is a BT address, check telemetry.tillerSerialNumber (from INFOR G1)
+  // 1. If connected and motor has a valid serial (not Bluetooth MAC address or iOS UUID), use it
+  // 2. If connected but motor.serialNumber is a placeholder, check telemetry.tillerSerialNumber (from INFOR G1)
   // 3. Fall back to first registered motor's serial
+  const isPlaceholder = (s: string) => s.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s);
   const getEffectiveSerialNumber = (): string | undefined => {
-    if (motor?.serialNumber && !motor.serialNumber.includes(':')) {
+    if (motor?.serialNumber && !isPlaceholder(motor.serialNumber)) {
       return motor.serialNumber;
     }
-    if (telemetry?.tillerSerialNumber && !telemetry.tillerSerialNumber.includes(':')) {
+    if (telemetry?.tillerSerialNumber && !isPlaceholder(telemetry.tillerSerialNumber)) {
       return telemetry.tillerSerialNumber;
     }
     if (registeredMotors.length > 0 && registeredMotors[0]?.serialNumber) {
