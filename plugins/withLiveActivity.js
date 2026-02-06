@@ -8,6 +8,16 @@ const fs = require("fs");
 
 const EXT_NAME = "BladeOutboardsWidgetExtension";
 
+function getAppleTeamId(config) {
+  if (process.env.APPLE_TEAM_IDENTIFIER) {
+    return process.env.APPLE_TEAM_IDENTIFIER;
+  }
+  if (config.ios && config.ios.appleTeamId) {
+    return config.ios.appleTeamId;
+  }
+  return null;
+}
+
 function withLiveActivity(config) {
   config = withInfoPlist(config, (mod) => {
     mod.modResults.NSSupportsLiveActivities = true;
@@ -48,6 +58,7 @@ function withLiveActivity(config) {
     const mainBundleId =
       mod.ios?.bundleIdentifier || "com.bladeoutboards.app";
     const extBundleId = mainBundleId + ".widget";
+    const appleTeamId = getAppleTeamId(mod);
 
     const target = project.addTarget(
       EXT_NAME,
@@ -63,18 +74,20 @@ function withLiveActivity(config) {
 
     var objects = project.hash.project.objects;
 
-    var mainTarget = project.getFirstTarget();
-    var mainDevTeam = null;
-    if (mainTarget && mainTarget.firstTarget) {
-      var mainConfigListUuid = mainTarget.firstTarget.buildConfigurationList;
-      var mainConfigList = objects.XCConfigurationList[mainConfigListUuid];
-      if (mainConfigList && mainConfigList.buildConfigurations) {
-        for (var m = 0; m < mainConfigList.buildConfigurations.length; m++) {
-          var mainConfigRef = mainConfigList.buildConfigurations[m];
-          var mainBuildConfig = objects.XCBuildConfiguration[mainConfigRef.value];
-          if (mainBuildConfig && mainBuildConfig.buildSettings && mainBuildConfig.buildSettings.DEVELOPMENT_TEAM) {
-            mainDevTeam = mainBuildConfig.buildSettings.DEVELOPMENT_TEAM;
-            break;
+    var devTeam = appleTeamId;
+    if (!devTeam) {
+      var mainTarget = project.getFirstTarget();
+      if (mainTarget && mainTarget.firstTarget) {
+        var mainConfigListUuid = mainTarget.firstTarget.buildConfigurationList;
+        var mainConfigList = objects.XCConfigurationList[mainConfigListUuid];
+        if (mainConfigList && mainConfigList.buildConfigurations) {
+          for (var m = 0; m < mainConfigList.buildConfigurations.length; m++) {
+            var mainConfigRef = mainConfigList.buildConfigurations[m];
+            var mainBuildConfig = objects.XCBuildConfiguration[mainConfigRef.value];
+            if (mainBuildConfig && mainBuildConfig.buildSettings && mainBuildConfig.buildSettings.DEVELOPMENT_TEAM) {
+              devTeam = mainBuildConfig.buildSettings.DEVELOPMENT_TEAM;
+              break;
+            }
           }
         }
       }
@@ -126,10 +139,10 @@ function withLiveActivity(config) {
             '"$(TARGET_NAME)"';
           buildConfig.buildSettings.SWIFT_EMIT_LOC_STRINGS = "YES";
           buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
-          if (mainDevTeam) {
-            buildConfig.buildSettings.DEVELOPMENT_TEAM = mainDevTeam;
-          }
           buildConfig.buildSettings.CODE_SIGN_STYLE = "Automatic";
+          if (devTeam) {
+            buildConfig.buildSettings.DEVELOPMENT_TEAM = devTeam;
+          }
         }
       }
     }

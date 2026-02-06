@@ -7,6 +7,16 @@ const fs = require("fs");
 
 const WATCH_TARGET_NAME = "BladeOutboardsWatch";
 
+function getAppleTeamId(config) {
+  if (process.env.APPLE_TEAM_IDENTIFIER) {
+    return process.env.APPLE_TEAM_IDENTIFIER;
+  }
+  if (config.ios && config.ios.appleTeamId) {
+    return config.ios.appleTeamId;
+  }
+  return null;
+}
+
 function withAppleWatch(config) {
   config = withDangerousMod(config, [
     "ios",
@@ -46,6 +56,7 @@ function withAppleWatch(config) {
     const mainBundleId =
       mod.ios?.bundleIdentifier || "com.bladeoutboards.app";
     const watchBundleId = mainBundleId + ".watchkitapp";
+    const appleTeamId = getAppleTeamId(mod);
 
     var target = project.addTarget(
       WATCH_TARGET_NAME,
@@ -61,18 +72,20 @@ function withAppleWatch(config) {
 
     var objects = project.hash.project.objects;
 
-    var mainTarget = project.getFirstTarget();
-    var mainDevTeam = null;
-    if (mainTarget && mainTarget.firstTarget) {
-      var mainConfigListUuid = mainTarget.firstTarget.buildConfigurationList;
-      var mainConfigList = objects.XCConfigurationList[mainConfigListUuid];
-      if (mainConfigList && mainConfigList.buildConfigurations) {
-        for (var m = 0; m < mainConfigList.buildConfigurations.length; m++) {
-          var mainConfigRef = mainConfigList.buildConfigurations[m];
-          var mainBuildConfig = objects.XCBuildConfiguration[mainConfigRef.value];
-          if (mainBuildConfig && mainBuildConfig.buildSettings && mainBuildConfig.buildSettings.DEVELOPMENT_TEAM) {
-            mainDevTeam = mainBuildConfig.buildSettings.DEVELOPMENT_TEAM;
-            break;
+    var devTeam = appleTeamId;
+    if (!devTeam) {
+      var mainTarget = project.getFirstTarget();
+      if (mainTarget && mainTarget.firstTarget) {
+        var mainConfigListUuid = mainTarget.firstTarget.buildConfigurationList;
+        var mainConfigList = objects.XCConfigurationList[mainConfigListUuid];
+        if (mainConfigList && mainConfigList.buildConfigurations) {
+          for (var m = 0; m < mainConfigList.buildConfigurations.length; m++) {
+            var mainConfigRef = mainConfigList.buildConfigurations[m];
+            var mainBuildConfig = objects.XCBuildConfiguration[mainConfigRef.value];
+            if (mainBuildConfig && mainBuildConfig.buildSettings && mainBuildConfig.buildSettings.DEVELOPMENT_TEAM) {
+              devTeam = mainBuildConfig.buildSettings.DEVELOPMENT_TEAM;
+              break;
+            }
           }
         }
       }
@@ -133,11 +146,10 @@ function withAppleWatch(config) {
           buildConfig.buildSettings.CURRENT_PROJECT_VERSION = "1";
           buildConfig.buildSettings.ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "YES";
           buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
-          buildConfig.buildSettings.SWIFT_OPTIMIZATION_LEVEL = '"-Onone"';
-          if (mainDevTeam) {
-            buildConfig.buildSettings.DEVELOPMENT_TEAM = mainDevTeam;
-          }
           buildConfig.buildSettings.CODE_SIGN_STYLE = "Automatic";
+          if (devTeam) {
+            buildConfig.buildSettings.DEVELOPMENT_TEAM = devTeam;
+          }
         }
       }
     }
