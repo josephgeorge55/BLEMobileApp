@@ -53,7 +53,10 @@ function withLiveActivity(config) {
     const project = mod.modResults;
     const mainBundleId =
       mod.ios?.bundleIdentifier || "com.bladeoutboards.app";
-    const extBundleId = mainBundleId + ".widget";
+
+    var appExtensions = mod.extra?.eas?.build?.experimental?.ios?.appExtensions || [];
+    var extConfig = appExtensions.find(function(ext) { return ext.targetName === EXT_NAME; });
+    const extBundleId = extConfig?.bundleIdentifier || (mainBundleId + ".widget");
     const appleTeamId = getAppleTeamId(mod);
 
     const target = project.addTarget(

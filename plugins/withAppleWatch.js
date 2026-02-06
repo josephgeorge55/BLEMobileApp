@@ -51,7 +51,10 @@ function withAppleWatch(config) {
     const project = mod.modResults;
     const mainBundleId =
       mod.ios?.bundleIdentifier || "com.bladeoutboards.app";
-    const watchBundleId = mainBundleId + ".watchkitapp";
+
+    var appExtensions = mod.extra?.eas?.build?.experimental?.ios?.appExtensions || [];
+    var watchConfig = appExtensions.find(function(ext) { return ext.targetName === WATCH_TARGET_NAME; });
+    const watchBundleId = watchConfig?.bundleIdentifier || (mainBundleId + ".watchkitapp");
     const appleTeamId = getAppleTeamId(mod);
 
     var target = project.addTarget(
