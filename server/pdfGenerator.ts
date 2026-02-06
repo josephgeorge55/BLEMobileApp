@@ -380,12 +380,36 @@ async function prefetchMapTiles(coords: { lat: number; lon: number }[]): Promise
 
   const latSpan = maxLat - minLat;
   const lonSpan = maxLon - minLon;
-  const latPad = Math.max(latSpan * 0.3, 0.008);
-  const lonPad = Math.max(lonSpan * 0.3, 0.008);
+  const latPad = Math.max(latSpan * 0.4, 0.012);
+  const lonPad = Math.max(lonSpan * 0.4, 0.012);
   minLat -= latPad;
   maxLat += latPad;
   minLon -= lonPad;
   maxLon += lonPad;
+
+  const targetAspect = 5.2;
+  const mercMinY = latToMercY(maxLat);
+  const mercMaxY = latToMercY(minLat);
+  const mercMinX = lonToMercX(minLon);
+  const mercMaxX = lonToMercX(maxLon);
+  let mercW = mercMaxX - mercMinX;
+  let mercH = mercMaxY - mercMinY;
+  const currentAspect = mercW / (mercH || 0.0001);
+
+  if (currentAspect < targetAspect) {
+    const neededMercW = mercH * targetAspect;
+    const extraLon = ((neededMercW - mercW) / 2) * 360;
+    minLon -= extraLon;
+    maxLon += extraLon;
+  } else if (currentAspect > targetAspect * 1.5) {
+    const neededMercH = mercW / targetAspect;
+    const extraMerc = (neededMercH - mercH) / 2;
+    const centerMercY = (mercMinY + mercMaxY) / 2;
+    const newMinMercY = centerMercY - neededMercH / 2;
+    const newMaxMercY = centerMercY + neededMercH / 2;
+    maxLat = Math.atan(Math.sinh(Math.PI * (1 - 2 * newMinMercY))) * 180 / Math.PI;
+    minLat = Math.atan(Math.sinh(Math.PI * (1 - 2 * newMaxMercY))) * 180 / Math.PI;
+  }
 
   let zoom = 14;
   for (let z = 16; z >= 2; z--) {
@@ -396,7 +420,7 @@ async function prefetchMapTiles(coords: { lat: number; lon: number }[]): Promise
     const spanX = tileXMax - tileXMin + 1;
     const spanY = tileYMax - tileYMin + 1;
     const totalTiles = spanX * spanY;
-    if (totalTiles <= 30 && spanX >= 2 && spanY >= 2) {
+    if (totalTiles <= 42 && spanX >= 3) {
       zoom = z;
       break;
     }
@@ -504,10 +528,10 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
 
   const tileScaleX = w / gridMercW;
   const tileScaleY = h / gridMercH;
-  const uniformScale = Math.min(tileScaleX, tileScaleY);
+  const coverScale = Math.max(tileScaleX, tileScaleY);
 
-  const renderedW = gridMercW * uniformScale;
-  const renderedH = gridMercH * uniformScale;
+  const renderedW = gridMercW * coverScale;
+  const renderedH = gridMercH * coverScale;
   const offsetX = x + (w - renderedW) / 2;
   const offsetY = y + (h - renderedH) / 2;
 
@@ -558,6 +582,8 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
     const sy = toMapY(coords[0].lat);
     doc.fillColor('#34A853').circle(sx, sy, markerR).fill();
     doc.fillColor('#fff').circle(sx, sy, markerR * 0.45).fill();
+    doc.font('Helvetica-Bold').fontSize(6).fillColor('#1a1a1a');
+    doc.text('START', sx - 14, sy + markerR + 2);
   }
 
   if (coords.length >= 2) {
@@ -565,22 +591,58 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
     const ey = toMapY(coords[coords.length - 1].lat);
     doc.fillColor('#EA4335').circle(ex, ey, markerR).fill();
     doc.fillColor('#fff').circle(ex, ey, markerR * 0.45).fill();
+    doc.font('Helvetica-Bold').fontSize(6).fillColor('#1a1a1a');
+    doc.text('END', ex - 10, ey + markerR + 2);
   }
+
+  const visMinLon = gridMinMercX + ((x - offsetX) / renderedW) * gridMercW;
+  const visMaxLon = gridMinMercX + ((x + w - offsetX) / renderedW) * gridMercW;
+  const visLonSpanMerc = (visMaxLon - visMinLon) * 360;
+  const centerLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
+  const metersPerDegLon = 111320 * Math.cos(centerLat * Math.PI / 180);
+  const visWidthMeters = visLonSpanMerc * metersPerDegLon;
+
+  let scaleMeters: number;
+  let scaleLabel: string;
+  const targetBarPx = w * 0.15;
+  const metersPerPx = visWidthMeters / w;
+  const rawScaleMeters = targetBarPx * metersPerPx;
+
+  if (rawScaleMeters >= 5000) {
+    scaleMeters = Math.round(rawScaleMeters / 5000) * 5000;
+    scaleLabel = `${(scaleMeters / 1000).toFixed(0)} km`;
+  } else if (rawScaleMeters >= 1000) {
+    scaleMeters = Math.round(rawScaleMeters / 1000) * 1000;
+    scaleLabel = `${(scaleMeters / 1000).toFixed(0)} km`;
+  } else if (rawScaleMeters >= 100) {
+    scaleMeters = Math.round(rawScaleMeters / 100) * 100;
+    scaleLabel = `${scaleMeters} m`;
+  } else {
+    scaleMeters = Math.round(rawScaleMeters / 50) * 50 || 50;
+    scaleLabel = `${scaleMeters} m`;
+  }
+
+  const scaleBarW = (scaleMeters / metersPerPx);
+  const scaleNm = (scaleMeters / 1852);
+  if (scaleNm >= 0.1) {
+    scaleLabel += ` / ${scaleNm < 1 ? scaleNm.toFixed(1) : scaleNm.toFixed(0)} nm`;
+  }
+
+  const scaleBarX = x + w - scaleBarW - 12;
+  const scaleBarY = y + h - 14;
+  doc.strokeColor('#333').lineWidth(1.5);
+  doc.moveTo(scaleBarX, scaleBarY).lineTo(scaleBarX + scaleBarW, scaleBarY).stroke();
+  doc.moveTo(scaleBarX, scaleBarY - 3).lineTo(scaleBarX, scaleBarY + 3).stroke();
+  doc.moveTo(scaleBarX + scaleBarW, scaleBarY - 3).lineTo(scaleBarX + scaleBarW, scaleBarY + 3).stroke();
+  doc.font('Helvetica-Bold').fontSize(5.5).fillColor('#333');
+  doc.text(scaleLabel, scaleBarX, scaleBarY - 10, { width: scaleBarW, align: 'center' });
 
   doc.restore();
 
-  doc.strokeColor('#ccc').lineWidth(0.5).rect(x, y, w, h).stroke();
-
-  const legendY = y + h - 14;
-  const legendX = x + 8;
-  doc.fillColor('#34A853').circle(legendX + 4, legendY + 4, 3).fill();
-  doc.font('Helvetica').fontSize(5.5).fillColor('#333');
-  doc.text('Start', legendX + 10, legendY + 1);
-  doc.fillColor('#EA4335').circle(legendX + 40, legendY + 4, 3).fill();
-  doc.fillColor('#333').text('End', legendX + 46, legendY + 1);
+  doc.strokeColor('#bbb').lineWidth(0.5).rect(x, y, w, h).stroke();
 
   doc.font('Helvetica').fontSize(3.5).fillColor('#999');
-  doc.text('CARTO, OpenStreetMap', x + w - 80, y + h - 9);
+  doc.text('CARTO, OpenStreetMap', x + 4, y + h - 9);
 }
 
 function drawGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, 
