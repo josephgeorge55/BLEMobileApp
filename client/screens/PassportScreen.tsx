@@ -18,6 +18,7 @@ import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import * as Haptics from "expo-haptics";
 import { Paths, File as FSFile } from "expo-file-system";
+import QRCode from "react-native-qrcode-svg";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useUser } from "@/context/UserContext";
@@ -31,7 +32,8 @@ import {
 import { getApiUrl } from "@/lib/query-client";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 
-const bladeLogo = require("../../assets/images/blade-outboards-logo.png");
+const bladePassportLogo = require("../../assets/images/blade-passport-logo.png");
+const ukcaLogo = require("../../assets/images/ukca-logo.png");
 const haloOutboard = require("../../assets/images/halo-outboard.png");
 
 function metersToFeet(meters: number): number {
@@ -98,6 +100,8 @@ export default function PassportScreen() {
     vesselHin: boatData?.vin || "Not available",
   });
 
+  const qrCodeUrl = `https://bladeoutboards.com/passport?serial=${encodeURIComponent(serialNumber)}&owner=${encodeURIComponent(user?.id || '')}`;
+
   const handleAddToAppleWallet = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setAddingToWallet(true);
@@ -161,14 +165,21 @@ export default function PassportScreen() {
       }
 
       const data = await response.json();
-      const walletUrl = data.url || data.saveUrl;
 
-      if (walletUrl) {
-        await WebBrowser.openBrowserAsync(walletUrl);
+      if (data.url) {
+        await WebBrowser.openBrowserAsync(data.url);
+      } else if (data.data) {
+        const filePath = `${Paths.cache}/blade-passport-google.pdf`;
+        const file = new FSFile(filePath);
+        await file.write(data.data, { encoding: "base64" });
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(filePath, { mimeType: "application/pdf" });
+        }
       } else if (data.message) {
         Alert.alert("Google Wallet", data.message);
       } else {
-        throw new Error("No wallet URL received");
+        throw new Error("No wallet data received");
       }
     } catch (error: any) {
       console.error("[Passport] Google Wallet error:", error);
@@ -261,7 +272,7 @@ export default function PassportScreen() {
         <View ref={cardRef} style={styles.card}>
           <View style={styles.logoContainer}>
             <Image
-              source={bladeLogo}
+              source={bladePassportLogo}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -318,12 +329,44 @@ export default function PassportScreen() {
             {renderInfoRow("Vessel HIN", boatData?.vin || "Not available")}
           </View>
 
-          <View style={styles.badgesRow}>
-            {["CE", "UKCA", "RoHS", "FCC", "IP67"].map((badge) => (
-              <View key={badge} style={styles.badge}>
-                <Text style={styles.badgeText}>{badge}</Text>
+          <View style={styles.regulatorySection}>
+            {renderSectionHeader("REGULATORY COMPLIANCE")}
+            <View style={styles.regulatoryRow}>
+              <Image
+                source={ukcaLogo}
+                style={styles.ukcaImage}
+                resizeMode="contain"
+              />
+              <View style={styles.badgesRow}>
+                {["CE", "RoHS", "FCC", "IP67"].map((badge) => (
+                  <View key={badge} style={styles.badge}>
+                    <Text style={styles.badgeText}>{badge}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
+            </View>
+          </View>
+
+          <View style={styles.qrSection}>
+            {renderSectionHeader("WARRANTY & SERVICE")}
+            <View style={styles.qrContainer}>
+              <View style={styles.qrCodeWrapper}>
+                <QRCode
+                  value={qrCodeUrl}
+                  size={120}
+                  backgroundColor="#FFFFFF"
+                  color="#1F2937"
+                />
+              </View>
+              <View style={styles.qrTextContainer}>
+                <Text style={styles.qrTitle}>Scan for Warranty Lookup</Text>
+                <Text style={styles.qrDescription}>
+                  Use this QR code at authorized Blade service centers worldwide
+                  for warranty verification, service history, and promotional
+                  prize eligibility at international boat shows and tradeshows.
+                </Text>
+              </View>
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -435,8 +478,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   logo: {
-    width: 160,
-    height: 48,
+    width: 200,
+    height: 56,
   },
   passportTitle: {
     textAlign: "center",
@@ -517,13 +560,51 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     marginLeft: Spacing.md,
   },
+  regulatorySection: {
+    marginBottom: Spacing.lg,
+  },
+  regulatoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+  },
+  ukcaImage: {
+    width: 60,
+    height: 40,
+  },
+  qrSection: {
+    marginBottom: Spacing.md,
+  },
+  qrContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.lg,
+  },
+  qrCodeWrapper: {
+    padding: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E8ECF0",
+  },
+  qrTextContainer: {
+    flex: 1,
+  },
+  qrTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: Spacing.xs,
+  },
+  qrDescription: {
+    fontSize: 11,
+    color: "#6B7280",
+    lineHeight: 16,
+  },
   badgesRow: {
     flexDirection: "row",
-    justifyContent: "center",
     flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xs,
+    gap: Spacing.xs,
   },
   badge: {
     backgroundColor: "#F3F4F6",

@@ -19,7 +19,7 @@ import {
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { generateTripPDF } from "./pdfGenerator";
-import { generatePassportPDF } from "./passportPdfGenerator";
+import { generatePassportPDF, generatePassportPDFBuffer } from "./passportPdfGenerator";
 
 const LOG_DIR = join(process.cwd(), "logs");
 const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
@@ -666,32 +666,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Passport data is required" });
       }
 
-      const PDFDocumentModule = (await import('pdfkit')).default;
-      const doc = new PDFDocumentModule({ size: 'A4' });
-      const chunks: Buffer[] = [];
-
-      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-
-      const pdfPromise = new Promise<Buffer>((resolve) => {
-        doc.on('end', () => resolve(Buffer.concat(chunks)));
-      });
-
-      doc.fontSize(20).text('BLADE OUTBOARD PASSPORT', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(12).text(`Owner: ${passportData.ownerEmail}`);
-      doc.text(`Serial: ${passportData.serialNumber || 'N/A'}`);
-      doc.text(`Product: ${passportData.productName || 'Blade Halo 6'}`);
-      doc.text(`Purchase: ${passportData.purchaseDate || 'N/A'}`);
-      doc.text(`Warranty: ${passportData.warrantyExpires || 'N/A'}`);
-      doc.end();
-
-      const pdfBuffer = await pdfPromise;
+      const pdfBuffer = await generatePassportPDFBuffer(passportData);
       const base64 = pdfBuffer.toString('base64');
 
       res.json({
         success: true,
         type: 'pdf_fallback',
-        message: 'Apple Wallet pass requires Apple Developer certificates. A PDF passport has been generated instead.',
+        message: 'Apple Wallet pass generation requires Apple Developer certificates. A PDF passport has been generated instead.',
         data: base64,
         filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`
       });
@@ -708,11 +689,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Passport data is required" });
       }
 
+      const pdfBuffer = await generatePassportPDFBuffer(passportData);
+      const base64 = pdfBuffer.toString('base64');
+
       res.json({
         success: true,
-        type: 'info',
-        message: 'Google Wallet integration requires Google Wallet API credentials. Please visit the Blade Outboards website to add your passport to Google Wallet.',
-        url: 'https://bladeoutboards.com/passport'
+        type: 'pdf_fallback',
+        message: 'Google Wallet integration requires Google Wallet API credentials. A PDF passport has been generated instead.',
+        data: base64,
+        filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`
       });
     } catch (error) {
       console.error("[Google Wallet] Error:", error);
