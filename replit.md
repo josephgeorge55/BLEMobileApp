@@ -15,7 +15,7 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 - **State Management**: React Context (local), TanStack React Query (server)
 - **Styling**: Custom theming with light/dark mode, Reanimated for animations, Expo Linear Gradient
 - **UI/UX Decisions**: High-contrast interface, deep ocean blue palette, optimized for outdoor visibility.
-- **Key Features**: Authentication, real-time dashboard, GPS tracking, trip recording and export, OTA firmware updates, device settings, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, and Live Activities/Persistent Notifications for real-time telemetry.
+- **Key Features**: Authentication, real-time dashboard, GPS tracking, trip recording and export, OTA firmware updates, device settings, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for real-time telemetry, and Digital Outboard Passport (ownership certificate with QR code, PDF export, Apple/Google Wallet integration).
 
 ### Backend
 - **Framework**: Express.js with TypeScript

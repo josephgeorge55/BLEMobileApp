@@ -102,6 +102,40 @@ export default function PassportScreen() {
 
   const qrCodeUrl = `https://bladeoutboards.com/passport?serial=${encodeURIComponent(serialNumber)}&owner=${encodeURIComponent(user?.id || '')}`;
 
+  const downloadBase64OnWeb = (base64: string, filename: string, mimeType: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const shareOrDownload = async (base64Data: string, filename: string, mimeType: string) => {
+    if (Platform.OS === "web") {
+      downloadBase64OnWeb(base64Data, filename, mimeType);
+      return;
+    }
+    const filePath = `${Paths.cache}/${filename}`;
+    const file = new FSFile(filePath);
+    await file.write(base64Data, { encoding: "base64" });
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(filePath, { mimeType });
+    } else {
+      Alert.alert("Sharing not available", "Unable to share the file on this device.");
+    }
+  };
+
   const handleAddToAppleWallet = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setAddingToWallet(true);
@@ -131,16 +165,8 @@ export default function PassportScreen() {
       const isPdfFallback = data.type === "pdf_fallback";
       const ext = isPdfFallback ? "pdf" : "pkpass";
       const mimeType = isPdfFallback ? "application/pdf" : "application/vnd.apple.pkpass";
-      const filePath = `${Paths.cache}/blade-passport.${ext}`;
-      const file = new FSFile(filePath);
-      await file.write(base64Data, { encoding: "base64" });
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(filePath, { mimeType });
-      } else {
-        Alert.alert("Sharing not available", "Unable to share the file on this device.");
-      }
+      const filename = `blade-passport.${ext}`;
+      await shareOrDownload(base64Data, filename, mimeType);
     } catch (error: any) {
       console.error("[Passport] Apple Wallet error:", error);
       Alert.alert("Error", "Failed to add to Apple Wallet. Please try again.");
@@ -169,13 +195,8 @@ export default function PassportScreen() {
       if (data.url) {
         await WebBrowser.openBrowserAsync(data.url);
       } else if (data.data) {
-        const filePath = `${Paths.cache}/blade-passport-google.pdf`;
-        const file = new FSFile(filePath);
-        await file.write(data.data, { encoding: "base64" });
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(filePath, { mimeType: "application/pdf" });
-        }
+        const filename = data.filename || "blade-passport-google.pdf";
+        await shareOrDownload(data.data, filename, "application/pdf");
       } else if (data.message) {
         Alert.alert("Google Wallet", data.message);
       } else {
@@ -205,24 +226,14 @@ export default function PassportScreen() {
       }
 
       const data = await response.json();
-      const base64PDF = data.pdf || data.data;
+      const base64PDF = data.data;
 
       if (!base64PDF) {
         throw new Error("No PDF data received");
       }
 
-      const filePath = `${Paths.cache}/blade-passport.pdf`;
-      const file = new FSFile(filePath);
-      await file.write(base64PDF, { encoding: "base64" });
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: "application/pdf",
-        });
-      } else {
-        Alert.alert("Sharing not available", "Unable to share the PDF on this device.");
-      }
+      const filename = data.filename || "blade-passport.pdf";
+      await shareOrDownload(base64PDF, filename, "application/pdf");
     } catch (error: any) {
       console.error("[Passport] PDF error:", error);
       Alert.alert("Error", "Failed to save PDF. Please try again.");
