@@ -13,14 +13,14 @@ export default function LiveActivityManager() {
   const { motor, telemetry } = useMotor();
   const { isRecording, tripDuration, startTrip, endTrip } = useTrip();
   const isActiveRef = useRef(false);
-  const lastMotorConnectedRef = useRef(false);
+
+  const connected = motor?.isConnected === true;
+  const shouldBeActive = connected || isRecording;
 
   useEffect(() => {
     if (Platform.OS === "web") return;
 
-    const connected = motor?.isConnected === true;
-
-    if (connected && !lastMotorConnectedRef.current) {
+    if (shouldBeActive && !isActiveRef.current) {
       const serialNumber =
         telemetry?.tillerSerialNumber ||
         motor?.serialNumber ||
@@ -38,17 +38,15 @@ export default function LiveActivityManager() {
       });
     }
 
-    if (!connected && lastMotorConnectedRef.current) {
+    if (!shouldBeActive && isActiveRef.current) {
       endLiveActivity().then(() => {
         isActiveRef.current = false;
       });
     }
-
-    lastMotorConnectedRef.current = connected;
-  }, [motor?.isConnected]);
+  }, [shouldBeActive]);
 
   useEffect(() => {
-    if (Platform.OS === "web" || !isActiveRef.current || !motor?.isConnected) {
+    if (Platform.OS === "web" || !isActiveRef.current) {
       return;
     }
 
