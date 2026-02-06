@@ -317,20 +317,25 @@ export default function BleScannerModal() {
         setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
+        addDebugLog("INFO", `Connecting to BLE device: ${device.name} (${device.id}) on ${Platform.OS}`);
         const success = await connectToBleDevice(device.id, {
           onDeviceFound: () => {},
           onConnected: async (connectedDevice) => {
+            addDebugLog("INFO", `BLE connected callback: ${connectedDevice.name}`);
             console.log("BLE connected:", connectedDevice.name);
             await connectToMotor(device.serialNumber);
           },
           onDisconnected: (deviceId) => {
+            addDebugLog("INFO", `BLE disconnected callback: ${deviceId}`);
             console.log("BLE disconnected:", deviceId);
             disconnectMotor();
           },
           onDataReceived: (data: ParseResult) => {
+            addDebugLog("DATA", `BLE onDataReceived: type=${data.type}, group=${data.group}`);
             processParsedData(data);
           },
           onError: (error) => {
+            addDebugLog("ERROR", `BLE error: ${error.message}`);
             console.error("BLE error:", error);
             Alert.alert("Connection Error", error.message);
           },
