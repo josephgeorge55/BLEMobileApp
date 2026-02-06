@@ -53,16 +53,26 @@ async function prepareWalletImages(): Promise<Record<string, Buffer>> {
 export async function generateAppleWalletPass(passportData: WalletPassportData): Promise<{ buffer: Buffer } | { error: string }> {
   const passTypeId = process.env.APPLE_PASS_TYPE_IDENTIFIER;
   const teamId = process.env.APPLE_TEAM_IDENTIFIER;
-  const signerCert = process.env.APPLE_PASS_CERTIFICATE_PEM;
-  const signerKey = process.env.APPLE_PASS_KEY_PEM;
-  const wwdr = process.env.APPLE_WWDR_CERTIFICATE_PEM;
+  const wwdrPath = path.join(process.cwd(), "server", "wwdr.pem");
+  const certPath = path.join(process.cwd(), "server", "apple_pass_certificate.pem");
+  const keyPath = path.join(process.cwd(), "server", "apple_pass_key.pem");
 
-  if (!passTypeId || !teamId || !signerCert || !signerKey || !wwdr) {
-    return { error: "Apple Wallet certificates not configured. Please add APPLE_PASS_TYPE_IDENTIFIER, APPLE_TEAM_IDENTIFIER, APPLE_PASS_CERTIFICATE_PEM, APPLE_PASS_KEY_PEM, and APPLE_WWDR_CERTIFICATE_PEM to your environment secrets." };
+  if (!passTypeId || !teamId || !fs.existsSync(wwdrPath) || !fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+    let missing = [];
+    if (!passTypeId) missing.push("APPLE_PASS_TYPE_IDENTIFIER");
+    if (!teamId) missing.push("APPLE_TEAM_IDENTIFIER");
+    if (!fs.existsSync(wwdrPath)) missing.push("wwdr.pem");
+    if (!fs.existsSync(certPath)) missing.push("apple_pass_certificate.pem");
+    if (!fs.existsSync(keyPath)) missing.push("apple_pass_key.pem");
+    
+    return { error: `Apple Wallet certificates not configured. Missing: ${missing.join(", ")}` };
   }
 
   try {
     const images = await prepareWalletImages();
+    const wwdr = fs.readFileSync(wwdrPath);
+    const signerCert = fs.readFileSync(certPath);
+    const signerKey = fs.readFileSync(keyPath);
     
     const qrUrl = `https://bladeoutboards.com/passport?serial=${encodeURIComponent(passportData.serialNumber)}&owner=${encodeURIComponent(passportData.ownerId)}`;
 
