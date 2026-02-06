@@ -1,0 +1,33 @@
+⌛️ Submitting iOS build...
+- Dashboard:    https://appstoreconnect.apple.com/apps/6758773364/distribution
+- App:          Blade Outboards (app.replit.bladeoutboards)
+- Build number: 9
+- Binary path:  ./ios/build/BladeOutboards.ipa
+-------------------
+--- Step: pilot ---
+-------------------
+Creating authorization token for App Store Connect API
+Ready to upload new build to TestFlight (App: 6758773364)...
+Going to upload updated app to App Store Connect
+This might take a few minutes. Please don't interrupt the script.
+[altool] Running altool at path '/Applications/Xcode.app/Contents/SharedFrameworks/ContentDeliveryServices.framework/Frameworks/AppStoreService.framework/Support/altool'...
+[altool] 
+[altool] 2026-02-06 03:14:04.450 ERROR: [altool.600003824140] [ContentDelivery.Uploader.600003824140] 
+[altool] =======================================
+[altool] UPLOAD FAILED with 1 error
+[altool] =======================================
+[altool] 2026-02-06 03:14:04.451 ERROR: [altool.600003824140] Error uploading '/var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/9ddeffce-e5e0-4bb2-a822-4bc0209101b1.ipa'.
+[altool] 2026-02-06 03:14:04.451 ERROR: [altool.600003824140] Validation failed Missing Info.plist value. A value for the key 'CFBundleDisplayName' in bundle BladeOutboards.app/PlugIns/BladeOutboardsWidgetExtension.appex is required. (ID: 4ab83737-ddbd-48a9-86b1-c6ab3e2e21a4) (409)
+[altool]  {
+[altool]     NSLocalizedDescription = "Validation failed";
+[altool]     NSLocalizedFailureReason = "Missing Info.plist value. A value for the key 'CFBundleDisplayName' in bundle BladeOutboards.app/PlugIns/BladeOutboardsWidgetExtension.appex is required. (ID: 4ab83737-ddbd-48a9-86b1-c6ab3e2e21a4)";
+[altool]     NSUnderlyingError = "Error Domain=IrisAPI Code=-19241 \"Validation failed\" UserInfo={status=409, detail=Missing Info.plist value. A value for the key 'CFBundleDisplayName' in bundle BladeOutboards.app/PlugIns/BladeOutboardsWidgetExtension.appex is required., id=4ab83737-ddbd-48a9-86b1-c6ab3e2e21a4, code=STATE_ERROR.VALIDATION_ERROR, title=Validation failed, NSLocalizedFailureReason=Missing Info.plist value. A value for the key 'CFBundleDisplayName' in bundle BladeOutboards.app/PlugIns/BladeOutboardsWidgetExtension.appex is required., NSLocalizedDescription=Validation failed}";
+[altool]     "iris-code" = "STATE_ERROR.VALIDATION_ERROR";
+[altool] }
+Application Loader output above ^
+The call to the altool completed with a non-zero exit status: 1. This indicates a failure.
+Could not download/upload from App Store Connect!
+[!] Error uploading ipa file: 
+ [Application Loader Error Output]: The call to the altool completed with a non-zero exit status: 1. This indicates a failure.
+Error: fastlane run pilot ipa:app-180b2a11-3a2d-4660-b59e-07ea5e2bde6a.ipa apple_id:6758773364 skip_waiting_for_build_processing:true api_key_path:asc_api_key-5e6cf2c9-9f02-4280-8ada-269375079e5b.json exited with non-zero code: 1
+/bin/bash -eo pipefail /var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/eas-build/f8a5a9ce-ef41-497d-b778-1b031b3fd9e9/steps/8e7c551e-9eba-4a25-9584-7061a8f0a89f/scripts/e1adf39f-5607-4304-9360-d58668f4759c.sh exited with non-zero code: 1
