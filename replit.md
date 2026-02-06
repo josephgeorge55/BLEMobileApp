@@ -55,6 +55,10 @@ The application comprises an Expo/React Native mobile client and an Express.js b
 - BLE (Bluetooth Low Energy): Full support via `react-native-ble-plx`
 - Bluetooth Classic: NOT supported (iOS restriction - `react-native-bluetooth-classic` is Android-only)
 - BleScannerModal skips Bluetooth Classic initialization on iOS to prevent crashes
+- BLE notification subscription uses `characteristic.monitor()` (direct object reference) instead of UUID-string lookup for reliable iOS CoreBluetooth compatibility
+- 500ms delay after service discovery before subscribing to notifications
+- Auto-retry at 3s and 6s if no data arrives after initial subscription
+- Subscription reference stored to prevent garbage collection
 
 **Web:**
 - Mock mode only - no real Bluetooth support

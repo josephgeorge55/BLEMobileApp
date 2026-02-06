@@ -26,6 +26,9 @@ let isInitialized = false;
 let connectedDevice: any = null;
 let dataBuffer = "";
 let notificationSubscription: any = null;
+let targetCharacteristic: any = null;
+let targetServiceUUID: string = BLADE_SERVICE_UUID;
+let targetCharUUID: string = BLADE_CHARACTERISTIC_UUID;
 
 function bleLog(tag: string, msg: string) {
   console.log(`[BLE-Service][${tag}] ${msg}`);
@@ -181,6 +184,7 @@ export async function connectToDevice(
   try {
     stopScan();
     dataBuffer = "";
+    targetCharacteristic = null;
 
     bleLog("CONNECT", `Connecting to device: ${deviceId} (platform: ${Platform.OS})`);
 
@@ -204,6 +208,7 @@ export async function connectToDevice(
         try { notificationSubscription.remove(); } catch (e) {}
         notificationSubscription = null;
       }
+      targetCharacteristic = null;
       connectedDevice = null;
       callbacks.onDisconnected(disconnectedDevice.id);
     });
@@ -211,7 +216,7 @@ export async function connectToDevice(
     await discoverAndLogServices(device);
 
     if (Platform.OS === "ios") {
-      bleLog("CONNECT", "iOS: waiting 500ms before subscribing to notifications...");
+      bleLog("CONNECT", "iOS: waiting 500ms after service discovery before subscribing...");
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
@@ -269,8 +274,9 @@ async function subscribeToNotifications(
 ): Promise<void> {
   bleLog("SUBSCRIBE", `Subscribing to notifications on ${BLADE_SERVICE_UUID} / ${BLADE_CHARACTERISTIC_UUID}`);
 
-  let targetServiceUUID = BLADE_SERVICE_UUID;
-  let targetCharUUID = BLADE_CHARACTERISTIC_UUID;
+  targetServiceUUID = BLADE_SERVICE_UUID;
+  targetCharUUID = BLADE_CHARACTERISTIC_UUID;
+  targetCharacteristic = null;
 
   try {
     const services = await device.services();
@@ -290,11 +296,12 @@ async function subscribeToNotifications(
           if (cUuidLower === BLADE_CHARACTERISTIC_UUID.toLowerCase() || cUuidLower === "ffe1" || cUuidLower.startsWith("0000ffe1")) {
             foundChar = true;
             targetCharUUID = char.uuid;
+            targetCharacteristic = char;
             const props: string[] = [];
             if (char.isNotifiable) props.push("Notify");
             if (char.isIndicatable) props.push("Indicate");
             if (char.isReadable) props.push("Read");
-            bleLog("SUBSCRIBE", `Found target char: ${char.uuid} [${props.join(", ")}]`);
+            bleLog("SUBSCRIBE", `Found target char object: ${char.uuid} [${props.join(", ")}]`);
             break;
           }
         }
@@ -319,58 +326,71 @@ async function subscribeToNotifications(
 
   let dataReceived = false;
 
-  notificationSubscription = device.monitorCharacteristicForService(
-    targetServiceUUID,
-    targetCharUUID,
-    (error: any, characteristic: any) => {
-      if (error) {
-        bleLog("NOTIFY-ERR", `Notification error: ${error.message || JSON.stringify(error)}`);
-        if (error.message && (error.message.includes("disconnected") || error.message.includes("cancelled"))) {
-          return;
-        }
-        if (!dataReceived && connectedDevice) {
-          bleLog("NOTIFY-ERR", "No data received yet, will attempt resubscribe in 1s...");
-          setTimeout(() => {
-            if (connectedDevice) {
-              resubscribeToNotifications(device, callbacks, targetServiceUUID, targetCharUUID);
-            }
-          }, 1000);
-        }
+  const notificationHandler = (error: any, characteristic: any) => {
+    if (error) {
+      bleLog("NOTIFY-ERR", `Notification error: ${error.message || JSON.stringify(error)}`);
+      if (error.message && (error.message.includes("disconnected") || error.message.includes("cancelled"))) {
         return;
       }
+      if (!dataReceived && connectedDevice) {
+        bleLog("NOTIFY-ERR", "No data received yet, will attempt resubscribe in 1s...");
+        setTimeout(() => {
+          if (connectedDevice && !dataReceived) {
+            resubscribeToNotifications(device, callbacks);
+          }
+        }, 1000);
+      }
+      return;
+    }
 
-      if (characteristic && characteristic.value) {
-        if (!dataReceived) {
-          dataReceived = true;
-          bleLog("NOTIFY", "First data received from BLE notifications!");
-        }
-        const decodedValue = decodeBase64(characteristic.value);
-        if (decodedValue.length > 0) {
-          processIncomingData(decodedValue, callbacks);
-        }
+    if (characteristic && characteristic.value) {
+      if (!dataReceived) {
+        dataReceived = true;
+        bleLog("NOTIFY", `First data received from BLE notifications! (platform: ${Platform.OS})`);
+      }
+      const decodedValue = decodeBase64(characteristic.value);
+      if (decodedValue.length > 0) {
+        processIncomingData(decodedValue, callbacks);
       }
     }
-  );
+  };
+
+  if (targetCharacteristic) {
+    bleLog("SUBSCRIBE", `Using characteristic.monitor() on ${targetCharUUID} (direct object reference)`);
+    notificationSubscription = targetCharacteristic.monitor(notificationHandler);
+  } else {
+    bleLog("SUBSCRIBE", `Using device.monitorCharacteristicForService() with UUID strings`);
+    notificationSubscription = device.monitorCharacteristicForService(
+      targetServiceUUID,
+      targetCharUUID,
+      notificationHandler
+    );
+  }
 
   bleLog("SUBSCRIBE", "Notification subscription active (reference stored)");
 
   if (Platform.OS === "ios") {
     setTimeout(() => {
       if (!dataReceived && connectedDevice) {
-        bleLog("SUBSCRIBE", "iOS: No data after 3s, attempting resubscribe...");
-        resubscribeToNotifications(device, callbacks, targetServiceUUID, targetCharUUID);
+        bleLog("SUBSCRIBE", "iOS: No data after 3s, attempting first resubscribe...");
+        resubscribeToNotifications(device, callbacks);
       }
     }, 3000);
+
+    setTimeout(() => {
+      if (!dataReceived && connectedDevice) {
+        bleLog("SUBSCRIBE", "iOS: No data after 6s, attempting second resubscribe...");
+        resubscribeToNotifications(device, callbacks);
+      }
+    }, 6000);
   }
 }
 
 function resubscribeToNotifications(
   device: any,
-  callbacks: BleServiceCallbacks,
-  serviceUUID: string,
-  charUUID: string
+  callbacks: BleServiceCallbacks
 ): void {
-  bleLog("RESUB", `Resubscribing to ${serviceUUID} / ${charUUID}`);
+  bleLog("RESUB", `Resubscribing (platform: ${Platform.OS})`);
 
   if (notificationSubscription) {
     try { notificationSubscription.remove(); } catch (e) {}
@@ -379,26 +399,39 @@ function resubscribeToNotifications(
 
   dataBuffer = "";
 
-  notificationSubscription = device.monitorCharacteristicForService(
-    serviceUUID,
-    charUUID,
-    (error: any, characteristic: any) => {
-      if (error) {
-        bleLog("RESUB-ERR", `Resubscribe notification error: ${error.message || JSON.stringify(error)}`);
-        return;
-      }
+  let resubDataReceived = false;
 
-      if (characteristic && characteristic.value) {
-        bleLog("RESUB", "Data received after resubscribe!");
-        const decodedValue = decodeBase64(characteristic.value);
-        if (decodedValue.length > 0) {
-          processIncomingData(decodedValue, callbacks);
-        }
+  const notificationHandler = (error: any, characteristic: any) => {
+    if (error) {
+      bleLog("RESUB-ERR", `Resubscribe notification error: ${error.message || JSON.stringify(error)}`);
+      return;
+    }
+
+    if (characteristic && characteristic.value) {
+      if (!resubDataReceived) {
+        resubDataReceived = true;
+        bleLog("RESUB", `Data received after resubscribe! (platform: ${Platform.OS})`);
+      }
+      const decodedValue = decodeBase64(characteristic.value);
+      if (decodedValue.length > 0) {
+        processIncomingData(decodedValue, callbacks);
       }
     }
-  );
+  };
 
-  bleLog("RESUB", "Resubscription active");
+  if (targetCharacteristic) {
+    bleLog("RESUB", `Using characteristic.monitor() for resubscribe (direct object reference)`);
+    notificationSubscription = targetCharacteristic.monitor(notificationHandler);
+  } else {
+    bleLog("RESUB", `Using device.monitorCharacteristicForService() for resubscribe`);
+    notificationSubscription = device.monitorCharacteristicForService(
+      targetServiceUUID,
+      targetCharUUID,
+      notificationHandler
+    );
+  }
+
+  bleLog("RESUB", "Resubscription active (reference stored)");
 }
 
 function processIncomingData(data: string, callbacks: BleServiceCallbacks): void {
@@ -424,6 +457,7 @@ export async function disconnect(): Promise<void> {
     try { notificationSubscription.remove(); } catch (e) {}
     notificationSubscription = null;
   }
+  targetCharacteristic = null;
   if (connectedDevice) {
     try {
       await connectedDevice.cancelConnection();
@@ -458,11 +492,18 @@ export async function writeCommand(command: string): Promise<boolean> {
 
   try {
     const base64Command = Buffer.from(command + "\n").toString("base64");
-    await connectedDevice.writeCharacteristicWithResponseForService(
-      BLADE_SERVICE_UUID,
-      BLADE_CHARACTERISTIC_UUID,
-      base64Command
-    );
+
+    if (targetCharacteristic && targetCharacteristic.isWritableWithResponse) {
+      await targetCharacteristic.writeWithResponse(base64Command);
+    } else if (targetCharacteristic && targetCharacteristic.isWritableWithoutResponse) {
+      await targetCharacteristic.writeWithoutResponse(base64Command);
+    } else {
+      await connectedDevice.writeCharacteristicWithResponseForService(
+        targetServiceUUID,
+        targetCharUUID,
+        base64Command
+      );
+    }
     return true;
   } catch (error) {
     console.error("Error writing command:", error);
@@ -479,6 +520,7 @@ export function destroyBle(): void {
     try { notificationSubscription.remove(); } catch (e) {}
     notificationSubscription = null;
   }
+  targetCharacteristic = null;
   if (bleManager) {
     bleManager.destroy();
     bleManager = null;
