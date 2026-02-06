@@ -1,0 +1,587 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Image,
+  Platform,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
+import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
+import * as Haptics from "expo-haptics";
+import { Paths, File as FSFile } from "expo-file-system";
+
+import { ThemedText } from "@/components/ThemedText";
+import { useUser } from "@/context/UserContext";
+import { useMotor } from "@/context/MotorContext";
+import {
+  getBoatData,
+  getRegisteredMotors,
+  type BoatData,
+  type RegisteredMotor,
+} from "@/lib/firebase";
+import { getApiUrl } from "@/lib/query-client";
+import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+
+const bladeLogo = require("../../assets/images/blade-outboards-logo.png");
+const haloOutboard = require("../../assets/images/halo-outboard.png");
+
+function metersToFeet(meters: number): number {
+  return meters * 3.28084;
+}
+
+export default function PassportScreen() {
+  const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
+  const { user } = useUser();
+  const { motor } = useMotor();
+  const cardRef = useRef<View>(null);
+
+  const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
+  const [boatData, setBoatData] = useState<BoatData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [savingPDF, setSavingPDF] = useState(false);
+  const [addingToWallet, setAddingToWallet] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
+
+  const loadData = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      const [motors, boat] = await Promise.all([
+        getRegisteredMotors(user.id),
+        getBoatData(user.id),
+      ]);
+      setRegisteredMotors(motors);
+      setBoatData(boat);
+    } catch (error) {
+      console.error("[Passport] Failed to load data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const serialNumber =
+    registeredMotors.length > 0
+      ? registeredMotors[0].serialNumber
+      : "Not available";
+
+  const getPassportData = () => ({
+    ownerEmail: user?.email || "",
+    ownerId: user?.id || "",
+    serialNumber,
+    productName: "Blade Halo 6",
+    maxPower: "3000W Continuous",
+    battery: "1700Wh",
+    purchaseDate: "February 1, 2026",
+    warrantyExpires: "February 1, 2028",
+    vesselName: boatData?.vesselName || "Not available",
+    vesselType: boatData?.boatType || "Not available",
+    vesselLength: boatData?.lengthMeters
+      ? `${metersToFeet(boatData.lengthMeters).toFixed(1)} ft (${boatData.lengthMeters.toFixed(1)} m)`
+      : "Not available",
+    vesselHIN: boatData?.vin || "Not available",
+  });
+
+  const handleAddToAppleWallet = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setAddingToWallet(true);
+    try {
+      const url = new URL("/api/passport/wallet/apple", getApiUrl());
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getPassportData()),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const base64Data = data.pkpass || data.data;
+
+      if (!base64Data) {
+        throw new Error("No pass data received");
+      }
+
+      const filePath = `${Paths.cache}/blade-passport.pkpass`;
+      const file = new FSFile(filePath);
+      await file.write(base64Data, { encoding: "base64" });
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: "application/vnd.apple.pkpass",
+          UTI: "com.apple.pkpass",
+        });
+      } else {
+        Alert.alert("Sharing not available", "Unable to share the pass file on this device.");
+      }
+    } catch (error: any) {
+      console.error("[Passport] Apple Wallet error:", error);
+      Alert.alert("Error", "Failed to add to Apple Wallet. Please try again.");
+    } finally {
+      setAddingToWallet(false);
+    }
+  };
+
+  const handleAddToGoogleWallet = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setAddingToWallet(true);
+    try {
+      const url = new URL("/api/passport/wallet/google", getApiUrl());
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getPassportData()),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const walletUrl = data.url || data.saveUrl;
+
+      if (!walletUrl) {
+        throw new Error("No wallet URL received");
+      }
+
+      await WebBrowser.openBrowserAsync(walletUrl);
+    } catch (error: any) {
+      console.error("[Passport] Google Wallet error:", error);
+      Alert.alert("Error", "Failed to add to Google Wallet. Please try again.");
+    } finally {
+      setAddingToWallet(false);
+    }
+  };
+
+  const handleSavePDF = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSavingPDF(true);
+    try {
+      const url = new URL("/api/passport/pdf", getApiUrl());
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getPassportData()),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const base64PDF = data.pdf || data.data;
+
+      if (!base64PDF) {
+        throw new Error("No PDF data received");
+      }
+
+      const filePath = `${Paths.cache}/blade-passport.pdf`;
+      const file = new FSFile(filePath);
+      await file.write(base64PDF, { encoding: "base64" });
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: "application/pdf",
+        });
+      } else {
+        Alert.alert("Sharing not available", "Unable to share the PDF on this device.");
+      }
+    } catch (error: any) {
+      console.error("[Passport] PDF error:", error);
+      Alert.alert("Error", "Failed to save PDF. Please try again.");
+    } finally {
+      setSavingPDF(false);
+    }
+  };
+
+  const renderInfoRow = (label: string, value: string) => (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+
+  const renderSectionHeader = (title: string) => (
+    <Text style={styles.sectionHeader}>{title}</Text>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator size="large" color={BladeColors.primary} />
+        <Text style={styles.loadingText}>Loading passport...</Text>
+      </View>
+    );
+  }
+
+  const truncatedId = user?.id
+    ? user.id.length > 8
+      ? `${user.id.substring(0, 8)}...`
+      : user.id
+    : "Not available";
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: headerHeight + Spacing.md,
+            paddingBottom: insets.bottom + Spacing["2xl"],
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View ref={cardRef} style={styles.card}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={bladeLogo}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+
+          <Text style={styles.passportTitle}>OUTBOARD PASSPORT</Text>
+
+          <View style={styles.divider} />
+
+          <View style={styles.outboardImageContainer}>
+            <Image
+              source={haloOutboard}
+              style={styles.outboardImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          <Text style={styles.productName}>Blade Halo 6</Text>
+          <View style={styles.subtitleRow}>
+            <Text style={styles.subtitleText}>3000W Continuous</Text>
+            <Text style={styles.subtitleDivider}>|</Text>
+            <Text style={styles.subtitleText}>1700Wh Battery</Text>
+          </View>
+
+          <View style={styles.sectionContainer}>
+            {renderSectionHeader("OWNER INFORMATION")}
+            {renderInfoRow("Email", user?.email || "Not available")}
+            {renderInfoRow("Account ID", truncatedId)}
+          </View>
+
+          <View style={styles.sectionContainer}>
+            {renderSectionHeader("MOTOR INFORMATION")}
+            {renderInfoRow("Serial Number", serialNumber)}
+            {renderInfoRow("Purchase Date", "February 1, 2026")}
+            {renderInfoRow("Warranty Expires", "February 1, 2028")}
+          </View>
+
+          <View style={styles.sectionContainer}>
+            {renderSectionHeader("VESSEL INFORMATION")}
+            {renderInfoRow(
+              "Vessel Name",
+              boatData?.vesselName || "Not available"
+            )}
+            {renderInfoRow(
+              "Vessel Type",
+              boatData?.boatType || "Not available"
+            )}
+            {renderInfoRow(
+              "Vessel Length",
+              boatData?.lengthMeters
+                ? `${metersToFeet(boatData.lengthMeters).toFixed(1)} ft (${boatData.lengthMeters.toFixed(1)} m)`
+                : "Not available"
+            )}
+            {renderInfoRow("Vessel HIN", boatData?.vin || "Not available")}
+          </View>
+
+          <View style={styles.badgesRow}>
+            {["CE", "UKCA", "RoHS", "FCC", "IP67"].map((badge) => (
+              <View key={badge} style={styles.badge}>
+                <Text style={styles.badgeText}>{badge}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.companyName}>Blade Marine Technologies Ltd</Text>
+          <Text style={styles.disclaimerText}>
+            This passport serves as proof of ownership and registration for your
+            Blade outboard motor. Keep this document safe for warranty and
+            service purposes.
+          </Text>
+        </View>
+
+        <View style={styles.buttonsContainer}>
+          <Pressable
+            onPress={handleAddToAppleWallet}
+            disabled={addingToWallet}
+            style={[styles.walletButton, styles.appleWalletButton]}
+            testID="button-apple-wallet"
+          >
+            {addingToWallet ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Feather name="smartphone" size={18} color="#FFFFFF" />
+                <Text style={styles.appleWalletText}>Add to Apple Wallet</Text>
+              </>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={handleAddToGoogleWallet}
+            disabled={addingToWallet}
+            style={[styles.walletButton, styles.googleWalletButton]}
+            testID="button-google-wallet"
+          >
+            {addingToWallet ? (
+              <ActivityIndicator size="small" color="#1F2937" />
+            ) : (
+              <>
+                <Feather name="credit-card" size={18} color="#1F2937" />
+                <Text style={styles.googleWalletText}>
+                  Add to Google Wallet
+                </Text>
+              </>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={handleSavePDF}
+            disabled={savingPDF}
+            style={[styles.walletButton, styles.pdfButton]}
+            testID="button-save-pdf"
+          >
+            {savingPDF ? (
+              <ActivityIndicator size="small" color={BladeColors.primary} />
+            ) : (
+              <>
+                <Feather name="file-text" size={18} color={BladeColors.primary} />
+                <Text style={styles.pdfButtonText}>Save as PDF</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F8F9FB",
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: Spacing.md,
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "#E8ECF0",
+    padding: 24,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 2px 12px rgba(0, 0, 0, 0.06)",
+      },
+      ios: {
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  logo: {
+    width: 160,
+    height: 48,
+  },
+  passportTitle: {
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 1.5,
+    color: "#9CA3AF",
+    textTransform: "uppercase",
+    marginBottom: Spacing.md,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E8ECF0",
+    marginVertical: Spacing.lg,
+  },
+  outboardImageContainer: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  outboardImage: {
+    width: 200,
+    height: 150,
+  },
+  productName: {
+    textAlign: "center",
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1F2937",
+    letterSpacing: -0.3,
+    marginBottom: Spacing.xs,
+  },
+  subtitleRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  subtitleText: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  subtitleDivider: {
+    fontSize: 13,
+    color: "#D1D5DB",
+    fontWeight: "300",
+  },
+  sectionContainer: {
+    marginBottom: Spacing.lg,
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 1.5,
+    color: "#9CA3AF",
+    textTransform: "uppercase",
+    marginBottom: Spacing.md,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#F3F4F6",
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "400",
+  },
+  infoValue: {
+    fontSize: 13,
+    color: "#1F2937",
+    fontWeight: "500",
+    textAlign: "right",
+    flexShrink: 1,
+    marginLeft: Spacing.md,
+  },
+  badgesRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  badge: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#6B7280",
+    letterSpacing: 0.5,
+  },
+  companyName: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9CA3AF",
+    marginBottom: Spacing.xs,
+  },
+  disclaimerText: {
+    textAlign: "center",
+    fontSize: 10,
+    color: "#D1D5DB",
+    lineHeight: 14,
+  },
+  buttonsContainer: {
+    marginTop: Spacing.xl,
+    gap: Spacing.md,
+  },
+  walletButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+  },
+  appleWalletButton: {
+    backgroundColor: "#1F2937",
+  },
+  appleWalletText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  googleWalletButton: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#D1D5DB",
+  },
+  googleWalletText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  pdfButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: BladeColors.primary,
+  },
+  pdfButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: BladeColors.primary,
+  },
+});

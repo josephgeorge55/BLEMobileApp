@@ -6,6 +6,7 @@ import MainTabNavigator from "@/navigation/MainTabNavigator";
 import BleScannerModal from "@/screens/BleScannerModal";
 import AuthScreen from "@/screens/AuthScreen";
 import TripDetailScreen from "@/screens/TripDetailScreen";
+import PassportScreen from "@/screens/PassportScreen";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   Main: undefined;
   BleScanner: undefined;
   TripDetail: { tripId: string };
+  Passport: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -102,6 +104,15 @@ export default function RootStackNavigator() {
             component={TripDetailScreen}
             options={{
               headerTitle: "Trip Details",
+              headerBackTitle: "Back",
+              animation: "slide_from_right",
+            }}
+          />
+          <Stack.Screen
+            name="Passport"
+            component={PassportScreen}
+            options={{
+              headerTitle: "Outboard Passport",
               headerBackTitle: "Back",
               animation: "slide_from_right",
             }}

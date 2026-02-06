@@ -280,6 +280,21 @@ export default function SettingsScreen() {
       ) : null}
 
       {user && !isGuestMode ? (
+        <SettingsSection title="Ownership">
+          <SettingsRow
+            icon="award"
+            title="Blade Outboard Passport"
+            subtitle="Digital proof of ownership, warranty & wallet pass"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("Passport");
+            }}
+            iconColor={BladeColors.gold}
+          />
+        </SettingsSection>
+      ) : null}
+
+      {user && !isGuestMode ? (
         <SettingsSection title="Registered Outboards">
           {loadingMotors ? (
             <View style={styles.loadingContainer}>
