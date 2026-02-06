@@ -348,13 +348,6 @@ export default function PassportScreen() {
                 style={styles.ukcaImage}
                 resizeMode="contain"
               />
-              <View style={styles.badgesRow}>
-                {["CE", "RoHS", "FCC", "IP67"].map((badge) => (
-                  <View key={badge} style={styles.badge}>
-                    <Text style={styles.badgeText}>{badge}</Text>
-                  </View>
-                ))}
-              </View>
             </View>
           </View>
 
@@ -580,8 +573,8 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   ukcaImage: {
-    width: 60,
-    height: 40,
+    width: 180,
+    height: 50,
   },
   qrSection: {
     marginBottom: Spacing.md,
@@ -611,23 +604,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#6B7280",
     lineHeight: 16,
-  },
-  badgesRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.xs,
-  },
-  badge: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#6B7280",
-    letterSpacing: 0.5,
   },
   companyName: {
     textAlign: "center",

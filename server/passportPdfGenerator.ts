@@ -134,32 +134,18 @@ export async function generatePassportPDFBuffer(passportData: PassportData): Pro
   y = drawSectionHeader(doc, y, 'Regulatory Compliance');
 
   const ukcaLogoPath = path.join(process.cwd(), 'server', 'ukca-logo.png');
-  let ukcaDrawn = false;
   try {
     if (fs.existsSync(ukcaLogoPath)) {
-      const ukcaHeight = 35;
-      doc.image(ukcaLogoPath, MARGIN, y - 2, { height: ukcaHeight });
-      ukcaDrawn = true;
+      const ukcaHeight = 40;
+      const ukcaX = (PAGE_WIDTH - 160) / 2;
+      doc.image(ukcaLogoPath, ukcaX, y, { width: 160, height: ukcaHeight });
+      y += ukcaHeight + 20;
+    } else {
+      y += 10;
     }
-  } catch (e) {}
-
-  const textBadges = ['CE', 'RoHS', 'FCC', 'IP67'];
-  const badgeWidth = 50;
-  const badgeHeight = 26;
-  const badgeGap = 10;
-  const totalTextBadgesWidth = textBadges.length * badgeWidth + (textBadges.length - 1) * badgeGap;
-  let badgeX = ukcaDrawn ? MARGIN + 80 : (PAGE_WIDTH - totalTextBadgesWidth) / 2;
-
-  for (const badge of textBadges) {
-    doc.save();
-    doc.roundedRect(badgeX, y, badgeWidth, badgeHeight, 4);
-    doc.strokeColor(BLADE_GREEN).lineWidth(1).stroke();
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(BLADE_GREEN);
-    doc.text(badge, badgeX, y + 8, { width: badgeWidth, align: 'center' });
-    doc.restore();
-    badgeX += badgeWidth + badgeGap;
+  } catch (e) {
+    y += 10;
   }
-  y += Math.max(badgeHeight, 35) + 20;
 
   y = drawSectionHeader(doc, y, 'Warranty & Service');
 
