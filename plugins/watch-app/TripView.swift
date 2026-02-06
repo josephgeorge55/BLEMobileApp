@@ -72,12 +72,12 @@ struct TripView: View {
         .onDisappear {
             stopTimer()
         }
-        .onChange(of: connectivity.isTripActive) { active in
-            if !active {
+        .onChange(of: connectivity.isTripActive) { oldValue, newValue in
+            if !newValue {
                 displaySeconds = 0
             }
         }
-        .onChange(of: connectivity.tripElapsedSeconds) { newValue in
+        .onChange(of: connectivity.tripElapsedSeconds) { oldValue, newValue in
             displaySeconds = newValue
         }
     }

@@ -144,6 +144,36 @@ function withAppleWatch(config) {
 
     var mainTarget = project.getFirstTarget();
     if (mainTarget && productRefUuid) {
+      var proxyUuid = project.generateUuid();
+      var depUuid = project.generateUuid();
+      var projectUuid = project.getFirstProject().uuid;
+
+      objects.PBXContainerItemProxy = objects.PBXContainerItemProxy || {};
+      objects.PBXContainerItemProxy[proxyUuid] = {
+        isa: "PBXContainerItemProxy",
+        containerPortal: projectUuid,
+        proxyType: 1,
+        remoteGlobalIDString: target.uuid,
+        remoteInfo: '"' + WATCH_TARGET_NAME + '"',
+      };
+      objects.PBXContainerItemProxy[proxyUuid + "_comment"] = "PBXContainerItemProxy";
+
+      objects.PBXTargetDependency = objects.PBXTargetDependency || {};
+      objects.PBXTargetDependency[depUuid] = {
+        isa: "PBXTargetDependency",
+        target: target.uuid,
+        targetProxy: proxyUuid,
+      };
+      objects.PBXTargetDependency[depUuid + "_comment"] = "PBXTargetDependency";
+
+      var mainNativeTargetObj = objects.PBXNativeTarget[mainTarget.firstTarget.uuid];
+      if (mainNativeTargetObj) {
+        if (!mainNativeTargetObj.dependencies) {
+          mainNativeTargetObj.dependencies = [];
+        }
+        mainNativeTargetObj.dependencies.push({ value: depUuid, comment: "PBXTargetDependency" });
+      }
+
       var embedPhaseUuid = project.generateUuid();
       var buildFileUuid = project.generateUuid();
 

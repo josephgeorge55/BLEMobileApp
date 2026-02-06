@@ -22,14 +22,21 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     }
     
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        DispatchQueue.main.async {
-            self.isConnected = session.isReachable
+        if activationState == .activated {
+            let context = session.receivedApplicationContext
+            if !context.isEmpty {
+                DispatchQueue.main.async {
+                    self.updateFromContext(context)
+                }
+            }
         }
     }
     
     func sessionReachabilityDidChange(_ session: WCSession) {
-        DispatchQueue.main.async {
-            self.isConnected = session.isReachable
+        if !session.isReachable {
+            DispatchQueue.main.async {
+                self.isConnected = false
+            }
         }
     }
     
