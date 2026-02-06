@@ -98,21 +98,22 @@ export async function generatePassportPDFBuffer(passportData: PassportData): Pro
   doc.text('OUTBOARD PASSPORT', MARGIN, y, { width: CONTENT_WIDTH, align: 'center', characterSpacing: 2 });
   y += 18;
 
-  const translations = [
+  // Use a fallback for non-Latin characters since standard PDF fonts only support WinAnsiEncoding
+  // We'll separate Latin and non-Latin to avoid crashing/garbage and handle wrapping
+  const latinTranslations = [
     'AUẞENBORD-REISEPASS', // German
     'PASSAPORTO FUORIBORDO', // Italian
     'PASAPORTE FUERABORDA', // Spanish
-    '船外機パスポート', // Japanese
-    '선외기 여권', // Korean
-    'جواز سفر المحرك البحري', // Arabic
     'PAS ZA PLAVBU', // Czech
     'PASZPORT SILNIKA', // Polish
   ];
   
-  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
-  doc.text(translations.join('  •  '), MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 12;
+  doc.font('Helvetica').fontSize(7).fillColor(GRAY);
+  doc.text(latinTranslations.join('  •  '), MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
+  y += 14;
 
+  // Note: Japanese, Korean, and Arabic require embedded fonts which are not currently loaded.
+  // We will stick to supported Latin-based translations for the PDF to ensure it stays 1 page and clean.
   doc.font('Helvetica').fontSize(8.5).fillColor(MID_GRAY);
   doc.text('Digital Ownership Certificate', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
   y += 16;
