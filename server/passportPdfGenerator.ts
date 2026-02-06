@@ -52,22 +52,24 @@ function drawFieldRow(doc: PDFKit.PDFDocument, y: number, fields: { label: strin
   for (let i = 0; i < fields.length; i++) {
     drawField(doc, y, fields[i].label, fields[i].value, MARGIN + i * colWidth, colWidth - 10);
   }
-  return y + 28;
+  return y + 24;
 }
 
 export async function generatePassportPDFBuffer(passportData: PassportData): Promise<Buffer> {
   const doc = new PDFDocument({
     size: 'A4',
     layout: 'portrait',
-    margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
-    autoFirstPage: true,
-    bufferPages: false,
+    margins: { top: 30, bottom: 30, left: MARGIN, right: MARGIN },
+    autoFirstPage: false,
+    bufferPages: true,
     info: {
       Title: 'Blade Outboard Passport',
       Author: 'Blade Marine Technologies Ltd',
       Subject: 'Digital Ownership Certificate',
     },
   });
+
+  doc.addPage();
 
   const chunks: Buffer[] = [];
   doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -77,29 +79,27 @@ export async function generatePassportPDFBuffer(passportData: PassportData): Pro
     doc.on('error', reject);
   });
 
-  let y = MARGIN;
+  let y = 35;
 
   const logoPath = path.join(process.cwd(), 'server', 'blade-passport-logo.png');
   try {
     if (fs.existsSync(logoPath)) {
-      const logoWidth = 160;
+      const logoWidth = 140;
       const logoHeight = logoWidth / 2.62;
       const logoX = (PAGE_WIDTH - logoWidth) / 2;
       doc.image(logoPath, logoX, y, { width: logoWidth });
-      y += logoHeight + 12;
+      y += logoHeight + 10;
     } else {
-      y += 10;
+      y += 5;
     }
   } catch (e) {
-    y += 10;
+    y += 5;
   }
 
-  doc.font('Helvetica-Bold').fontSize(16).fillColor(BLACK);
+  doc.font('Helvetica-Bold').fontSize(14).fillColor(BLACK);
   doc.text('OUTBOARD PASSPORT', MARGIN, y, { width: CONTENT_WIDTH, align: 'center', characterSpacing: 2 });
-  y += 18;
+  y += 16;
 
-  // Use a fallback for non-Latin characters since standard PDF fonts only support WinAnsiEncoding
-  // We'll separate Latin and non-Latin to avoid crashing/garbage and handle wrapping
   const latinTranslations = [
     'AUẞENBORD-REISEPASS', // German
     'PASSAPORTO FUORIBORDO', // Italian
@@ -108,28 +108,26 @@ export async function generatePassportPDFBuffer(passportData: PassportData): Pro
     'PASZPORT SILNIKA', // Polish
   ];
   
-  doc.font('Helvetica').fontSize(7).fillColor(GRAY);
+  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
   doc.text(latinTranslations.join('  •  '), MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 14;
+  y += 10;
 
-  // Note: Japanese, Korean, and Arabic require embedded fonts which are not currently loaded.
-  // We will stick to supported Latin-based translations for the PDF to ensure it stays 1 page and clean.
-  doc.font('Helvetica').fontSize(8.5).fillColor(MID_GRAY);
+  doc.font('Helvetica').fontSize(8).fillColor(MID_GRAY);
   doc.text('Digital Ownership Certificate', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 16;
+  y += 14;
 
   doc.strokeColor(BLADE_GREEN).lineWidth(1);
   doc.moveTo(MARGIN, y).lineTo(PAGE_WIDTH - MARGIN, y).stroke();
+  y += 16;
+
+  doc.font('Helvetica-Bold').fontSize(14).fillColor(BLACK);
+  doc.text(passportData.productName || 'Blade Halo 6', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
   y += 18;
 
-  doc.font('Helvetica-Bold').fontSize(16).fillColor(BLACK);
-  doc.text(passportData.productName || 'Blade Halo 6', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 20;
-
   const subtitle = `${passportData.maxPower || '3000W Continuous'}  |  ${passportData.batteryCapacity || '1700Wh Battery'}`;
-  doc.font('Helvetica').fontSize(9).fillColor(GRAY);
+  doc.font('Helvetica').fontSize(8.5).fillColor(GRAY);
   doc.text(subtitle, MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
-  y += 24;
+  y += 20;
 
   y = drawSectionHeader(doc, y, 'Owner Information');
   y = drawFieldRow(doc, y, [
@@ -161,64 +159,64 @@ export async function generatePassportPDFBuffer(passportData: PassportData): Pro
   const ukcaLogoPath = path.join(process.cwd(), 'server', 'ukca-logo.png');
   try {
     if (fs.existsSync(ukcaLogoPath)) {
-      const ukcaWidth = 120;
+      const ukcaWidth = 100;
       const ukcaHeight = ukcaWidth / 4.8;
       doc.image(ukcaLogoPath, MARGIN, y, { width: ukcaWidth });
-      y += ukcaHeight + 16;
+      y += ukcaHeight + 12;
     } else {
-      y += 8;
+      y += 6;
     }
   } catch (e) {
-    y += 8;
+    y += 6;
   }
 
   y = drawSectionHeader(doc, y, 'Warranty & Service');
 
   const qrUrl = `https://bladeoutboards.com/passport?serial=${encodeURIComponent(passportData.serialNumber)}&owner=${encodeURIComponent(passportData.ownerId)}`;
-  const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 160, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } });
+  const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 140, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } });
   const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
-  const qrSize = 75;
+  const qrSize = 65;
   doc.image(qrBuffer, MARGIN, y, { width: qrSize, height: qrSize });
 
-  const qrTextX = MARGIN + qrSize + 16;
-  const qrTextWidth = CONTENT_WIDTH - qrSize - 16;
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
-  doc.text('Scan for Warranty Lookup', qrTextX, y + 4, { width: qrTextWidth });
-  doc.font('Helvetica').fontSize(7.5).fillColor(GRAY);
+  const qrTextX = MARGIN + qrSize + 12;
+  const qrTextWidth = CONTENT_WIDTH - qrSize - 12;
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(BLACK);
+  doc.text('Scan for Warranty Lookup', qrTextX, y + 2, { width: qrTextWidth });
+  doc.font('Helvetica').fontSize(7).fillColor(GRAY);
   doc.text(
     'Use this QR code at authorized Blade service centers worldwide for warranty verification, service history, and promotional prize eligibility at international boat shows and tradeshows.',
-    qrTextX, y + 16, { width: qrTextWidth, lineGap: 1.5 }
+    qrTextX, y + 14, { width: qrTextWidth, lineGap: 1 }
   );
-  y += qrSize + 12;
+  y += qrSize + 10;
 
   const chopPath = path.join(process.cwd(), 'server', 'company-chop.png');
   try {
     if (fs.existsSync(chopPath)) {
-      const chopSize = 60;
+      const chopSize = 55;
       const chopX = PAGE_WIDTH - MARGIN - chopSize;
-      const chopY = PAGE_HEIGHT - 160;
+      const chopY = PAGE_HEIGHT - 135;
       doc.image(chopPath, chopX, chopY, { width: chopSize, height: chopSize });
     }
   } catch (e) {}
 
-  const footerY = PAGE_HEIGHT - 55;
+  const footerY = PAGE_HEIGHT - 50;
   doc.strokeColor(LIGHT_GRAY).lineWidth(0.5);
   doc.moveTo(MARGIN, footerY).lineTo(PAGE_WIDTH - MARGIN, footerY).stroke();
 
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(BLACK);
-  doc.text('Blade Marine Technologies Ltd', MARGIN, footerY + 6, { width: CONTENT_WIDTH, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+  doc.text('Blade Marine Technologies Ltd', MARGIN, footerY + 5, { width: CONTENT_WIDTH, align: 'center' });
 
-  doc.font('Helvetica').fontSize(6.5).fillColor(MID_GRAY);
+  doc.font('Helvetica').fontSize(6).fillColor(MID_GRAY);
   doc.text(
     'This document serves as a digital ownership certificate for your Blade outboard motor.',
-    MARGIN, footerY + 16, { width: CONTENT_WIDTH, align: 'center' }
+    MARGIN, footerY + 14, { width: CONTENT_WIDTH, align: 'center' }
   );
 
   const now = new Date();
   const utcStamp = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
-  doc.font('Helvetica').fontSize(6).fillColor(MID_GRAY);
-  doc.text(`Generated: ${utcStamp}  |  bladeoutboards.com`, MARGIN, footerY + 26, { width: CONTENT_WIDTH, align: 'center' });
+  doc.font('Helvetica').fontSize(5.5).fillColor(MID_GRAY);
+  doc.text(`Generated: ${utcStamp}  |  bladeoutboards.com`, MARGIN, footerY + 22, { width: CONTENT_WIDTH, align: 'center' });
 
   doc.end();
 
