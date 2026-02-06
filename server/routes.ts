@@ -666,15 +666,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Passport data is required" });
       }
 
-      const pdfBuffer = await generatePassportPDFBuffer(passportData);
-      const base64 = pdfBuffer.toString('base64');
+      const { generateAppleWalletPass } = await import("./walletPassGenerator");
+      const result = await generateAppleWalletPass(passportData);
 
+      if ("error" in result) {
+        const pdfBuffer = await generatePassportPDFBuffer(passportData);
+        const base64 = pdfBuffer.toString('base64');
+        return res.json({
+          success: true,
+          type: 'pdf_fallback',
+          message: result.error,
+          data: base64,
+          filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`
+        });
+      }
+
+      const base64 = result.buffer.toString('base64');
       res.json({
         success: true,
-        type: 'pdf_fallback',
-        message: 'Apple Wallet pass generation requires Apple Developer certificates. A PDF passport has been generated instead.',
+        type: 'pkpass',
         data: base64,
-        filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`
+        filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pkpass`
       });
     } catch (error) {
       console.error("[Apple Wallet] Error:", error);
@@ -689,15 +701,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Passport data is required" });
       }
 
-      const pdfBuffer = await generatePassportPDFBuffer(passportData);
-      const base64 = pdfBuffer.toString('base64');
+      const { generateGoogleWalletUrl } = await import("./walletPassGenerator");
+      const result = await generateGoogleWalletUrl(passportData);
+
+      if ("error" in result) {
+        const pdfBuffer = await generatePassportPDFBuffer(passportData);
+        const base64 = pdfBuffer.toString('base64');
+        return res.json({
+          success: true,
+          type: 'pdf_fallback',
+          message: result.error,
+          data: base64,
+          filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`
+        });
+      }
 
       res.json({
         success: true,
-        type: 'pdf_fallback',
-        message: 'Google Wallet integration requires Google Wallet API credentials. A PDF passport has been generated instead.',
-        data: base64,
-        filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`
+        type: 'google_wallet',
+        url: result.url
       });
     } catch (error) {
       console.error("[Google Wallet] Error:", error);

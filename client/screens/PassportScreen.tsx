@@ -164,11 +164,16 @@ export default function PassportScreen() {
         throw new Error("No pass data received");
       }
 
-      const isPdfFallback = data.type === "pdf_fallback";
-      const ext = isPdfFallback ? "pdf" : "pkpass";
-      const mimeType = isPdfFallback ? "application/pdf" : "application/vnd.apple.pkpass";
-      const filename = `blade-passport.${ext}`;
-      await shareOrDownload(base64Data, filename, mimeType);
+      if (data.type === "pkpass") {
+        const filename = data.filename || "blade-passport.pkpass";
+        await shareOrDownload(base64Data, filename, "application/vnd.apple.pkpass");
+      } else {
+        const filename = data.filename || "blade-passport.pdf";
+        await shareOrDownload(base64Data, filename, "application/pdf");
+        if (data.message) {
+          Alert.alert("Apple Wallet", data.message);
+        }
+      }
     } catch (error: any) {
       console.error("[Passport] Apple Wallet error:", error);
       Alert.alert("Error", "Failed to add to Apple Wallet. Please try again.");
@@ -194,11 +199,14 @@ export default function PassportScreen() {
 
       const data = await response.json();
 
-      if (data.url) {
+      if (data.type === "google_wallet" && data.url) {
         await WebBrowser.openBrowserAsync(data.url);
       } else if (data.data) {
         const filename = data.filename || "blade-passport-google.pdf";
         await shareOrDownload(data.data, filename, "application/pdf");
+        if (data.message) {
+          Alert.alert("Google Wallet", data.message);
+        }
       } else if (data.message) {
         Alert.alert("Google Wallet", data.message);
       } else {
