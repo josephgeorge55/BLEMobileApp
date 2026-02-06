@@ -96,11 +96,26 @@ export async function generatePassportPDFBuffer(passportData: PassportData): Pro
 
   doc.font('Helvetica-Bold').fontSize(16).fillColor(BLACK);
   doc.text('OUTBOARD PASSPORT', MARGIN, y, { width: CONTENT_WIDTH, align: 'center', characterSpacing: 2 });
-  y += 20;
-
-  doc.font('Helvetica').fontSize(9).fillColor(MID_GRAY);
-  doc.text('Digital Ownership Certificate', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
   y += 18;
+
+  const translations = [
+    'AUẞENBORD-REISEPASS', // German
+    'PASSAPORTO FUORIBORDO', // Italian
+    'PASAPORTE FUERABORDA', // Spanish
+    '船外機パスポート', // Japanese
+    '선외기 여권', // Korean
+    'جواز سفر المحرك البحري', // Arabic
+    'PAS ZA PLAVBU', // Czech
+    'PASZPORT SILNIKA', // Polish
+  ];
+  
+  doc.font('Helvetica').fontSize(6).fillColor(GRAY);
+  doc.text(translations.join('  •  '), MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
+  y += 12;
+
+  doc.font('Helvetica').fontSize(8.5).fillColor(MID_GRAY);
+  doc.text('Digital Ownership Certificate', MARGIN, y, { width: CONTENT_WIDTH, align: 'center' });
+  y += 16;
 
   doc.strokeColor(BLADE_GREEN).lineWidth(1);
   doc.moveTo(MARGIN, y).lineTo(PAGE_WIDTH - MARGIN, y).stroke();
