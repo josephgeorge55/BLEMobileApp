@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as https from 'https';
 
 const PAGE_WIDTH = 841.89;
 const PAGE_HEIGHT = 595.28;
@@ -298,106 +299,264 @@ function drawRoHSLogo(doc: PDFKit.PDFDocument, x: number, y: number, size: numbe
   doc.restore();
 }
 
-function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, startCoord: any, endCoord: any) {
-  doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
-  
-  // If no GPS data available, show a placeholder message
-  if (!startCoord && !endCoord) {
+interface TileCache {
+  tiles: Map<string, Buffer>;
+  zoom: number;
+  minTileX: number;
+  maxTileX: number;
+  minTileY: number;
+  maxTileY: number;
+}
+
+function lon2tile(lon: number, z: number): number {
+  return Math.floor((lon + 180) / 360 * Math.pow(2, z));
+}
+
+function lat2tile(lat: number, z: number): number {
+  return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+}
+
+function tile2lon(x: number, z: number): number {
+  return x / Math.pow(2, z) * 360 - 180;
+}
+
+function tile2lat(y: number, z: number): number {
+  return Math.atan(Math.sinh(Math.PI * (1 - 2 * y / Math.pow(2, z)))) * 180 / Math.PI;
+}
+
+function fetchTile(z: number, x: number, y: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const url = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    https.get(url, {
+      headers: { 'User-Agent': 'BladeOutboards/1.0 PDFReport' }
+    }, (response) => {
+      if (response.statusCode === 200) {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => resolve(Buffer.concat(chunks)));
+        response.on('error', reject);
+      } else {
+        reject(new Error(`Tile fetch failed: ${response.statusCode}`));
+      }
+    }).on('error', reject);
+  });
+}
+
+function extractGPSCoords(dataPoints: any[], startCoord?: any, endCoord?: any): { lat: number; lon: number }[] {
+  const coords: { lat: number; lon: number }[] = [];
+
+  if (dataPoints && dataPoints.length > 0) {
+    for (const dp of dataPoints) {
+      const lat = dp.phoneLatitude ?? dp.outboardLatitude;
+      const lon = dp.phoneLongitude ?? dp.outboardLongitude;
+      if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+        coords.push({ lat, lon });
+      }
+    }
+  }
+
+  if (coords.length === 0) {
+    if (startCoord && startCoord.latitude && startCoord.longitude) {
+      coords.push({ lat: startCoord.latitude, lon: startCoord.longitude });
+    }
+    if (endCoord && endCoord.latitude && endCoord.longitude) {
+      coords.push({ lat: endCoord.latitude, lon: endCoord.longitude });
+    }
+  }
+
+  return coords;
+}
+
+async function prefetchMapTiles(coords: { lat: number; lon: number }[]): Promise<TileCache | null> {
+  if (coords.length === 0) return null;
+
+  let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+  for (const c of coords) {
+    if (c.lat < minLat) minLat = c.lat;
+    if (c.lat > maxLat) maxLat = c.lat;
+    if (c.lon < minLon) minLon = c.lon;
+    if (c.lon > maxLon) maxLon = c.lon;
+  }
+
+  const latPad = Math.max((maxLat - minLat) * 0.1, 0.005);
+  const lonPad = Math.max((maxLon - minLon) * 0.1, 0.005);
+  minLat -= latPad;
+  maxLat += latPad;
+  minLon -= lonPad;
+  maxLon += lonPad;
+
+  let zoom = 14;
+  for (let z = 16; z >= 2; z--) {
+    const tileXMin = lon2tile(minLon, z);
+    const tileXMax = lon2tile(maxLon, z);
+    const span = tileXMax - tileXMin + 1;
+    if (span >= 3 && span <= 6) {
+      zoom = z;
+      break;
+    }
+    if (span < 3 && z <= 14) {
+      zoom = z;
+      break;
+    }
+  }
+
+  const minTileX = lon2tile(minLon, zoom);
+  const maxTileX = lon2tile(maxLon, zoom);
+  const minTileY = lat2tile(maxLat, zoom);
+  const maxTileY = lat2tile(minLat, zoom);
+
+  const tiles = new Map<string, Buffer>();
+  const fetchPromises: Promise<void>[] = [];
+
+  for (let tx = minTileX; tx <= maxTileX; tx++) {
+    for (let ty = minTileY; ty <= maxTileY; ty++) {
+      fetchPromises.push(
+        fetchTile(zoom, tx, ty)
+          .then(buf => { tiles.set(`${tx}:${ty}`, buf); })
+          .catch(err => { console.error(`[PDF] Failed to fetch tile ${zoom}/${tx}/${ty}:`, err.message); })
+      );
+    }
+  }
+
+  await Promise.all(fetchPromises);
+
+  if (tiles.size === 0) return null;
+
+  return { tiles, zoom, minTileX, maxTileX, minTileY, maxTileY };
+}
+
+function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number,
+                 coords: { lat: number; lon: number }[], tileCache: TileCache | null) {
+  if (coords.length === 0) {
+    doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
     doc.font('Helvetica').fontSize(8).fillColor('#666');
     doc.text('No GPS data recorded for this trip', x + w/2 - 60, y + h/2 - 4);
     doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
     return;
   }
-  
-  // Land context
-  doc.fillColor('#C8D4B8');
-  doc.moveTo(x, y).lineTo(x + w * 0.15, y).lineTo(x + w * 0.12, y + h * 0.3)
-    .lineTo(x + w * 0.08, y + h * 0.5).lineTo(x, y + h * 0.4).closePath().fill();
-  doc.moveTo(x + w * 0.7, y).lineTo(x + w, y).lineTo(x + w, y + h * 0.25)
-    .lineTo(x + w * 0.85, y + h * 0.35).lineTo(x + w * 0.75, y + h * 0.2).closePath().fill();
-  doc.moveTo(x, y + h * 0.7).lineTo(x + w * 0.25, y + h * 0.65).lineTo(x + w * 0.3, y + h * 0.8)
-    .lineTo(x + w * 0.2, y + h).lineTo(x, y + h).closePath().fill();
-  doc.moveTo(x + w * 0.6, y + h * 0.75).lineTo(x + w * 0.8, y + h * 0.7).lineTo(x + w, y + h * 0.8)
-    .lineTo(x + w, y + h).lineTo(x + w * 0.55, y + h).closePath().fill();
-  
-  // Grid and labels
-  doc.strokeColor('#9AB4C8').lineWidth(0.3);
-  doc.font('Helvetica').fontSize(5).fillColor(GRAY);
-  for (let i = 1; i < 8; i++) {
-    const gx = x + (w * i / 8);
-    const gy = y + (h * i / 8);
-    doc.moveTo(gx, y).lineTo(gx, y + h).stroke();
-    doc.moveTo(x, gy).lineTo(x + w, gy).stroke();
-    
-    if (startCoord) {
-      // Coordinate markings
-      doc.text(`${(startCoord.longitude + (i-4)*0.01).toFixed(3)}°`, gx - 10, y + h + 2);
-      doc.text(`${(startCoord.latitude + (4-i)*0.01).toFixed(3)}°`, x - 25, gy - 2);
+
+  if (!tileCache || tileCache.tiles.size === 0) {
+    doc.fillColor('#B8D4E8').rect(x, y, w, h).fill();
+    doc.font('Helvetica').fontSize(8).fillColor('#666');
+    doc.text('Map tiles unavailable', x + w/2 - 40, y + h/2 - 4);
+    doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+
+    if (coords.length >= 2) {
+      let cMinLat = Infinity, cMaxLat = -Infinity, cMinLon = Infinity, cMaxLon = -Infinity;
+      for (const c of coords) {
+        if (c.lat < cMinLat) cMinLat = c.lat;
+        if (c.lat > cMaxLat) cMaxLat = c.lat;
+        if (c.lon < cMinLon) cMinLon = c.lon;
+        if (c.lon > cMaxLon) cMaxLon = c.lon;
+      }
+      const cLatPad = Math.max((cMaxLat - cMinLat) * 0.1, 0.005);
+      const cLonPad = Math.max((cMaxLon - cMinLon) * 0.1, 0.005);
+      cMinLat -= cLatPad; cMaxLat += cLatPad; cMinLon -= cLonPad; cMaxLon += cLonPad;
+      const latRange = cMaxLat - cMinLat || 0.01;
+      const lonRange = cMaxLon - cMinLon || 0.01;
+
+      doc.strokeColor(BLUE).lineWidth(2);
+      doc.moveTo(x + ((coords[0].lon - cMinLon) / lonRange) * w, y + (1 - (coords[0].lat - cMinLat) / latRange) * h);
+      for (let i = 1; i < coords.length; i++) {
+        doc.lineTo(x + ((coords[i].lon - cMinLon) / lonRange) * w, y + (1 - (coords[i].lat - cMinLat) / latRange) * h);
+      }
+      doc.stroke();
+
+      const sx = x + ((coords[0].lon - cMinLon) / lonRange) * w;
+      const sy = y + (1 - (coords[0].lat - cMinLat) / latRange) * h;
+      const ex = x + ((coords[coords.length - 1].lon - cMinLon) / lonRange) * w;
+      const ey = y + (1 - (coords[coords.length - 1].lat - cMinLat) / latRange) * h;
+      doc.fillColor(GREEN).circle(sx, sy, 5).fill();
+      doc.fillColor('#fff').circle(sx, sy, 2.5).fill();
+      doc.fillColor(RED).circle(ex, ey, 5).fill();
+      doc.fillColor('#fff').circle(ex, ey, 2.5).fill();
+    }
+    return;
+  }
+
+  const { zoom, minTileX, maxTileX, minTileY, maxTileY, tiles } = tileCache;
+
+  const gridMinLon = tile2lon(minTileX, zoom);
+  const gridMaxLon = tile2lon(maxTileX + 1, zoom);
+  const gridMinLat = tile2lat(maxTileY + 1, zoom);
+  const gridMaxLat = tile2lat(minTileY, zoom);
+
+  const gridLonRange = gridMaxLon - gridMinLon;
+  const gridLatRange = gridMaxLat - gridMinLat;
+
+  doc.save();
+  doc.rect(x, y, w, h).clip();
+
+  const tilesWide = maxTileX - minTileX + 1;
+  const tilesHigh = maxTileY - minTileY + 1;
+  const tileDrawW = w / tilesWide;
+  const tileDrawH = h / tilesHigh;
+
+  for (let tx = minTileX; tx <= maxTileX; tx++) {
+    for (let ty = minTileY; ty <= maxTileY; ty++) {
+      const key = `${tx}:${ty}`;
+      const tileBuf = tiles.get(key);
+      const drawX = x + (tx - minTileX) * tileDrawW;
+      const drawY = y + (ty - minTileY) * tileDrawH;
+      if (tileBuf) {
+        try {
+          doc.image(tileBuf, drawX, drawY, { width: tileDrawW + 0.5, height: tileDrawH + 0.5 });
+        } catch (e) {
+          doc.fillColor('#B8D4E8').rect(drawX, drawY, tileDrawW, tileDrawH).fill();
+        }
+      } else {
+        doc.fillColor('#B8D4E8').rect(drawX, drawY, tileDrawW, tileDrawH).fill();
+      }
     }
   }
-  
-  doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
-  
-  const padding = 30;
-  const innerW = w - padding * 2;
-  const innerH = h - padding * 2;
-  
-  if (startCoord && endCoord) {
-    // Zoom out: Always use at least 0.1 deg span for a 10km-style overview
-    const span = 0.05; 
-    const minLat = Math.min(startCoord.latitude, endCoord.latitude) - span;
-    const maxLat = Math.max(startCoord.latitude, endCoord.latitude) + span;
-    const minLon = Math.min(startCoord.longitude, endCoord.longitude) - span;
-    const maxLon = Math.max(startCoord.longitude, endCoord.longitude) + span;
-    
-    const latRange = maxLat - minLat;
-    const lonRange = maxLon - minLon;
-    
-    const startX = x + padding + ((startCoord.longitude - minLon) / lonRange) * innerW;
-    const startY = y + padding + (1 - (startCoord.latitude - minLat) / latRange) * innerH;
-    const endX = x + padding + ((endCoord.longitude - minLon) / lonRange) * innerW;
-    const endY = y + padding + (1 - (endCoord.latitude - minLat) / latRange) * innerH;
-    
-    // Smooth route curve
-    doc.strokeColor(BLUE).lineWidth(3);
-    const midX = (startX + endX) / 2 + 10;
-    const midY = (startY + endY) / 2 - 10;
-    doc.moveTo(startX, startY).quadraticCurveTo(midX, midY, endX, endY).stroke();
-    
-    // Start/End Markers
-    doc.fillColor(GREEN).circle(startX, startY, 7).fill();
-    doc.fillColor('#fff').circle(startX, startY, 3.5).fill();
-    doc.fillColor(RED).circle(endX, endY, 7).fill();
-    doc.fillColor('#fff').circle(endX, endY, 3.5).fill();
-    
-    doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
-    doc.text('START', startX - 15, startY + 10);
-    doc.text('END', endX - 10, endY + 10);
 
-    // Scale Bar (approx 5km based on span)
-    const scaleBarW = (0.045 / lonRange) * innerW; // ~5km
-    const scaleX = x + w - scaleBarW - 15;
-    const scaleY = y + h - 25;
-    doc.strokeColor(BLACK).lineWidth(1.5);
-    doc.moveTo(scaleX, scaleY).lineTo(scaleX + scaleBarW, scaleY).stroke();
-    doc.moveTo(scaleX, scaleY - 3).lineTo(scaleX, scaleY + 3).stroke();
-    doc.moveTo(scaleX + scaleBarW, scaleY - 3).lineTo(scaleX + scaleBarW, scaleY + 3).stroke();
-    doc.font('Helvetica-Bold').fontSize(6).fillColor(BLACK);
-    doc.text('5 km / 2.7 nm', scaleX, scaleY - 10, { width: scaleBarW, align: 'center' });
-  } else {
-    doc.font('Helvetica').fontSize(10).fillColor(GRAY);
-    doc.text('No GPS data available', x + w/2 - 50, y + h/2 - 5);
+  if (coords.length >= 2) {
+    doc.strokeColor(BLUE).lineWidth(2.5);
+    doc.moveTo(
+      x + ((coords[0].lon - gridMinLon) / gridLonRange) * w,
+      y + (1 - (coords[0].lat - gridMinLat) / gridLatRange) * h
+    );
+    for (let i = 1; i < coords.length; i++) {
+      doc.lineTo(
+        x + ((coords[i].lon - gridMinLon) / gridLonRange) * w,
+        y + (1 - (coords[i].lat - gridMinLat) / gridLatRange) * h
+      );
+    }
+    doc.stroke();
   }
-  
+
+  if (coords.length >= 1) {
+    const sx = x + ((coords[0].lon - gridMinLon) / gridLonRange) * w;
+    const sy = y + (1 - (coords[0].lat - gridMinLat) / gridLatRange) * h;
+    doc.fillColor(GREEN).circle(sx, sy, 7).fill();
+    doc.fillColor('#fff').circle(sx, sy, 3.5).fill();
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
+    doc.text('START', sx - 15, sy + 10);
+  }
+
+  if (coords.length >= 2) {
+    const ex = x + ((coords[coords.length - 1].lon - gridMinLon) / gridLonRange) * w;
+    const ey = y + (1 - (coords[coords.length - 1].lat - gridMinLat) / gridLatRange) * h;
+    doc.fillColor(RED).circle(ex, ey, 7).fill();
+    doc.fillColor('#fff').circle(ex, ey, 3.5).fill();
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(BLACK);
+    doc.text('END', ex - 10, ey + 10);
+  }
+
+  doc.restore();
+
+  doc.strokeColor(LIGHT_GRAY).lineWidth(1).rect(x, y, w, h).stroke();
+
   doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
   doc.text('Route Map', x + 8, y + 8);
-  
+
   doc.fillColor(GREEN).circle(x + 15, y + h - 15, 4).fill();
   doc.fillColor(BLACK).fontSize(6).text('Start', x + 22, y + h - 17);
   doc.fillColor(RED).circle(x + 55, y + h - 15, 4).fill();
   doc.fillColor(BLACK).text('End', x + 62, y + h - 17);
-  doc.fillColor('#C8D4B8').rect(x + 90, y + h - 18, 10, 6).fill();
-  doc.fillColor(BLACK).text('Land', x + 103, y + h - 17);
+
+  doc.font('Helvetica').fontSize(4).fillColor(GRAY);
+  doc.text('© OpenStreetMap contributors', x + w - 100, y + h - 10);
 }
 
 function drawGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, 
@@ -450,17 +609,14 @@ function drawGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: 
     doc.stroke();
   };
   
-  const sampleLen = 60;
-  const speedData = data.speed.length > 0 ? data.speed : Array.from({length: sampleLen}, (_, i) => 
-    Math.sin(i * 0.15) * 25 + 35 + Math.random() * 8);
-  const consumptionData = data.consumption.length > 0 ? data.consumption : Array.from({length: sampleLen}, (_, i) => 
-    Math.abs(Math.sin(i * 0.12)) * 4 + 1.5 + Math.random() * 1);
-  const batteryData = data.battery.length > 0 ? data.battery : Array.from({length: sampleLen}, (_, i) => 
-    98 - (i / sampleLen) * 18 - Math.random() * 3);
-  
-  drawLine(speedData, BLUE, 100);
-  drawLine(consumptionData.map(v => v * 15), RED, 100);
-  drawLine(batteryData, GREEN, 100);
+  if (data.speed.length === 0 && data.consumption.length === 0 && data.battery.length === 0) {
+    doc.font('Helvetica').fontSize(10).fillColor(GRAY);
+    doc.text('No telemetry data recorded', graphX + graphW / 2 - 55, graphY + graphH / 2 - 5);
+  } else {
+    if (data.speed.length > 0) drawLine(data.speed, BLUE, 100);
+    if (data.consumption.length > 0) drawLine(data.consumption.map(v => v * 15), RED, 100);
+    if (data.battery.length > 0) drawLine(data.battery, GREEN, 100);
+  }
   
   const legendY = y + h - 18;
   doc.font('Helvetica').fontSize(6);
@@ -513,71 +669,79 @@ function drawDetailGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: numbe
     doc.text(label, x + 8, ly);
   });
   
-  const numPoints = 50;
-  const metrics = [
-    { color: BLUE, baseVal: 45, variance: 25, label: 'Speed' },
-    { color: RED, baseVal: 35, variance: 20, label: 'kW' },
-    { color: ORANGE, baseVal: 28, variance: 15, label: 'Amps' },
-    { color: GREEN, baseVal: 82, variance: 8, label: 'SOC%' },
-    { color: PURPLE, baseVal: 42, variance: 22, label: 'RPM' },
+  if (!dataPoints || dataPoints.length === 0) {
+    doc.font('Helvetica').fontSize(10).fillColor(GRAY);
+    doc.text('No data for this segment', graphX + graphW / 2 - 50, graphY + graphH / 2 - 5);
+  } else {
+    const metricsConfig = [
+      { key: 'speed', color: BLUE, label: 'Speed', maxVal: 100 },
+      { key: 'power', color: RED, label: 'kW', maxVal: 20 },
+      { key: 'amps', color: ORANGE, label: 'Amps', maxVal: 200 },
+      { key: 'soc', color: GREEN, label: 'SOC%', maxVal: 100 },
+      { key: 'rpm', color: PURPLE, label: 'RPM', maxVal: 5000 },
+    ];
+
+    const extractedData: Record<string, number[]> = {
+      speed: dataPoints.map((dp: any) => nv(dp.phoneSpeedKmh ?? dp.outboardSpeedKmh, 0)),
+      power: dataPoints.map((dp: any) => nv(dp.consumptionKW, 0)),
+      amps: dataPoints.map((dp: any) => nv(dp.phaseAmperage, 0)),
+      soc: dataPoints.map((dp: any) => nv(dp.batterySOC, 0)),
+      rpm: dataPoints.map((dp: any) => nv(dp.rpm, 0)),
+    };
+
+    const step = graphW / Math.max(dataPoints.length - 1, 1);
+
+    metricsConfig.forEach((metric) => {
+      const values = extractedData[metric.key];
+      if (!values || values.length < 2) return;
+
+      const maxVal = metric.maxVal;
+      doc.strokeColor(metric.color).lineWidth(1);
+      doc.moveTo(graphX, graphY + graphH - (Math.min(values[0], maxVal) / maxVal) * graphH);
+      for (let i = 1; i < values.length; i++) {
+        const px = graphX + i * step;
+        const py = graphY + graphH - (Math.min(values[i], maxVal) / maxVal) * graphH;
+        doc.lineTo(px, py);
+      }
+      doc.stroke();
+    });
+
+    const modeColors: Record<string, string> = { 'N': '#666', 'E': GREEN, 'D': BLUE, 'S': RED, 'R': ORANGE };
+    let lastMode = '';
+    for (let i = 0; i < dataPoints.length; i++) {
+      const mode = dataPoints[i].driveMode;
+      if (mode && mode !== lastMode) {
+        const fx = graphX + i * step;
+        const mColor = modeColors[mode] || '#666';
+        doc.fillColor(mColor).circle(fx, graphY + 6, 5).fill();
+        doc.fillColor('#fff').font('Helvetica-Bold').fontSize(5);
+        doc.text(mode, fx - 2, graphY + 4);
+        lastMode = mode;
+      }
+    }
+  }
+
+  const metricsLegend = [
+    { color: BLUE, label: 'Speed' },
+    { color: RED, label: 'kW' },
+    { color: ORANGE, label: 'Amps' },
+    { color: GREEN, label: 'SOC%' },
+    { color: PURPLE, label: 'RPM' },
   ];
-  
-  metrics.forEach((metric, mIdx) => {
-    doc.strokeColor(metric.color).lineWidth(1);
-    const step = graphW / numPoints;
-    const values: number[] = [];
-    
-    for (let i = 0; i <= numPoints; i++) {
-      const val = metric.baseVal + Math.sin(i * 0.25 + mIdx * 1.5) * metric.variance + Math.random() * metric.variance * 0.2;
-      values.push(Math.max(0, Math.min(100, val)));
-    }
-    
-    doc.moveTo(graphX, graphY + graphH * (1 - values[0] / 100));
-    for (let i = 1; i <= numPoints; i++) {
-      doc.lineTo(graphX + i * step, graphY + graphH * (1 - values[i] / 100));
-    }
-    doc.stroke();
-    
-    if (mIdx === 0 || mIdx === 3) {
-      [0.25, 0.5, 0.75].forEach(pos => {
-        const idx = Math.floor(pos * numPoints);
-        const val = values[idx];
-        const px = graphX + idx * step;
-        const py = graphY + graphH * (1 - val / 100);
-        doc.fillColor(metric.color).circle(px, py, 2).fill();
-        doc.font('Helvetica').fontSize(4).fillColor(metric.color);
-        doc.text(val.toFixed(0), px + 3, py - 5);
-      });
-    }
-  });
-  
-  const flags = [
-    { pos: 0.1, label: 'N', color: '#666', desc: 'Normal' },
-    { pos: 0.35, label: 'E', color: GREEN, desc: 'Eco' },
-    { pos: 0.6, label: 'S', color: RED, desc: 'Sport' },
-    { pos: 0.85, label: 'N', color: '#666', desc: 'Normal' },
-  ];
-  flags.forEach(f => {
-    const fx = graphX + graphW * f.pos;
-    doc.fillColor(f.color).circle(fx, graphY + 6, 5).fill();
-    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(5);
-    doc.text(f.label, fx - 2, graphY + 4);
-  });
-  
   const legendY = y + h - 8;
   doc.font('Helvetica').fontSize(4).fillColor(GRAY);
   let lx = graphX;
-  metrics.forEach(m => {
+  metricsLegend.forEach(m => {
     doc.strokeColor(m.color).lineWidth(1.5);
     doc.moveTo(lx, legendY).lineTo(lx + 12, legendY).stroke();
     doc.fillColor(BLACK).text(m.label, lx + 14, legendY - 2);
     lx += 50;
   });
-  
+
   doc.fillColor(GRAY).text('Mode: N=Normal E=Eco D=Dock S=Sport R=Rev H=Regen', lx + 30, legendY - 2);
 }
 
-export function generateTripPDF(res: Response, trip: TripData): void {
+export async function generateTripPDF(res: Response, trip: TripData): Promise<void> {
   console.log('[PDF Generator] ====== GENERATING PDF ======');
   console.log('[PDF Generator] Trip ID:', trip.id);
   console.log('[PDF Generator] Motor serial:', trip.motorSerialNumber);
@@ -614,6 +778,18 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="Blade_Trip_Report_${tripId}.pdf"`);
   doc.pipe(res);
+
+  const allDataPoints = trip.dataPoints || [];
+  const gpsCoords = extractGPSCoords(allDataPoints, trip.phoneGPSStart, trip.phoneGPSEnd);
+  let tileCache: TileCache | null = null;
+  try {
+    tileCache = await prefetchMapTiles(gpsCoords);
+    console.log('[PDF Generator] Tile cache:', tileCache ? `${tileCache.tiles.size} tiles at zoom ${tileCache.zoom}` : 'null');
+  } catch (err) {
+    console.error('[PDF] Tile pre-fetch error:', err);
+  }
+
+  const tripStartMs = new Date(trip.startTime).getTime();
 
   let currentPage = 0;
 
@@ -968,15 +1144,18 @@ export function generateTripPDF(res: Response, trip: TripData): void {
 
   // Map (reduced height to account for error codes section)
   const mapH = 140;
-  drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, trip.phoneGPSStart, trip.phoneGPSEnd);
+  drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapH, gpsCoords, tileCache);
   y += mapH + 8;
 
   // Graph (reduced height, check if fits before footer)
   const graphH = 100;
   const availableHeight = FOOTER_Y - y - 20;
   if (availableHeight > 80) {
+    const speedVals = allDataPoints.map((dp: any) => dp.phoneSpeedKmh ?? dp.outboardSpeedKmh).filter((v: any) => v != null && !isNaN(v)).map(Number);
+    const consumptionVals = allDataPoints.map((dp: any) => dp.consumptionKW).filter((v: any) => v != null && !isNaN(v)).map(Number);
+    const batteryVals = allDataPoints.map((dp: any) => dp.batterySOC).filter((v: any) => v != null && !isNaN(v)).map(Number);
     drawGraph(doc, MARGIN_LEFT, y, CONTENT_WIDTH, Math.min(graphH, availableHeight), 
-      { speed: [], consumption: [], battery: [] }, 'Trip Overview - Speed, Power & Battery');
+      { speed: speedVals, consumption: consumptionVals, battery: batteryVals }, 'Trip Overview - Speed, Power & Battery');
   }
 
   // ========== PAGE 3: MAP DETAIL ==========
@@ -998,7 +1177,7 @@ export function generateTripPDF(res: Response, trip: TripData): void {
   const mapDetailHeight = Math.floor((FOOTER_Y - CONTENT_START_Y - 40) * 0.7);
   drawSectionBox(MARGIN_LEFT - 4, y - 2, CONTENT_WIDTH + 8, mapDetailHeight + 10, 'Route Map');
   y += 6;
-  drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapDetailHeight, trip.phoneGPSStart, trip.phoneGPSEnd);
+  drawMap(doc, MARGIN_LEFT, y, CONTENT_WIDTH, mapDetailHeight, gpsCoords, tileCache);
   y += mapDetailHeight + 14;
   
   // Calculate straight-line distance using Haversine formula
@@ -1080,8 +1259,14 @@ export function generateTripPDF(res: Response, trip: TripData): void {
       const gStartStr = `${Math.floor(gStart / 60).toString().padStart(2, '0')}:${(gStart % 60).toString().padStart(2, '0')}`;
       const gEndStr = `${Math.floor(gEnd / 60).toString().padStart(2, '0')}:${(gEnd % 60).toString().padStart(2, '0')}`;
       
+      const segmentDataPoints = allDataPoints.filter((dp: any) => {
+        if (!dp.timestamp) return false;
+        const dpMs = new Date(dp.timestamp).getTime();
+        const offsetSec = (dpMs - tripStartMs) / 1000;
+        return offsetSec >= gStart && offsetSec < gEnd;
+      });
       drawDetailGraph(doc, MARGIN_LEFT, y, CONTENT_WIDTH, detailGraphH, 
-        `Segment ${g + 1}: ${gStartStr} - ${gEndStr}`, []);
+        `Segment ${g + 1}: ${gStartStr} - ${gEndStr}`, segmentDataPoints);
       
       y += detailGraphH + 6;
     }

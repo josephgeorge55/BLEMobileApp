@@ -636,7 +636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log("[PDF] Calling generateTripPDF...");
-      generateTripPDF(res, tripData);
+      await generateTripPDF(res, tripData);
     } catch (error) {
       console.error("[PDF] ====== PDF GENERATION FAILED ======");
       console.error("[PDF] Error:", error);
