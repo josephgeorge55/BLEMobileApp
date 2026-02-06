@@ -1,0 +1,88 @@
+nstalling libwebp (1.5.0)
+Installing react-native-ble-plx (3.5.0)
+Installing react-native-bluetooth-classic (1.73.0-rc.17)
+Installing react-native-keyboard-controller (1.18.5)
+Installing react-native-maps (1.18.0)
+Installing react-native-netinfo (11.4.1)
+Installing react-native-safe-area-context (5.6.2)
+Installing react-native-webview (13.16.0)
+Generating Pods project
+[!] An error occurred while processing the post-install hook of the Podfile.
+[Xcodeproj] Consistency issue: no parent for object `BladeOutboardsWidgetExtension.appex`: `Copy Files`, `Embed Foundation Extensions`
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project/object/helpers/groupable_helper.rb:19:in `parent'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project/object/build_file.rb:77:in `ascii_plist_annotation'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:297:in `block in to_ascii_plist'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:296:in `each'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:296:in `to_ascii_plist'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:365:in `block in save'
+/Users/expo/.gems/arm64/gems/atomos-0.1.3/lib/atomos.rb:21:in `block in atomic_write'
+/opt/homebrew/Cellar/ruby@3.2/3.2.9/lib/ruby/3.2.0/tempfile.rb:331:in `open'
+/Users/expo/.gems/arm64/gems/atomos-0.1.3/lib/atomos.rb:17:in `atomic_write'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:364:in `save'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/cocoapods/utils.rb:153:in `block in fix_library_search_paths'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/cocoapods/utils.rb:144:in `each'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/cocoapods/utils.rb:144:in `fix_library_search_paths'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/react_native_pods.rb:490:in `react_native_post_install'
+/Users/expo/workingdir/build/ios/Podfile:53:in `block (3 levels) in from_ruby'
+/Users/expo/.gems/arm64/gems/cocoapods-core-1.16.2/lib/cocoapods-core/podfile.rb:196:in `post_install!'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:1013:in `run_podfile_post_install_hook'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:1001:in `block in run_podfile_post_install_hooks'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/user_interface.rb:149:in `message'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:1000:in `run_podfile_post_install_hooks'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:337:in `block (2 levels) in create_and_save_projects'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer/xcode/pods_project_generator/pods_project_writer.rb:61:in `write!'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:336:in `block in create_and_save_projects'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapod
+s/user_interface.rb:64:in `section'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:315:in `create_and_save_projects'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:307:in `generate_pods_project'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:183:in `integrate'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:170:in `install!'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/command/install.rb:52:in `run'
+/Users/expo/.gems/arm64/gems/claide-1.1.0/lib/claide/command.rb:334:in `run'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/command.rb:52:in `run'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/bin/pod:55:in `<top (required)>'
+/opt/homebrew/Cellar/ruby@3.2/3.2.9/lib/ruby/3.2.0/rubygems.rb:319:in `load'
+/opt/homebrew/Cellar/ruby@3.2/3.2.9/lib/ruby/3.2.0/rubygems.rb:319:in `activate_and_load_bin_path'
+/Users/expo/.gems/arm64/bin/pod:25:in `<main>'
+Couldn't install Pods. Updating the Pods project and trying again...
+Command `pod install` failed.
+└─ Cause: An error occurred while processing the post-install hook of the Podfile.
+[Xcodeproj] Consistency issue: no parent for object `BladeOutboardsWidgetExtension.appex`: `Copy Files`, `Embed Foundation Extensions`
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project/object/helpers/groupable_helper.rb:19:in `parent'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project/object/build_file.rb:77:in `ascii_plist_annotation'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:297:in `block in to_ascii_plist'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:296:in `each'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:296:in `to_ascii_plist'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:365:in `block in save'
+/Users/expo/.gems/arm64/gems/atomos-0.1.3/lib/atomos.rb:21:in `block in atomic_write'
+/opt/homebrew/Cellar/ruby@3.2/3.2.9/lib/ruby/3.2.0/tempfile.rb:331:in `open'
+/Users/expo/.gems/arm64/gems/atomos-0.1.3/lib/atomos.rb:17:in `atomic_write'
+/Users/expo/.gems/arm64/gems/xcodeproj-1.27.0/lib/xcodeproj/project.rb:364:in `save'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/cocoapods/utils.rb:153:in `block in fix_library_search_paths'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/cocoapods/utils.rb:144:in `each'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/cocoapods/utils.rb:144:in `fix_library_search_paths'
+/Users/expo/workingdir/build/node_modules/react-native/scripts/react_native_pods.rb:490:in `react_native_post_install'
+/Users/expo/workingdir/build/ios/Podfile:53:in `block (3 levels) in from_ruby'
+/Users/expo/.gems/arm64/gems/cocoapods-core-1.16.2/lib/cocoapods-core/podfile.rb:196:in `post_install!'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:1013:in `run_podfile_post_install_hook'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:1001:in `block in run_podfile_post_install_hooks'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/user_interface.rb:149:in `message'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:1000:in `run_podfile_post_install_hooks'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:337:in `block (2 levels) in create_and_save_projects'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer/xcode/pods_project_generator/pods_project_writer.rb:61:in `write!'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:336:in `block in create_and_save_projects'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/user_interface.rb:64:in `section'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:315:in `create_and_save_projects'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:307:in `generate_pods_project'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:183:in `integrate'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/installer.rb:170:in `install!'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/command/install.rb:52:in `run'
+/Users/expo/.gems/arm64/gems/claide-1.1.0/lib/claide/command.rb:334:in `run'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/lib/cocoapods/command.rb:52:in `run'
+/Users/expo/.gems/arm64/gems/cocoapods-1.16.2/bin/pod:55:in `<top (required)>'
+/opt/homebrew/Cellar/ruby@3.2/3.2.9/lib/ruby/3.2.0/rubygems.rb:319:in `load'
+/opt/homebrew/Cellar/ruby@3.2/3.2.9/lib/ruby/3.2.0/rubygems.rb:319:in `activate_and_load_bin_path'
+/Users/expo/.gems/arm64/bin/pod:25:in `<main>'
+pod install --repo-update --ansi exited with non-zero code: 1
+/bin/bash -eo pipefail /var/folders/5_/4knlryn57n39p2c_jw8567z00000gn/T/eas-build/507bc1d5-0354-4263-a42c-5ad3e1b0197e/steps/9d7ae687-7326-45d0-9ac7-02438cf8c6e3/scripts/cf90c277-a5a4-478e-b2f0-975fe1573eed.sh exited with non-zero code: 1

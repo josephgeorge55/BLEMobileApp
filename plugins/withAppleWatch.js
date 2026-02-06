@@ -121,26 +121,54 @@ function withAppleWatch(config) {
       }
     }
 
-    var mainTarget = project.getFirstTarget();
-    if (mainTarget) {
-      project.addBuildPhase(
-        [WATCH_TARGET_NAME + ".app"],
-        "PBXCopyFilesBuildPhase",
-        "Embed Watch Content",
-        mainTarget.firstTarget.uuid,
-        "watch2_app",
-      );
+    var productRefUuid = nativeTarget ? nativeTarget.productReference : null;
 
-      var copyPhases = objects.PBXCopyFilesBuildPhase;
-      if (copyPhases) {
-        var phaseKeys = Object.keys(copyPhases);
-        for (var k = 0; k < phaseKeys.length; k++) {
-          var phase = copyPhases[phaseKeys[k]];
-          if (phase && phase.name && phase.name.indexOf("Embed Watch Content") !== -1) {
-            phase.dstSubfolderSpec = 16;
-            phase.dstPath = '"$(CONTENTS_FOLDER_PATH)/Watch"';
-          }
+    if (productRefUuid) {
+      var productsGroupFound = false;
+      var pbxGroups = objects.PBXGroup;
+      var groupUuids = Object.keys(pbxGroups);
+      for (var g = 0; g < groupUuids.length; g++) {
+        var grp = pbxGroups[groupUuids[g]];
+        if (grp && grp.name === "Products") {
+          grp.children.push({ value: productRefUuid, comment: WATCH_TARGET_NAME + ".app" });
+          productsGroupFound = true;
+          break;
         }
+      }
+      if (!productsGroupFound) {
+        var productsGroup = project.addPbxGroup([], "Products", "Products");
+        productsGroup.children = [{ value: productRefUuid, comment: WATCH_TARGET_NAME + ".app" }];
+        project.addToPbxGroup(productsGroup.uuid, project.getFirstProject().firstProject.mainGroup);
+      }
+    }
+
+    var mainTarget = project.getFirstTarget();
+    if (mainTarget && productRefUuid) {
+      var embedPhaseUuid = project.generateUuid();
+      var buildFileUuid = project.generateUuid();
+
+      objects.PBXBuildFile[buildFileUuid] = {
+        isa: "PBXBuildFile",
+        fileRef: productRefUuid,
+        settings: { ATTRIBUTES: ["RemoveHeadersOnCopy"] },
+      };
+      objects.PBXBuildFile[buildFileUuid + "_comment"] = WATCH_TARGET_NAME + ".app in Embed Watch Content";
+
+      objects.PBXCopyFilesBuildPhase = objects.PBXCopyFilesBuildPhase || {};
+      objects.PBXCopyFilesBuildPhase[embedPhaseUuid] = {
+        isa: "PBXCopyFilesBuildPhase",
+        buildActionMask: 2147483647,
+        dstPath: '"$(CONTENTS_FOLDER_PATH)/Watch"',
+        dstSubfolderSpec: 16,
+        files: [{ value: buildFileUuid, comment: WATCH_TARGET_NAME + ".app in Embed Watch Content" }],
+        name: '"Embed Watch Content"',
+        runOnlyForDeploymentPostprocessing: 0,
+      };
+      objects.PBXCopyFilesBuildPhase[embedPhaseUuid + "_comment"] = "Embed Watch Content";
+
+      var mainNativeTarget = objects.PBXNativeTarget[mainTarget.firstTarget.uuid];
+      if (mainNativeTarget && mainNativeTarget.buildPhases) {
+        mainNativeTarget.buildPhases.push({ value: embedPhaseUuid, comment: "Embed Watch Content" });
       }
     }
 

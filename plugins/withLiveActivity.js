@@ -109,15 +109,56 @@ function withLiveActivity(config) {
       }
     }
 
+    var nativeTarget = objects.PBXNativeTarget[target.uuid];
+    var productRefUuid = nativeTarget ? nativeTarget.productReference : null;
+
+    if (productRefUuid) {
+      var productsGroupFound = false;
+      var pbxGroups = objects.PBXGroup;
+      var groupUuids = Object.keys(pbxGroups);
+      for (var g = 0; g < groupUuids.length; g++) {
+        var grp = pbxGroups[groupUuids[g]];
+        if (grp && grp.name === "Products") {
+          grp.children.push({ value: productRefUuid, comment: EXT_NAME + ".appex" });
+          productsGroupFound = true;
+          break;
+        }
+      }
+      if (!productsGroupFound) {
+        var productsGroup = project.addPbxGroup([], "Products", "Products");
+        productsGroup.children = [{ value: productRefUuid, comment: EXT_NAME + ".appex" }];
+        project.addToPbxGroup(productsGroup.uuid, project.getFirstProject().firstProject.mainGroup);
+      }
+    }
+
     var mainTarget = project.getFirstTarget();
-    if (mainTarget) {
-      project.addBuildPhase(
-        [EXT_NAME + ".appex"],
-        "PBXCopyFilesBuildPhase",
-        "Embed Foundation Extensions",
-        mainTarget.firstTarget.uuid,
-        "app_extension",
-      );
+    if (mainTarget && productRefUuid) {
+      var embedPhaseUuid = project.generateUuid();
+      var buildFileUuid = project.generateUuid();
+
+      objects.PBXBuildFile[buildFileUuid] = {
+        isa: "PBXBuildFile",
+        fileRef: productRefUuid,
+        settings: { ATTRIBUTES: ["RemoveHeadersOnCopy"] },
+      };
+      objects.PBXBuildFile[buildFileUuid + "_comment"] = EXT_NAME + ".appex in Embed Foundation Extensions";
+
+      objects.PBXCopyFilesBuildPhase = objects.PBXCopyFilesBuildPhase || {};
+      objects.PBXCopyFilesBuildPhase[embedPhaseUuid] = {
+        isa: "PBXCopyFilesBuildPhase",
+        buildActionMask: 2147483647,
+        dstPath: '""',
+        dstSubfolderSpec: 13,
+        files: [{ value: buildFileUuid, comment: EXT_NAME + ".appex in Embed Foundation Extensions" }],
+        name: '"Embed Foundation Extensions"',
+        runOnlyForDeploymentPostprocessing: 0,
+      };
+      objects.PBXCopyFilesBuildPhase[embedPhaseUuid + "_comment"] = "Embed Foundation Extensions";
+
+      var mainNativeTarget = objects.PBXNativeTarget[mainTarget.firstTarget.uuid];
+      if (mainNativeTarget && mainNativeTarget.buildPhases) {
+        mainNativeTarget.buildPhases.push({ value: embedPhaseUuid, comment: "Embed Foundation Extensions" });
+      }
     }
 
     return mod;
