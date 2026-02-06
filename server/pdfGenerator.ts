@@ -740,6 +740,11 @@ function drawDetailGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: numbe
     const gridY = graphY + (graphH * i / (gridLines + 1));
     doc.moveTo(graphX, gridY).lineTo(graphX + graphW, gridY).stroke();
   }
+  const segmentMatch = segmentLabel.match(/(\d+):(\d+)\s*-\s*(\d+):(\d+)/);
+  const segStartSec = segmentMatch ? parseInt(segmentMatch[1]) * 60 + parseInt(segmentMatch[2]) : 0;
+  const segEndSec = segmentMatch ? parseInt(segmentMatch[3]) * 60 + parseInt(segmentMatch[4]) : 200;
+  const segDuration = segEndSec - segStartSec;
+
   for (let i = 1; i < 10; i++) {
     const gridX = graphX + (graphW * i / 10);
     doc.moveTo(gridX, graphY).lineTo(gridX, graphY + graphH).stroke();
@@ -754,6 +759,15 @@ function drawDetailGraph(doc: PDFKit.PDFDocument, x: number, y: number, w: numbe
     const ly = graphY + (graphH * i / 4) - 3;
     doc.text(label, x + 8, ly);
   });
+
+  doc.font('Helvetica').fontSize(4).fillColor(GRAY);
+  for (let i = 0; i <= 10; i += 2) {
+    const tx = graphX + (graphW * i / 10);
+    const timeSec = segStartSec + Math.round(segDuration * i / 10);
+    const mm = Math.floor(timeSec / 60).toString().padStart(2, '0');
+    const ss = (timeSec % 60).toString().padStart(2, '0');
+    doc.text(`${mm}:${ss}`, tx - 8, graphY + graphH + 2, { width: 20, align: 'center' });
+  }
   
   if (!dataPoints || dataPoints.length === 0) {
     doc.font('Helvetica').fontSize(10).fillColor(GRAY);

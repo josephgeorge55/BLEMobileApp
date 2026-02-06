@@ -1026,9 +1026,9 @@ export function createExtendedTripFromBasic(
     avgSpeedKmh: basicTrip.avgSpeedKmh || 0,
     totalEnergyWh: basicTrip.totalEnergyWh || 0,
     
-    startWeather: null,
-    endWeather: null,
-    hourlyWeather: [],
+    startWeather: basicTrip.startWeather || null,
+    endWeather: basicTrip.endWeather || null,
+    hourlyWeather: basicTrip.hourlyWeather || [],
     
     phoneGPSStart: basicTrip.phoneGPSStart || null,
     phoneGPSEnd: basicTrip.phoneGPSEnd || null,
