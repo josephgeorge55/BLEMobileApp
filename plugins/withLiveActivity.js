@@ -61,6 +61,25 @@ function withLiveActivity(config) {
       return mod;
     }
 
+    var objects = project.hash.project.objects;
+
+    var mainTarget = project.getFirstTarget();
+    var mainDevTeam = null;
+    if (mainTarget && mainTarget.firstTarget) {
+      var mainConfigListUuid = mainTarget.firstTarget.buildConfigurationList;
+      var mainConfigList = objects.XCConfigurationList[mainConfigListUuid];
+      if (mainConfigList && mainConfigList.buildConfigurations) {
+        for (var m = 0; m < mainConfigList.buildConfigurations.length; m++) {
+          var mainConfigRef = mainConfigList.buildConfigurations[m];
+          var mainBuildConfig = objects.XCBuildConfiguration[mainConfigRef.value];
+          if (mainBuildConfig && mainBuildConfig.buildSettings && mainBuildConfig.buildSettings.DEVELOPMENT_TEAM) {
+            mainDevTeam = mainBuildConfig.buildSettings.DEVELOPMENT_TEAM;
+            break;
+          }
+        }
+      }
+    }
+
     const group = project.addPbxGroup([], EXT_NAME, EXT_NAME);
     const mainGroup = project.getFirstProject().firstProject.mainGroup;
     project.addToPbxGroup(group.uuid, mainGroup);
@@ -80,7 +99,6 @@ function withLiveActivity(config) {
     );
 
     var buildConfigListUuid = target.pbxNativeTarget.buildConfigurationList;
-    var objects = project.hash.project.objects;
     var configList = objects.XCConfigurationList[buildConfigListUuid];
 
     if (configList && configList.buildConfigurations) {
@@ -95,19 +113,23 @@ function withLiveActivity(config) {
             EXT_NAME + "/Info.plist";
           buildConfig.buildSettings.MARKETING_VERSION = "1.0";
           buildConfig.buildSettings.CURRENT_PROJECT_VERSION = "1";
-          buildConfig.buildSettings.CODE_SIGN_STYLE = "Automatic";
           buildConfig.buildSettings.SKIP_INSTALL = "YES";
           buildConfig.buildSettings.TARGETED_DEVICE_FAMILY = '"1,2"';
           buildConfig.buildSettings.PRODUCT_BUNDLE_IDENTIFIER =
             '"' + extBundleId + '"';
           buildConfig.buildSettings.GENERATE_INFOPLIST_FILE = "YES";
-          buildConfig.buildSettings.ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME =
-            "AccentColor";
+          buildConfig.buildSettings.INFOPLIST_KEY_CFBundleDisplayName =
+            '"Blade Outboards"';
           buildConfig.buildSettings.LD_RUNPATH_SEARCH_PATHS =
             '"$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"';
           buildConfig.buildSettings.PRODUCT_NAME =
             '"$(TARGET_NAME)"';
           buildConfig.buildSettings.SWIFT_EMIT_LOC_STRINGS = "YES";
+          buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
+          if (mainDevTeam) {
+            buildConfig.buildSettings.DEVELOPMENT_TEAM = mainDevTeam;
+          }
+          buildConfig.buildSettings.CODE_SIGN_STYLE = "Automatic";
         }
       }
     }

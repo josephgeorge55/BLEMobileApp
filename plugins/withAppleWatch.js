@@ -61,6 +61,23 @@ function withAppleWatch(config) {
 
     var objects = project.hash.project.objects;
 
+    var mainTarget = project.getFirstTarget();
+    var mainDevTeam = null;
+    if (mainTarget && mainTarget.firstTarget) {
+      var mainConfigListUuid = mainTarget.firstTarget.buildConfigurationList;
+      var mainConfigList = objects.XCConfigurationList[mainConfigListUuid];
+      if (mainConfigList && mainConfigList.buildConfigurations) {
+        for (var m = 0; m < mainConfigList.buildConfigurations.length; m++) {
+          var mainConfigRef = mainConfigList.buildConfigurations[m];
+          var mainBuildConfig = objects.XCBuildConfiguration[mainConfigRef.value];
+          if (mainBuildConfig && mainBuildConfig.buildSettings && mainBuildConfig.buildSettings.DEVELOPMENT_TEAM) {
+            mainDevTeam = mainBuildConfig.buildSettings.DEVELOPMENT_TEAM;
+            break;
+          }
+        }
+      }
+    }
+
     var group = project.addPbxGroup([], WATCH_TARGET_NAME, WATCH_TARGET_NAME);
     var mainGroup = project.getFirstProject().firstProject.mainGroup;
     project.addToPbxGroup(group.uuid, mainGroup);
@@ -100,12 +117,10 @@ function withAppleWatch(config) {
           buildConfig.buildSettings.TARGETED_DEVICE_FAMILY = "4";
           buildConfig.buildSettings.PRODUCT_BUNDLE_IDENTIFIER =
             '"' + watchBundleId + '"';
-          buildConfig.buildSettings.ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";
           buildConfig.buildSettings.INFOPLIST_FILE =
             WATCH_TARGET_NAME + "/Info.plist";
           buildConfig.buildSettings.PRODUCT_NAME = '"$(TARGET_NAME)"';
           buildConfig.buildSettings.SWIFT_EMIT_LOC_STRINGS = "YES";
-          buildConfig.buildSettings.CODE_SIGN_STYLE = "Automatic";
           buildConfig.buildSettings.GENERATE_INFOPLIST_FILE = "YES";
           buildConfig.buildSettings.INFOPLIST_KEY_WKCompanionAppBundleIdentifier =
             '"' + mainBundleId + '"';
@@ -116,6 +131,13 @@ function withAppleWatch(config) {
           buildConfig.buildSettings.SKIP_INSTALL = "YES";
           buildConfig.buildSettings.MARKETING_VERSION = "1.0";
           buildConfig.buildSettings.CURRENT_PROJECT_VERSION = "1";
+          buildConfig.buildSettings.ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "YES";
+          buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
+          buildConfig.buildSettings.SWIFT_OPTIMIZATION_LEVEL = '"-Onone"';
+          if (mainDevTeam) {
+            buildConfig.buildSettings.DEVELOPMENT_TEAM = mainDevTeam;
+          }
+          buildConfig.buildSettings.CODE_SIGN_STYLE = "Automatic";
         }
       }
     }
