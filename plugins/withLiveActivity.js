@@ -139,7 +139,6 @@ function withLiveActivity(config) {
             '"$(TARGET_NAME)"';
           buildConfig.buildSettings.SWIFT_EMIT_LOC_STRINGS = "YES";
           buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
-          buildConfig.buildSettings.CODE_SIGN_STYLE = "Automatic";
           if (devTeam) {
             buildConfig.buildSettings.DEVELOPMENT_TEAM = devTeam;
           }

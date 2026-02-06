@@ -16,7 +16,19 @@
         "NSLocationWhenInUseUsageDescription": "Blade Outboards uses your location to show your position relative to your outboard motor.",
         "NSBluetoothAlwaysUsageDescription": "Blade Outboards uses Bluetooth to connect to your outboard motor for real-time telemetry.",
         "NSBluetoothPeripheralUsageDescription": "Blade Outboards uses Bluetooth to communicate with your outboard motor."
-      }
+      },
+      "appExtensions": [
+        {
+          "targetName": "BladeOutboardsWidgetExtension",
+          "bundleIdentifier": "com.bladeoutboards.app.widget",
+          "entitlements": {}
+        },
+        {
+          "targetName": "BladeOutboardsWatch",
+          "bundleIdentifier": "com.bladeoutboards.app.watchkitapp",
+          "entitlements": {}
+        }
+      ]
     },
     "android": {
       "package": "com.bladeoutboards.app",
