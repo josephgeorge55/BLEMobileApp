@@ -80,7 +80,7 @@ function withAppleWatch(config) {
 
     for (var i = 0; i < swiftFiles.length; i++) {
       project.addSourceFile(
-        WATCH_TARGET_NAME + "/" + swiftFiles[i],
+        swiftFiles[i],
         { target: target.uuid },
         group.uuid,
       );

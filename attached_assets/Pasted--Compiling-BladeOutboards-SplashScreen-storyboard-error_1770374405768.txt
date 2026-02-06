@@ -1,0 +1,32 @@
+ Compiling BladeOutboards » SplashScreen.storyboard
+
+❌  error: Build input files cannot be found: '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/BladeWatchApp.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/WatchConnectivityManager.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/ContentView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/HomeView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/TelemetryView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/TripView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWidgetExtension/BladeOutboardsWidgetExtension/BladeOutboardsAttributes.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWidgetExtension/BladeOutboardsWidgetExtension/BladeOutboardsLiveActivity.swift'. Did you forget to declare these files as outputs of any script phases or custom build rules which produce them? (in target 'BladeOutboards' from project 'BladeOutboards')
+
+
+❌  error: Build input files cannot be found: '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/BladeWatchApp.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/WatchConnectivityManager.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/ContentView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/HomeView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/TelemetryView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWatch/BladeOutboardsWatch/TripView.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWidgetExtension/BladeOutboardsWidgetExtension/BladeOutboardsAttributes.swift', '/Users/expo/workingdir/build/ios/BladeOutboardsWidgetExtension/BladeOutboardsWidgetExtension/BladeOutboardsLiveActivity.swift'. Did you forget to declare these files as outputs of any script phases or custom build rules which produce them? (in target 'BladeOutboards' from project 'BladeOutboards')
+
+    Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+▸ ** ARCHIVE FAILED **
+▸ The following build commands failed:
+▸ 	SwiftDriver\ Compilation BladeOutboards normal arm64 com.apple.xcode.tools.swift.compiler (in target 'BladeOutboards' from project 'BladeOutboards')
+▸ 	SwiftDriver\ Compilation\ Requirements BladeOutboards normal arm64 com.apple.xcode.tools.swift.compiler (in target 'BladeOutboards' from project 'BladeOutboards')
+▸ 	Archiving workspace BladeOutboards with scheme BladeOutboards
+▸ (3 failures)
+Exit status: 65
++---------------------------------------+
+|           Build environment           |
++-------------+-------------------------+
+| xcode_path  | /Applications/Xcode.app |
+| gym_version | 2.228.0                 |
+| sdk         | iPhoneOS26.0.sdk        |
++-------------+-------------------------+
+Looks like fastlane ran into a build/archive error with your project
+It's hard to tell what's causing the error, so we wrote some guides on how
+to troubleshoot build and signing issues: https://docs.fastlane.tools/codesigning/getting-started/
+Before submitting an issue on GitHub, please follow the guide above and make
+sure your project is set up correctly.
+fastlane uses `xcodebuild` commands to generate your binary, you can see the
+the full commands printed out in yellow in the above log.
+Make sure to inspect the output above, as usually you'll find more error information there
+[!] Error building the application - see the log above
+fastlane gym exited with non-zero code: 1

@@ -66,12 +66,12 @@ function withLiveActivity(config) {
     project.addToPbxGroup(group.uuid, mainGroup);
 
     project.addSourceFile(
-      EXT_NAME + "/BladeOutboardsAttributes.swift",
+      "BladeOutboardsAttributes.swift",
       { target: target.uuid },
       group.uuid,
     );
     project.addSourceFile(
-      EXT_NAME + "/BladeOutboardsLiveActivity.swift",
+      "BladeOutboardsLiveActivity.swift",
       { target: target.uuid },
       group.uuid,
     );
