@@ -154,8 +154,8 @@ function withAppleWatch(config) {
       console.warn("[withAppleWatch] Could not find main target for embedding");
       return mod;
     }
-    var mainTargetObj = firstTarget.firstTarget;
-    var mainTargetUuid = mainTargetObj.uuid;
+    var mainNativeTarget = firstTarget.firstTarget;
+    var mainTargetUuid = firstTarget.uuid;
     var watchProductRef = target.pbxNativeTarget.productReference;
 
     var copyPhaseUuid = project.generateUuid();
@@ -189,16 +189,13 @@ function withAppleWatch(config) {
     };
     objects.PBXCopyFilesBuildPhase[copyPhaseUuid + '_comment'] = 'Embed Watch Content';
 
-    var mainNativeTarget = objects.PBXNativeTarget[mainTargetUuid];
-    if (mainNativeTarget) {
-      if (!mainNativeTarget.buildPhases) {
-        mainNativeTarget.buildPhases = [];
-      }
-      mainNativeTarget.buildPhases.push({
-        value: copyPhaseUuid,
-        comment: 'Embed Watch Content',
-      });
+    if (!mainNativeTarget.buildPhases) {
+      mainNativeTarget.buildPhases = [];
     }
+    mainNativeTarget.buildPhases.push({
+      value: copyPhaseUuid,
+      comment: 'Embed Watch Content',
+    });
 
     var projectUuid = project.getFirstProject().firstProject.project;
 
@@ -224,15 +221,13 @@ function withAppleWatch(config) {
     };
     objects.PBXTargetDependency[targetDepUuid + '_comment'] = 'PBXTargetDependency';
 
-    if (mainNativeTarget) {
-      if (!mainNativeTarget.dependencies) {
-        mainNativeTarget.dependencies = [];
-      }
-      mainNativeTarget.dependencies.push({
-        value: targetDepUuid,
-        comment: 'PBXTargetDependency',
-      });
+    if (!mainNativeTarget.dependencies) {
+      mainNativeTarget.dependencies = [];
     }
+    mainNativeTarget.dependencies.push({
+      value: targetDepUuid,
+      comment: 'PBXTargetDependency',
+    });
 
     return mod;
   });
