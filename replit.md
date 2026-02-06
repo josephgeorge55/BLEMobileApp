@@ -15,7 +15,7 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 - **State Management**: React Context (local), TanStack React Query (server)
 - **Styling**: Custom theming with light/dark mode, Reanimated for animations, Expo Linear Gradient
 - **UI/UX Decisions**: High-contrast interface, deep ocean blue palette, optimized for outdoor visibility.
-- **Key Features**: Authentication, real-time dashboard, GPS tracking, trip recording and export, OTA firmware updates, device settings, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for real-time telemetry, and Digital Outboard Passport (ownership certificate with QR code, PDF export, Apple/Google Wallet integration).
+- **Key Features**: Authentication, real-time dashboard, GPS tracking, trip recording and export, OTA firmware updates, device settings, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for real-time telemetry, Digital Outboard Passport (ownership certificate with QR code, PDF export, Apple/Google Wallet integration), and Apple Watch companion app.
 
 ### Backend
 - **Framework**: Express.js with TypeScript
@@ -92,6 +92,14 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - **Google Wallet**: JWT-based pass generation using `jsonwebtoken`. Generic pass object with service account signing. Requires: `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_KEY`. Falls back to PDF if creds not configured.
 - **Pass Assets**: Icon (green Blade icon) and logo (white Blade text) resized via `sharp` to Apple Wallet required sizes (icon: 29/58/87px, logo: 160x50/320x100, thumbnail: 90/180px). Source images in `server/wallet-assets/`.
 - **Architecture**: `server/walletPassGenerator.ts` exports `generateAppleWalletPass()` and `generateGoogleWalletUrl()`. Routes in `server/routes.ts` use dynamic import. Client in `client/screens/PassportScreen.tsx` handles `pkpass`, `google_wallet`, and `pdf_fallback` response types.
+
+### Apple Watch Companion App (EAS Build Only)
+- **Architecture**: Separate watchOS target bundled via Expo config plugin (`plugins/withAppleWatch.js`). Watch app source in `plugins/watch-app/`.
+- **Communication**: WatchConnectivity framework. iPhone-side bridge module at `modules/blade-watch-connectivity/` sends telemetry via `updateApplicationContext` + `sendMessage`. Watch receives data and can send trip start/stop commands back.
+- **Screens**: 3 SwiftUI pages (Home: connection status/serial/Blade Halo, Telemetry: speed/battery/wattage, Trip: start/end/stopwatch).
+- **Requirement**: Only works when iPhone has active Bluetooth connection to motor. Watch does not connect to motor directly.
+- **Bundle ID**: `com.bladeoutboards.app.watchkitapp` (companion of `com.bladeoutboards.app`).
+- **Design**: Dark navy background (#0A1628), Blade accent blue (#0A4D6E), Watch-optimized font sizes.
 
 ### Third-Party APIs
 - **OpenStreetMap-based Leaflet.js**: Map visualization.
