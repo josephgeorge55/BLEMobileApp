@@ -192,7 +192,7 @@ export async function registerMotorForUser(
 
     const newMotor: RegisteredMotor = {
       serialNumber: serialNumber.toUpperCase(),
-      name: motorName,
+      name: motorName || "",
       registeredAt: new Date(),
     };
 
@@ -411,11 +411,25 @@ export async function saveBoatData(
 
   try {
     const userRef = doc(firestore, "users", effectiveUserId);
+    const cleanBoatData: Record<string, any> = {
+      boatType: boatData.boatType,
+      lengthMeters: boatData.lengthMeters,
+      weightKg: boatData.weightKg,
+      updatedAt: new Date(),
+    };
+    if (boatData.vesselName !== undefined && boatData.vesselName !== null && boatData.vesselName !== "") {
+      cleanBoatData.vesselName = boatData.vesselName;
+    } else {
+      cleanBoatData.vesselName = "";
+    }
+    if (boatData.vin !== undefined && boatData.vin !== null && boatData.vin !== "") {
+      cleanBoatData.vin = boatData.vin;
+    } else {
+      cleanBoatData.vin = "";
+    }
+
     await setDoc(userRef, {
-      boatData: {
-        ...boatData,
-        updatedAt: new Date(),
-      },
+      boatData: cleanBoatData,
       updatedAt: new Date(),
     }, { merge: true });
 
