@@ -1,0 +1,68 @@
+ Copying   ./PrivacyInfo.xcprivacy ➜ ../../../Users/expo/workingdir/build/ios/BladeOutboards/PrivacyInfo.xcprivacy
+› Copying   ios/BladeOutboards/Supporting/Expo.plist ➜ ./Expo.plist
+› Compiling BladeOutboards » SplashScreen.storyboard
+▸ ** ARCHIVE FAILED **
+▸ The following build commands failed:
+▸ 	SwiftEmitModule normal arm64 Emitting\ module\ for\ BladeOutboards (in target 'BladeOutboards' from project 'BladeOutboards')
+▸ 	EmitSwiftModule normal arm64 (in target 'BladeOutboards' from project 'BladeOutboards')
+
+⚠️  (ios/BladeOutboards/AppDelegate.swift:5:1)
+
+  3 | import ReactAppDependencyProvider
+  4 | 
+> 5 | @UIApplicationMain
+    | ^ 'main' attribute can only apply to one type in a module
+  6 | public class AppDelegate: ExpoAppDelegate {
+  7 |   var window: UIWindow?
+  8 | 
+
+❌  (ios/BladeOutboardsWatch/BladeWatchApp.swift:3:1)
+
+  1 | import SwiftUI
+  2 | 
+> 3 | @main
+    | ^ 'main' attribute can only apply to one type in a module
+  4 | struct BladeWatchApp: App {
+  5 |     @StateObject private var connectivity = WatchConnectivityManager()
+  6 |     
+
+❌  (ios/BladeOutboardsWatch/WatchConnectivityManager.swift:4:7)
+
+  2 | import WatchConnectivity
+  3 | 
+> 4 | class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
+    |       ^ type 'WatchConnectivityManager' does not conform to protocol 'WCSessionDelegate'
+  5 |     @Published var isConnected: Bool = false
+  6 |     @Published var serialNumber: String = "--"
+  7 |     @Published var motorName: String = "Blade Halo"
+
+❌  (ios/BladeOutboardsWidgetExtension/BladeOutboardsLiveActivity.swift:212:1)
+
+  210 | }
+  211 | 
+> 212 | @main
+      | ^ 'main' attribute can only apply to one type in a module
+  213 | struct BladeOutboardsWidgetBundle: WidgetBundle {
+  214 |     var body: some Widget {
+  215 |         BladeOutboardsLiveActivity()
+    Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+▸ 	Archiving workspace BladeOutboards with scheme BladeOutboards
+▸ (3 failures)
+Exit status: 65
++---------------------------------------+
+|           Build environment           |
++-------------+-------------------------+
+| xcode_path  | /Applications/Xcode.app |
+| gym_version | 2.228.0                 |
+| sdk         | iPhoneOS26.0.sdk        |
++-------------+-------------------------+
+Looks like fastlane ran into a build/archive error with your project
+It's hard to tell what's causing the error, so we wrote some guides on how
+to troubleshoot build and signing issues: https://docs.fastlane.tools/codesigning/getting-started/
+Before submitting an issue on GitHub, please follow the guide above and make
+sure your project is set up correctly.
+fastlane uses `xcodebuild` commands to generate your binary, you can see the
+the full commands printed out in yellow in the above log.
+Make sure to inspect the output above, as usually you'll find more error information there
+[!] Error building the application - see the log above
+fastlane gym exited with non-zero code: 1

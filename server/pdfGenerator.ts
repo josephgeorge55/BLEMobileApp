@@ -326,7 +326,7 @@ function tile2lat(y: number, z: number): number {
 
 function fetchTile(z: number, x: number, y: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const url = `https://basemaps.cartocdn.com/light_nolabels/${z}/${x}/${y}@2x.png`;
+    const url = `https://basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png`;
     https.get(url, {
       headers: { 'User-Agent': 'BladeOutboards/1.0 PDFReport' }
     }, (response) => {
@@ -595,6 +595,80 @@ function drawMap(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: nu
     doc.text('END', ex - 10, ey + markerR + 2);
   }
 
+  // --- Coordinate grid markers along map edges ---
+  const visMinLonRaw = gridMinMercX * 360 - 180;
+  const visMaxLonRaw = gridMaxMercX * 360 - 180;
+  const visMinLatRaw = Math.atan(Math.sinh(Math.PI * (1 - 2 * gridMaxMercY))) * 180 / Math.PI;
+  const visMaxLatRaw = Math.atan(Math.sinh(Math.PI * (1 - 2 * gridMinMercY))) * 180 / Math.PI;
+
+  const lonSpanVis = visMaxLonRaw - visMinLonRaw;
+  const latSpanVis = visMaxLatRaw - visMinLatRaw;
+
+  const coordIntervals = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20];
+  const targetTicksLon = Math.max(3, Math.min(6, Math.floor(w / 100)));
+  const targetTicksLat = Math.max(2, Math.min(5, Math.floor(h / 60)));
+
+  let lonInterval = 1;
+  for (const ci of coordIntervals) {
+    if (lonSpanVis / ci <= targetTicksLon + 1) { lonInterval = ci; break; }
+  }
+  let latInterval = 1;
+  for (const ci of coordIntervals) {
+    if (latSpanVis / ci <= targetTicksLat + 1) { latInterval = ci; break; }
+  }
+
+  function formatCoord(val: number, isLat: boolean): string {
+    const absVal = Math.abs(val);
+    const dir = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'W');
+    if (absVal >= 1) {
+      const deg = Math.floor(absVal);
+      const min = (absVal - deg) * 60;
+      if (min < 0.1) return `${deg}\u00B0${dir}`;
+      return `${deg}\u00B0${min.toFixed(1)}'${dir}`;
+    }
+    const deg = Math.floor(absVal);
+    const min = (absVal - deg) * 60;
+    return `${deg}\u00B0${min.toFixed(1)}'${dir}`;
+  }
+
+  doc.strokeColor('#999999').lineWidth(0.4).opacity(0.5);
+
+  const firstLon = Math.ceil(visMinLonRaw / lonInterval) * lonInterval;
+  for (let lon = firstLon; lon <= visMaxLonRaw; lon += lonInterval) {
+    const px = toMapX(lon);
+    if (px < x + 2 || px > x + w - 2) continue;
+    doc.moveTo(px, y).lineTo(px, y + 5).stroke();
+    doc.moveTo(px, y + h - 5).lineTo(px, y + h).stroke();
+  }
+
+  const firstLat = Math.ceil(visMinLatRaw / latInterval) * latInterval;
+  for (let lat = firstLat; lat <= visMaxLatRaw; lat += latInterval) {
+    const py = toMapY(lat);
+    if (py < y + 2 || py > y + h - 2) continue;
+    doc.moveTo(x, py).lineTo(x + 5, py).stroke();
+    doc.moveTo(x + w - 5, py).lineTo(x + w, py).stroke();
+  }
+
+  doc.opacity(1);
+  doc.font('Helvetica').fontSize(4.5);
+
+  for (let lon = firstLon; lon <= visMaxLonRaw; lon += lonInterval) {
+    const px = toMapX(lon);
+    if (px < x + 2 || px > x + w - 2) continue;
+    const label = formatCoord(lon, false);
+    doc.fillColor('#ffffff').rect(px - 13, y + h - 13, 26, 8).fill();
+    doc.fillColor('#555555').text(label, px - 15, y + h - 13, { width: 30, align: 'center' });
+  }
+
+  for (let lat = firstLat; lat <= visMaxLatRaw; lat += latInterval) {
+    const py = toMapY(lat);
+    if (py < y + 8 || py > y + h - 8) continue;
+    const label = formatCoord(lat, true);
+    doc.fillColor('#ffffff').rect(x + 1, py - 4, 28, 8).fill();
+    doc.fillColor('#555555').text(label, x + 2, py - 4, { width: 28, lineBreak: false });
+  }
+
+  // --- Scale bar ---
   const visMinLon = gridMinMercX + ((x - offsetX) / renderedW) * gridMercW;
   const visMaxLon = gridMinMercX + ((x + w - offsetX) / renderedW) * gridMercW;
   const visLonSpanMerc = (visMaxLon - visMinLon) * 360;
