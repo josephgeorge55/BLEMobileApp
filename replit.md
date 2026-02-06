@@ -56,9 +56,16 @@ The application comprises an Expo/React Native mobile client and an Express.js b
 - Bluetooth Classic: NOT supported (iOS restriction - `react-native-bluetooth-classic` is Android-only)
 - BleScannerModal skips Bluetooth Classic initialization on iOS to prevent crashes
 - BLE notification subscription uses `characteristic.monitor()` (direct object reference) instead of UUID-string lookup for reliable iOS CoreBluetooth compatibility
-- 500ms delay after service discovery before subscribing to notifications
-- Auto-retry at 3s and 6s if no data arrives after initial subscription
+- Explicit CCC descriptor (0x2902) write after monitor() setup: 0x01,0x00 for NOTIFY, 0x02,0x00 for INDICATE
+- Fallback CCC write via descriptor enumeration if direct writeDescriptorForService fails
+- Nordic UART Service (NUS) as fallback BLE profile: TX=6E400003 (notify), RX=6E400002 (write)
+- Brute-force notifiable characteristic search if neither Feasycom FFE0/FFE1 nor Nordic UART found
+- 500ms delay on iOS / 200ms on Android after service discovery before subscribing to notifications
+- Post-discovery MTU renegotiation to 512 bytes on Android with negotiated MTU logging
+- Auto-retry at 3s, 6s, and 10s if no data arrives after initial subscription (BOTH platforms)
+- 15s warning log if no data received with diagnostic info (service UUID, char UUID, profile name)
 - Subscription reference stored to prevent garbage collection
+- Separate write characteristic tracking for Nordic UART devices (TX for notify, RX for write)
 
 **Web:**
 - Mock mode only - no real Bluetooth support
