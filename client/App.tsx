@@ -16,6 +16,7 @@ import { SettingsProvider } from "@/context/SettingsContext";
 import { UserProvider } from "@/context/UserContext";
 import { TripProvider } from "@/context/TripContext";
 import { ToastProvider } from "@/context/ToastContext";
+import LiveActivityManager from "@/components/LiveActivityManager";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
               <UserProvider>
                 <MotorProvider>
                   <TripProvider>
+                    <LiveActivityManager />
                     <SettingsProvider>
                       <ToastProvider>
                         <NavigationContainer>
