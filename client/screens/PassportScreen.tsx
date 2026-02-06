@@ -87,7 +87,7 @@ export default function PassportScreen() {
     serialNumber,
     productName: "Blade Halo 6",
     maxPower: "3000W Continuous",
-    battery: "1700Wh",
+    batteryCapacity: "1700Wh",
     purchaseDate: "February 1, 2026",
     warrantyExpires: "February 1, 2028",
     vesselName: boatData?.vesselName || "Not available",
@@ -95,7 +95,7 @@ export default function PassportScreen() {
     vesselLength: boatData?.lengthMeters
       ? `${metersToFeet(boatData.lengthMeters).toFixed(1)} ft (${boatData.lengthMeters.toFixed(1)} m)`
       : "Not available",
-    vesselHIN: boatData?.vin || "Not available",
+    vesselHin: boatData?.vin || "Not available",
   });
 
   const handleAddToAppleWallet = async () => {
@@ -114,24 +114,28 @@ export default function PassportScreen() {
       }
 
       const data = await response.json();
-      const base64Data = data.pkpass || data.data;
+      const base64Data = data.data;
 
       if (!base64Data) {
+        if (data.message) {
+          Alert.alert("Apple Wallet", data.message);
+          return;
+        }
         throw new Error("No pass data received");
       }
 
-      const filePath = `${Paths.cache}/blade-passport.pkpass`;
+      const isPdfFallback = data.type === "pdf_fallback";
+      const ext = isPdfFallback ? "pdf" : "pkpass";
+      const mimeType = isPdfFallback ? "application/pdf" : "application/vnd.apple.pkpass";
+      const filePath = `${Paths.cache}/blade-passport.${ext}`;
       const file = new FSFile(filePath);
       await file.write(base64Data, { encoding: "base64" });
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: "application/vnd.apple.pkpass",
-          UTI: "com.apple.pkpass",
-        });
+        await Sharing.shareAsync(filePath, { mimeType });
       } else {
-        Alert.alert("Sharing not available", "Unable to share the pass file on this device.");
+        Alert.alert("Sharing not available", "Unable to share the file on this device.");
       }
     } catch (error: any) {
       console.error("[Passport] Apple Wallet error:", error);
@@ -159,11 +163,13 @@ export default function PassportScreen() {
       const data = await response.json();
       const walletUrl = data.url || data.saveUrl;
 
-      if (!walletUrl) {
+      if (walletUrl) {
+        await WebBrowser.openBrowserAsync(walletUrl);
+      } else if (data.message) {
+        Alert.alert("Google Wallet", data.message);
+      } else {
         throw new Error("No wallet URL received");
       }
-
-      await WebBrowser.openBrowserAsync(walletUrl);
     } catch (error: any) {
       console.error("[Passport] Google Wallet error:", error);
       Alert.alert("Error", "Failed to add to Google Wallet. Please try again.");
