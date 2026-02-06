@@ -135,16 +135,33 @@ export function parseVESCFrame(fields: string[]): VESCData | null {
 }
 
 // INFOR G1: Serial number, Firmware version
-// Format: $INFOR,G1,<SerialNumber>,<FirmwareVersion>
-// Example: $INFOR,G1,JK8839421,1.0.2
+// Classic format: $INFOR,G1,<SerialNumber>,<FirmwareVersion>
+// BLE format may reverse: $INFOR,G1,<FirmwareVersion>,<SerialNumber>
+// Detect by content pattern rather than position to handle both
 export function parseINFORG1Frame(fields: string[]): INFORG1Data | null {
   if (fields.length < 2) return null;
   
-  const serialNumber = fields[0].trim();
-  const firmwareVersion = fields[1].trim();
+  const field0 = fields[0].trim();
+  const field1 = fields[1].trim();
   
-  if (!serialNumber || !firmwareVersion) {
+  if (!field0 || !field1) {
     return null;
+  }
+  
+  const isVersionPattern = (s: string) => /^v?\d+\.\d+(\.\d+)?$/i.test(s);
+  
+  let serialNumber: string;
+  let firmwareVersion: string;
+  
+  if (isVersionPattern(field0) && !isVersionPattern(field1)) {
+    firmwareVersion = field0.replace(/^v/i, "");
+    serialNumber = field1;
+  } else if (!isVersionPattern(field0) && isVersionPattern(field1)) {
+    serialNumber = field0;
+    firmwareVersion = field1.replace(/^v/i, "");
+  } else {
+    serialNumber = field0;
+    firmwareVersion = field1.replace(/^v/i, "");
   }
   
   return { firmwareVersion, serialNumber };
