@@ -138,9 +138,6 @@ function withLiveActivity(config) {
             '"$(TARGET_NAME)"';
           buildConfig.buildSettings.SWIFT_EMIT_LOC_STRINGS = "YES";
           buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
-          buildConfig.buildSettings.CODE_SIGNING_ALLOWED = "NO";
-          buildConfig.buildSettings.CODE_SIGN_IDENTITY = '""';
-          buildConfig.buildSettings.CODE_SIGNING_REQUIRED = "NO";
           if (devTeam) {
             buildConfig.buildSettings.DEVELOPMENT_TEAM = devTeam;
           }
