@@ -44,9 +44,12 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 - Generates professional engineering-style trip reports including detailed trip data, graphs, and system information.
 
 ### Trip Recording System
-- **Storage**: Trips are stored locally in AsyncStorage.
+- **Storage**: Trips are stored locally in AsyncStorage with comprehensive metadata.
 - **Telemetry Interval**: 4-second intervals for logging telemetry data points.
-- **Data Points**: Records phone GPS, outboard GPS, battery status, consumption, RPM, temperatures, throttle, and drive mode.
+- **Data Points**: Records phone GPS, outboard GPS, battery status, consumption, RPM, temperatures, throttle, and drive mode (mapped from telemetry: Normal→N, Eco→E, Docking→D, Sport→S).
+- **Metadata Capture**: At trip start, captures firmware version, connection type (BLE/Classic/Demo), phone app version, device name/type/OS, user email/ID, and starting odometer. At trip end, persists max/avg consumption, amperage, RPM, odometer end, and max phone/outboard GPS speeds.
+- **GPS Speed Filtering**: Phone and outboard GPS speeds >80 km/h are filtered as unrealistic for electric outboard boats.
+- **Energy Calculation**: Uses direct BMS/VESC wattage readings for accuracy, with voltage*current fallback.
 - **Validation**: Includes rules for minimum trip duration, maximum trip limit, and inactivity timeouts.
 - **Demo Mode**: Supports web-based demo mode without requiring a physical motor connection.
 
