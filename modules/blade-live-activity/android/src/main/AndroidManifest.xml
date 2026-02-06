@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <service
+            android:name=".BladeForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false" />
+
+        <receiver
+            android:name=".BladeNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.bladeoutboards.ACTION_START_TRIP" />
+                <action android:name="com.bladeoutboards.ACTION_STOP_TRIP" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
