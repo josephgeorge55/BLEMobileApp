@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
 import { fetchWeather, getWindDirection } from "@/services/weatherService";
@@ -64,6 +66,23 @@ interface ExtendedTripLocal extends Trip {
   hourlyWeather?: WeatherSnapshot[];
   startLocationAddress?: string | null;
   endLocationAddress?: string | null;
+  firmwareVersion?: string | null;
+  connectionType?: string;
+  phoneAppVersion?: string | null;
+  phoneName?: string | null;
+  phoneDeviceType?: string | null;
+  phoneOS?: string | null;
+  userEmail?: string | null;
+  userFirestoreId?: string | null;
+  maxAmperageDraw?: number;
+  maxConsumptionKW?: number;
+  avgConsumptionKW?: number;
+  rpmMax?: number;
+  rpmAvg?: number;
+  odometerStartKm?: number;
+  odometerEndKm?: number;
+  maxPhoneSpeedKmh?: number;
+  maxOutboardSpeedKmh?: number;
 }
 
 async function reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
@@ -136,6 +155,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const consumptionSamplesRef = useRef<number[]>([]);
   const rpmSamplesRef = useRef<number[]>([]);
   const dataPointsRef = useRef<TripDataPoint[]>([]);
+  const maxPhoneSpeedRef = useRef<number>(0);
+  const maxOutboardSpeedRef = useRef<number>(0);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const endTripRef = useRef<((reason?: TripEndReason) => Promise<boolean>) | null>(null);
   const weatherTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -196,13 +217,24 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     
     const lat = outboardLat || phoneLat;
     const lon = outboardLon || phoneLon;
-    const phoneSpeed = loc?.speed ? loc.speed * 3.6 : null;
+    let rawPhoneSpeed = loc?.speed ? loc.speed * 3.6 : null;
+    // Filter unrealistic GPS speeds (>80 km/h impossible for electric outboard boats)
+    const phoneSpeed = rawPhoneSpeed !== null && rawPhoneSpeed <= 80 ? rawPhoneSpeed : (rawPhoneSpeed !== null && rawPhoneSpeed > 80 ? null : null);
     const outboardSpeed = telem?.gnss?.speed ?? null;
-    const speed = outboardSpeed || phoneSpeed || 0;
+    const filteredOutboardSpeed = outboardSpeed !== null && outboardSpeed <= 80 ? outboardSpeed : null;
+    const speed = filteredOutboardSpeed || phoneSpeed || 0;
+    
+    if (phoneSpeed !== null && phoneSpeed > maxPhoneSpeedRef.current) {
+      maxPhoneSpeedRef.current = phoneSpeed;
+    }
+    if (filteredOutboardSpeed !== null && filteredOutboardSpeed > maxOutboardSpeedRef.current) {
+      maxOutboardSpeedRef.current = filteredOutboardSpeed;
+    }
     
     const voltage = telem?.bms?.voltage || 48;
     const current = Math.abs(telem?.vesc?.current || telem?.bms?.current || 0);
-    const power = voltage * current;
+    // Use direct wattage reading from VESC or BMS for accuracy, fallback to V*I
+    const power = Math.abs(telem?.vesc?.wattage ?? telem?.bms?.wattage ?? (voltage * current));
     const consumptionKW = power / 1000;
     const energyWh = power * (4 / 3600);
     const rpm = telem?.motor?.motorRPM || 0;
@@ -230,7 +262,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       motorTemp: telem?.motor?.temperature ?? null,
       vescTemp: telem?.vesc?.temperature ?? null,
       throttlePercent: telem?.vesc?.throttle ?? null,
-      driveMode: null,
+      driveMode: (() => {
+        const mode = telemetryRef.current?.driverMode;
+        if (!mode) return null;
+        const modeMap: Record<string, 'N' | 'E' | 'D' | 'S'> = { 'Normal': 'N', 'Eco': 'E', 'Docking': 'D', 'Sport': 'S' };
+        return modeMap[mode] || null;
+      })(),
       isReverse: rpm < 0,
       isHydroRegen: current < 0 && rpm > 0,
     };
@@ -502,6 +539,17 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const phoneGPSStart = loc ? { latitude: loc.latitude, longitude: loc.longitude } : null;
       const outboardGPSStart = telem?.gnss ? { latitude: telem.gnss.latitude, longitude: telem.gnss.longitude } : null;
 
+      // Capture device & metadata at trip start
+      const firmwareVersion = telem?.tillerFirmwareVersion || motorRef.current?.firmwareVersion || null;
+      const phoneAppVersion = Constants.expoConfig?.version || '1.0.0';
+      const phoneName = Device.deviceName || null;
+      const phoneDeviceType = Device.deviceType !== null && Device.deviceType !== undefined ? String(Device.deviceType) : null;
+      const phoneOS = `${Platform.OS} ${Platform.Version}`;
+      const userEmail = user?.email || null;
+      const userFirestoreId = user?.id || null;
+      const odometerStartKm = telem?.odometer ?? 0;
+      const connectionType = motor?.isConnected ? (Platform.OS === 'ios' ? 'BLE' : 'Bluetooth Classic') : 'Demo';
+
       // Reverse geocode start location
       let startLocationAddress: string | null = null;
       if (loc) {
@@ -558,6 +606,23 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         hourlyWeather: [],
         startLocationAddress,
         endLocationAddress: null,
+        firmwareVersion,
+        connectionType,
+        phoneAppVersion,
+        phoneName,
+        phoneDeviceType,
+        phoneOS,
+        userEmail,
+        userFirestoreId,
+        odometerStartKm,
+        odometerEndKm: 0,
+        maxAmperageDraw: 0,
+        maxConsumptionKW: 0,
+        avgConsumptionKW: 0,
+        rpmMax: 0,
+        rpmAvg: 0,
+        maxPhoneSpeedKmh: 0,
+        maxOutboardSpeedKmh: 0,
       };
 
       // Save to local storage
@@ -589,6 +654,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       consumptionSamplesRef.current = [];
       rpmSamplesRef.current = [];
       dataPointsRef.current = [];
+      maxPhoneSpeedRef.current = 0;
+      maxOutboardSpeedRef.current = 0;
       lastActivityTimeRef.current = Date.now();
       console.log("[Trip] Trip stats RESET to zero");
 
@@ -704,6 +771,14 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                   endWeather,
                   hourlyWeather: hourlyWeatherRef.current,
                   endLocationAddress,
+                  maxAmperageDraw: stats.maxAmperageDraw,
+                  maxConsumptionKW: stats.maxConsumptionKW,
+                  avgConsumptionKW: stats.avgConsumptionKW,
+                  rpmMax: stats.rpmMax,
+                  rpmAvg: stats.rpmAvg,
+                  odometerEndKm: telemetryRef.current?.odometer ?? t.odometerStartKm ?? 0,
+                  maxPhoneSpeedKmh: maxPhoneSpeedRef.current,
+                  maxOutboardSpeedKmh: maxOutboardSpeedRef.current,
                 }
               : t
           );
