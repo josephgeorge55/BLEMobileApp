@@ -1,0 +1,108 @@
+I have a Bluetooth system using Feasycom modules.
+
+Classic Bluetooth (SPP) works perfectly in my Android app and streams data normally.
+
+BLE connects successfully on both iOS and Android, and the device is visible and connectable, but NO data ever reaches the UI and BLE logs remain empty. Feasycom terminal receives BLE data correctly, and the payload format is identical to Classic BT.
+
+This means firmware is transmitting correctly, but the mobile app is not receiving BLE notifications.
+
+Please audit and fix the BLE implementation in my app with focus on:
+
+--------------------------------
+PRIMARY ROOT CAUSE (most likely):
+
+The app is NOT subscribing to BLE notifications.
+
+Classic BT streams automatically.
+BLE REQUIRES explicit subscription.
+
+You must:
+
+1. Discover services
+2. Discover characteristics
+3. Identify TX characteristic (device → phone)
+4. Call setNotifyValue(true) (iOS)
+5. Call setCharacteristicNotification() + write CCC descriptor 0x2902 = 0x01 (Android)
+
+Without enabling notifications, BLE data will never arrive.
+
+--------------------------------
+SECONDARY ITEMS TO VERIFY:
+
+1. Make sure the app is listening on the correct characteristic.
+
+Common Feasycom profiles:
+
+Service:
+FFE0
+
+TX characteristic:
+FFE1
+
+OR Nordic UART:
+
+TX:
+6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+
+Do NOT listen on RX by mistake.
+
+--------------------------------
+2. Confirm characteristic properties include NOTIFY.
+
+If NOTIFY flag is missing, data cannot be received.
+
+--------------------------------
+3. MTU / packet size:
+
+Classic supports large packets.
+BLE defaults to 20 bytes.
+
+If firmware sends larger packets, app must:
+- Request larger MTU
+- Or handle fragmentation.
+
+Feasycom terminal does this automatically; app probably does not.
+
+--------------------------------
+4. Ensure CCC descriptor is written:
+
+UUID 0x2902 must be written with:
+
+0x01 0x00
+
+Otherwise notifications are disabled even if setCharacteristicNotification() is called.
+
+--------------------------------
+WHAT TO ADD FOR DEBUGGING:
+
+After connection:
+
+- Log all discovered services
+- Log all characteristics and properties
+- Log when notifications are enabled
+- Log descriptor write success
+- Log MTU size
+- Log onCharacteristicChanged/onValueUpdate callbacks
+
+--------------------------------
+EXPECTED RESULT:
+
+Once TX characteristic notifications are properly enabled and CCC is written, BLE data should immediately appear in logs and UI exactly like Classic.
+
+--------------------------------
+IMPORTANT:
+
+Feasycom terminal works because it automatically subscribes to notifications.
+
+My app currently connects but never subscribes.
+
+--------------------------------
+Deliverables:
+
+1. Correct BLE subscription logic
+2. Correct TX characteristic selection
+3. Proper CCC descriptor write
+4. MTU handling or packet chunking
+5. Logging added for all BLE stages
+
+Treat this as a production BLE bug fix.

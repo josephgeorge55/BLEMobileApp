@@ -18,6 +18,13 @@ export interface BleServiceCallbacks {
 
 const BLADE_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
 const BLADE_CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
+
+const NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const NUS_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+const NUS_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+const CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb";
+
 const BLADE_DEVICE_NAME_PREFIX = "Blade";
 const HALO_DEVICE_NAME_PREFIX = "Halo";
 
@@ -27,8 +34,10 @@ let connectedDevice: any = null;
 let dataBuffer = "";
 let notificationSubscription: any = null;
 let targetCharacteristic: any = null;
+let writeCharacteristic: any = null;
 let targetServiceUUID: string = BLADE_SERVICE_UUID;
 let targetCharUUID: string = BLADE_CHARACTERISTIC_UUID;
+let negotiatedMTU: number = 23;
 
 function bleLog(tag: string, msg: string) {
   console.log(`[BLE-Service][${tag}] ${msg}`);
@@ -172,6 +181,26 @@ function decodeBase64(value: string): string {
   }
 }
 
+function encodeBase64(bytes: number[]): string {
+  try {
+    return Buffer.from(bytes).toString("base64");
+  } catch (e) {
+    const binary = String.fromCharCode(...bytes);
+    return global.btoa(binary);
+  }
+}
+
+function uuidMatch(discovered: string, target: string): boolean {
+  const d = discovered.toLowerCase();
+  const t = target.toLowerCase();
+  if (d === t) return true;
+  const shortTarget = t.replace(/^0000/, "").replace(/-0000-1000-8000-00805f9b34fb$/, "");
+  if (d === shortTarget) return true;
+  if (d.startsWith("0000" + shortTarget)) return true;
+  if (d.replace(/-/g, "").includes(shortTarget.replace(/-/g, ""))) return true;
+  return false;
+}
+
 export async function connectToDevice(
   deviceId: string,
   callbacks: BleServiceCallbacks
@@ -185,6 +214,7 @@ export async function connectToDevice(
     stopScan();
     dataBuffer = "";
     targetCharacteristic = null;
+    writeCharacteristic = null;
 
     bleLog("CONNECT", `Connecting to device: ${deviceId} (platform: ${Platform.OS})`);
 
@@ -194,11 +224,28 @@ export async function connectToDevice(
       requestMTU: Platform.OS === "android" ? 512 : undefined,
     });
 
-    bleLog("CONNECT", `Connected to ${device.name || device.id}, discovering services...`);
+    bleLog("CONNECT", `Connected to ${device.name || device.id}`);
 
+    if (Platform.OS === "android" && device.mtu) {
+      negotiatedMTU = device.mtu;
+      bleLog("MTU", `Negotiated MTU: ${device.mtu} (payload: ${device.mtu - 3} bytes)`);
+    } else if (Platform.OS === "ios") {
+      bleLog("MTU", "iOS manages MTU automatically (typically 185-512 bytes)");
+    }
+
+    bleLog("CONNECT", "Discovering services and characteristics...");
     await device.discoverAllServicesAndCharacteristics();
-
     bleLog("CONNECT", "Service discovery complete");
+
+    if (Platform.OS === "android") {
+      try {
+        const mtuResult = await device.requestMTU(512);
+        negotiatedMTU = mtuResult.mtu;
+        bleLog("MTU", `Post-discovery MTU renegotiation: ${mtuResult.mtu} (payload: ${mtuResult.mtu - 3} bytes)`);
+      } catch (mtuErr: any) {
+        bleLog("MTU", `MTU renegotiation skipped: ${mtuErr.message}`);
+      }
+    }
 
     connectedDevice = device;
 
@@ -209,16 +256,16 @@ export async function connectToDevice(
         notificationSubscription = null;
       }
       targetCharacteristic = null;
+      writeCharacteristic = null;
       connectedDevice = null;
       callbacks.onDisconnected(disconnectedDevice.id);
     });
 
     await discoverAndLogServices(device);
 
-    if (Platform.OS === "ios") {
-      bleLog("CONNECT", "iOS: waiting 500ms after service discovery before subscribing...");
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    const delay = Platform.OS === "ios" ? 500 : 200;
+    bleLog("CONNECT", `Waiting ${delay}ms after service discovery before subscribing...`);
+    await new Promise(resolve => setTimeout(resolve, delay));
 
     await subscribeToNotifications(device, callbacks);
 
@@ -258,6 +305,15 @@ async function discoverAndLogServices(device: any): Promise<void> {
           if (char.isNotifiable) props.push("Notify");
           if (char.isIndicatable) props.push("Indicate");
           bleLog("DISCOVERY", `    Char: ${char.uuid} [${props.join(", ")}]`);
+
+          try {
+            const descriptors = await char.descriptors();
+            for (const desc of descriptors) {
+              bleLog("DISCOVERY", `      Descriptor: ${desc.uuid}`);
+            }
+          } catch (descErr: any) {
+            bleLog("DISCOVERY", `      Descriptors: none or error (${descErr.message})`);
+          }
         }
       } catch (charErr: any) {
         bleLog("DISCOVERY", `    Error reading characteristics: ${charErr.message}`);
@@ -268,55 +324,176 @@ async function discoverAndLogServices(device: any): Promise<void> {
   }
 }
 
+async function writeCCCDescriptor(
+  device: any,
+  serviceUUID: string,
+  charUUID: string,
+  useIndicate: boolean
+): Promise<boolean> {
+  const cccValue = useIndicate
+    ? encodeBase64([0x02, 0x00])
+    : encodeBase64([0x01, 0x00]);
+  const modeLabel = useIndicate ? "INDICATE" : "NOTIFY";
+
+  bleLog("CCC", `Writing CCC descriptor (${modeLabel}) on service=${serviceUUID} char=${charUUID}`);
+  bleLog("CCC", `CCC descriptor UUID: ${CCC_DESCRIPTOR_UUID}, value: ${cccValue} (${modeLabel})`);
+
+  try {
+    await device.writeDescriptorForService(
+      serviceUUID,
+      charUUID,
+      CCC_DESCRIPTOR_UUID,
+      cccValue
+    );
+    bleLog("CCC", `CCC descriptor written successfully (${modeLabel} enabled)`);
+    return true;
+  } catch (error: any) {
+    bleLog("CCC", `CCC descriptor write failed: ${error.message}`);
+
+    if (targetCharacteristic) {
+      try {
+        bleLog("CCC", "Trying CCC write via characteristic.descriptors() enumeration...");
+        const descriptors = await targetCharacteristic.descriptors();
+        for (const desc of descriptors) {
+          if (uuidMatch(desc.uuid, CCC_DESCRIPTOR_UUID)) {
+            bleLog("CCC", `Found CCC descriptor: ${desc.uuid}, writing...`);
+            await desc.write(cccValue);
+            bleLog("CCC", "CCC descriptor written via enumerated descriptor object");
+            return true;
+          }
+        }
+        bleLog("CCC", "CCC descriptor (0x2902) not found among enumerated descriptors");
+      } catch (descErr: any) {
+        bleLog("CCC", `Descriptor enumeration/write failed: ${descErr.message}`);
+      }
+    }
+
+    bleLog("CCC", "CCC write failed - monitor() may have handled it internally");
+    return false;
+  }
+}
+
+interface FoundCharResult {
+  notifyChar: any;
+  writeChar: any;
+  serviceUUID: string;
+  notifyCharUUID: string;
+  writeCharUUID: string;
+  isIndicatable: boolean;
+  profileName: string;
+}
+
+async function findTargetCharacteristic(device: any): Promise<FoundCharResult | null> {
+  const services = await device.services();
+
+  for (const service of services) {
+    if (uuidMatch(service.uuid, BLADE_SERVICE_UUID)) {
+      bleLog("SUBSCRIBE", `Found Feasycom service (FFE0): ${service.uuid}`);
+      const chars = await service.characteristics();
+      for (const char of chars) {
+        if (uuidMatch(char.uuid, BLADE_CHARACTERISTIC_UUID)) {
+          const canNotify = char.isNotifiable || char.isIndicatable;
+          bleLog("SUBSCRIBE", `Found FFE1 char: ${char.uuid} notify=${char.isNotifiable} indicate=${char.isIndicatable} read=${char.isReadable} write=${char.isWritableWithResponse || char.isWritableWithoutResponse}`);
+          if (canNotify) {
+            return {
+              notifyChar: char,
+              writeChar: char,
+              serviceUUID: service.uuid,
+              notifyCharUUID: char.uuid,
+              writeCharUUID: char.uuid,
+              isIndicatable: !char.isNotifiable && char.isIndicatable,
+              profileName: "Feasycom FFE0/FFE1",
+            };
+          } else {
+            bleLog("SUBSCRIBE", "WARNING: FFE1 found but has NO Notify/Indicate property!");
+          }
+        }
+      }
+    }
+  }
+
+  bleLog("SUBSCRIBE", "Feasycom FFE0/FFE1 not found or not notifiable, checking Nordic UART...");
+  for (const service of services) {
+    if (uuidMatch(service.uuid, NUS_SERVICE_UUID)) {
+      bleLog("SUBSCRIBE", `Found Nordic UART service: ${service.uuid}`);
+      const chars = await service.characteristics();
+      let txChar: any = null;
+      let rxChar: any = null;
+      for (const char of chars) {
+        if (uuidMatch(char.uuid, NUS_TX_UUID)) {
+          txChar = char;
+          bleLog("SUBSCRIBE", `Found NUS TX char (device→phone): ${char.uuid} notify=${char.isNotifiable} indicate=${char.isIndicatable}`);
+        }
+        if (uuidMatch(char.uuid, NUS_RX_UUID)) {
+          rxChar = char;
+          bleLog("SUBSCRIBE", `Found NUS RX char (phone→device): ${char.uuid} write=${char.isWritableWithResponse || char.isWritableWithoutResponse}`);
+        }
+      }
+      if (txChar && (txChar.isNotifiable || txChar.isIndicatable)) {
+        return {
+          notifyChar: txChar,
+          writeChar: rxChar || txChar,
+          serviceUUID: service.uuid,
+          notifyCharUUID: txChar.uuid,
+          writeCharUUID: rxChar ? rxChar.uuid : txChar.uuid,
+          isIndicatable: !txChar.isNotifiable && txChar.isIndicatable,
+          profileName: "Nordic UART (NUS)",
+        };
+      }
+    }
+  }
+
+  bleLog("SUBSCRIBE", "No supported BLE profile found, trying brute-force on all notifiable characteristics...");
+  for (const service of services) {
+    const chars = await service.characteristics();
+    for (const char of chars) {
+      if (char.isNotifiable || char.isIndicatable) {
+        bleLog("SUBSCRIBE", `Found notifiable char on service ${service.uuid}: ${char.uuid}`);
+        return {
+          notifyChar: char,
+          writeChar: char,
+          serviceUUID: service.uuid,
+          notifyCharUUID: char.uuid,
+          writeCharUUID: char.uuid,
+          isIndicatable: !char.isNotifiable && char.isIndicatable,
+          profileName: `Generic (${service.uuid} / ${char.uuid})`,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 async function subscribeToNotifications(
   device: any,
   callbacks: BleServiceCallbacks
 ): Promise<void> {
-  bleLog("SUBSCRIBE", `Subscribing to notifications on ${BLADE_SERVICE_UUID} / ${BLADE_CHARACTERISTIC_UUID}`);
+  bleLog("SUBSCRIBE", "=== BLE NOTIFICATION SUBSCRIPTION START ===");
+  bleLog("SUBSCRIBE", `Platform: ${Platform.OS}, MTU: ${negotiatedMTU}`);
 
-  targetServiceUUID = BLADE_SERVICE_UUID;
-  targetCharUUID = BLADE_CHARACTERISTIC_UUID;
   targetCharacteristic = null;
+  writeCharacteristic = null;
 
+  let found: FoundCharResult | null = null;
   try {
-    const services = await device.services();
-    let foundService = false;
-    let foundChar = false;
-
-    for (const service of services) {
-      const sUuidLower = service.uuid.toLowerCase();
-      if (sUuidLower === BLADE_SERVICE_UUID.toLowerCase() || sUuidLower === "ffe0" || sUuidLower.startsWith("0000ffe0")) {
-        foundService = true;
-        targetServiceUUID = service.uuid;
-        bleLog("SUBSCRIBE", `Found target service: ${service.uuid}`);
-
-        const chars = await service.characteristics();
-        for (const char of chars) {
-          const cUuidLower = char.uuid.toLowerCase();
-          if (cUuidLower === BLADE_CHARACTERISTIC_UUID.toLowerCase() || cUuidLower === "ffe1" || cUuidLower.startsWith("0000ffe1")) {
-            foundChar = true;
-            targetCharUUID = char.uuid;
-            targetCharacteristic = char;
-            const props: string[] = [];
-            if (char.isNotifiable) props.push("Notify");
-            if (char.isIndicatable) props.push("Indicate");
-            if (char.isReadable) props.push("Read");
-            bleLog("SUBSCRIBE", `Found target char object: ${char.uuid} [${props.join(", ")}]`);
-            break;
-          }
-        }
-        break;
-      }
-    }
-
-    if (!foundService) {
-      bleLog("SUBSCRIBE", "WARNING: Target service FFE0 not found by enumeration, trying direct subscription anyway");
-    }
-    if (!foundChar) {
-      bleLog("SUBSCRIBE", "WARNING: Target characteristic FFE1 not found by enumeration, trying direct subscription anyway");
-    }
+    found = await findTargetCharacteristic(device);
   } catch (enumErr: any) {
-    bleLog("SUBSCRIBE", `Service enumeration error: ${enumErr.message}, proceeding with known UUIDs`);
+    bleLog("SUBSCRIBE", `Service enumeration error: ${enumErr.message}`);
+  }
+
+  if (found) {
+    targetCharacteristic = found.notifyChar;
+    writeCharacteristic = found.writeChar;
+    targetServiceUUID = found.serviceUUID;
+    targetCharUUID = found.notifyCharUUID;
+    bleLog("SUBSCRIBE", `Using profile: ${found.profileName}`);
+    bleLog("SUBSCRIBE", `Notify char: ${found.notifyCharUUID} (indicate=${found.isIndicatable})`);
+    bleLog("SUBSCRIBE", `Write char: ${found.writeCharUUID}`);
+  } else {
+    bleLog("SUBSCRIBE", "WARNING: No notifiable characteristic found! Falling back to FFE0/FFE1 UUIDs (may fail)");
+    targetServiceUUID = BLADE_SERVICE_UUID;
+    targetCharUUID = BLADE_CHARACTERISTIC_UUID;
   }
 
   if (notificationSubscription) {
@@ -333,7 +510,7 @@ async function subscribeToNotifications(
         return;
       }
       if (!dataReceived && connectedDevice) {
-        bleLog("NOTIFY-ERR", "No data received yet, will attempt resubscribe in 1s...");
+        bleLog("NOTIFY-ERR", "No data received yet after error, will attempt resubscribe in 1s...");
         setTimeout(() => {
           if (connectedDevice && !dataReceived) {
             resubscribeToNotifications(device, callbacks);
@@ -346,7 +523,8 @@ async function subscribeToNotifications(
     if (characteristic && characteristic.value) {
       if (!dataReceived) {
         dataReceived = true;
-        bleLog("NOTIFY", `First data received from BLE notifications! (platform: ${Platform.OS})`);
+        bleLog("NOTIFY", `*** FIRST DATA RECEIVED from BLE notifications! (platform: ${Platform.OS}) ***`);
+        bleLog("NOTIFY", `Characteristic: ${characteristic.uuid}, value length: ${characteristic.value.length}`);
       }
       const decodedValue = decodeBase64(characteristic.value);
       if (decodedValue.length > 0) {
@@ -355,42 +533,69 @@ async function subscribeToNotifications(
     }
   };
 
+  bleLog("SUBSCRIBE", "Step 1: Setting up notification monitor...");
   if (targetCharacteristic) {
     bleLog("SUBSCRIBE", `Using characteristic.monitor() on ${targetCharUUID} (direct object reference)`);
     notificationSubscription = targetCharacteristic.monitor(notificationHandler);
   } else {
-    bleLog("SUBSCRIBE", `Using device.monitorCharacteristicForService() with UUID strings`);
+    bleLog("SUBSCRIBE", `Using device.monitorCharacteristicForService() with UUID strings: ${targetServiceUUID} / ${targetCharUUID}`);
     notificationSubscription = device.monitorCharacteristicForService(
       targetServiceUUID,
       targetCharUUID,
       notificationHandler
     );
   }
+  bleLog("SUBSCRIBE", "Notification monitor registered (subscription reference stored)");
 
-  bleLog("SUBSCRIBE", "Notification subscription active (reference stored)");
+  bleLog("SUBSCRIBE", "Step 2: Explicitly writing CCC descriptor (0x2902)...");
+  const useIndicate = found ? found.isIndicatable : false;
+  await writeCCCDescriptor(device, targetServiceUUID, targetCharUUID, useIndicate);
 
-  if (Platform.OS === "ios") {
-    setTimeout(() => {
-      if (!dataReceived && connectedDevice) {
-        bleLog("SUBSCRIBE", "iOS: No data after 3s, attempting first resubscribe...");
-        resubscribeToNotifications(device, callbacks);
-      }
-    }, 3000);
-
-    setTimeout(() => {
-      if (!dataReceived && connectedDevice) {
-        bleLog("SUBSCRIBE", "iOS: No data after 6s, attempting second resubscribe...");
-        resubscribeToNotifications(device, callbacks);
-      }
-    }, 6000);
+  if (useIndicate && found) {
+    bleLog("SUBSCRIBE", "Characteristic uses INDICATE, also trying NOTIFY CCC value as fallback...");
+    await writeCCCDescriptor(device, targetServiceUUID, targetCharUUID, false);
   }
+
+  bleLog("SUBSCRIBE", "Step 3: Setting up data-arrival retry timers (both platforms)...");
+
+  setTimeout(() => {
+    if (!dataReceived && connectedDevice) {
+      bleLog("RETRY", `No data after 3s (${Platform.OS}), attempting resubscribe #1...`);
+      resubscribeToNotifications(device, callbacks);
+    }
+  }, 3000);
+
+  setTimeout(() => {
+    if (!dataReceived && connectedDevice) {
+      bleLog("RETRY", `No data after 6s (${Platform.OS}), attempting resubscribe #2...`);
+      resubscribeToNotifications(device, callbacks);
+    }
+  }, 6000);
+
+  setTimeout(() => {
+    if (!dataReceived && connectedDevice) {
+      bleLog("RETRY", `No data after 10s (${Platform.OS}), attempting final resubscribe #3...`);
+      resubscribeToNotifications(device, callbacks);
+    }
+  }, 10000);
+
+  setTimeout(() => {
+    if (!dataReceived && connectedDevice) {
+      bleLog("WARN", `*** NO BLE DATA RECEIVED AFTER 15s on ${Platform.OS} ***`);
+      bleLog("WARN", "Possible causes: CCC not written, wrong characteristic, firmware not transmitting");
+      bleLog("WARN", `Service: ${targetServiceUUID}, Char: ${targetCharUUID}`);
+      bleLog("WARN", `Profile: ${found ? found.profileName : 'fallback'}`);
+    }
+  }, 15000);
+
+  bleLog("SUBSCRIBE", "=== BLE NOTIFICATION SUBSCRIPTION COMPLETE ===");
 }
 
-function resubscribeToNotifications(
+async function resubscribeToNotifications(
   device: any,
   callbacks: BleServiceCallbacks
-): void {
-  bleLog("RESUB", `Resubscribing (platform: ${Platform.OS})`);
+): Promise<void> {
+  bleLog("RESUB", `=== RESUBSCRIBE START (${Platform.OS}) ===`);
 
   if (notificationSubscription) {
     try { notificationSubscription.remove(); } catch (e) {}
@@ -410,7 +615,7 @@ function resubscribeToNotifications(
     if (characteristic && characteristic.value) {
       if (!resubDataReceived) {
         resubDataReceived = true;
-        bleLog("RESUB", `Data received after resubscribe! (platform: ${Platform.OS})`);
+        bleLog("RESUB", `*** DATA RECEIVED after resubscribe! (${Platform.OS}) ***`);
       }
       const decodedValue = decodeBase64(characteristic.value);
       if (decodedValue.length > 0) {
@@ -420,10 +625,10 @@ function resubscribeToNotifications(
   };
 
   if (targetCharacteristic) {
-    bleLog("RESUB", `Using characteristic.monitor() for resubscribe (direct object reference)`);
+    bleLog("RESUB", `Using characteristic.monitor() for resubscribe (direct object reference on ${targetCharUUID})`);
     notificationSubscription = targetCharacteristic.monitor(notificationHandler);
   } else {
-    bleLog("RESUB", `Using device.monitorCharacteristicForService() for resubscribe`);
+    bleLog("RESUB", `Using device.monitorCharacteristicForService() for resubscribe: ${targetServiceUUID} / ${targetCharUUID}`);
     notificationSubscription = device.monitorCharacteristicForService(
       targetServiceUUID,
       targetCharUUID,
@@ -431,7 +636,11 @@ function resubscribeToNotifications(
     );
   }
 
-  bleLog("RESUB", "Resubscription active (reference stored)");
+  bleLog("RESUB", "Re-writing CCC descriptor after resubscribe...");
+  const useIndicate = targetCharacteristic ? (!targetCharacteristic.isNotifiable && targetCharacteristic.isIndicatable) : false;
+  await writeCCCDescriptor(device, targetServiceUUID, targetCharUUID, useIndicate);
+
+  bleLog("RESUB", "=== RESUBSCRIBE COMPLETE ===");
 }
 
 function processIncomingData(data: string, callbacks: BleServiceCallbacks): void {
@@ -458,6 +667,7 @@ export async function disconnect(): Promise<void> {
     notificationSubscription = null;
   }
   targetCharacteristic = null;
+  writeCharacteristic = null;
   if (connectedDevice) {
     try {
       await connectedDevice.cancelConnection();
@@ -493,14 +703,18 @@ export async function writeCommand(command: string): Promise<boolean> {
   try {
     const base64Command = Buffer.from(command + "\n").toString("base64");
 
-    if (targetCharacteristic && targetCharacteristic.isWritableWithResponse) {
-      await targetCharacteristic.writeWithResponse(base64Command);
-    } else if (targetCharacteristic && targetCharacteristic.isWritableWithoutResponse) {
-      await targetCharacteristic.writeWithoutResponse(base64Command);
+    const wChar = writeCharacteristic || targetCharacteristic;
+
+    if (wChar && wChar.isWritableWithResponse) {
+      await wChar.writeWithResponse(base64Command);
+    } else if (wChar && wChar.isWritableWithoutResponse) {
+      await wChar.writeWithoutResponse(base64Command);
     } else {
+      const writeServiceUUID = writeCharacteristic ? targetServiceUUID : targetServiceUUID;
+      const writeCharUUID = writeCharacteristic ? writeCharacteristic.uuid : targetCharUUID;
       await connectedDevice.writeCharacteristicWithResponseForService(
-        targetServiceUUID,
-        targetCharUUID,
+        writeServiceUUID,
+        writeCharUUID,
         base64Command
       );
     }
@@ -521,6 +735,7 @@ export function destroyBle(): void {
     notificationSubscription = null;
   }
   targetCharacteristic = null;
+  writeCharacteristic = null;
   if (bleManager) {
     bleManager.destroy();
     bleManager = null;
