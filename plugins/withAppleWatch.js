@@ -8,12 +8,8 @@ const fs = require("fs");
 const WATCH_TARGET_NAME = "BladeOutboardsWatch";
 
 function getAppleTeamId(config) {
-  if (process.env.APPLE_TEAM_IDENTIFIER) {
-    return process.env.APPLE_TEAM_IDENTIFIER;
-  }
-  if (config.ios && config.ios.appleTeamId) {
-    return config.ios.appleTeamId;
-  }
+  if (process.env.APPLE_TEAM_IDENTIFIER) return process.env.APPLE_TEAM_IDENTIFIER;
+  if (config.ios && config.ios.appleTeamId) return config.ios.appleTeamId;
   return null;
 }
 
@@ -151,6 +147,91 @@ function withAppleWatch(config) {
           }
         }
       }
+    }
+
+    var firstTarget = project.getFirstTarget();
+    if (!firstTarget || !firstTarget.firstTarget) {
+      console.warn("[withAppleWatch] Could not find main target for embedding");
+      return mod;
+    }
+    var mainTargetObj = firstTarget.firstTarget;
+    var mainTargetUuid = mainTargetObj.uuid;
+    var watchProductRef = target.pbxNativeTarget.productReference;
+
+    var copyPhaseUuid = project.generateUuid();
+    var copyBuildFileUuid = project.generateUuid();
+    var containerProxyUuid = project.generateUuid();
+    var targetDepUuid = project.generateUuid();
+
+    if (!objects.PBXBuildFile) {
+      objects.PBXBuildFile = {};
+    }
+    objects.PBXBuildFile[copyBuildFileUuid] = {
+      isa: 'PBXBuildFile',
+      fileRef: watchProductRef,
+      settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
+    };
+    objects.PBXBuildFile[copyBuildFileUuid + '_comment'] = WATCH_TARGET_NAME + '.app in Embed Watch Content';
+
+    if (!objects.PBXCopyFilesBuildPhase) {
+      objects.PBXCopyFilesBuildPhase = {};
+    }
+    objects.PBXCopyFilesBuildPhase[copyPhaseUuid] = {
+      isa: 'PBXCopyFilesBuildPhase',
+      buildActionMask: 2147483647,
+      dstPath: '"$(CONTENTS_FOLDER_PATH)/Watch"',
+      dstSubfolderSpec: 16,
+      files: [
+        { value: copyBuildFileUuid, comment: WATCH_TARGET_NAME + '.app in Embed Watch Content' },
+      ],
+      name: '"Embed Watch Content"',
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    objects.PBXCopyFilesBuildPhase[copyPhaseUuid + '_comment'] = 'Embed Watch Content';
+
+    var mainNativeTarget = objects.PBXNativeTarget[mainTargetUuid];
+    if (mainNativeTarget) {
+      if (!mainNativeTarget.buildPhases) {
+        mainNativeTarget.buildPhases = [];
+      }
+      mainNativeTarget.buildPhases.push({
+        value: copyPhaseUuid,
+        comment: 'Embed Watch Content',
+      });
+    }
+
+    var projectUuid = project.getFirstProject().firstProject.project;
+
+    if (!objects.PBXContainerItemProxy) {
+      objects.PBXContainerItemProxy = {};
+    }
+    objects.PBXContainerItemProxy[containerProxyUuid] = {
+      isa: 'PBXContainerItemProxy',
+      containerPortal: projectUuid,
+      proxyType: 1,
+      remoteGlobalIDString: target.uuid,
+      remoteInfo: WATCH_TARGET_NAME,
+    };
+    objects.PBXContainerItemProxy[containerProxyUuid + '_comment'] = 'PBXContainerItemProxy';
+
+    if (!objects.PBXTargetDependency) {
+      objects.PBXTargetDependency = {};
+    }
+    objects.PBXTargetDependency[targetDepUuid] = {
+      isa: 'PBXTargetDependency',
+      target: target.uuid,
+      targetProxy: containerProxyUuid,
+    };
+    objects.PBXTargetDependency[targetDepUuid + '_comment'] = 'PBXTargetDependency';
+
+    if (mainNativeTarget) {
+      if (!mainNativeTarget.dependencies) {
+        mainNativeTarget.dependencies = [];
+      }
+      mainNativeTarget.dependencies.push({
+        value: targetDepUuid,
+        comment: 'PBXTargetDependency',
+      });
     }
 
     return mod;

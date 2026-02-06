@@ -102,6 +102,11 @@
                   "targetName": "BladeOutboardsWidgetExtension",
                   "bundleIdentifier": "com.bladeoutboards.app.widget",
                   "entitlements": {}
+                },
+                {
+                  "targetName": "BladeOutboardsWatch",
+                  "bundleIdentifier": "com.bladeoutboards.app.watchkitapp",
+                  "entitlements": {}
                 }
               ]
             }

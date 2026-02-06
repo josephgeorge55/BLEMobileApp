@@ -9,12 +9,8 @@ const fs = require("fs");
 const EXT_NAME = "BladeOutboardsWidgetExtension";
 
 function getAppleTeamId(config) {
-  if (process.env.APPLE_TEAM_IDENTIFIER) {
-    return process.env.APPLE_TEAM_IDENTIFIER;
-  }
-  if (config.ios && config.ios.appleTeamId) {
-    return config.ios.appleTeamId;
-  }
+  if (process.env.APPLE_TEAM_IDENTIFIER) return process.env.APPLE_TEAM_IDENTIFIER;
+  if (config.ios && config.ios.appleTeamId) return config.ios.appleTeamId;
   return null;
 }
 
