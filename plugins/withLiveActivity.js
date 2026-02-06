@@ -65,6 +65,9 @@ function withLiveActivity(config) {
     const mainGroup = project.getFirstProject().firstProject.mainGroup;
     project.addToPbxGroup(group.uuid, mainGroup);
 
+    project.addBuildPhase([], 'PBXSourcesBuildPhase', 'Sources', target.uuid);
+    project.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
+
     project.addSourceFile(
       "BladeOutboardsAttributes.swift",
       { target: target.uuid },

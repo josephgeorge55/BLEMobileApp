@@ -69,6 +69,9 @@ function withAppleWatch(config) {
     var mainGroup = project.getFirstProject().firstProject.mainGroup;
     project.addToPbxGroup(group.uuid, mainGroup);
 
+    project.addBuildPhase([], 'PBXSourcesBuildPhase', 'Sources', target.uuid);
+    project.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
+
     var swiftFiles = [
       "BladeWatchApp.swift",
       "WatchConnectivityManager.swift",
