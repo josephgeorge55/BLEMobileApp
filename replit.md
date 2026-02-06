@@ -86,5 +86,12 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - Custom Expo Module with native iOS (Swift) and Android (Kotlin) bridges for real-time telemetry display on Lock Screen, Dynamic Island, and persistent notifications.
 - Utilizes ActivityKit on iOS and Foreground Services on Android.
 
+### Digital Outboard Passport & Wallet Passes
+- **Motor Binding Requirement**: Passport is locked unless motor is registered via Anti-Theft (Firebase registration check). PassportScreen checks `registeredMotors.length > 0`.
+- **Apple Wallet**: Real `.pkpass` generation using `passkit-generator` (PKPass v3 API). Pass type: `generic`. Dark navy background (#142841), white text, light blue-gray labels. QR barcode for warranty/service verification. Requires: `APPLE_PASS_TYPE_IDENTIFIER`, `APPLE_TEAM_IDENTIFIER`, `APPLE_PASS_CERTIFICATE_PEM`, `APPLE_PASS_KEY_PEM`, `APPLE_WWDR_CERTIFICATE_PEM`. Falls back to PDF if certs not configured.
+- **Google Wallet**: JWT-based pass generation using `jsonwebtoken`. Generic pass object with service account signing. Requires: `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_KEY`. Falls back to PDF if creds not configured.
+- **Pass Assets**: Icon (green Blade icon) and logo (white Blade text) resized via `sharp` to Apple Wallet required sizes (icon: 29/58/87px, logo: 160x50/320x100, thumbnail: 90/180px). Source images in `server/wallet-assets/`.
+- **Architecture**: `server/walletPassGenerator.ts` exports `generateAppleWalletPass()` and `generateGoogleWalletUrl()`. Routes in `server/routes.ts` use dynamic import. Client in `client/screens/PassportScreen.tsx` handles `pkpass`, `google_wallet`, and `pdf_fallback` response types.
+
 ### Third-Party APIs
 - **OpenStreetMap-based Leaflet.js**: Map visualization.
