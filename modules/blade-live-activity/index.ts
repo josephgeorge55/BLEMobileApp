@@ -23,7 +23,9 @@ if (Platform.OS !== "web") {
   try {
     const { requireNativeModule } = require("expo-modules-core");
     BladeLiveActivityModule = requireNativeModule("BladeLiveActivity");
-  } catch {
+    console.log("[LiveActivity] Native module loaded successfully");
+  } catch (error) {
+    console.warn("[LiveActivity] Failed to load native module:", error);
     BladeLiveActivityModule = null;
   }
 }

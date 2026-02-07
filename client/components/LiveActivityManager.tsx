@@ -25,6 +25,7 @@ export default function LiveActivityManager() {
         telemetry?.tillerSerialNumber ||
         motor?.serialNumber ||
         "Unknown";
+      console.log("[LiveActivity] Attempting to start, serial:", serialNumber, "recording:", isRecording);
       startLiveActivity(
         serialNumber,
         telemetry?.powerConsumption ?? 0,
@@ -34,6 +35,9 @@ export default function LiveActivityManager() {
       ).then((id) => {
         if (id) {
           isActiveRef.current = true;
+          console.log("[LiveActivity] Started successfully, id:", id);
+        } else {
+          console.warn("[LiveActivity] startLiveActivity returned null - module may not be loaded or not supported");
         }
       });
     }
