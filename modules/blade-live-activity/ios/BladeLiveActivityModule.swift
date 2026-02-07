@@ -2,7 +2,6 @@ import ExpoModulesCore
 
 #if canImport(ActivityKit)
 import ActivityKit
-#endif
 
 @available(iOS 16.2, *)
 struct BladeOutboardsAttributes: ActivityAttributes {
@@ -16,6 +15,7 @@ struct BladeOutboardsAttributes: ActivityAttributes {
 
     var motorName: String
 }
+#endif
 
 public class BladeLiveActivityModule: Module {
     var currentActivityId: String?

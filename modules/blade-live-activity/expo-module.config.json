@@ -1,7 +1,8 @@
 {
   "platforms": ["ios", "android"],
   "ios": {
-    "modules": ["BladeLiveActivityModule"]
+    "modules": ["BladeLiveActivityModule"],
+    "podspecPath": "./ios/BladeLiveActivity.podspec"
   },
   "android": {
     "modules": ["expo.modules.bladeliveactivity.BladeLiveActivityModule"]
