@@ -7,6 +7,20 @@ const fs = require("fs");
 
 const WATCH_TARGET_NAME = "BladeOutboardsWatch";
 
+function copyDirRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcEntry = path.join(src, entry.name);
+    const destEntry = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcEntry, destEntry);
+    } else {
+      fs.copyFileSync(srcEntry, destEntry);
+    }
+  }
+}
+
 function getAppleTeamId(config) {
   if (process.env.APPLE_TEAM_IDENTIFIER) return process.env.APPLE_TEAM_IDENTIFIER;
   if (config.ios && config.ios.appleTeamId) return config.ios.appleTeamId;
@@ -41,6 +55,12 @@ function withAppleWatch(config) {
         if (fs.existsSync(src)) {
           fs.copyFileSync(src, path.join(watchPath, file));
         }
+      }
+
+      const srcAssetsDir = path.join(srcPath, "Assets.xcassets");
+      const destAssetsDir = path.join(watchPath, "Assets.xcassets");
+      if (fs.existsSync(srcAssetsDir)) {
+        copyDirRecursive(srcAssetsDir, destAssetsDir);
       }
 
       return mod;
@@ -98,6 +118,7 @@ function withAppleWatch(config) {
       ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: "YES",
       CLANG_ENABLE_MODULES: "YES",
       CODE_SIGN_STYLE: "Automatic",
+      ASSETCATALOG_COMPILER_APPICON_NAME: "AppIcon",
     };
     if (devTeam) {
       watchBuildSettings.DEVELOPMENT_TEAM = devTeam;
@@ -248,6 +269,45 @@ function withAppleWatch(config) {
 
       sourcesPhase.files.push({ value: buildFileUuid, comment: fileName + ' in Sources' });
     }
+
+    var resourcesPhaseUuid = project.generateUuid();
+    if (!objects.PBXResourcesBuildPhase) objects.PBXResourcesBuildPhase = {};
+    objects.PBXResourcesBuildPhase[resourcesPhaseUuid] = {
+      isa: 'PBXResourcesBuildPhase',
+      buildActionMask: 2147483647,
+      files: [],
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    objects.PBXResourcesBuildPhase[resourcesPhaseUuid + '_comment'] = 'Resources';
+
+    nativeTarget.buildPhases.push({ value: resourcesPhaseUuid, comment: 'Resources' });
+
+    var assetsFileRefUuid = project.generateUuid();
+    objects.PBXFileReference[assetsFileRefUuid] = {
+      isa: 'PBXFileReference',
+      lastKnownFileType: 'folder.assetcatalog',
+      path: 'Assets.xcassets',
+      sourceTree: '"<group>"',
+    };
+    objects.PBXFileReference[assetsFileRefUuid + '_comment'] = 'Assets.xcassets';
+
+    var groupObj2 = objects.PBXGroup[group.uuid];
+    if (groupObj2 && groupObj2.children) {
+      groupObj2.children.push({ value: assetsFileRefUuid, comment: 'Assets.xcassets' });
+    }
+
+    var assetsBuildFileUuid = project.generateUuid();
+    objects.PBXBuildFile[assetsBuildFileUuid] = {
+      isa: 'PBXBuildFile',
+      fileRef: assetsFileRefUuid,
+      fileRef_comment: 'Assets.xcassets',
+    };
+    objects.PBXBuildFile[assetsBuildFileUuid + '_comment'] = 'Assets.xcassets in Resources';
+
+    objects.PBXResourcesBuildPhase[resourcesPhaseUuid].files.push({
+      value: assetsBuildFileUuid,
+      comment: 'Assets.xcassets in Resources',
+    });
 
     var embedProductBuildFileUuid = project.generateUuid();
     objects.PBXBuildFile[embedProductBuildFileUuid] = {
