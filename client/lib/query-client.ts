@@ -7,13 +7,9 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 const PRODUCTION_DOMAIN = "bladephoneapp.replit.app";
 
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN || PRODUCTION_DOMAIN;
+  const host = process.env.EXPO_PUBLIC_DOMAIN || PRODUCTION_DOMAIN;
 
-  if (host.includes(":5000")) {
-    host = host.replace(":5000", "");
-  }
-
-  let url = new URL(`https://${host}`);
+  const url = new URL(`https://${host}`);
 
   return url.href;
 }

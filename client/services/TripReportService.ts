@@ -948,7 +948,20 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
   
   if (Platform.OS === 'web') {
     logPdf('INFO', 'Processing web PDF download...');
-    const blob = await response.blob();
+    const arrayBuffer = await response.arrayBuffer();
+    logPdf('INFO', `Response body size: ${arrayBuffer.byteLength} bytes`);
+
+    const bytes = new Uint8Array(arrayBuffer);
+    const header = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4]);
+    if (header !== '%PDF-') {
+      logPdf('ERROR', `Response is not a PDF. First bytes: ${header}`);
+      const textDecoder = new TextDecoder();
+      const preview = textDecoder.decode(bytes.slice(0, 500));
+      logPdf('ERROR', `Response preview: ${preview}`);
+      throw new Error('Server returned non-PDF response. Please try again.');
+    }
+
+    const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
     const pdfUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = pdfUrl;
