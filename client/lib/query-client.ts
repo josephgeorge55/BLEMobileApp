@@ -8,8 +8,11 @@ export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
-    // Fallback for standalone builds - use your production API URL
     host = "blade-outboards.replit.app";
+  }
+
+  if (host.includes(":5000")) {
+    host = host.replace(":5000", "");
   }
 
   let url = new URL(`https://${host}`);

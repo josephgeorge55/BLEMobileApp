@@ -127,14 +127,21 @@ export default function PassportScreen() {
       downloadBase64OnWeb(base64Data, filename, mimeType);
       return;
     }
-    const filePath = `${Paths.cache}/${filename}`;
-    const file = new FSFile(filePath);
-    await file.write(base64Data, { encoding: "base64" });
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync(filePath, { mimeType });
-    } else {
-      Alert.alert("Sharing not available", "Unable to share the file on this device.");
+    try {
+      const filePath = `${Paths.cache}/${filename}`;
+      console.log("[Passport] Writing file to:", filePath);
+      const file = new FSFile(filePath);
+      await file.write(base64Data, { encoding: "base64" });
+      console.log("[Passport] File written successfully");
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(filePath, { mimeType });
+      } else {
+        Alert.alert("Sharing not available", "Unable to share the file on this device.");
+      }
+    } catch (fileError: any) {
+      console.error("[Passport] File save error:", fileError);
+      Alert.alert("Save Error", `Unable to save file: ${fileError.message || 'Unknown error'}`);
     }
   };
 
@@ -143,6 +150,7 @@ export default function PassportScreen() {
     setAddingToWallet(true);
     try {
       const url = new URL("/api/passport/wallet/apple", getApiUrl());
+      console.log("[Passport] Apple Wallet API URL:", url.toString());
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,6 +195,7 @@ export default function PassportScreen() {
     setAddingToWallet(true);
     try {
       const url = new URL("/api/passport/wallet/google", getApiUrl());
+      console.log("[Passport] Google Wallet API URL:", url.toString());
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -225,6 +234,7 @@ export default function PassportScreen() {
     setSavingPDF(true);
     try {
       const url = new URL("/api/passport/pdf", getApiUrl());
+      console.log("[Passport] PDF API URL:", url.toString());
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },

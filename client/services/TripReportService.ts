@@ -915,7 +915,8 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
     errorCodesEnd: tripData.errorCodesEnd,
   });
   
-  logPdf('INFO', `Sending request to server, body size: ${requestBody.length} bytes`);
+  logPdf('INFO', `Sending request to server, body size: ${requestBody.length} bytes (${(requestBody.length / 1024).toFixed(1)} KB)`);
+  logPdf('DATA', `Data points count: ${tripData.dataPoints?.length || 0}`);
   
   let response: Response;
   try {
