@@ -52,93 +52,6 @@ function addSourceFileToTarget(project, filePath, groupUuid, targetUuid) {
   }
 }
 
-function addEmbedWatchPhase(project, mainTargetUuid, watchTarget) {
-  var objects = project.hash.project.objects;
-
-  var productRefUuid = watchTarget.pbxNativeTarget.productReference;
-
-  if (!productRefUuid) {
-    for (var key in objects.PBXFileReference) {
-      if (key.indexOf('_comment') >= 0) continue;
-      var ref = objects.PBXFileReference[key];
-      if (ref && ref.path === WATCH_TARGET_NAME + '.app' && ref.explicitFileType === '"wrapper.application"') {
-        productRefUuid = key;
-        break;
-      }
-    }
-  }
-
-  if (!productRefUuid) {
-    console.warn("[withAppleWatch] Could not find Watch product reference for embedding");
-    return;
-  }
-
-  var embedBuildFileUuid = project.generateUuid();
-  objects.PBXBuildFile[embedBuildFileUuid] = {
-    isa: 'PBXBuildFile',
-    fileRef: productRefUuid,
-    fileRef_comment: WATCH_TARGET_NAME + '.app',
-    settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
-  };
-  objects.PBXBuildFile[embedBuildFileUuid + '_comment'] = WATCH_TARGET_NAME + '.app in Embed Watch Content';
-
-  var embedPhaseUuid = project.generateUuid();
-  if (!objects.PBXCopyFilesBuildPhase) {
-    objects.PBXCopyFilesBuildPhase = {};
-  }
-  objects.PBXCopyFilesBuildPhase[embedPhaseUuid] = {
-    isa: 'PBXCopyFilesBuildPhase',
-    buildActionMask: 2147483647,
-    dstPath: '"$(CONTENTS_FOLDER_PATH)/Watch"',
-    dstSubfolderSpec: 16,
-    files: [
-      { value: embedBuildFileUuid, comment: WATCH_TARGET_NAME + '.app in Embed Watch Content' },
-    ],
-    name: '"Embed Watch Content"',
-    runOnlyForDeploymentPostprocessing: 0,
-  };
-  objects.PBXCopyFilesBuildPhase[embedPhaseUuid + '_comment'] = 'Embed Watch Content';
-
-  var mainNativeTarget = objects.PBXNativeTarget[mainTargetUuid];
-  if (mainNativeTarget && mainNativeTarget.buildPhases) {
-    mainNativeTarget.buildPhases.push({
-      value: embedPhaseUuid,
-      comment: 'Embed Watch Content',
-    });
-  }
-}
-
-function addEmbedExtensionPhase(project, mainTargetUuid, extTarget, extName) {
-  var objects = project.hash.project.objects;
-
-  var productRefUuid = extTarget.pbxNativeTarget.productReference;
-
-  if (!productRefUuid) {
-    for (var key in objects.PBXFileReference) {
-      if (key.indexOf('_comment') >= 0) continue;
-      var ref = objects.PBXFileReference[key];
-      if (ref && ref.path === extName + '.appex') {
-        productRefUuid = key;
-        break;
-      }
-    }
-  }
-
-  if (!productRefUuid) {
-    console.warn("[withAppleWatch] Could not find extension product reference for embedding");
-    return;
-  }
-
-  var embedBuildFileUuid = project.generateUuid();
-  objects.PBXBuildFile[embedBuildFileUuid] = {
-    isa: 'PBXBuildFile',
-    fileRef: productRefUuid,
-    fileRef_comment: extName + '.appex',
-    settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
-  };
-  objects.PBXBuildFile[embedBuildFileUuid + '_comment'] = extName + '.appex in Embed Foundation Extensions';
-}
-
 function withAppleWatch(config) {
   config = withDangerousMod(config, [
     "ios",
@@ -231,31 +144,6 @@ function withAppleWatch(config) {
 
     for (var i = 0; i < swiftFiles.length; i++) {
       addSourceFileToTarget(project, swiftFiles[i], group.uuid, target.uuid);
-    }
-
-    var mainTargetObj = project.getFirstTarget();
-    if (mainTargetObj && mainTargetObj.firstTarget) {
-      var mainTargetUuid = null;
-      for (var key in objects.PBXNativeTarget) {
-        if (key.indexOf('_comment') >= 0) continue;
-        if (objects.PBXNativeTarget[key] === mainTargetObj.firstTarget) {
-          mainTargetUuid = key;
-          break;
-        }
-      }
-      if (!mainTargetUuid) {
-        for (var key2 in objects.PBXNativeTarget) {
-          if (key2.indexOf('_comment') >= 0) continue;
-          var nt = objects.PBXNativeTarget[key2];
-          if (nt && nt.productType === '"com.apple.product-type.application"' && key2 !== target.uuid) {
-            mainTargetUuid = key2;
-            break;
-          }
-        }
-      }
-      if (mainTargetUuid) {
-        addEmbedWatchPhase(project, mainTargetUuid, target);
-      }
     }
 
     var buildConfigListUuid = target.pbxNativeTarget.buildConfigurationList;
