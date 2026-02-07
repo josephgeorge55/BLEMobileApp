@@ -13,6 +13,45 @@ function getAppleTeamId(config) {
   return null;
 }
 
+function addSourceFileToTarget(project, filePath, groupUuid, targetUuid) {
+  var objects = project.hash.project.objects;
+
+  var fileRefUuid = project.generateUuid();
+  objects.PBXFileReference[fileRefUuid] = {
+    isa: 'PBXFileReference',
+    lastKnownFileType: 'sourcecode.swift',
+    path: filePath,
+    sourceTree: '"<group>"',
+  };
+  objects.PBXFileReference[fileRefUuid + '_comment'] = filePath;
+
+  var groupObj = objects.PBXGroup[groupUuid];
+  if (groupObj && groupObj.children) {
+    groupObj.children.push({ value: fileRefUuid, comment: filePath });
+  }
+
+  var buildFileUuid = project.generateUuid();
+  objects.PBXBuildFile[buildFileUuid] = {
+    isa: 'PBXBuildFile',
+    fileRef: fileRefUuid,
+    fileRef_comment: filePath,
+  };
+  objects.PBXBuildFile[buildFileUuid + '_comment'] = filePath + ' in Sources';
+
+  var nativeTarget = objects.PBXNativeTarget[targetUuid];
+  if (nativeTarget && nativeTarget.buildPhases) {
+    for (var i = 0; i < nativeTarget.buildPhases.length; i++) {
+      var phaseUuid = nativeTarget.buildPhases[i].value;
+      if (objects.PBXSourcesBuildPhase && objects.PBXSourcesBuildPhase[phaseUuid]) {
+        var phase = objects.PBXSourcesBuildPhase[phaseUuid];
+        if (!phase.files) phase.files = [];
+        phase.files.push({ value: buildFileUuid, comment: filePath + ' in Sources' });
+        break;
+      }
+    }
+  }
+}
+
 function withAppleWatch(config) {
   config = withDangerousMod(config, [
     "ios",
@@ -104,11 +143,7 @@ function withAppleWatch(config) {
     ];
 
     for (var i = 0; i < swiftFiles.length; i++) {
-      project.addSourceFile(
-        swiftFiles[i],
-        { target: target.uuid },
-        group.uuid,
-      );
+      addSourceFileToTarget(project, swiftFiles[i], group.uuid, target.uuid);
     }
 
     var buildConfigListUuid = target.pbxNativeTarget.buildConfigurationList;
