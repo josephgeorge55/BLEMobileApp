@@ -8,6 +8,7 @@ import {
   updateLiveActivity,
   endLiveActivity,
 } from "@/services/LiveActivityService";
+import BladeLiveActivityModule, { getModuleLoadError } from "../../modules/blade-live-activity";
 
 export default function LiveActivityManager() {
   const { motor, telemetry } = useMotor();
@@ -18,6 +19,18 @@ export default function LiveActivityManager() {
   const shouldBeActive = connected || isRecording;
 
   useEffect(() => {
+    const moduleAvailable = BladeLiveActivityModule !== null;
+    console.log("[LiveActivityManager] Mounted, platform:", Platform.OS, "module available:", moduleAvailable);
+    if (!moduleAvailable) {
+      console.log("[LiveActivityManager] Module load error:", getModuleLoadError());
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log("[LiveActivityManager] shouldBeActive changed:", shouldBeActive, "(connected:", connected, "isRecording:", isRecording, ")");
+  }, [shouldBeActive, connected, isRecording]);
+
+  useEffect(() => {
     if (Platform.OS === "web") return;
 
     if (shouldBeActive && !isActiveRef.current) {
@@ -25,7 +38,10 @@ export default function LiveActivityManager() {
         telemetry?.tillerSerialNumber ||
         motor?.serialNumber ||
         "Unknown";
-      console.log("[LiveActivity] Attempting to start, serial:", serialNumber, "recording:", isRecording);
+      console.log("[LiveActivityManager] Attempting to start, serial:", serialNumber, "recording:", isRecording, "moduleLoaded:", BladeLiveActivityModule !== null);
+      if (!BladeLiveActivityModule) {
+        console.warn("[LiveActivityManager] Cannot start - module not loaded. Error:", getModuleLoadError());
+      }
       startLiveActivity(
         serialNumber,
         telemetry?.powerConsumption ?? 0,
@@ -35,16 +51,21 @@ export default function LiveActivityManager() {
       ).then((id) => {
         if (id) {
           isActiveRef.current = true;
-          console.log("[LiveActivity] Started successfully, id:", id);
+          console.log("[LiveActivityManager] Started successfully, id:", id);
         } else {
-          console.warn("[LiveActivity] startLiveActivity returned null - module may not be loaded or not supported");
+          console.warn("[LiveActivityManager] startLiveActivity returned null - module may not be loaded or not supported");
+          if (!BladeLiveActivityModule) {
+            console.warn("[LiveActivityManager] Module load error:", getModuleLoadError());
+          }
         }
       });
     }
 
     if (!shouldBeActive && isActiveRef.current) {
+      console.log("[LiveActivityManager] Ending live activity, shouldBeActive:", shouldBeActive);
       endLiveActivity().then(() => {
         isActiveRef.current = false;
+        console.log("[LiveActivityManager] Live activity ended");
       });
     }
   }, [shouldBeActive]);

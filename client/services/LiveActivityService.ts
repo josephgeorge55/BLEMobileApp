@@ -1,9 +1,14 @@
 import { Platform } from "react-native";
-import BladeLiveActivityModule from "../../modules/blade-live-activity";
+import BladeLiveActivityModule, { getModuleLoadError } from "../../modules/blade-live-activity";
 
 let isActive = false;
 let lastUpdateTime = 0;
 const UPDATE_THROTTLE_MS = 1000;
+
+console.log("[LiveActivityService] Initializing, module available:", BladeLiveActivityModule !== null);
+if (!BladeLiveActivityModule) {
+  console.log("[LiveActivityService] Module load error:", getModuleLoadError());
+}
 
 function formatDuration(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
@@ -13,12 +18,20 @@ function formatDuration(seconds: number): string {
 }
 
 export async function isLiveActivitySupported(): Promise<boolean> {
-  if (Platform.OS === "web" || !BladeLiveActivityModule) {
+  if (Platform.OS === "web") {
+    console.log("[LiveActivityService] isLiveActivitySupported: false (web platform)");
+    return false;
+  }
+  if (!BladeLiveActivityModule) {
+    console.log("[LiveActivityService] isLiveActivitySupported: false (module not loaded, error:", getModuleLoadError(), ")");
     return false;
   }
   try {
-    return await BladeLiveActivityModule.isLiveActivitySupported();
-  } catch {
+    const supported = await BladeLiveActivityModule.isLiveActivitySupported();
+    console.log("[LiveActivityService] isLiveActivitySupported:", supported);
+    return supported;
+  } catch (error) {
+    console.warn("[LiveActivityService] isLiveActivitySupported error:", error);
     return false;
   }
 }
@@ -30,11 +43,18 @@ export async function startLiveActivity(
   isRecording: boolean,
   tripDurationSeconds: number,
 ): Promise<string | null> {
-  if (Platform.OS === "web" || !BladeLiveActivityModule) {
+  if (Platform.OS === "web") {
+    console.log("[LiveActivityService] startLiveActivity: skipped (web platform)");
+    return null;
+  }
+  if (!BladeLiveActivityModule) {
+    console.warn("[LiveActivityService] startLiveActivity: module is null, cannot start");
+    console.warn("[LiveActivityService] Module load error:", getModuleLoadError());
     return null;
   }
   try {
     const tripDuration = formatDuration(tripDurationSeconds);
+    console.log("[LiveActivityService] startLiveActivity: requesting start with serial:", serialNumber, "recording:", isRecording, "duration:", tripDuration);
     const activityId = await BladeLiveActivityModule.startLiveActivity(
       serialNumber,
       wattageKW,
@@ -43,10 +63,10 @@ export async function startLiveActivity(
       tripDuration,
     );
     isActive = true;
-    console.log("[LiveActivity] Started:", activityId);
+    console.log("[LiveActivityService] Started successfully, activityId:", activityId);
     return activityId;
   } catch (error) {
-    console.warn("[LiveActivity] Failed to start:", error);
+    console.warn("[LiveActivityService] Failed to start:", error);
     return null;
   }
 }
@@ -58,7 +78,14 @@ export async function updateLiveActivity(
   isRecording: boolean,
   tripDurationSeconds: number,
 ): Promise<void> {
-  if (!isActive || Platform.OS === "web" || !BladeLiveActivityModule) {
+  if (!isActive) {
+    return;
+  }
+  if (Platform.OS === "web") {
+    return;
+  }
+  if (!BladeLiveActivityModule) {
+    console.warn("[LiveActivityService] updateLiveActivity: module is null, error:", getModuleLoadError());
     return;
   }
 
@@ -78,20 +105,28 @@ export async function updateLiveActivity(
       tripDuration,
     );
   } catch (error) {
-    console.warn("[LiveActivity] Failed to update:", error);
+    console.warn("[LiveActivityService] Failed to update:", error);
   }
 }
 
 export async function endLiveActivity(): Promise<void> {
-  if (!isActive || Platform.OS === "web" || !BladeLiveActivityModule) {
+  if (!isActive) {
+    console.log("[LiveActivityService] endLiveActivity: not active, skipping");
+    return;
+  }
+  if (Platform.OS === "web") {
+    return;
+  }
+  if (!BladeLiveActivityModule) {
+    console.warn("[LiveActivityService] endLiveActivity: module is null, error:", getModuleLoadError());
     return;
   }
   try {
     await BladeLiveActivityModule.endLiveActivity();
     isActive = false;
-    console.log("[LiveActivity] Ended");
+    console.log("[LiveActivityService] Ended successfully");
   } catch (error) {
-    console.warn("[LiveActivity] Failed to end:", error);
+    console.warn("[LiveActivityService] Failed to end:", error);
   }
 }
 

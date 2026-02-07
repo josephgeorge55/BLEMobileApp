@@ -25,6 +25,10 @@ public class BladeLiveActivityModule: Module {
                 throw NSError(domain: "BladeLiveActivity", code: 1, userInfo: [NSLocalizedDescriptionKey: "Live Activities require iOS 16.2 or later"])
             }
 
+            guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+                throw NSError(domain: "BladeLiveActivity", code: 3, userInfo: [NSLocalizedDescriptionKey: "Live Activities are not enabled on this device"])
+            }
+
             let attributes = BladeOutboardsAttributes(motorName: "Blade Outboard")
             let state = BladeOutboardsAttributes.ContentState(
                 serialNumber: serialNumber,

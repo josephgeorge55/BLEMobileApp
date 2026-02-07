@@ -32,7 +32,7 @@ import {
 } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
 import { setPdfLogCallback, getPendingLogs, clearPendingLogs } from "@/lib/pdf-logger";
-import BladeLiveActivityModule from "../../modules/blade-live-activity";
+import BladeLiveActivityModule, { getModuleLoadError } from "../../modules/blade-live-activity";
 import { isLiveActivitySupported, isLiveActivityActive, startLiveActivity, endLiveActivity } from "@/services/LiveActivityService";
 import type { Trip } from "@shared/schema";
 
@@ -337,13 +337,11 @@ export function DebugLogModal({ visible, onClose }: Props) {
     addLiveActivityLog("INFO", `Platform: ${Platform.OS}`);
     
     const moduleLoaded = BladeLiveActivityModule !== null;
+    const loadError = getModuleLoadError();
     addLiveActivityLog(moduleLoaded ? "INFO" : "ERROR", `Native module loaded: ${moduleLoaded}`);
     if (!moduleLoaded) {
       addLiveActivityLog("ERROR", "BladeLiveActivityModule is null - module failed to link");
-      addLiveActivityLog("WARN", "Possible causes:");
-      addLiveActivityLog("WARN", "- Module not compiled into the binary");
-      addLiveActivityLog("WARN", "- expo-modules-core requireNativeModule failed");
-      addLiveActivityLog("WARN", "- Running in Expo Go (needs dev build)");
+      addLiveActivityLog("ERROR", `requireNativeModule error: ${loadError || "unknown"}`);
       return;
     }
     
