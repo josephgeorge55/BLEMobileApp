@@ -102,5 +102,10 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - **Bundle ID**: `com.bladeoutboards.app.watchkitapp` (companion of `com.bladeoutboards.app`).
 - **Design**: Dark navy background (#0A1628), Blade accent blue (#0A4D6E), Watch-optimized font sizes.
 
+### PDF Generation Architecture
+- **Buffered Response**: Trip report PDFs are generated using PDFKit, buffered entirely in memory, then sent with explicit `Content-Type: application/pdf` and `Content-Length` headers. This prevents Replit's proxy from overwriting the Content-Type to `text/html` (which happens with streamed/piped responses).
+- **Web Path**: Client receives PDF as ArrayBuffer, converts to base64, writes via `expo-file-system`.
+- **Native Path**: Passport/wallet files use `downloadAsync` with UUID-based temporary server URLs; trip reports use the ArrayBuffer → base64 → `writeAsStringAsync` approach.
+
 ### Third-Party APIs
 - **OpenStreetMap-based Leaflet.js**: Map visualization.
