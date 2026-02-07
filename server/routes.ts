@@ -21,8 +21,23 @@ import { fromZodError } from "zod-validation-error";
 import { generateTripPDF } from "./pdfGenerator";
 import { generatePassportPDF, generatePassportPDFBuffer } from "./passportPdfGenerator";
 
+import { randomUUID } from "node:crypto";
+
 const LOG_DIR = join(process.cwd(), "logs");
 const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
+
+const pendingDownloads = new Map<string, { buffer: Buffer; mimeType: string; filename: string; expiresAt: number }>();
+
+function cleanExpiredDownloads() {
+  const now = Date.now();
+  for (const [id, entry] of pendingDownloads) {
+    if (entry.expiresAt < now) {
+      pendingDownloads.delete(id);
+    }
+  }
+}
+
+setInterval(cleanExpiredDownloads, 60000);
 
 function ensureLogDirectory() {
   if (!existsSync(LOG_DIR)) {
@@ -652,6 +667,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!passportData || !passportData.ownerEmail) {
         return res.status(400).json({ error: "Passport data is required" });
       }
+      const wantDownloadUrl = req.headers["x-download-mode"] === "native";
+      if (wantDownloadUrl) {
+        const pdfBuffer = await generatePassportPDFBuffer(passportData);
+        const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`;
+        const downloadId = randomUUID();
+        pendingDownloads.set(downloadId, {
+          buffer: pdfBuffer,
+          mimeType: "application/pdf",
+          filename,
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        });
+        return res.json({
+          success: true,
+          type: "native_download",
+          downloadPath: `/api/passport/download/${downloadId}`,
+          filename,
+        });
+      }
       await generatePassportPDF(res, passportData);
     } catch (error) {
       console.error("[Passport PDF] Error:", error);
@@ -666,18 +699,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Passport data is required" });
       }
 
+      const wantDownloadUrl = req.headers["x-download-mode"] === "native";
       const { generateAppleWalletPass } = await import("./walletPassGenerator");
       const result = await generateAppleWalletPass(passportData);
 
       if ("error" in result) {
         const pdfBuffer = await generatePassportPDFBuffer(passportData);
+        const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`;
+        if (wantDownloadUrl) {
+          const downloadId = randomUUID();
+          pendingDownloads.set(downloadId, {
+            buffer: pdfBuffer,
+            mimeType: "application/pdf",
+            filename,
+            expiresAt: Date.now() + 5 * 60 * 1000,
+          });
+          return res.json({
+            success: true,
+            type: "pdf_fallback",
+            message: result.error,
+            downloadPath: `/api/passport/download/${downloadId}`,
+            filename,
+          });
+        }
         const base64 = pdfBuffer.toString('base64');
         return res.json({
           success: true,
           type: 'pdf_fallback',
           message: result.error,
           data: base64,
-          filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`
+          filename,
+        });
+      }
+
+      const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pkpass`;
+      if (wantDownloadUrl) {
+        const downloadId = randomUUID();
+        pendingDownloads.set(downloadId, {
+          buffer: result.buffer,
+          mimeType: "application/vnd.apple.pkpass",
+          filename,
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        });
+        return res.json({
+          success: true,
+          type: "pkpass",
+          downloadPath: `/api/passport/download/${downloadId}`,
+          filename,
         });
       }
 
@@ -686,7 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         type: 'pkpass',
         data: base64,
-        filename: `blade-passport-${passportData.serialNumber || 'unknown'}.pkpass`
+        filename,
       });
     } catch (error) {
       console.error("[Apple Wallet] Error:", error);
@@ -725,6 +793,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Google Wallet] Error:", error);
       res.status(500).json({ error: "Failed to generate wallet pass" });
     }
+  });
+
+  app.get("/api/passport/download/:id", (req, res) => {
+    const entry = pendingDownloads.get(req.params.id);
+    if (!entry || entry.expiresAt < Date.now()) {
+      if (entry) pendingDownloads.delete(req.params.id);
+      return res.status(404).json({ error: "Download expired or not found" });
+    }
+    pendingDownloads.delete(req.params.id);
+    res.setHeader("Content-Type", entry.mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="${entry.filename}"`);
+    res.setHeader("Content-Length", entry.buffer.length.toString());
+    res.send(entry.buffer);
   });
 
   const httpServer = createServer(app);
