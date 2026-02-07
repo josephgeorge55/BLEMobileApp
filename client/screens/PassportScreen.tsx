@@ -165,9 +165,14 @@ export default function PassportScreen() {
       const bodyStr = JSON.stringify(passportData);
       console.log("[Passport] Apple Wallet - Request body size:", bodyStr.length, "bytes");
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (Platform.OS !== "web") {
+        headers["x-download-mode"] = "native";
+      }
+
       const response = await fetch(url.toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: bodyStr,
       });
 
@@ -184,27 +189,49 @@ export default function PassportScreen() {
       const data = await response.json();
       console.log("[Passport] Apple Wallet - Response type:", data.type);
       console.log("[Passport] Apple Wallet - Has data:", !!data.data);
+      console.log("[Passport] Apple Wallet - Has downloadPath:", !!data.downloadPath);
       console.log("[Passport] Apple Wallet - Message:", data.message || "none");
-      const base64Data = data.data;
 
-      if (!base64Data) {
-        if (data.message) {
-          Alert.alert("Apple Wallet", data.message);
-          return;
-        }
-        throw new Error("No pass data received");
-      }
-
-      if (data.type === "pkpass") {
+      if (data.type === "native_download" && data.downloadPath && Platform.OS !== "web") {
         const filename = data.filename || "blade-passport.pkpass";
-        console.log("[Passport] Apple Wallet - Saving pkpass:", filename);
-        await shareOrDownload(base64Data, filename, "application/vnd.apple.pkpass");
+        const downloadUrl = baseUrl + data.downloadPath;
+        const localPath = FileSystem.cacheDirectory + filename;
+        console.log("[Passport] Apple Wallet - Native download from:", downloadUrl);
+        console.log("[Passport] Apple Wallet - Saving to:", localPath);
+        const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+        console.log("[Passport] Apple Wallet - Download status:", downloadResult.status);
+        console.log("[Passport] Apple Wallet - Downloaded to:", downloadResult.uri);
+        const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+        console.log("[Passport] Apple Wallet - File exists:", fileInfo.exists, "size:", fileInfo.exists ? (fileInfo as any).size : 0);
+        if (!fileInfo.exists) {
+          throw new Error("Downloaded file does not exist");
+        }
+        const isPkpass = filename.endsWith(".pkpass");
+        const mimeType = isPkpass ? "application/vnd.apple.pkpass" : "application/pdf";
+        const uti = isPkpass ? "com.apple.pkpass" : undefined;
+        await Sharing.shareAsync(downloadResult.uri, { mimeType, UTI: uti });
       } else {
-        const filename = data.filename || "blade-passport.pdf";
-        console.log("[Passport] Apple Wallet - Saving PDF fallback:", filename);
-        await shareOrDownload(base64Data, filename, "application/pdf");
-        if (data.message) {
-          Alert.alert("Apple Wallet", data.message);
+        const base64Data = data.data;
+
+        if (!base64Data) {
+          if (data.message) {
+            Alert.alert("Apple Wallet", data.message);
+            return;
+          }
+          throw new Error("No pass data received");
+        }
+
+        if (data.type === "pkpass") {
+          const filename = data.filename || "blade-passport.pkpass";
+          console.log("[Passport] Apple Wallet - Saving pkpass:", filename);
+          await shareOrDownload(base64Data, filename, "application/vnd.apple.pkpass");
+        } else {
+          const filename = data.filename || "blade-passport.pdf";
+          console.log("[Passport] Apple Wallet - Saving PDF fallback:", filename);
+          await shareOrDownload(base64Data, filename, "application/pdf");
+          if (data.message) {
+            Alert.alert("Apple Wallet", data.message);
+          }
         }
       }
     } catch (error: any) {
@@ -268,9 +295,14 @@ export default function PassportScreen() {
       const bodyStr = JSON.stringify(passportData);
       console.log("[Passport] PDF - Request body size:", bodyStr.length, "bytes");
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (Platform.OS !== "web") {
+        headers["x-download-mode"] = "native";
+      }
+
       const response = await fetch(url.toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: bodyStr,
       });
 
@@ -284,15 +316,33 @@ export default function PassportScreen() {
       }
 
       const data = await response.json();
-      const base64PDF = data.data;
 
-      if (!base64PDF) {
-        throw new Error("No PDF data received");
+      if (data.type === "native_download" && data.downloadPath && Platform.OS !== "web") {
+        const filename = data.filename || "blade-passport.pdf";
+        const downloadUrl = baseUrl + data.downloadPath;
+        const localPath = FileSystem.cacheDirectory + filename;
+        console.log("[Passport] PDF - Native download from:", downloadUrl);
+        console.log("[Passport] PDF - Saving to:", localPath);
+        const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+        console.log("[Passport] PDF - Download status:", downloadResult.status);
+        console.log("[Passport] PDF - Downloaded to:", downloadResult.uri);
+        const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+        console.log("[Passport] PDF - File exists:", fileInfo.exists, "size:", fileInfo.exists ? (fileInfo as any).size : 0);
+        if (!fileInfo.exists) {
+          throw new Error("Downloaded file does not exist");
+        }
+        await Sharing.shareAsync(downloadResult.uri, { mimeType: "application/pdf" });
+      } else {
+        const base64PDF = data.data;
+
+        if (!base64PDF) {
+          throw new Error("No PDF data received");
+        }
+
+        const filename = data.filename || "blade-passport.pdf";
+        console.log("[Passport] PDF - Saving file:", filename, "data length:", base64PDF.length);
+        await shareOrDownload(base64PDF, filename, "application/pdf");
       }
-
-      const filename = data.filename || "blade-passport.pdf";
-      console.log("[Passport] PDF - Saving file:", filename, "data length:", base64PDF.length);
-      await shareOrDownload(base64PDF, filename, "application/pdf");
     } catch (error: any) {
       console.error("[Passport] PDF error:", error);
       console.error("[Passport] PDF error message:", error.message);

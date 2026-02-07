@@ -922,9 +922,14 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
   
   let response: Response;
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (Platform.OS !== 'web') {
+      headers['x-download-mode'] = 'native';
+      logPdf('INFO', 'Added x-download-mode: native header for native platform');
+    }
     response = await fetch(url.href, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: requestBody,
     });
   } catch (fetchError: any) {
@@ -960,44 +965,43 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
     logPdf('SUCCESS', 'PDF downloaded in browser');
     return 'web-download';
   } else {
-    logPdf('INFO', `Processing native ${Platform.OS} PDF...`);
+    logPdf('INFO', `Processing native ${Platform.OS} PDF via downloadAsync...`);
     try {
-      logPdf('INFO', 'Getting arrayBuffer from response...');
-      const arrayBuffer = await response.arrayBuffer();
-      
-      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-        logPdf('ERROR', 'Empty arrayBuffer received from server');
-        throw new Error('Received empty PDF data from server');
+      logPdf('INFO', 'Parsing JSON response from server...');
+      const data = await response.json();
+      logPdf('INFO', `Response type: ${data.type}, success: ${data.success}`);
+
+      if (data.type === 'native_download' && data.downloadPath) {
+        const downloadUrl = baseUrl + data.downloadPath;
+        const localFilePath = `${FileSystem.cacheDirectory}${data.filename}`;
+        logPdf('INFO', `Download URL: ${downloadUrl}`);
+        logPdf('INFO', `Local file path: ${localFilePath}`);
+
+        logPdf('INFO', 'Starting FileSystem.downloadAsync...');
+        const downloadResult = await FileSystem.downloadAsync(downloadUrl, localFilePath);
+        logPdf('INFO', `Download result status: ${downloadResult.status}`);
+        logPdf('INFO', `Download result URI: ${downloadResult.uri}`);
+
+        if (downloadResult.status !== 200) {
+          logPdf('ERROR', `Download failed with status: ${downloadResult.status}`);
+          throw new Error(`PDF download failed with status ${downloadResult.status}`);
+        }
+
+        logPdf('INFO', 'Checking downloaded file info...');
+        const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+        logPdf('INFO', `File exists: ${fileInfo.exists}, size: ${fileInfo.exists && 'size' in fileInfo ? fileInfo.size : 'unknown'}`);
+
+        if (!fileInfo.exists) {
+          logPdf('ERROR', 'Downloaded file does not exist!');
+          throw new Error('PDF file was not saved correctly after download');
+        }
+
+        logPdf('SUCCESS', `PDF downloaded to: ${downloadResult.uri}`);
+        return downloadResult.uri;
+      } else {
+        logPdf('ERROR', `Unexpected response type: ${data.type}`);
+        throw new Error(`Unexpected server response type: ${data.type}`);
       }
-      
-      logPdf('INFO', `Received PDF data: ${arrayBuffer.byteLength} bytes`);
-      
-      const fileName = `Blade_Trip_Report_${tripData.id}.pdf`;
-      logPdf('INFO', `Creating file: ${fileName}`);
-      const filePath = `${FileSystem.cacheDirectory}${fileName}`;
-      logPdf('INFO', `File path: ${filePath}`);
-      
-      logPdf('INFO', 'Converting to base64...');
-      const base64Data = arrayBufferToBase64(arrayBuffer);
-      logPdf('INFO', `Base64 string length: ${base64Data.length}`);
-      
-      logPdf('INFO', 'Writing file with base64 encoding...');
-      await FileSystem.writeAsStringAsync(filePath, base64Data, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      logPdf('INFO', 'File write complete');
-      
-      logPdf('INFO', 'Checking file info...');
-      const fileInfo = await FileSystem.getInfoAsync(filePath);
-      logPdf('INFO', `File exists: ${fileInfo.exists}`);
-      
-      if (!fileInfo.exists) {
-        logPdf('ERROR', 'File does not exist after write!');
-        throw new Error('PDF file was not saved correctly');
-      }
-      
-      logPdf('SUCCESS', `PDF saved to: ${filePath}`);
-      return filePath;
     } catch (error: any) {
       logPdf('ERROR', `Native PDF error: ${error.message || String(error)}`);
       throw new Error(`Failed to save PDF: ${error instanceof Error ? error.message : String(error)}`);
