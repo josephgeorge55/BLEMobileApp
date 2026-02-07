@@ -385,6 +385,32 @@ function withLiveActivity(config) {
     },
   ]);
 
+  config = withDangerousMod(config, [
+    "ios",
+    async (mod) => {
+      const projectRoot = mod.modRequest.projectRoot;
+      const podfilePath = path.join(projectRoot, "ios", "Podfile");
+
+      if (!fs.existsSync(podfilePath)) {
+        return mod;
+      }
+
+      var podfileContent = fs.readFileSync(podfilePath, "utf8");
+
+      if (podfileContent.indexOf("BladeLiveActivity") === -1) {
+        var podEntry = "\n  pod 'BladeLiveActivity', :path => '../modules/blade-live-activity/ios'\n";
+        podfileContent = podfileContent.replace(
+          "use_expo_modules!",
+          "use_expo_modules!\n" + podEntry
+        );
+        fs.writeFileSync(podfilePath, podfileContent, "utf8");
+        console.log("[withLiveActivity] Injected BladeLiveActivity pod into Podfile");
+      }
+
+      return mod;
+    },
+  ]);
+
   return config;
 }
 
