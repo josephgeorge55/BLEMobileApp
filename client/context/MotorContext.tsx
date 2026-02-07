@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from 'expo-haptics';
 import {
   parseBLEFrame,
   GNSSData,
@@ -93,6 +94,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   
   const gnssRef = useRef<GNSSData | null>(null);
   const bmsRef = useRef<BMSData | null>(null);
+  const lastBatteryAlertRef = useRef<number | null>(null);
   const motorDataRef = useRef<BLEMotorData | null>(null);
   const vescRef = useRef<VESCData | null>(null);
   const inforG1Ref = useRef<INFORG1Data | null>(null);
@@ -242,6 +244,20 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     }
 
     setTelemetryState(newTelemetry);
+
+    if (Platform.OS !== 'web') {
+      const soc = newTelemetry.stateOfCharge;
+      const lastAlert = lastBatteryAlertRef.current;
+      if (soc > 0 && soc <= 10 && lastAlert !== 10) {
+        lastBatteryAlertRef.current = 10;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else if (soc > 10 && soc <= 25 && lastAlert !== 25) {
+        lastBatteryAlertRef.current = 25;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } else if (soc > 25) {
+        lastBatteryAlertRef.current = null;
+      }
+    }
   }, [addDebugLog]);
 
   const processParsedData = useCallback((result: ParseResult) => {
@@ -347,6 +363,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   const disconnectMotor = () => {
     gnssRef.current = null;
     bmsRef.current = null;
+    lastBatteryAlertRef.current = null;
     motorDataRef.current = null;
     vescRef.current = null;
     inforG1Ref.current = null;

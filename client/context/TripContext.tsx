@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import * as Haptics from 'expo-haptics';
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
 import { fetchWeather, getWindDirection } from "@/services/weatherService";
@@ -665,6 +666,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
       console.log("=== [Trip] TRIP STARTED SUCCESSFULLY ===");
       console.log("[Trip] Recording is now ACTIVE for trip:", tripId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return true;
     } catch (err) {
       console.error("[Trip] START FAILED with error:", err);
@@ -797,6 +799,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       setIsRecording(false);
 
       console.log("=== [Trip] TRIP ENDED SUCCESSFULLY ===");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return true;
     } catch (err) {
       console.error("[Trip] END FAILED:", err);
