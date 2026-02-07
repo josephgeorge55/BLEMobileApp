@@ -67,8 +67,8 @@ export default function RootStackNavigator() {
     <Stack.Navigator 
       screenOptions={{
         ...screenOptions,
-        animation: "slide_from_right",
-        animationDuration: 250,
+        animation: "fade_from_bottom",
+        animationDuration: 350,
       }}
     >
       {!isLoggedIn ? (
@@ -105,7 +105,8 @@ export default function RootStackNavigator() {
             options={{
               headerTitle: "Trip Details",
               headerBackTitle: "Back",
-              animation: "slide_from_right",
+              animation: "fade_from_bottom",
+              animationDuration: 350,
             }}
           />
           <Stack.Screen
@@ -114,7 +115,8 @@ export default function RootStackNavigator() {
             options={{
               headerTitle: "Outboard Passport",
               headerBackTitle: "Back",
-              animation: "slide_from_right",
+              animation: "fade_from_bottom",
+              animationDuration: 350,
             }}
           />
         </>

@@ -19,7 +19,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "@/hooks/useTheme";
 import { useTrip } from "@/context/TripContext";
-import { Card } from "@/components/Card";
 import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { TripReportService } from "@/services/TripReportService";
 import { BladeColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -28,6 +27,12 @@ import type { TripDataPoint, ExtendedTrip } from "@/types/TripReport";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
+
+const DARK_TILE = "#0F1A2E";
+const TILE_TEXT = "#FFFFFF";
+const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.55)";
+const TILE_ACCENT = "#3B9EFF";
+const SCREEN_BG = "#FFFFFF";
 
 const ktsToKmh = (kts: number) => kts * 1.852;
 
@@ -118,20 +123,20 @@ export default function TripDetailScreen() {
     });
 
     return (
-      <Card style={styles.chartCard}>
+      <View style={styles.tile}>
         <View style={styles.chartHeader}>
-          <Text style={[styles.chartLabel, { color: theme.text }]}>{label}</Text>
+          <Text style={styles.chartLabel}>{label}</Text>
           <View style={styles.chartStats}>
-            <Text style={[styles.chartStat, { color: theme.textSecondary }]}>
+            <Text style={styles.chartStat}>
               Max: {max.toFixed(1)}{unit}
             </Text>
-            <Text style={[styles.chartStat, { color: theme.textSecondary }]}>
+            <Text style={styles.chartStat}>
               Avg: {avg.toFixed(1)}{unit}
             </Text>
           </View>
         </View>
         <View style={styles.chartContainer}>
-          <View style={[styles.chartBackground, { backgroundColor: theme.surfaceElevated }]}>
+          <View style={styles.chartBackground}>
             <svg width={CHART_WIDTH} height={CHART_HEIGHT}>
               <polyline
                 points={points.join(" ")}
@@ -144,7 +149,7 @@ export default function TripDetailScreen() {
             </svg>
           </View>
         </View>
-      </Card>
+      </View>
     );
   };
 
@@ -168,7 +173,6 @@ export default function TripDetailScreen() {
         console.error("[TripDetail] Report generation failed:", result.error);
         const errorMessage = result.error || "Failed to generate report";
         
-        // Provide more helpful error messages
         let userMessage = "Failed to generate report. Please try again.";
         if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
           userMessage = "Unable to connect to the server. Please check your internet connection and try again.";
@@ -183,7 +187,6 @@ export default function TripDetailScreen() {
     } catch (error: any) {
       console.error("[TripDetail] Error generating report:", error);
       
-      // Handle specific error types with helpful messages
       const errorMessage = error?.message || String(error);
       let userMessage = "An unexpected error occurred while generating the report.";
       
@@ -245,17 +248,20 @@ export default function TripDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.backgroundRoot }]}>
-        <ActivityIndicator size="large" color={BladeColors.primary} />
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={TILE_ACCENT} />
       </View>
     );
   }
 
   if (!trip) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.backgroundRoot }]}>
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} />
-        <Text style={[styles.errorText, { color: theme.text }]}>Trip not found</Text>
+      <View style={[styles.container, styles.centered]}>
+        <View style={styles.errorIconCircle}>
+          <Feather name="alert-circle" size={32} color={TILE_ACCENT} />
+        </View>
+        <Text style={styles.errorText}>Trip not found</Text>
+        <Text style={styles.errorSubtext}>This trip may have been deleted</Text>
       </View>
     );
   }
@@ -266,7 +272,7 @@ export default function TripDetailScreen() {
   const batteryUsed = (trip.startBatteryPercent || 0) - (trip.endBatteryPercent || 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={styles.container}>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -274,62 +280,70 @@ export default function TripDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Card style={styles.summaryCard}>
+        <View style={styles.tile}>
           <View style={styles.tripHeaderRow}>
             <View style={styles.tripTitleSection}>
-              <Text style={[styles.tripName, { color: theme.text }]}>
+              <Text style={styles.tripName}>
                 {trip.name || "Unnamed Trip"}
               </Text>
-              <Text style={[styles.tripDate, { color: theme.textSecondary }]}>
+              <Text style={styles.tripDate}>
                 {formatDateTime(trip.startTime)}
               </Text>
             </View>
             {trip.isActive ? (
-              <View style={styles.activeBadge}>
-                <Feather name="radio" size={14} color="#FFFFFF" />
-                <Text style={styles.activeBadgeText}>LIVE</Text>
+              <View style={styles.liveBadge}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveBadgeText}>LIVE</Text>
               </View>
             ) : null}
           </View>
 
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: BladeColors.primary }]}>
+              <Text style={[styles.statValue, { color: TILE_ACCENT }]}>
                 {(trip.totalDistanceKm || 0).toFixed(2)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km</Text>
+              <Text style={styles.statLabel}>km</Text>
             </View>
+            <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: BladeColors.primary }]}>
+              <Text style={[styles.statValue, { color: TILE_ACCENT }]}>
                 {formatDuration(trip.startTime, trip.endTime)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Duration</Text>
+              <Text style={styles.statLabel}>Duration</Text>
             </View>
+            <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: BladeColors.accent }]}>
+              <Text style={styles.statValue}>
                 {(trip.maxSpeedKmh || 0).toFixed(1)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Max km/h</Text>
+              <Text style={styles.statLabel}>Max km/h</Text>
             </View>
+            <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: BladeColors.accent }]}>
+              <Text style={styles.statValue}>
                 {(trip.avgSpeedKmh || 0).toFixed(1)}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg km/h</Text>
+              <Text style={styles.statLabel}>Avg km/h</Text>
             </View>
           </View>
-        </Card>
+        </View>
 
         {mapRegion && routeCoordinates.length > 1 ? (
-          <Card style={styles.mapCard}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Route</Text>
+          <View style={styles.tile}>
+            <View style={styles.tileSectionHeader}>
+              <View style={styles.tileSectionIcon}>
+                <Feather name="map" size={14} color={TILE_ACCENT} />
+              </View>
+              <Text style={styles.tileSectionTitle}>Route</Text>
+            </View>
             <View style={styles.mapContainer}>
               <OpenStreetMap
                 style={styles.routeMap}
                 initialRegion={mapRegion}
                 polyline={{
                   coordinates: routeCoordinates,
-                  strokeColor: BladeColors.primary,
+                  strokeColor: TILE_ACCENT,
                   strokeWidth: 3,
                 }}
                 markers={[
@@ -346,167 +360,191 @@ export default function TripDetailScreen() {
                 ]}
               />
             </View>
-          </Card>
+          </View>
         ) : null}
 
-        <Card style={styles.energyCard}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Energy Consumption</Text>
+        <View style={styles.tile}>
+          <View style={styles.tileSectionHeader}>
+            <View style={styles.tileSectionIcon}>
+              <Feather name="zap" size={14} color={TILE_ACCENT} />
+            </View>
+            <Text style={styles.tileSectionTitle}>Energy Consumption</Text>
+          </View>
           <View style={styles.energyStats}>
             <View style={styles.energyStat}>
-              <Feather name="battery" size={20} color={BladeColors.success} />
+              <View style={[styles.energyIconCircle, { backgroundColor: "rgba(16,185,129,0.15)" }]}>
+                <Feather name="battery" size={16} color={BladeColors.success} />
+              </View>
               <View style={styles.energyStatText}>
-                <Text style={[styles.energyValue, { color: theme.text }]}>
+                <Text style={styles.energyValue}>
                   {batteryUsed}%
                 </Text>
-                <Text style={[styles.energyLabel, { color: theme.textSecondary }]}>
+                <Text style={styles.energyLabel}>
                   Battery Used
                 </Text>
               </View>
             </View>
             <View style={styles.energyStat}>
-              <Feather name="zap" size={20} color={BladeColors.warning} />
+              <View style={[styles.energyIconCircle, { backgroundColor: "rgba(245,158,11,0.15)" }]}>
+                <Feather name="zap" size={16} color={BladeColors.warning} />
+              </View>
               <View style={styles.energyStatText}>
-                <Text style={[styles.energyValue, { color: theme.text }]}>
+                <Text style={styles.energyValue}>
                   {(trip.totalEnergyWh || 0).toFixed(0)} Wh
                 </Text>
-                <Text style={[styles.energyLabel, { color: theme.textSecondary }]}>
+                <Text style={styles.energyLabel}>
                   Total Energy
                 </Text>
               </View>
             </View>
             <View style={styles.energyStat}>
-              <Feather name="trending-up" size={20} color={BladeColors.primary} />
+              <View style={[styles.energyIconCircle, { backgroundColor: "rgba(59,158,255,0.12)" }]}>
+                <Feather name="trending-up" size={16} color={TILE_ACCENT} />
+              </View>
               <View style={styles.energyStatText}>
-                <Text style={[styles.energyValue, { color: theme.text }]}>
+                <Text style={styles.energyValue}>
                   {trip.totalDistanceKm && trip.totalEnergyWh
                     ? (trip.totalEnergyWh / trip.totalDistanceKm).toFixed(1)
                     : "0"} Wh/km
                 </Text>
-                <Text style={[styles.energyLabel, { color: theme.textSecondary }]}>
+                <Text style={styles.energyLabel}>
                   Efficiency
                 </Text>
               </View>
             </View>
           </View>
-        </Card>
+        </View>
 
         {speedData.length > 0 ? (
-          <Card style={styles.chartCard}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Speed Over Time</Text>
-            <View style={styles.chartMini}>
-              <View style={styles.miniChartRow}>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: BladeColors.accent }]}>
-                    {Math.max(...speedData).toFixed(1)}
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>Max kts</Text>
-                </View>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: theme.text }]}>
-                    {(speedData.reduce((a, b) => a + b, 0) / speedData.length).toFixed(1)}
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>Avg kts</Text>
-                </View>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: theme.text }]}>
-                    {speedData.length}
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>Samples</Text>
-                </View>
+          <View style={styles.tile}>
+            <View style={styles.tileSectionHeader}>
+              <View style={styles.tileSectionIcon}>
+                <Feather name="activity" size={14} color={TILE_ACCENT} />
+              </View>
+              <Text style={styles.tileSectionTitle}>Speed Over Time</Text>
+            </View>
+            <View style={styles.miniChartRow}>
+              <View style={styles.miniChartStat}>
+                <Text style={[styles.miniChartValue, { color: TILE_ACCENT }]}>
+                  {Math.max(...speedData).toFixed(1)}
+                </Text>
+                <Text style={styles.miniChartLabel}>Max kts</Text>
+              </View>
+              <View style={styles.miniStatDivider} />
+              <View style={styles.miniChartStat}>
+                <Text style={styles.miniChartValue}>
+                  {(speedData.reduce((a, b) => a + b, 0) / speedData.length).toFixed(1)}
+                </Text>
+                <Text style={styles.miniChartLabel}>Avg kts</Text>
+              </View>
+              <View style={styles.miniStatDivider} />
+              <View style={styles.miniChartStat}>
+                <Text style={styles.miniChartValue}>
+                  {speedData.length}
+                </Text>
+                <Text style={styles.miniChartLabel}>Samples</Text>
               </View>
             </View>
-          </Card>
+          </View>
         ) : null}
 
         {batteryData.length > 0 ? (
-          <Card style={styles.chartCard}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Battery Level</Text>
-            <View style={styles.chartMini}>
-              <View style={styles.miniChartRow}>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: BladeColors.success }]}>
-                    {trip.startBatteryPercent || batteryData[0]}%
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>Start</Text>
-                </View>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: BladeColors.warning }]}>
-                    {trip.endBatteryPercent || batteryData[batteryData.length - 1]}%
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>End</Text>
-                </View>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: theme.text }]}>
-                    {batteryUsed}%
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>Used</Text>
-                </View>
+          <View style={styles.tile}>
+            <View style={styles.tileSectionHeader}>
+              <View style={styles.tileSectionIcon}>
+                <Feather name="battery-charging" size={14} color={TILE_ACCENT} />
+              </View>
+              <Text style={styles.tileSectionTitle}>Battery Level</Text>
+            </View>
+            <View style={styles.miniChartRow}>
+              <View style={styles.miniChartStat}>
+                <Text style={[styles.miniChartValue, { color: BladeColors.success }]}>
+                  {trip.startBatteryPercent || batteryData[0]}%
+                </Text>
+                <Text style={styles.miniChartLabel}>Start</Text>
+              </View>
+              <View style={styles.miniStatDivider} />
+              <View style={styles.miniChartStat}>
+                <Text style={[styles.miniChartValue, { color: "#F59E0B" }]}>
+                  {trip.endBatteryPercent || batteryData[batteryData.length - 1]}%
+                </Text>
+                <Text style={styles.miniChartLabel}>End</Text>
+              </View>
+              <View style={styles.miniStatDivider} />
+              <View style={styles.miniChartStat}>
+                <Text style={styles.miniChartValue}>
+                  {batteryUsed}%
+                </Text>
+                <Text style={styles.miniChartLabel}>Used</Text>
               </View>
             </View>
-          </Card>
+          </View>
         ) : null}
 
         {powerData.length > 0 ? (
-          <Card style={styles.chartCard}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Power Output</Text>
-            <View style={styles.chartMini}>
-              <View style={styles.miniChartRow}>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: BladeColors.error }]}>
-                    {Math.max(...powerData)}W
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>Peak</Text>
-                </View>
-                <View style={styles.miniChartStat}>
-                  <Text style={[styles.miniChartValue, { color: theme.text }]}>
-                    {Math.floor(powerData.reduce((a, b) => a + b, 0) / powerData.length)}W
-                  </Text>
-                  <Text style={[styles.miniChartLabel, { color: theme.textSecondary }]}>Average</Text>
-                </View>
+          <View style={styles.tile}>
+            <View style={styles.tileSectionHeader}>
+              <View style={styles.tileSectionIcon}>
+                <Feather name="cpu" size={14} color={TILE_ACCENT} />
+              </View>
+              <Text style={styles.tileSectionTitle}>Power Output</Text>
+            </View>
+            <View style={styles.miniChartRow}>
+              <View style={styles.miniChartStat}>
+                <Text style={[styles.miniChartValue, { color: BladeColors.error }]}>
+                  {Math.max(...powerData)}W
+                </Text>
+                <Text style={styles.miniChartLabel}>Peak</Text>
+              </View>
+              <View style={styles.miniStatDivider} />
+              <View style={styles.miniChartStat}>
+                <Text style={styles.miniChartValue}>
+                  {Math.floor(powerData.reduce((a, b) => a + b, 0) / powerData.length)}W
+                </Text>
+                <Text style={styles.miniChartLabel}>Average</Text>
               </View>
             </View>
-          </Card>
+          </View>
         ) : null}
 
-        <Card style={styles.dataPointsCard}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Trip Data</Text>
-          <View style={styles.dataPointsInfo}>
-            <Feather name="database" size={20} color={theme.textSecondary} />
-            <Text style={[styles.dataPointsText, { color: theme.textSecondary }]}>
-              {dataPoints.length} data points recorded
-            </Text>
+        <View style={styles.tile}>
+          <View style={styles.tileSectionHeader}>
+            <View style={styles.tileSectionIcon}>
+              <Feather name="database" size={14} color={TILE_ACCENT} />
+            </View>
+            <Text style={styles.tileSectionTitle}>Trip Data</Text>
           </View>
-        </Card>
+          <View style={styles.dataPointsInfo}>
+            <Text style={styles.dataPointsValue}>{dataPoints.length}</Text>
+            <Text style={styles.dataPointsLabel}>data points recorded at 4-second intervals</Text>
+          </View>
+        </View>
       </ScrollView>
 
       <View style={[styles.actionBar, { paddingBottom: insets.bottom + Spacing.md }]}>
         <Pressable
           onPress={handleShare}
-          style={[styles.actionButton, { backgroundColor: theme.surfaceElevated }]}
+          style={({ pressed }) => [styles.shareButton, { opacity: pressed ? 0.85 : 1 }]}
           testID="share-button"
         >
-          <Feather name="share" size={20} color={theme.text} />
-          <Text style={[styles.actionButtonText, { color: theme.text }]}>Share</Text>
+          <Feather name="share" size={18} color={TILE_TEXT} />
+          <Text style={styles.shareButtonText}>Share</Text>
         </Pressable>
         
         <Pressable
           onPress={handleGenerateReport}
           disabled={isGeneratingReport}
+          style={({ pressed }) => [styles.reportButton, { opacity: pressed ? 0.85 : 1 }]}
           testID="generate-report-button"
         >
-          <LinearGradient
-            colors={[BladeColors.accent, BladeColors.accentDark || BladeColors.accent]}
-            style={styles.exportButton}
-          >
-            {isGeneratingReport ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Feather name="file-text" size={20} color="#FFFFFF" />
-                <Text style={styles.exportButtonText}>Generate Report</Text>
-              </>
-            )}
-          </LinearGradient>
+          {isGeneratingReport ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <>
+              <Feather name="file-text" size={18} color="#FFFFFF" />
+              <Text style={styles.reportButtonText}>Generate Report</Text>
+            </>
+          )}
         </Pressable>
       </View>
     </View>
@@ -516,6 +554,7 @@ export default function TripDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: SCREEN_BG,
   },
   centered: {
     justifyContent: "center",
@@ -524,85 +563,130 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.md,
   },
-  errorText: {
-    marginTop: Spacing.md,
-    fontSize: Typography.sizes.md,
-  },
-  summaryCard: {
+  errorIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: DARK_TILE,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.md,
-    padding: Spacing.lg,
   },
+  errorText: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: "600",
+    color: DARK_TILE,
+  },
+  errorSubtext: {
+    fontSize: Typography.sizes.sm,
+    color: "#64748B",
+    marginTop: Spacing.xs,
+  },
+
+  tile: {
+    backgroundColor: DARK_TILE,
+    borderRadius: BorderRadius["2xl"],
+    padding: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+
   tripHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   tripTitleSection: {
     flex: 1,
   },
   tripName: {
-    fontSize: Typography.sizes.xl,
+    fontSize: 22,
     fontWeight: "700",
-    marginBottom: Spacing.xs,
+    color: TILE_TEXT,
+    marginBottom: 4,
   },
   tripDate: {
     fontSize: Typography.sizes.sm,
+    color: TILE_TEXT_SECONDARY,
   },
-  activeBadge: {
+  liveBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: BladeColors.success,
+    backgroundColor: "rgba(16,185,129,0.15)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
   },
-  activeBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 11,
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: BladeColors.success,
+  },
+  liveBadgeText: {
+    color: BladeColors.success,
+    fontSize: 10,
     fontWeight: "700",
+    letterSpacing: 0.5,
   },
   statsGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: Spacing.sm,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
   },
   statBox: {
-    width: "25%",
+    flex: 1,
     alignItems: "center",
-    paddingVertical: Spacing.sm,
   },
   statValue: {
     fontSize: Typography.sizes.xl,
     fontWeight: "700",
+    color: TILE_TEXT,
+    fontVariant: ["tabular-nums"],
   },
   statLabel: {
     fontSize: Typography.sizes.xs,
-    marginTop: 2,
+    marginTop: 3,
+    color: TILE_TEXT_SECONDARY,
   },
-  mapCard: {
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+
+  tileSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
-    padding: Spacing.lg,
   },
+  tileSectionIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(59,158,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tileSectionTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: "600",
+    color: TILE_TEXT,
+  },
+
   mapContainer: {
     height: 200,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    marginTop: Spacing.sm,
   },
   routeMap: {
     flex: 1,
   },
-  energyCard: {
-    marginBottom: Spacing.md,
-    padding: Spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: Typography.sizes.md,
-    fontWeight: "600",
-    marginBottom: Spacing.md,
-  },
+
   energyStats: {
     gap: Spacing.md,
   },
@@ -611,20 +695,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
   },
+  energyIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   energyStatText: {
     flex: 1,
   },
   energyValue: {
     fontSize: Typography.sizes.lg,
     fontWeight: "600",
+    color: TILE_TEXT,
   },
   energyLabel: {
     fontSize: Typography.sizes.sm,
+    color: TILE_TEXT_SECONDARY,
+    marginTop: 1,
   },
-  chartCard: {
-    marginBottom: Spacing.md,
-    padding: Spacing.lg,
-  },
+
   chartHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -634,6 +725,7 @@ const styles = StyleSheet.create({
   chartLabel: {
     fontSize: Typography.sizes.md,
     fontWeight: "600",
+    color: TILE_TEXT,
   },
   chartStats: {
     flexDirection: "row",
@@ -641,6 +733,7 @@ const styles = StyleSheet.create({
   },
   chartStat: {
     fontSize: Typography.sizes.xs,
+    color: TILE_TEXT_SECONDARY,
   },
   chartContainer: {
     marginTop: Spacing.sm,
@@ -649,72 +742,94 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
-  chartMini: {
-    marginTop: Spacing.sm,
-  },
+
   miniChartRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
   },
   miniChartStat: {
+    flex: 1,
     alignItems: "center",
   },
   miniChartValue: {
     fontSize: Typography.sizes.lg,
     fontWeight: "700",
+    color: TILE_TEXT,
+    fontVariant: ["tabular-nums"],
   },
   miniChartLabel: {
     fontSize: Typography.sizes.xs,
-    marginTop: 2,
+    marginTop: 3,
+    color: TILE_TEXT_SECONDARY,
   },
-  dataPointsCard: {
-    marginBottom: Spacing.md,
-    padding: Spacing.lg,
+  miniStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
+
   dataPointsInfo: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "baseline",
     gap: Spacing.sm,
   },
-  dataPointsText: {
-    fontSize: Typography.sizes.md,
+  dataPointsValue: {
+    fontSize: Typography.sizes.xl,
+    fontWeight: "700",
+    color: TILE_ACCENT,
+    fontVariant: ["tabular-nums"],
   },
+  dataPointsLabel: {
+    fontSize: Typography.sizes.sm,
+    color: TILE_TEXT_SECONDARY,
+    flex: 1,
+  },
+
   actionBar: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     flexDirection: "row",
-    gap: Spacing.md,
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    backgroundColor: "rgba(0,0,0,0.1)",
+    backgroundColor: SCREEN_BG,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
-  actionButton: {
-    flex: 1,
+  shareButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: DARK_TILE,
   },
-  actionButtonText: {
+  shareButtonText: {
+    color: TILE_TEXT,
     fontSize: Typography.sizes.md,
     fontWeight: "600",
   },
-  exportButton: {
+  reportButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    paddingVertical: 14,
     paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: TILE_ACCENT,
   },
-  exportButtonText: {
+  reportButtonText: {
     color: "#FFFFFF",
     fontSize: Typography.sizes.md,
     fontWeight: "600",
