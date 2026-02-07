@@ -12,9 +12,11 @@ Pod::Spec.new do |s|
   s.author         = 'Blade Outboards'
   s.source         = { git: '' }
 
-  s.platform       = :ios, '15.1'
+  s.platform       = :ios, '16.1'
   s.swift_version  = '5.0'
   s.source_files   = '**/*.swift'
+
+  s.frameworks     = 'ActivityKit'
 
   s.dependency 'ExpoModulesCore'
 end

@@ -949,9 +949,12 @@ export async function generateTripPDF(res: Response, trip: TripData): Promise<vo
     }
   });
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="Blade_Trip_Report_${tripId}.pdf"`);
-  doc.pipe(res);
+  const pdfChunks: Buffer[] = [];
+  doc.on('data', (chunk: Buffer) => pdfChunks.push(chunk));
+  const pdfReady = new Promise<Buffer>((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(pdfChunks)));
+    doc.on('error', reject);
+  });
 
   const allDataPoints = trip.dataPoints || [];
   const gpsCoords = extractGPSCoords(allDataPoints, trip.phoneGPSStart, trip.phoneGPSEnd);
@@ -1672,5 +1675,13 @@ ES: Use siempre un chaleco salvavidas homologado. Nunca opere bajo la influencia
   console.log('[PDF Generator] ====== PDF GENERATION COMPLETE ======');
   console.log('[PDF Generator] Calling doc.end()...');
   doc.end();
-  console.log('[PDF Generator] PDF stream ended successfully');
+
+  const pdfBuffer = await pdfReady;
+  console.log('[PDF Generator] PDF buffered successfully, size:', pdfBuffer.length, 'bytes');
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="Blade_Trip_Report_${tripId}.pdf"`);
+  res.setHeader('Content-Length', pdfBuffer.length);
+  res.end(pdfBuffer);
+  console.log('[PDF Generator] PDF sent to client');
 }
