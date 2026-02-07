@@ -13,7 +13,7 @@ function getAppleTeamId(config) {
   return null;
 }
 
-function addSourceFileToTarget(project, filePath, groupUuid, targetUuid) {
+function addSourceFileToTarget(project, filePath, groupUuid, nativeTarget) {
   var objects = project.hash.project.objects;
 
   var fileRefUuid = project.generateUuid();
@@ -38,18 +38,37 @@ function addSourceFileToTarget(project, filePath, groupUuid, targetUuid) {
   };
   objects.PBXBuildFile[buildFileUuid + '_comment'] = filePath + ' in Sources';
 
-  var nativeTarget = objects.PBXNativeTarget[targetUuid];
-  if (nativeTarget && nativeTarget.buildPhases) {
+  var sourcePhaseUuid = null;
+  if (nativeTarget.buildPhases) {
     for (var i = 0; i < nativeTarget.buildPhases.length; i++) {
-      var phaseUuid = nativeTarget.buildPhases[i].value;
+      var entry = nativeTarget.buildPhases[i];
+      var phaseUuid = (typeof entry === 'string') ? entry : (entry.value || entry);
       if (objects.PBXSourcesBuildPhase && objects.PBXSourcesBuildPhase[phaseUuid]) {
-        var phase = objects.PBXSourcesBuildPhase[phaseUuid];
-        if (!phase.files) phase.files = [];
-        phase.files.push({ value: buildFileUuid, comment: filePath + ' in Sources' });
+        sourcePhaseUuid = phaseUuid;
         break;
       }
     }
   }
+
+  if (!sourcePhaseUuid) {
+    sourcePhaseUuid = project.generateUuid();
+    if (!objects.PBXSourcesBuildPhase) {
+      objects.PBXSourcesBuildPhase = {};
+    }
+    objects.PBXSourcesBuildPhase[sourcePhaseUuid] = {
+      isa: 'PBXSourcesBuildPhase',
+      buildActionMask: 2147483647,
+      files: [],
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    objects.PBXSourcesBuildPhase[sourcePhaseUuid + '_comment'] = 'Sources';
+    if (!nativeTarget.buildPhases) nativeTarget.buildPhases = [];
+    nativeTarget.buildPhases.push({ value: sourcePhaseUuid, comment: 'Sources' });
+  }
+
+  var phase = objects.PBXSourcesBuildPhase[sourcePhaseUuid];
+  if (!phase.files) phase.files = [];
+  phase.files.push({ value: buildFileUuid, comment: filePath + ' in Sources' });
 }
 
 function withAppleWatch(config) {
@@ -143,7 +162,7 @@ function withAppleWatch(config) {
     ];
 
     for (var i = 0; i < swiftFiles.length; i++) {
-      addSourceFileToTarget(project, swiftFiles[i], group.uuid, target.uuid);
+      addSourceFileToTarget(project, swiftFiles[i], group.uuid, target.pbxNativeTarget);
     }
 
     var buildConfigListUuid = target.pbxNativeTarget.buildConfigurationList;
@@ -186,6 +205,46 @@ function withAppleWatch(config) {
 
     return mod;
   });
+
+  config = withDangerousMod(config, [
+    "ios",
+    async (mod) => {
+      const projectRoot = mod.modRequest.projectRoot;
+      const schemesDir = path.join(projectRoot, "ios", "BladeOutboards.xcodeproj", "xcshareddata", "xcschemes");
+      const schemePath = path.join(schemesDir, "BladeOutboards.xcscheme");
+
+      if (!fs.existsSync(schemePath)) {
+        return mod;
+      }
+
+      var schemeContent = fs.readFileSync(schemePath, "utf8");
+
+      if (schemeContent.indexOf(WATCH_TARGET_NAME) === -1) {
+        var watchBuildEntry = 
+          '      <BuildActionEntry\n' +
+          '         buildForTesting = "YES"\n' +
+          '         buildForRunning = "YES"\n' +
+          '         buildForProfiling = "YES"\n' +
+          '         buildForArchiving = "YES"\n' +
+          '         buildForAnalyzing = "YES">\n' +
+          '         <BuildableReference\n' +
+          '            BuildableIdentifier = "primary"\n' +
+          '            BlueprintName = "' + WATCH_TARGET_NAME + '"\n' +
+          '            ReferencedContainer = "container:BladeOutboards.xcodeproj">\n' +
+          '         </BuildableReference>\n' +
+          '      </BuildActionEntry>\n';
+
+        schemeContent = schemeContent.replace(
+          '</BuildActionEntries>',
+          watchBuildEntry + '   </BuildActionEntries>'
+        );
+
+        fs.writeFileSync(schemePath, schemeContent, "utf8");
+      }
+
+      return mod;
+    },
+  ]);
 
   return config;
 }
