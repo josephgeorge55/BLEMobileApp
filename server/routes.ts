@@ -650,48 +650,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("[PDF] Missing trip data or ID");
         return res.status(400).json({ error: "Trip data is required" });
       }
-
-      const wantDownloadUrl = req.headers["x-download-mode"] === "native";
-      if (wantDownloadUrl) {
-        const { PassThrough } = await import("node:stream");
-        const collectStream = new PassThrough();
-        const chunks: Buffer[] = [];
-        collectStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-        const bufferDone = new Promise<Buffer>((resolve) => {
-          collectStream.on("end", () => resolve(Buffer.concat(chunks)));
-        });
-        const proxyRes: any = {
-          setHeader: () => proxyRes,
-          getHeader: () => undefined,
-          removeHeader: () => proxyRes,
-          writeHead: () => proxyRes,
-          statusCode: 200,
-          headersSent: false,
-          write: (chunk: any) => collectStream.write(chunk),
-          end: (chunk?: any) => { if (chunk) collectStream.write(chunk); collectStream.end(); },
-          on: collectStream.on.bind(collectStream),
-          once: collectStream.once.bind(collectStream),
-          emit: collectStream.emit.bind(collectStream),
-          pipe: collectStream.pipe.bind(collectStream),
-        };
-        Object.setPrototypeOf(proxyRes, collectStream);
-        await generateTripPDF(proxyRes, tripData);
-        const pdfBuffer = await bufferDone;
-        const filename = `Blade_Trip_Report_${tripData.tripId || tripData.id}.pdf`;
-        const downloadId = randomUUID();
-        pendingDownloads.set(downloadId, {
-          buffer: pdfBuffer,
-          mimeType: "application/pdf",
-          filename,
-          expiresAt: Date.now() + 5 * 60 * 1000,
-        });
-        return res.json({
-          success: true,
-          type: "native_download",
-          downloadPath: `/api/passport/download/${downloadId}`,
-          filename,
-        });
-      }
       
       console.log("[PDF] Calling generateTripPDF...");
       await generateTripPDF(res, tripData);
