@@ -192,7 +192,7 @@ export default function PassportScreen() {
       console.log("[Passport] Apple Wallet - Has downloadPath:", !!data.downloadPath);
       console.log("[Passport] Apple Wallet - Message:", data.message || "none");
 
-      if (data.type === "native_download" && data.downloadPath && Platform.OS !== "web") {
+      if (data.downloadPath && Platform.OS !== "web") {
         const filename = data.filename || "blade-passport.pkpass";
         const downloadUrl = baseUrl + data.downloadPath;
         const localPath = FileSystem.cacheDirectory + filename;
@@ -210,6 +210,9 @@ export default function PassportScreen() {
         const mimeType = isPkpass ? "application/vnd.apple.pkpass" : "application/pdf";
         const uti = isPkpass ? "com.apple.pkpass" : undefined;
         await Sharing.shareAsync(downloadResult.uri, { mimeType, UTI: uti });
+        if (data.message) {
+          Alert.alert("Apple Wallet", data.message);
+        }
       } else {
         const base64Data = data.data;
 
@@ -317,7 +320,7 @@ export default function PassportScreen() {
 
       const data = await response.json();
 
-      if (data.type === "native_download" && data.downloadPath && Platform.OS !== "web") {
+      if (data.downloadPath && Platform.OS !== "web") {
         const filename = data.filename || "blade-passport.pdf";
         const downloadUrl = baseUrl + data.downloadPath;
         const localPath = FileSystem.cacheDirectory + filename;
