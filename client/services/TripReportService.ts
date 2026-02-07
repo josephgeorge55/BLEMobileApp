@@ -1,6 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Paths, File as FSFile } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import type { ExtendedTrip, TripReport, TripReportMetadata, TripDataPoint, WeatherSnapshot } from '@/types/TripReport';
 import Constants from 'expo-constants';
@@ -974,21 +974,21 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
       
       const fileName = `Blade_Trip_Report_${tripData.id}.pdf`;
       logPdf('INFO', `Creating file: ${fileName}`);
-      console.log('[TripReportService] Cache path:', Paths.cache);
-      
-      const pdfFile = new FSFile(Paths.cache, fileName);
-      logPdf('INFO', `File URI will be: ${pdfFile.uri}`);
+      const filePath = `${FileSystem.cacheDirectory}${fileName}`;
+      logPdf('INFO', `File path: ${filePath}`);
       
       logPdf('INFO', 'Converting to base64...');
       const base64Data = arrayBufferToBase64(arrayBuffer);
       logPdf('INFO', `Base64 string length: ${base64Data.length}`);
       
       logPdf('INFO', 'Writing file with base64 encoding...');
-      await pdfFile.write(base64Data, { encoding: 'base64' });
+      await FileSystem.writeAsStringAsync(filePath, base64Data, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
       logPdf('INFO', 'File write complete');
       
       logPdf('INFO', 'Checking file info...');
-      const fileInfo = pdfFile.info();
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
       logPdf('INFO', `File exists: ${fileInfo.exists}`);
       
       if (!fileInfo.exists) {
@@ -996,8 +996,8 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
         throw new Error('PDF file was not saved correctly');
       }
       
-      logPdf('SUCCESS', `PDF saved to: ${pdfFile.uri}`);
-      return pdfFile.uri;
+      logPdf('SUCCESS', `PDF saved to: ${filePath}`);
+      return filePath;
     } catch (error: any) {
       logPdf('ERROR', `Native PDF error: ${error.message || String(error)}`);
       throw new Error(`Failed to save PDF: ${error instanceof Error ? error.message : String(error)}`);

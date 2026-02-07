@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -495,8 +495,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
         URL.revokeObjectURL(url);
         Alert.alert("Success", "Log file downloaded.");
       } else {
-        const cacheDir = (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory || "";
-        const filePath = `${cacheDir}${fileName}`;
+        const filePath = `${FileSystem.cacheDirectory}${fileName}`;
         await FileSystem.writeAsStringAsync(filePath, fullContent);
 
         const canShare = await Sharing.isAvailableAsync();

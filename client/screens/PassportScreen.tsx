@@ -18,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import * as Haptics from "expo-haptics";
-import { Paths, File as FSFile } from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import QRCode from "react-native-qrcode-svg";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -128,14 +128,20 @@ export default function PassportScreen() {
       return;
     }
     try {
-      const filePath = `${Paths.cache}/${filename}`;
+      const filePath = `${FileSystem.cacheDirectory}${filename}`;
       console.log("[Passport] Writing file to:", filePath);
-      const file = new FSFile(filePath);
-      await file.write(base64Data, { encoding: "base64" });
-      console.log("[Passport] File written successfully");
+      console.log("[Passport] Data length:", base64Data.length, "chars, mime:", mimeType);
+      await FileSystem.writeAsStringAsync(filePath, base64Data, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
+      console.log("[Passport] File written, exists:", fileInfo.exists, "size:", fileInfo.exists ? (fileInfo as any).size : 0);
+      if (!fileInfo.exists) {
+        throw new Error("File was not created after write");
+      }
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        await Sharing.shareAsync(filePath, { mimeType });
+        await Sharing.shareAsync(filePath, { mimeType, UTI: mimeType === "application/vnd.apple.pkpass" ? "com.apple.pkpass" : undefined });
       } else {
         Alert.alert("Sharing not available", "Unable to share the file on this device.");
       }
