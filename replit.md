@@ -38,6 +38,8 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 - **Android**: Full support for both BLE (`react-native-ble-plx`) and Bluetooth Classic (`react-native-bluetooth-classic`).
 - **iOS**: Full BLE support via `react-native-ble-plx`; Bluetooth Classic is not supported due to iOS restrictions. Specific implementations for reliable iOS CoreBluetooth compatibility, including CCC descriptor writes and Nordic UART Service (NUS) fallback.
 - **Web**: Mock mode only, no real Bluetooth support.
+- **Device Name Filtering**: BLE and Classic scan results are filtered to only show devices with names containing "blade", "halo", "motor", or "boat" (case-insensitive).
+- **Serial Number Validation**: Anti-theft motor binding requires serial numbers starting with "BLD" or "JK". Invalid serials show a graceful message instead of allowing registration.
 
 ### PDF Generation
 - Server-side PDF generation using PDFKit, with custom base64 encoding for React Native compatibility.
