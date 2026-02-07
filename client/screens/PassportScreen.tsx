@@ -193,23 +193,28 @@ export default function PassportScreen() {
       console.log("[Passport] Apple Wallet - Message:", data.message || "none");
 
       if (data.downloadPath && Platform.OS !== "web") {
-        const filename = data.filename || "blade-passport.pkpass";
         const downloadUrl = baseUrl + data.downloadPath;
-        const localPath = FileSystem.cacheDirectory + filename;
-        console.log("[Passport] Apple Wallet - Native download from:", downloadUrl);
-        console.log("[Passport] Apple Wallet - Saving to:", localPath);
-        const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
-        console.log("[Passport] Apple Wallet - Download status:", downloadResult.status);
-        console.log("[Passport] Apple Wallet - Downloaded to:", downloadResult.uri);
-        const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
-        console.log("[Passport] Apple Wallet - File exists:", fileInfo.exists, "size:", fileInfo.exists ? (fileInfo as any).size : 0);
-        if (!fileInfo.exists) {
-          throw new Error("Downloaded file does not exist");
+        console.log("[Passport] Apple Wallet - Opening in browser for native wallet prompt:", downloadUrl);
+
+        if (Platform.OS === "ios" && data.type === "pkpass") {
+          await WebBrowser.openBrowserAsync(downloadUrl, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          });
+        } else {
+          const filename = data.filename || "blade-passport.pkpass";
+          const localPath = FileSystem.cacheDirectory + filename;
+          const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+          console.log("[Passport] Apple Wallet - Download status:", downloadResult.status);
+          const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+          console.log("[Passport] Apple Wallet - File exists:", fileInfo.exists, "size:", fileInfo.exists ? (fileInfo as any).size : 0);
+          if (!fileInfo.exists) {
+            throw new Error("Downloaded file does not exist");
+          }
+          const isPkpass = filename.endsWith(".pkpass");
+          const mimeType = isPkpass ? "application/vnd.apple.pkpass" : "application/pdf";
+          const uti = isPkpass ? "com.apple.pkpass" : undefined;
+          await Sharing.shareAsync(downloadResult.uri, { mimeType, UTI: uti });
         }
-        const isPkpass = filename.endsWith(".pkpass");
-        const mimeType = isPkpass ? "application/vnd.apple.pkpass" : "application/pdf";
-        const uti = isPkpass ? "com.apple.pkpass" : undefined;
-        await Sharing.shareAsync(downloadResult.uri, { mimeType, UTI: uti });
         if (data.message) {
           Alert.alert("Apple Wallet", data.message);
         }
