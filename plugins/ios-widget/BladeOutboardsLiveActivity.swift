@@ -11,50 +11,51 @@ struct BladeOutboardsLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 4) {
-                        Image(systemName: "bolt.fill")
-                            .foregroundColor(Color(red: 10/255, green: 77/255, blue: 110/255))
-                        Text("SN: \(context.state.serialNumber)")
-                            .font(.caption)
-                            .foregroundColor(.white)
+                        Image("blade-logo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 16)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     HStack(spacing: 4) {
                         Image(systemName: batteryIconName(percent: context.state.batteryPercent))
                             .foregroundColor(batteryColor(percent: context.state.batteryPercent))
+                            .font(.caption2)
                         Text("\(context.state.batteryPercent)%")
-                            .font(.caption)
+                            .font(.caption2)
                             .bold()
                             .foregroundColor(.white)
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text("Blade Outboards")
+                    Text("SN: \(context.state.serialNumber)")
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.white.opacity(0.6))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Image(systemName: "bolt.fill")
                                 .foregroundColor(.yellow)
+                                .font(.caption2)
                             Text(String(format: "%.1f kW", context.state.wattageKW))
-                                .font(.caption)
+                                .font(.caption2)
                                 .foregroundColor(.white)
                         }
                         Spacer()
                         if context.state.isRecording {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 3) {
                                 Circle()
                                     .fill(.red)
-                                    .frame(width: 8, height: 8)
-                                Text("Recording \(context.state.tripDuration)")
-                                    .font(.caption)
+                                    .frame(width: 6, height: 6)
+                                Text("REC \(context.state.tripDuration)")
+                                    .font(.caption2)
                                     .foregroundColor(.white)
                             }
                         } else {
                             Text("Connected")
-                                .font(.caption)
+                                .font(.caption2)
                                 .foregroundColor(.green)
                         }
                     }
@@ -64,7 +65,7 @@ struct BladeOutboardsLiveActivity: Widget {
                     .foregroundColor(Color(red: 10/255, green: 77/255, blue: 110/255))
             } compactTrailing: {
                 Text("\(context.state.batteryPercent)%")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundColor(.white)
             } minimal: {
                 Image(systemName: "bolt.fill")
@@ -75,77 +76,76 @@ struct BladeOutboardsLiveActivity: Widget {
 
     @ViewBuilder
     func lockScreenView(context: ActivityViewContext<BladeOutboardsAttributes>) -> some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "bolt.fill")
-                    .foregroundColor(Color(red: 10/255, green: 77/255, blue: 110/255))
-                Text("Blade Outboards")
-                    .font(.headline)
-                    .bold()
-                    .foregroundColor(Color(red: 10/255, green: 77/255, blue: 110/255))
-                Spacer()
-            }
+        VStack(spacing: 8) {
+            HStack(alignment: .center) {
+                Image("blade-logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 22)
 
-            HStack {
+                Spacer()
+
                 Text("SN: \(context.state.serialNumber)")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-                Spacer()
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.5))
             }
 
-            HStack {
+            HStack(spacing: 0) {
                 HStack(spacing: 4) {
                     Image(systemName: "bolt.fill")
                         .foregroundColor(.yellow)
+                        .font(.subheadline)
                     Text(String(format: "%.1f kW", context.state.wattageKW))
-                        .font(.title3)
+                        .font(.subheadline)
                         .bold()
                         .foregroundColor(.white)
                 }
 
                 Spacer()
 
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: batteryIconName(percent: context.state.batteryPercent))
                         .foregroundColor(batteryColor(percent: context.state.batteryPercent))
+                        .font(.caption)
                     Text("\(context.state.batteryPercent)%")
-                        .font(.title3)
+                        .font(.subheadline)
                         .bold()
                         .foregroundColor(.white)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.white.opacity(0.2))
-                                .frame(height: 6)
-                            RoundedRectangle(cornerRadius: 3)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white.opacity(0.15))
+                                .frame(height: 4)
+                            RoundedRectangle(cornerRadius: 2)
                                 .fill(batteryColor(percent: context.state.batteryPercent))
-                                .frame(width: geo.size.width * CGFloat(context.state.batteryPercent) / 100.0, height: 6)
+                                .frame(width: geo.size.width * CGFloat(context.state.batteryPercent) / 100.0, height: 4)
                         }
                     }
-                    .frame(width: 40, height: 6)
+                    .frame(width: 32, height: 4)
                 }
             }
 
             HStack {
                 if context.state.isRecording {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Circle()
                             .fill(.red)
-                            .frame(width: 10, height: 10)
+                            .frame(width: 8, height: 8)
                         Text("Recording")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundColor(.red)
                         Text(context.state.tripDuration)
-                            .font(.subheadline)
+                            .font(.caption)
+                            .bold()
                             .foregroundColor(.white)
                     }
                 } else {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Circle()
                             .fill(.green)
-                            .frame(width: 10, height: 10)
+                            .frame(width: 8, height: 8)
                         Text("Connected")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundColor(.green)
                     }
                 }
@@ -157,11 +157,13 @@ struct BladeOutboardsLiveActivity: Widget {
                     HStack {
                         Spacer()
                         Image(systemName: "stop.fill")
+                            .font(.caption)
                         Text("Stop Trip")
+                            .font(.caption)
                             .bold()
                         Spacer()
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                     .background(Color.red.opacity(0.8))
                     .foregroundColor(.white)
                     .cornerRadius(8)
@@ -171,18 +173,21 @@ struct BladeOutboardsLiveActivity: Widget {
                     HStack {
                         Spacer()
                         Image(systemName: "play.fill")
+                            .font(.caption)
                         Text("Start Trip")
+                            .font(.caption)
                             .bold()
                         Spacer()
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                     .background(Color(red: 10/255, green: 77/255, blue: 110/255))
                     .foregroundColor(.white)
                     .cornerRadius(8)
                 }
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(Color(red: 10/255, green: 22/255, blue: 40/255))
     }
 
