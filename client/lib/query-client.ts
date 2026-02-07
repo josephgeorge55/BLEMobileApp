@@ -4,22 +4,16 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
  * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
  * @returns {string} The API base URL
  */
+const PRODUCTION_DOMAIN = "blade-outboards.replit.app";
+
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
-
-  const rawHost = host || "(not set)";
-
-  if (!host) {
-    host = "blade-outboards.replit.app";
-  }
+  let host = process.env.EXPO_PUBLIC_DOMAIN || PRODUCTION_DOMAIN;
 
   if (host.includes(":5000")) {
     host = host.replace(":5000", "");
   }
 
   let url = new URL(`https://${host}`);
-
-  console.log(`[API] getApiUrl: EXPO_PUBLIC_DOMAIN=${rawHost}, resolved=${url.href}`);
 
   return url.href;
 }
