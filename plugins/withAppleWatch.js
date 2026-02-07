@@ -13,53 +13,6 @@ function getAppleTeamId(config) {
   return null;
 }
 
-function findSourcesPhaseUuid(objects, nativeTarget) {
-  if (!nativeTarget.buildPhases) return null;
-  for (var i = 0; i < nativeTarget.buildPhases.length; i++) {
-    var entry = nativeTarget.buildPhases[i];
-    var uuid = (typeof entry === 'string') ? entry : (entry && entry.value ? entry.value : null);
-    if (uuid && objects.PBXSourcesBuildPhase && objects.PBXSourcesBuildPhase[uuid]) {
-      return uuid;
-    }
-  }
-  return null;
-}
-
-function removeDuplicateEmbedPhases(objects, mainTarget, productName) {
-  if (!mainTarget || !mainTarget.buildPhases) return;
-  var seen = {};
-  var toRemove = [];
-  for (var i = 0; i < mainTarget.buildPhases.length; i++) {
-    var entry = mainTarget.buildPhases[i];
-    var uuid = (typeof entry === 'string') ? entry : (entry && entry.value ? entry.value : null);
-    if (!uuid) continue;
-    var phase = objects.PBXCopyFilesBuildPhase ? objects.PBXCopyFilesBuildPhase[uuid] : null;
-    if (phase && phase.files) {
-      for (var f = 0; f < phase.files.length; f++) {
-        var fileEntry = phase.files[f];
-        var fileUuid = (typeof fileEntry === 'string') ? fileEntry : (fileEntry && fileEntry.value ? fileEntry.value : null);
-        if (fileUuid) {
-          var buildFile = objects.PBXBuildFile[fileUuid];
-          if (buildFile && buildFile.fileRef) {
-            var fileRef = objects.PBXFileReference[buildFile.fileRef];
-            if (fileRef && fileRef.path && fileRef.path.indexOf(productName) !== -1) {
-              var key = phase.dstSubfolderSpec + '_' + productName;
-              if (seen[key]) {
-                toRemove.push(i);
-              } else {
-                seen[key] = true;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  for (var r = toRemove.length - 1; r >= 0; r--) {
-    mainTarget.buildPhases.splice(toRemove[r], 1);
-  }
-}
-
 function withAppleWatch(config) {
   config = withDangerousMod(config, [
     "ios",
@@ -104,41 +57,7 @@ function withAppleWatch(config) {
     const watchBundleId = watchConfig?.bundleIdentifier || (mainBundleId + ".watchkitapp");
     const appleTeamId = getAppleTeamId(mod);
 
-    var target = project.addTarget(
-      WATCH_TARGET_NAME,
-      "watch2_app",
-      WATCH_TARGET_NAME,
-      watchBundleId,
-    );
-
-    if (!target) {
-      console.warn("[withAppleWatch] Failed to add Watch target");
-      return mod;
-    }
-
     var objects = project.hash.project.objects;
-    var nativeTarget = target.pbxNativeTarget;
-
-    var sourcesPhaseUuid = findSourcesPhaseUuid(objects, nativeTarget);
-
-    if (!sourcesPhaseUuid) {
-      sourcesPhaseUuid = project.generateUuid();
-      if (!objects.PBXSourcesBuildPhase) {
-        objects.PBXSourcesBuildPhase = {};
-      }
-      objects.PBXSourcesBuildPhase[sourcesPhaseUuid] = {
-        isa: 'PBXSourcesBuildPhase',
-        buildActionMask: 2147483647,
-        files: [],
-        runOnlyForDeploymentPostprocessing: 0,
-      };
-      objects.PBXSourcesBuildPhase[sourcesPhaseUuid + '_comment'] = 'Sources';
-      if (!nativeTarget.buildPhases) nativeTarget.buildPhases = [];
-      nativeTarget.buildPhases.push({ value: sourcesPhaseUuid, comment: 'Sources' });
-    }
-
-    var sourcesPhase = objects.PBXSourcesBuildPhase[sourcesPhaseUuid];
-    if (!sourcesPhase.files) sourcesPhase.files = [];
 
     var devTeam = appleTeamId;
     if (!devTeam) {
@@ -159,6 +78,134 @@ function withAppleWatch(config) {
       }
     }
 
+    var watchBuildSettings = {
+      WATCHOS_DEPLOYMENT_TARGET: "10.0",
+      SWIFT_VERSION: "5.0",
+      SDKROOT: "watchos",
+      TARGETED_DEVICE_FAMILY: "4",
+      PRODUCT_BUNDLE_IDENTIFIER: '"' + watchBundleId + '"',
+      INFOPLIST_FILE: WATCH_TARGET_NAME + "/Info.plist",
+      PRODUCT_NAME: '"$(TARGET_NAME)"',
+      SWIFT_EMIT_LOC_STRINGS: "YES",
+      GENERATE_INFOPLIST_FILE: "YES",
+      INFOPLIST_KEY_WKCompanionAppBundleIdentifier: '"' + mainBundleId + '"',
+      INFOPLIST_KEY_CFBundleDisplayName: '"Blade"',
+      INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: "NO",
+      LD_RUNPATH_SEARCH_PATHS: '"$(inherited) @executable_path/Frameworks"',
+      SKIP_INSTALL: "YES",
+      MARKETING_VERSION: "1.0",
+      CURRENT_PROJECT_VERSION: "1",
+      ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: "YES",
+      CLANG_ENABLE_MODULES: "YES",
+      CODE_SIGN_STYLE: "Automatic",
+    };
+    if (devTeam) {
+      watchBuildSettings.DEVELOPMENT_TEAM = devTeam;
+    }
+
+    var debugConfigUuid = project.generateUuid();
+    var releaseConfigUuid = project.generateUuid();
+
+    if (!objects.XCBuildConfiguration) objects.XCBuildConfiguration = {};
+    objects.XCBuildConfiguration[debugConfigUuid] = {
+      isa: 'XCBuildConfiguration',
+      buildSettings: Object.assign({}, watchBuildSettings, {
+        GCC_PREPROCESSOR_DEFINITIONS: ['"DEBUG=1"', '"$(inherited)"'],
+      }),
+      name: 'Debug',
+    };
+    objects.XCBuildConfiguration[debugConfigUuid + '_comment'] = 'Debug';
+    objects.XCBuildConfiguration[releaseConfigUuid] = {
+      isa: 'XCBuildConfiguration',
+      buildSettings: Object.assign({}, watchBuildSettings),
+      name: 'Release',
+    };
+    objects.XCBuildConfiguration[releaseConfigUuid + '_comment'] = 'Release';
+
+    var configListUuid = project.generateUuid();
+    if (!objects.XCConfigurationList) objects.XCConfigurationList = {};
+    objects.XCConfigurationList[configListUuid] = {
+      isa: 'XCConfigurationList',
+      buildConfigurations: [
+        { value: debugConfigUuid, comment: 'Debug' },
+        { value: releaseConfigUuid, comment: 'Release' },
+      ],
+      defaultConfigurationIsVisible: 0,
+      defaultConfigurationName: 'Release',
+    };
+    objects.XCConfigurationList[configListUuid + '_comment'] =
+      'Build configuration list for PBXNativeTarget "' + WATCH_TARGET_NAME + '"';
+
+    var sourcesPhaseUuid = project.generateUuid();
+    if (!objects.PBXSourcesBuildPhase) objects.PBXSourcesBuildPhase = {};
+    objects.PBXSourcesBuildPhase[sourcesPhaseUuid] = {
+      isa: 'PBXSourcesBuildPhase',
+      buildActionMask: 2147483647,
+      files: [],
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    objects.PBXSourcesBuildPhase[sourcesPhaseUuid + '_comment'] = 'Sources';
+
+    var frameworksPhaseUuid = project.generateUuid();
+    if (!objects.PBXFrameworksBuildPhase) objects.PBXFrameworksBuildPhase = {};
+    objects.PBXFrameworksBuildPhase[frameworksPhaseUuid] = {
+      isa: 'PBXFrameworksBuildPhase',
+      buildActionMask: 2147483647,
+      files: [],
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    objects.PBXFrameworksBuildPhase[frameworksPhaseUuid + '_comment'] = 'Frameworks';
+
+    var productFileRefUuid = project.generateUuid();
+    objects.PBXFileReference[productFileRefUuid] = {
+      isa: 'PBXFileReference',
+      explicitFileType: '"wrapper.application"',
+      includeInIndex: 0,
+      path: WATCH_TARGET_NAME + '.app',
+      sourceTree: 'BUILT_PRODUCTS_DIR',
+    };
+    objects.PBXFileReference[productFileRefUuid + '_comment'] = WATCH_TARGET_NAME + '.app';
+
+    var productsGroup = null;
+    for (var gk in objects.PBXGroup) {
+      if (gk.indexOf('_comment') !== -1) continue;
+      var g = objects.PBXGroup[gk];
+      if (g && g.name === 'Products') {
+        productsGroup = g;
+        break;
+      }
+    }
+    if (productsGroup && productsGroup.children) {
+      productsGroup.children.push({ value: productFileRefUuid, comment: WATCH_TARGET_NAME + '.app' });
+    }
+
+    var targetUuid = project.generateUuid();
+    var nativeTarget = {
+      isa: 'PBXNativeTarget',
+      buildConfigurationList: configListUuid,
+      buildPhases: [
+        { value: sourcesPhaseUuid, comment: 'Sources' },
+        { value: frameworksPhaseUuid, comment: 'Frameworks' },
+      ],
+      buildRules: [],
+      dependencies: [],
+      name: '"' + WATCH_TARGET_NAME + '"',
+      productName: '"' + WATCH_TARGET_NAME + '"',
+      productReference: productFileRefUuid,
+      productType: '"com.apple.product-type.application"',
+    };
+
+    if (!objects.PBXNativeTarget) objects.PBXNativeTarget = {};
+    objects.PBXNativeTarget[targetUuid] = nativeTarget;
+    objects.PBXNativeTarget[targetUuid + '_comment'] = WATCH_TARGET_NAME;
+
+    var projectSection = project.pbxProjectSection();
+    var projectUuid = project.getFirstProject()['uuid'];
+    projectSection[projectUuid]['targets'].push({
+      value: targetUuid,
+      comment: WATCH_TARGET_NAME,
+    });
+
     var group = project.addPbxGroup([], WATCH_TARGET_NAME, WATCH_TARGET_NAME);
     var mainGroup = project.getFirstProject().firstProject.mainGroup;
     project.addToPbxGroup(group.uuid, mainGroup);
@@ -171,6 +218,8 @@ function withAppleWatch(config) {
       "TelemetryView.swift",
       "TripView.swift",
     ];
+
+    var sourcesPhase = objects.PBXSourcesBuildPhase[sourcesPhaseUuid];
 
     for (var i = 0; i < swiftFiles.length; i++) {
       var fileName = swiftFiles[i];
@@ -200,64 +249,67 @@ function withAppleWatch(config) {
       sourcesPhase.files.push({ value: buildFileUuid, comment: fileName + ' in Sources' });
     }
 
-    var duplicateSourcesCount = 0;
-    var firstSourcesIdx = -1;
-    if (nativeTarget.buildPhases) {
-      for (var bp = nativeTarget.buildPhases.length - 1; bp >= 0; bp--) {
-        var bpEntry = nativeTarget.buildPhases[bp];
-        var bpUuid = (typeof bpEntry === 'string') ? bpEntry : (bpEntry && bpEntry.value ? bpEntry.value : null);
-        if (bpUuid && objects.PBXSourcesBuildPhase && objects.PBXSourcesBuildPhase[bpUuid]) {
-          duplicateSourcesCount++;
-          if (duplicateSourcesCount > 1) {
-            nativeTarget.buildPhases.splice(bp, 1);
-            delete objects.PBXSourcesBuildPhase[bpUuid];
-            delete objects.PBXSourcesBuildPhase[bpUuid + '_comment'];
-          }
-        }
-      }
-    }
+    var embedProductBuildFileUuid = project.generateUuid();
+    objects.PBXBuildFile[embedProductBuildFileUuid] = {
+      isa: 'PBXBuildFile',
+      fileRef: productFileRefUuid,
+      fileRef_comment: WATCH_TARGET_NAME + '.app',
+      settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
+    };
+    objects.PBXBuildFile[embedProductBuildFileUuid + '_comment'] = WATCH_TARGET_NAME + '.app in Embed Watch Content';
+
+    var embedPhaseUuid = project.generateUuid();
+    if (!objects.PBXCopyFilesBuildPhase) objects.PBXCopyFilesBuildPhase = {};
+    objects.PBXCopyFilesBuildPhase[embedPhaseUuid] = {
+      isa: 'PBXCopyFilesBuildPhase',
+      buildActionMask: 2147483647,
+      dstPath: '"$(CONTENTS_FOLDER_PATH)/Watch"',
+      dstSubfolderSpec: 16,
+      files: [
+        { value: embedProductBuildFileUuid, comment: WATCH_TARGET_NAME + '.app in Embed Watch Content' },
+      ],
+      name: '"Embed Watch Content"',
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    objects.PBXCopyFilesBuildPhase[embedPhaseUuid + '_comment'] = 'Embed Watch Content';
 
     var mainTargetObj = project.getFirstTarget();
     if (mainTargetObj && mainTargetObj.firstTarget) {
-      removeDuplicateEmbedPhases(objects, mainTargetObj.firstTarget, WATCH_TARGET_NAME);
-    }
+      mainTargetObj.firstTarget.buildPhases.push({
+        value: embedPhaseUuid,
+        comment: 'Embed Watch Content',
+      });
 
-    var buildConfigListUuid = nativeTarget.buildConfigurationList;
-    var configList = objects.XCConfigurationList[buildConfigListUuid];
+      var depTargetProxyUuid = project.generateUuid();
+      if (!objects.PBXContainerItemProxy) objects.PBXContainerItemProxy = {};
+      objects.PBXContainerItemProxy[depTargetProxyUuid] = {
+        isa: 'PBXContainerItemProxy',
+        containerPortal: projectUuid,
+        containerPortal_comment: 'Project object',
+        proxyType: 1,
+        remoteGlobalIDString: targetUuid,
+        remoteInfo: '"' + WATCH_TARGET_NAME + '"',
+      };
+      objects.PBXContainerItemProxy[depTargetProxyUuid + '_comment'] = 'PBXContainerItemProxy';
 
-    if (configList && configList.buildConfigurations) {
-      for (var j = 0; j < configList.buildConfigurations.length; j++) {
-        var configRef = configList.buildConfigurations[j];
-        var uuid = configRef.value;
-        var buildConfig = objects.XCBuildConfiguration[uuid];
-        if (buildConfig && buildConfig.buildSettings) {
-          buildConfig.buildSettings.WATCHOS_DEPLOYMENT_TARGET = "10.0";
-          buildConfig.buildSettings.SWIFT_VERSION = "5.0";
-          buildConfig.buildSettings.SDKROOT = "watchos";
-          buildConfig.buildSettings.TARGETED_DEVICE_FAMILY = "4";
-          buildConfig.buildSettings.PRODUCT_BUNDLE_IDENTIFIER =
-            '"' + watchBundleId + '"';
-          buildConfig.buildSettings.INFOPLIST_FILE =
-            WATCH_TARGET_NAME + "/Info.plist";
-          buildConfig.buildSettings.PRODUCT_NAME = '"$(TARGET_NAME)"';
-          buildConfig.buildSettings.SWIFT_EMIT_LOC_STRINGS = "YES";
-          buildConfig.buildSettings.GENERATE_INFOPLIST_FILE = "YES";
-          buildConfig.buildSettings.INFOPLIST_KEY_WKCompanionAppBundleIdentifier =
-            '"' + mainBundleId + '"';
-          buildConfig.buildSettings.INFOPLIST_KEY_CFBundleDisplayName = '"Blade"';
-          buildConfig.buildSettings.INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = "NO";
-          buildConfig.buildSettings.LD_RUNPATH_SEARCH_PATHS =
-            '"$(inherited) @executable_path/Frameworks"';
-          buildConfig.buildSettings.SKIP_INSTALL = "YES";
-          buildConfig.buildSettings.MARKETING_VERSION = "1.0";
-          buildConfig.buildSettings.CURRENT_PROJECT_VERSION = "1";
-          buildConfig.buildSettings.ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "YES";
-          buildConfig.buildSettings.CLANG_ENABLE_MODULES = "YES";
-          if (devTeam) {
-            buildConfig.buildSettings.DEVELOPMENT_TEAM = devTeam;
-          }
-        }
+      var depUuid = project.generateUuid();
+      if (!objects.PBXTargetDependency) objects.PBXTargetDependency = {};
+      objects.PBXTargetDependency[depUuid] = {
+        isa: 'PBXTargetDependency',
+        target: targetUuid,
+        target_comment: WATCH_TARGET_NAME,
+        targetProxy: depTargetProxyUuid,
+        targetProxy_comment: 'PBXContainerItemProxy',
+      };
+      objects.PBXTargetDependency[depUuid + '_comment'] = 'PBXTargetDependency';
+
+      if (!mainTargetObj.firstTarget.dependencies) {
+        mainTargetObj.firstTarget.dependencies = [];
       }
+      mainTargetObj.firstTarget.dependencies.push({
+        value: depUuid,
+        comment: 'PBXTargetDependency',
+      });
     }
 
     return mod;
