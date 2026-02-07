@@ -803,11 +803,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     pendingDownloads.delete(req.params.id);
     res.setHeader("Content-Type", entry.mimeType);
-    res.setHeader("Content-Disposition", `attachment; filename="${entry.filename}"`);
+    const disposition = entry.mimeType === "application/vnd.apple.pkpass" ? "inline" : "attachment";
+    res.setHeader("Content-Disposition", `${disposition}; filename="${entry.filename}"`);
     res.setHeader("Content-Length", entry.buffer.length.toString());
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
     res.send(entry.buffer);
   });
 

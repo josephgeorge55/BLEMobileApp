@@ -197,19 +197,8 @@ export default function PassportScreen() {
         console.log("[Passport] Apple Wallet - Opening in browser for native wallet prompt:", downloadUrl);
 
         if (Platform.OS === "ios" && data.type === "pkpass") {
-          // Use sharing instead of WebBrowser for pkpass to ensure Safari doesn't block the download
-          const filename = data.filename || "blade-passport.pkpass";
-          const localPath = FileSystem.cacheDirectory + filename;
-          const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
-          console.log("[Passport] Apple Wallet - Download status:", downloadResult.status);
-          const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
-          console.log("[Passport] Apple Wallet - File exists:", fileInfo.exists, "size:", fileInfo.exists ? (fileInfo as any).size : 0);
-          if (!fileInfo.exists) {
-            throw new Error("Downloaded file does not exist");
-          }
-          await Sharing.shareAsync(downloadResult.uri, { 
-            mimeType: "application/vnd.apple.pkpass", 
-            UTI: "com.apple.pkpass" 
+          await WebBrowser.openBrowserAsync(downloadUrl, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
           });
         } else {
           const filename = data.filename || "blade-passport.pkpass";

@@ -10,11 +10,11 @@ struct BladeOutboardsLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    VStack(alignment: .leading, spacing: -2) {
-                        Text("BLADE")
-                            .font(.system(size: 12, weight: .black))
-                            .italic()
-                            .foregroundColor(.white)
+                    HStack(spacing: 4) {
+                        Image("blade-logo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 16)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -78,16 +78,10 @@ struct BladeOutboardsLiveActivity: Widget {
     func lockScreenView(context: ActivityViewContext<BladeOutboardsAttributes>) -> some View {
         VStack(spacing: 8) {
             HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("BLADE")
-                        .font(.system(size: 18, weight: .black))
-                        .italic()
-                        .foregroundColor(.white)
-                    Text("OUTBOARDS")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.white.opacity(0.8))
-                        .tracking(1.5)
-                }
+                Image("blade-logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 22)
 
                 Spacer()
 
