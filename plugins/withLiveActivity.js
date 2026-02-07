@@ -14,62 +14,51 @@ function getAppleTeamId(config) {
   return null;
 }
 
-function addSourceFileToTarget(project, filePath, groupUuid, nativeTarget) {
-  var objects = project.hash.project.objects;
-
-  var fileRefUuid = project.generateUuid();
-  objects.PBXFileReference[fileRefUuid] = {
-    isa: 'PBXFileReference',
-    lastKnownFileType: 'sourcecode.swift',
-    path: filePath,
-    sourceTree: '"<group>"',
-  };
-  objects.PBXFileReference[fileRefUuid + '_comment'] = filePath;
-
-  var groupObj = objects.PBXGroup[groupUuid];
-  if (groupObj && groupObj.children) {
-    groupObj.children.push({ value: fileRefUuid, comment: filePath });
+function findSourcesPhaseUuid(objects, nativeTarget) {
+  if (!nativeTarget.buildPhases) return null;
+  for (var i = 0; i < nativeTarget.buildPhases.length; i++) {
+    var entry = nativeTarget.buildPhases[i];
+    var uuid = (typeof entry === 'string') ? entry : (entry && entry.value ? entry.value : null);
+    if (uuid && objects.PBXSourcesBuildPhase && objects.PBXSourcesBuildPhase[uuid]) {
+      return uuid;
+    }
   }
+  return null;
+}
 
-  var buildFileUuid = project.generateUuid();
-  objects.PBXBuildFile[buildFileUuid] = {
-    isa: 'PBXBuildFile',
-    fileRef: fileRefUuid,
-    fileRef_comment: filePath,
-  };
-  objects.PBXBuildFile[buildFileUuid + '_comment'] = filePath + ' in Sources';
-
-  var sourcePhaseUuid = null;
-  if (nativeTarget.buildPhases) {
-    for (var i = 0; i < nativeTarget.buildPhases.length; i++) {
-      var entry = nativeTarget.buildPhases[i];
-      var phaseUuid = (typeof entry === 'string') ? entry : (entry.value || entry);
-      if (objects.PBXSourcesBuildPhase && objects.PBXSourcesBuildPhase[phaseUuid]) {
-        sourcePhaseUuid = phaseUuid;
-        break;
+function removeDuplicateEmbedPhases(objects, mainTarget, productName) {
+  if (!mainTarget || !mainTarget.buildPhases) return;
+  var seen = {};
+  var toRemove = [];
+  for (var i = 0; i < mainTarget.buildPhases.length; i++) {
+    var entry = mainTarget.buildPhases[i];
+    var uuid = (typeof entry === 'string') ? entry : (entry && entry.value ? entry.value : null);
+    if (!uuid) continue;
+    var phase = objects.PBXCopyFilesBuildPhase ? objects.PBXCopyFilesBuildPhase[uuid] : null;
+    if (phase && phase.files) {
+      for (var f = 0; f < phase.files.length; f++) {
+        var fileEntry = phase.files[f];
+        var fileUuid = (typeof fileEntry === 'string') ? fileEntry : (fileEntry && fileEntry.value ? fileEntry.value : null);
+        if (fileUuid) {
+          var buildFile = objects.PBXBuildFile[fileUuid];
+          if (buildFile && buildFile.fileRef) {
+            var fileRef = objects.PBXFileReference[buildFile.fileRef];
+            if (fileRef && fileRef.path && fileRef.path.indexOf(productName) !== -1) {
+              var key = phase.dstSubfolderSpec + '_' + productName;
+              if (seen[key]) {
+                toRemove.push(i);
+              } else {
+                seen[key] = true;
+              }
+            }
+          }
+        }
       }
     }
   }
-
-  if (!sourcePhaseUuid) {
-    sourcePhaseUuid = project.generateUuid();
-    if (!objects.PBXSourcesBuildPhase) {
-      objects.PBXSourcesBuildPhase = {};
-    }
-    objects.PBXSourcesBuildPhase[sourcePhaseUuid] = {
-      isa: 'PBXSourcesBuildPhase',
-      buildActionMask: 2147483647,
-      files: [],
-      runOnlyForDeploymentPostprocessing: 0,
-    };
-    objects.PBXSourcesBuildPhase[sourcePhaseUuid + '_comment'] = 'Sources';
-    if (!nativeTarget.buildPhases) nativeTarget.buildPhases = [];
-    nativeTarget.buildPhases.push({ value: sourcePhaseUuid, comment: 'Sources' });
+  for (var r = toRemove.length - 1; r >= 0; r--) {
+    mainTarget.buildPhases.splice(toRemove[r], 1);
   }
-
-  var phase = objects.PBXSourcesBuildPhase[sourcePhaseUuid];
-  if (!phase.files) phase.files = [];
-  phase.files.push({ value: buildFileUuid, comment: filePath + ' in Sources' });
 }
 
 function withLiveActivity(config) {
@@ -130,6 +119,28 @@ function withLiveActivity(config) {
     }
 
     var objects = project.hash.project.objects;
+    var nativeTarget = target.pbxNativeTarget;
+
+    var sourcesPhaseUuid = findSourcesPhaseUuid(objects, nativeTarget);
+
+    if (!sourcesPhaseUuid) {
+      sourcesPhaseUuid = project.generateUuid();
+      if (!objects.PBXSourcesBuildPhase) {
+        objects.PBXSourcesBuildPhase = {};
+      }
+      objects.PBXSourcesBuildPhase[sourcesPhaseUuid] = {
+        isa: 'PBXSourcesBuildPhase',
+        buildActionMask: 2147483647,
+        files: [],
+        runOnlyForDeploymentPostprocessing: 0,
+      };
+      objects.PBXSourcesBuildPhase[sourcesPhaseUuid + '_comment'] = 'Sources';
+      if (!nativeTarget.buildPhases) nativeTarget.buildPhases = [];
+      nativeTarget.buildPhases.push({ value: sourcesPhaseUuid, comment: 'Sources' });
+    }
+
+    var sourcesPhase = objects.PBXSourcesBuildPhase[sourcesPhaseUuid];
+    if (!sourcesPhase.files) sourcesPhase.files = [];
 
     var devTeam = appleTeamId;
     if (!devTeam) {
@@ -154,15 +165,66 @@ function withLiveActivity(config) {
     const mainGroup = project.getFirstProject().firstProject.mainGroup;
     project.addToPbxGroup(group.uuid, mainGroup);
 
-    addSourceFileToTarget(project, "BladeOutboardsAttributes.swift", group.uuid, target.pbxNativeTarget);
-    addSourceFileToTarget(project, "BladeOutboardsLiveActivity.swift", group.uuid, target.pbxNativeTarget);
+    var swiftFiles = [
+      "BladeOutboardsAttributes.swift",
+      "BladeOutboardsLiveActivity.swift",
+    ];
 
-    var buildConfigListUuid = target.pbxNativeTarget.buildConfigurationList;
+    for (var i = 0; i < swiftFiles.length; i++) {
+      var fileName = swiftFiles[i];
+
+      var fileRefUuid = project.generateUuid();
+      objects.PBXFileReference[fileRefUuid] = {
+        isa: 'PBXFileReference',
+        lastKnownFileType: 'sourcecode.swift',
+        path: fileName,
+        sourceTree: '"<group>"',
+      };
+      objects.PBXFileReference[fileRefUuid + '_comment'] = fileName;
+
+      var groupObj = objects.PBXGroup[group.uuid];
+      if (groupObj && groupObj.children) {
+        groupObj.children.push({ value: fileRefUuid, comment: fileName });
+      }
+
+      var buildFileUuid = project.generateUuid();
+      objects.PBXBuildFile[buildFileUuid] = {
+        isa: 'PBXBuildFile',
+        fileRef: fileRefUuid,
+        fileRef_comment: fileName,
+      };
+      objects.PBXBuildFile[buildFileUuid + '_comment'] = fileName + ' in Sources';
+
+      sourcesPhase.files.push({ value: buildFileUuid, comment: fileName + ' in Sources' });
+    }
+
+    var duplicateSourcesCount = 0;
+    if (nativeTarget.buildPhases) {
+      for (var bp = nativeTarget.buildPhases.length - 1; bp >= 0; bp--) {
+        var bpEntry = nativeTarget.buildPhases[bp];
+        var bpUuid = (typeof bpEntry === 'string') ? bpEntry : (bpEntry && bpEntry.value ? bpEntry.value : null);
+        if (bpUuid && objects.PBXSourcesBuildPhase && objects.PBXSourcesBuildPhase[bpUuid]) {
+          duplicateSourcesCount++;
+          if (duplicateSourcesCount > 1) {
+            nativeTarget.buildPhases.splice(bp, 1);
+            delete objects.PBXSourcesBuildPhase[bpUuid];
+            delete objects.PBXSourcesBuildPhase[bpUuid + '_comment'];
+          }
+        }
+      }
+    }
+
+    var mainTargetObj = project.getFirstTarget();
+    if (mainTargetObj && mainTargetObj.firstTarget) {
+      removeDuplicateEmbedPhases(objects, mainTargetObj.firstTarget, EXT_NAME);
+    }
+
+    var buildConfigListUuid = nativeTarget.buildConfigurationList;
     var configList = objects.XCConfigurationList[buildConfigListUuid];
 
     if (configList && configList.buildConfigurations) {
-      for (var i = 0; i < configList.buildConfigurations.length; i++) {
-        var configRef = configList.buildConfigurations[i];
+      for (var ci = 0; ci < configList.buildConfigurations.length; ci++) {
+        var configRef = configList.buildConfigurations[ci];
         var uuid = configRef.value;
         var buildConfig = objects.XCBuildConfiguration[uuid];
         if (buildConfig && buildConfig.buildSettings) {
