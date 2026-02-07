@@ -362,13 +362,9 @@ export function DebugLogModal({ visible, onClose }: Props) {
     
     addLiveActivityLog("INFO", `Currently active: ${isLiveActivityActive()}`);
     
-    addLiveActivityLog("INFO", "--- Entitlements Check ---");
-    addLiveActivityLog("INFO", "Required: com.apple.developer.live-activities = true");
-    addLiveActivityLog("INFO", "File: BladeOutboards/BladeOutboards.entitlements");
-    addLiveActivityLog("INFO", "Build Setting: CODE_SIGN_ENTITLEMENTS must reference it");
-    
     addLiveActivityLog("INFO", "--- Info.plist Check ---");
-    addLiveActivityLog("INFO", "Required: NSSupportsLiveActivities = true");
+    addLiveActivityLog("INFO", "Required: NSSupportsLiveActivities = true (set by withLiveActivity plugin)");
+    addLiveActivityLog("INFO", "Note: No entitlements file needed for Live Activities");
     
     addLiveActivityLog("INFO", "--- Widget Extension Check ---");
     addLiveActivityLog("INFO", "Required: ActivityConfiguration in widget bundle");

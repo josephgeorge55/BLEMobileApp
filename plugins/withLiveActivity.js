@@ -47,29 +47,18 @@ function withLiveActivity(config) {
 
       const appName = "BladeOutboards";
       const entitlementsPath = path.join(iosPath, appName, appName + ".entitlements");
-      let entitlementsContent;
-
       if (fs.existsSync(entitlementsPath)) {
-        entitlementsContent = fs.readFileSync(entitlementsPath, "utf8");
-        if (entitlementsContent.indexOf("com.apple.developer.live-activities") === -1) {
-          entitlementsContent = entitlementsContent.replace(
-            "</dict>",
-            "\t<key>com.apple.developer.live-activities</key>\n\t<true/>\n</dict>"
-          );
+        let entitlementsContent = fs.readFileSync(entitlementsPath, "utf8");
+        if (entitlementsContent.indexOf("com.apple.developer.live-activities") !== -1) {
+          entitlementsContent = entitlementsContent
+            .replace(/\s*<key>com\.apple\.developer\.live-activities<\/key>\s*\n?\s*<true\/>/g, "");
           fs.writeFileSync(entitlementsPath, entitlementsContent, "utf8");
         }
-      } else {
-        entitlementsContent =
-          '<?xml version="1.0" encoding="UTF-8"?>\n' +
-          '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
-          '<plist version="1.0">\n' +
-          '<dict>\n' +
-          '\t<key>com.apple.developer.live-activities</key>\n' +
-          '\t<true/>\n' +
-          '</dict>\n' +
-          '</plist>\n';
-        fs.mkdirSync(path.join(iosPath, appName), { recursive: true });
-        fs.writeFileSync(entitlementsPath, entitlementsContent, "utf8");
+        const remaining = entitlementsContent.replace(/<\?xml[^>]*>/, '').replace(/<!DOCTYPE[^>]*>/, '')
+          .replace(/<plist[^>]*>/, '').replace(/<\/plist>/, '').replace(/<dict>\s*<\/dict>/, '').trim();
+        if (!remaining || remaining === '<dict>\n</dict>' || remaining === '<dict></dict>') {
+          fs.unlinkSync(entitlementsPath);
+        }
       }
 
       return mod;
@@ -115,45 +104,13 @@ function withLiveActivity(config) {
         for (var e = 0; e < mainConfigList2.buildConfigurations.length; e++) {
           var configRef = mainConfigList2.buildConfigurations[e];
           var buildConfig = objects.XCBuildConfiguration[configRef.value];
-          if (buildConfig && buildConfig.buildSettings) {
-            buildConfig.buildSettings.CODE_SIGN_ENTITLEMENTS = '"BladeOutboards/BladeOutboards.entitlements"';
+          if (buildConfig && buildConfig.buildSettings && buildConfig.buildSettings.CODE_SIGN_ENTITLEMENTS) {
+            var entVal = buildConfig.buildSettings.CODE_SIGN_ENTITLEMENTS;
+            if (typeof entVal === 'string' && entVal.indexOf('BladeOutboards.entitlements') !== -1) {
+              delete buildConfig.buildSettings.CODE_SIGN_ENTITLEMENTS;
+            }
           }
         }
-      }
-    }
-
-    var entFileRefUuid = project.generateUuid();
-    objects.PBXFileReference[entFileRefUuid] = {
-      isa: 'PBXFileReference',
-      lastKnownFileType: 'text.plist.entitlements',
-      path: 'BladeOutboards.entitlements',
-      sourceTree: '"<group>"',
-    };
-    objects.PBXFileReference[entFileRefUuid + '_comment'] = 'BladeOutboards.entitlements';
-
-    var appGroupKey = null;
-    for (var gk2 in objects.PBXGroup) {
-      if (gk2.indexOf('_comment') !== -1) continue;
-      var grp = objects.PBXGroup[gk2];
-      if (grp && grp.name === '"BladeOutboards"' || (grp && grp.path === 'BladeOutboards')) {
-        appGroupKey = gk2;
-        break;
-      }
-    }
-    if (appGroupKey) {
-      var appGroup = objects.PBXGroup[appGroupKey];
-      var entAlreadyAdded = false;
-      if (appGroup.children) {
-        for (var c = 0; c < appGroup.children.length; c++) {
-          var childComment = objects.PBXFileReference[appGroup.children[c].value + '_comment'];
-          if (childComment && childComment.indexOf('.entitlements') !== -1) {
-            entAlreadyAdded = true;
-            break;
-          }
-        }
-      }
-      if (!entAlreadyAdded) {
-        appGroup.children.push({ value: entFileRefUuid, comment: 'BladeOutboards.entitlements' });
       }
     }
 
