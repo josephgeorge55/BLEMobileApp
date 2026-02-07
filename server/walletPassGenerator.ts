@@ -50,6 +50,17 @@ async function prepareWalletImages(): Promise<Record<string, Buffer>> {
   return images;
 }
 
+function loadCertBuffer(filePath: string, envVar: string): Buffer | null {
+  if (fs.existsSync(filePath)) {
+    return fs.readFileSync(filePath);
+  }
+  const envValue = process.env[envVar];
+  if (envValue) {
+    return Buffer.from(envValue, "utf-8");
+  }
+  return null;
+}
+
 export async function generateAppleWalletPass(passportData: WalletPassportData): Promise<{ buffer: Buffer } | { error: string }> {
   const passTypeId = process.env.APPLE_PASS_TYPE_IDENTIFIER;
   const teamId = process.env.APPLE_TEAM_IDENTIFIER;
@@ -57,22 +68,23 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
   const certPath = path.join(process.cwd(), "server", "apple_pass_certificate.pem");
   const keyPath = path.join(process.cwd(), "server", "apple_pass_key.pem");
 
-  if (!passTypeId || !teamId || !fs.existsSync(wwdrPath) || !fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+  const wwdr = loadCertBuffer(wwdrPath, "APPLE_WWDR_CERTIFICATE_PEM");
+  const signerCert = loadCertBuffer(certPath, "APPLE_PASS_CERTIFICATE_PEM");
+  const signerKey = loadCertBuffer(keyPath, "APPLE_PASS_KEY_PEM");
+
+  if (!passTypeId || !teamId || !wwdr || !signerCert || !signerKey) {
     let missing = [];
     if (!passTypeId) missing.push("APPLE_PASS_TYPE_IDENTIFIER");
     if (!teamId) missing.push("APPLE_TEAM_IDENTIFIER");
-    if (!fs.existsSync(wwdrPath)) missing.push("wwdr.pem");
-    if (!fs.existsSync(certPath)) missing.push("apple_pass_certificate.pem");
-    if (!fs.existsSync(keyPath)) missing.push("apple_pass_key.pem");
+    if (!wwdr) missing.push("WWDR certificate (wwdr.pem or APPLE_WWDR_CERTIFICATE_PEM)");
+    if (!signerCert) missing.push("Pass certificate (apple_pass_certificate.pem or APPLE_PASS_CERTIFICATE_PEM)");
+    if (!signerKey) missing.push("Pass key (apple_pass_key.pem or APPLE_PASS_KEY_PEM)");
     
     return { error: `Apple Wallet certificates not configured. Missing: ${missing.join(", ")}` };
   }
 
   try {
     const images = await prepareWalletImages();
-    const wwdr = fs.readFileSync(wwdrPath);
-    const signerCert = fs.readFileSync(certPath);
-    const signerKey = fs.readFileSync(keyPath);
     
     const qrUrl = `https://bladeoutboards.com/passport?serial=${encodeURIComponent(passportData.serialNumber)}&owner=${encodeURIComponent(passportData.ownerId)}`;
 
