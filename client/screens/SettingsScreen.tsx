@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, NavigationProp } from "@react-navigation/native";
+import { useNavigation, NavigationProp, useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
@@ -64,16 +64,18 @@ export default function SettingsScreen() {
     rm => rm.serialNumber === motor.serialNumber || rm.serialNumber === telemetry?.tillerSerialNumber
   );
 
-  // Load registered motors and boat data when user is logged in
-  useEffect(() => {
-    if (user?.id) {
-      loadRegisteredMotors();
-      loadBoatData();
-    } else {
-      setRegisteredMotors([]);
-      setBoatData(null);
-    }
-  }, [user?.id]);
+  // Load registered motors and boat data whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        loadRegisteredMotors();
+        loadBoatData();
+      } else {
+        setRegisteredMotors([]);
+        setBoatData(null);
+      }
+    }, [user?.id])
+  );
 
   const loadBoatData = async () => {
     if (!user?.id) return;
@@ -155,6 +157,16 @@ export default function SettingsScreen() {
       Alert.alert(
         "Waiting for Motor Identity",
         "The motor hasn't sent its serial number yet. Please wait a few seconds and try again.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
+    // Validate serial number prefix for binding
+    if (!/^(BLD|JK)/i.test(serialNumber)) {
+      Alert.alert(
+        "Anti-Theft Unavailable",
+        "Anti-theft binding is not possible due to serial number abnormalities. The motor serial number must begin with \"BLD\" or \"JK\".",
         [{ text: "OK" }]
       );
       return;

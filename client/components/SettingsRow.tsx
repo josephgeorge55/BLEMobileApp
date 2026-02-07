@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
   runOnJS,
   interpolate,
   Extrapolation,
@@ -77,9 +78,10 @@ export function SettingsRow({
     .onEnd(() => {
       runOnJS(handlePress)();
     })
+    .shouldCancelWhenOutside(true)
     .onFinalize(() => {
-      pressed.value = withSpring(0, springConfig);
-      translateX.value = withSpring(0, springConfig);
+      pressed.value = withTiming(0, { duration: 150 });
+      translateX.value = withTiming(0, { duration: 150 });
     });
 
   const animatedRowStyle = useAnimatedStyle(() => {

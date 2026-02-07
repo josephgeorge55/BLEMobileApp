@@ -97,6 +97,18 @@ export default function BleScannerModal() {
     classicDeviceCount: 0,
   });
   
+  const isBladeDevice = (name: string | null | undefined): boolean => {
+    if (!name) return false;
+    const lower = name.toLowerCase();
+    const keywords = ["blade", "halo", "motor", "boat"];
+    return keywords.some(kw => lower.includes(kw));
+  };
+
+  const isValidSerialForBinding = (serial: string | null | undefined): boolean => {
+    if (!serial) return false;
+    return /^(BLD|JK)/i.test(serial);
+  };
+
   // Ref to track current motor state for use in async callbacks
   const motorRef = useRef(motor);
   useEffect(() => {
@@ -179,9 +191,11 @@ export default function BleScannerModal() {
         if (bleState === "PoweredOn") {
           startRealScan({
             onDeviceFound: (device: BleDevice) => {
+              const deviceName = device.name || null;
+              if (!isBladeDevice(deviceName)) return;
               const scanDevice: ScanDevice = {
                 id: device.id,
-                name: device.name || `Device ${device.id.substring(0, 8)}`,
+                name: deviceName || `Device ${device.id.substring(0, 8)}`,
                 serialNumber: device.serialNumber || device.id,
                 rssi: device.rssi,
                 type: "ble",
@@ -203,6 +217,7 @@ export default function BleScannerModal() {
         if (classicEnabled) {
           const bondedDevices = await getBondedDevices();
           bondedDevices.forEach((device: ClassicDevice) => {
+            if (!isBladeDevice(device.name)) return;
             const scanDevice: ScanDevice = {
               id: device.address,
               name: device.name,
@@ -216,6 +231,7 @@ export default function BleScannerModal() {
           
           startDiscovery({
             onDeviceFound: (device: ClassicDevice) => {
+              if (!isBladeDevice(device.name)) return;
               const scanDevice: ScanDevice = {
                 id: device.address,
                 name: device.name,
@@ -387,6 +403,15 @@ export default function BleScannerModal() {
             const isAlreadyRegistered = await isMotorRegisteredToUser(user.id, realSerial);
             
             if (!isAlreadyRegistered) {
+              if (!isValidSerialForBinding(realSerial)) {
+                addDebugLog("INFO", `[AntiTheft] Serial ${realSerial} does not start with BLD or JK, skipping binding`);
+                Alert.alert(
+                  "Anti-Theft Unavailable",
+                  "Anti-theft binding is not possible due to serial number abnormalities. The motor serial number must begin with \"BLD\" or \"JK\".",
+                  [{ text: "OK" }]
+                );
+                return;
+              }
               // Motor is not registered, prompt user with Alert
               addDebugLog("INFO", `[AntiTheft] Motor ${realSerial} not registered, prompting user`);
               Alert.alert(
