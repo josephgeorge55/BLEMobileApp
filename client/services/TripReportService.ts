@@ -857,6 +857,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
   logPdf('INFO', `Starting PDF generation for trip: ${tripData.id}`);
   logPdf('INFO', `Platform: ${Platform.OS}`);
+  logPdf('INFO', `EXPO_PUBLIC_DOMAIN raw value: "${process.env.EXPO_PUBLIC_DOMAIN || '(not set)'}"`);
   logPdf('DATA', `Trip data: distance=${tripData.totalDistanceKm?.toFixed(2)}km, duration=${tripData.startTime ? 'set' : 'missing'}`);
   logPdf('DATA', `GPS Start: ${tripData.phoneGPSStart ? `${tripData.phoneGPSStart.latitude.toFixed(4)},${tripData.phoneGPSStart.longitude.toFixed(4)}` : 'N/A'}`);
   logPdf('DATA', `GPS End: ${tripData.phoneGPSEnd ? `${tripData.phoneGPSEnd.latitude.toFixed(4)},${tripData.phoneGPSEnd.longitude.toFixed(4)}` : 'N/A'}`);
@@ -866,7 +867,8 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
   const baseUrl = getApiUrl();
   const url = new URL('/api/trip/report', baseUrl);
   
-  logPdf('INFO', `API URL: ${url.href}`);
+  logPdf('INFO', `Base URL: ${baseUrl}`);
+  logPdf('INFO', `Full API URL: ${url.href}`);
   
   const requestBody = JSON.stringify({
     id: tripData.id,
@@ -931,11 +933,15 @@ async function generatePDFFromServer(tripData: ExtendedTrip): Promise<string> {
   }
   
   logPdf('INFO', `Server response status: ${response.status}`);
+  logPdf('INFO', `Response headers content-type: ${response.headers.get('content-type') || 'none'}`);
+  logPdf('INFO', `Response URL: ${response.url || 'N/A'}`);
   
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error');
     logPdf('ERROR', `Server error ${response.status}: ${errorText}`);
-    throw new Error(`Failed to generate PDF from server: ${response.status} - ${errorText}`);
+    logPdf('ERROR', `Request was sent to: ${url.href}`);
+    logPdf('ERROR', `EXPO_PUBLIC_DOMAIN was: "${process.env.EXPO_PUBLIC_DOMAIN || '(not set)'}"`);
+    throw new Error(`PDF generation failed (${response.status}). Server: ${url.host}. Response: ${errorText.substring(0, 200)}`);
   }
   
   logPdf('SUCCESS', 'Server responded successfully');

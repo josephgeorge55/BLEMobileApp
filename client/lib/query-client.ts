@@ -7,6 +7,8 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
+  const rawHost = host || "(not set)";
+
   if (!host) {
     host = "blade-outboards.replit.app";
   }
@@ -16,6 +18,8 @@ export function getApiUrl(): string {
   }
 
   let url = new URL(`https://${host}`);
+
+  console.log(`[API] getApiUrl: EXPO_PUBLIC_DOMAIN=${rawHost}, resolved=${url.href}`);
 
   return url.href;
 }

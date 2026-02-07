@@ -149,19 +149,36 @@ export default function PassportScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setAddingToWallet(true);
     try {
-      const url = new URL("/api/passport/wallet/apple", getApiUrl());
-      console.log("[Passport] Apple Wallet API URL:", url.toString());
+      const baseUrl = getApiUrl();
+      const url = new URL("/api/passport/wallet/apple", baseUrl);
+      console.log("[Passport] Apple Wallet - EXPO_PUBLIC_DOMAIN:", process.env.EXPO_PUBLIC_DOMAIN || "(not set)");
+      console.log("[Passport] Apple Wallet - Base URL:", baseUrl);
+      console.log("[Passport] Apple Wallet - Full URL:", url.toString());
+      const passportData = getPassportData();
+      console.log("[Passport] Apple Wallet - Passport data keys:", Object.keys(passportData).join(", "));
+      const bodyStr = JSON.stringify(passportData);
+      console.log("[Passport] Apple Wallet - Request body size:", bodyStr.length, "bytes");
+
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getPassportData()),
+        body: bodyStr,
       });
 
+      console.log("[Passport] Apple Wallet - Response status:", response.status);
+      console.log("[Passport] Apple Wallet - Response content-type:", response.headers.get("content-type") || "none");
+      console.log("[Passport] Apple Wallet - Response URL:", response.url || "N/A");
+
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const errorText = await response.text().catch(() => "Unknown error");
+        console.error("[Passport] Apple Wallet - Error response body:", errorText.substring(0, 500));
+        throw new Error(`Server ${response.status} at ${url.host}: ${errorText.substring(0, 200)}`);
       }
 
       const data = await response.json();
+      console.log("[Passport] Apple Wallet - Response type:", data.type);
+      console.log("[Passport] Apple Wallet - Has data:", !!data.data);
+      console.log("[Passport] Apple Wallet - Message:", data.message || "none");
       const base64Data = data.data;
 
       if (!base64Data) {
@@ -174,9 +191,11 @@ export default function PassportScreen() {
 
       if (data.type === "pkpass") {
         const filename = data.filename || "blade-passport.pkpass";
+        console.log("[Passport] Apple Wallet - Saving pkpass:", filename);
         await shareOrDownload(base64Data, filename, "application/vnd.apple.pkpass");
       } else {
         const filename = data.filename || "blade-passport.pdf";
+        console.log("[Passport] Apple Wallet - Saving PDF fallback:", filename);
         await shareOrDownload(base64Data, filename, "application/pdf");
         if (data.message) {
           Alert.alert("Apple Wallet", data.message);
@@ -184,7 +203,8 @@ export default function PassportScreen() {
       }
     } catch (error: any) {
       console.error("[Passport] Apple Wallet error:", error);
-      Alert.alert("Error", "Failed to add to Apple Wallet. Please try again.");
+      console.error("[Passport] Apple Wallet error message:", error.message);
+      Alert.alert("Apple Wallet Error", `${error.message || "Unknown error"}`);
     } finally {
       setAddingToWallet(false);
     }
@@ -233,16 +253,28 @@ export default function PassportScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSavingPDF(true);
     try {
-      const url = new URL("/api/passport/pdf", getApiUrl());
-      console.log("[Passport] PDF API URL:", url.toString());
+      const baseUrl = getApiUrl();
+      const url = new URL("/api/passport/pdf", baseUrl);
+      console.log("[Passport] PDF - EXPO_PUBLIC_DOMAIN:", process.env.EXPO_PUBLIC_DOMAIN || "(not set)");
+      console.log("[Passport] PDF - Base URL:", baseUrl);
+      console.log("[Passport] PDF - Full URL:", url.toString());
+      const passportData = getPassportData();
+      const bodyStr = JSON.stringify(passportData);
+      console.log("[Passport] PDF - Request body size:", bodyStr.length, "bytes");
+
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getPassportData()),
+        body: bodyStr,
       });
 
+      console.log("[Passport] PDF - Response status:", response.status);
+      console.log("[Passport] PDF - Response content-type:", response.headers.get("content-type") || "none");
+
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const errorText = await response.text().catch(() => "Unknown error");
+        console.error("[Passport] PDF - Error response body:", errorText.substring(0, 500));
+        throw new Error(`Server ${response.status} at ${url.host}: ${errorText.substring(0, 200)}`);
       }
 
       const data = await response.json();
@@ -253,10 +285,12 @@ export default function PassportScreen() {
       }
 
       const filename = data.filename || "blade-passport.pdf";
+      console.log("[Passport] PDF - Saving file:", filename, "data length:", base64PDF.length);
       await shareOrDownload(base64PDF, filename, "application/pdf");
     } catch (error: any) {
       console.error("[Passport] PDF error:", error);
-      Alert.alert("Error", "Failed to save PDF. Please try again.");
+      console.error("[Passport] PDF error message:", error.message);
+      Alert.alert("PDF Error", `${error.message || "Unknown error"}`);
     } finally {
       setSavingPDF(false);
     }
