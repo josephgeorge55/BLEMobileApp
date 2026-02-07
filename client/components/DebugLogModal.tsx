@@ -32,6 +32,8 @@ import {
 } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
 import { setPdfLogCallback, getPendingLogs, clearPendingLogs } from "@/lib/pdf-logger";
+import BladeLiveActivityModule from "../../modules/blade-live-activity";
+import { isLiveActivitySupported, isLiveActivityActive, startLiveActivity, endLiveActivity } from "@/services/LiveActivityService";
 import type { Trip } from "@shared/schema";
 
 interface Props {
@@ -39,7 +41,7 @@ interface Props {
   onClose: () => void;
 }
 
-type TabType = "bluetooth" | "antitheft" | "location" | "trips" | "pdf";
+type TabType = "bluetooth" | "antitheft" | "location" | "trips" | "pdf" | "liveactivity";
 
 interface DebugLogEntry {
   timestamp: string;
@@ -64,6 +66,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastLocationResult, setLastLocationResult] = useState<any>(null);
   const [pdfLogs, setPdfLogs] = useState<DebugLogEntry[]>([]);
+  const [liveActivityLogs, setLiveActivityLogs] = useState<DebugLogEntry[]>([]);
 
   const addAntiTheftLog = useCallback((level: string, message: string) => {
     setAntiTheftLogs(prev => [...prev.slice(-99), {
@@ -91,6 +94,14 @@ export function DebugLogModal({ visible, onClose }: Props) {
 
   const addPdfLog = useCallback((level: string, message: string) => {
     setPdfLogs(prev => [...prev.slice(-99), {
+      timestamp: new Date().toISOString(),
+      level,
+      message
+    }]);
+  }, []);
+
+  const addLiveActivityLog = useCallback((level: string, message: string) => {
+    setLiveActivityLogs(prev => [...prev.slice(-99), {
       timestamp: new Date().toISOString(),
       level,
       message
@@ -320,6 +331,103 @@ export function DebugLogModal({ visible, onClose }: Props) {
     }
   };
 
+  const testLiveActivity = async () => {
+    addLiveActivityLog("INFO", "=== TEST: Live Activity Diagnostics ===");
+    
+    addLiveActivityLog("INFO", `Platform: ${Platform.OS}`);
+    
+    const moduleLoaded = BladeLiveActivityModule !== null;
+    addLiveActivityLog(moduleLoaded ? "INFO" : "ERROR", `Native module loaded: ${moduleLoaded}`);
+    if (!moduleLoaded) {
+      addLiveActivityLog("ERROR", "BladeLiveActivityModule is null - module failed to link");
+      addLiveActivityLog("WARN", "Possible causes:");
+      addLiveActivityLog("WARN", "- Module not compiled into the binary");
+      addLiveActivityLog("WARN", "- expo-modules-core requireNativeModule failed");
+      addLiveActivityLog("WARN", "- Running in Expo Go (needs dev build)");
+      return;
+    }
+    
+    try {
+      const supported = await isLiveActivitySupported();
+      addLiveActivityLog(supported ? "INFO" : "ERROR", `areActivitiesEnabled: ${supported}`);
+      if (!supported) {
+        addLiveActivityLog("ERROR", "Live Activities not enabled on this device");
+        addLiveActivityLog("WARN", "Check: Settings > Blade Outboards > Live Activities = ON");
+        addLiveActivityLog("WARN", "Check: Settings > Face ID & Passcode > Live Activities = ON");
+        addLiveActivityLog("WARN", "Check: iOS 16.2+ required");
+      }
+    } catch (error: any) {
+      addLiveActivityLog("ERROR", `isLiveActivitySupported threw: ${error.message}`);
+    }
+    
+    addLiveActivityLog("INFO", `Currently active: ${isLiveActivityActive()}`);
+    
+    addLiveActivityLog("INFO", "--- Entitlements Check ---");
+    addLiveActivityLog("INFO", "Required: com.apple.developer.live-activities = true");
+    addLiveActivityLog("INFO", "File: BladeOutboards/BladeOutboards.entitlements");
+    addLiveActivityLog("INFO", "Build Setting: CODE_SIGN_ENTITLEMENTS must reference it");
+    
+    addLiveActivityLog("INFO", "--- Info.plist Check ---");
+    addLiveActivityLog("INFO", "Required: NSSupportsLiveActivities = true");
+    
+    addLiveActivityLog("INFO", "--- Widget Extension Check ---");
+    addLiveActivityLog("INFO", "Required: ActivityConfiguration in widget bundle");
+    addLiveActivityLog("INFO", "Required: BladeOutboardsAttributes shared between app & widget");
+    
+    addLiveActivityLog("INFO", "--- Motor State ---");
+    addLiveActivityLog("INFO", `Motor connected: ${motor?.isConnected}`);
+    addLiveActivityLog("INFO", `Motor serial: ${motor?.serialNumber || 'null'}`);
+    addLiveActivityLog("INFO", `Is recording: ${isRecording}`);
+    addLiveActivityLog("INFO", `Trip duration: ${tripDuration}s`);
+    
+    if (telemetry) {
+      addLiveActivityLog("DATA", `Power: ${telemetry.powerConsumption?.toFixed(2) || 0} kW`);
+      addLiveActivityLog("DATA", `Battery SOC: ${telemetry.stateOfCharge || 0}%`);
+    } else {
+      addLiveActivityLog("WARN", "No telemetry data available");
+    }
+  };
+
+  const testStartLiveActivity = async () => {
+    addLiveActivityLog("INFO", "=== TEST: Start Live Activity ===");
+    
+    if (!BladeLiveActivityModule) {
+      addLiveActivityLog("ERROR", "Cannot start: native module not loaded");
+      return;
+    }
+    
+    const serialNumber = telemetry?.tillerSerialNumber || motor?.serialNumber || "TEST-DEBUG";
+    const wattage = telemetry?.powerConsumption ?? 0;
+    const battery = telemetry?.stateOfCharge ?? 75;
+    
+    addLiveActivityLog("INFO", `Starting with serial: ${serialNumber}`);
+    addLiveActivityLog("INFO", `Wattage: ${wattage} kW, Battery: ${battery}%`);
+    
+    try {
+      const activityId = await startLiveActivity(serialNumber, wattage, battery, isRecording, tripDuration);
+      if (activityId) {
+        addLiveActivityLog("INFO", `Started successfully! ID: ${activityId}`);
+        addLiveActivityLog("INFO", "Check your Lock Screen or Dynamic Island");
+      } else {
+        addLiveActivityLog("ERROR", "startLiveActivity returned null");
+        addLiveActivityLog("WARN", "The native Activity.request() call likely failed");
+        addLiveActivityLog("WARN", "Check entitlements and Info.plist configuration");
+      }
+    } catch (error: any) {
+      addLiveActivityLog("ERROR", `Start failed: ${error.message}`);
+    }
+  };
+
+  const testEndLiveActivity = async () => {
+    addLiveActivityLog("INFO", "=== TEST: End Live Activity ===");
+    try {
+      await endLiveActivity();
+      addLiveActivityLog("INFO", "Live Activity ended");
+    } catch (error: any) {
+      addLiveActivityLog("ERROR", `End failed: ${error.message}`);
+    }
+  };
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     if (activeTab === "antitheft") {
@@ -353,9 +461,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
   };
 
   const handleExport = async () => {
-    const logs = activeTab === "bluetooth" ? debugLogs :
-                 activeTab === "antitheft" ? antiTheftLogs :
-                 activeTab === "location" ? locationLogs : tripLogs;
+    const logs = getCurrentLogs();
     
     if (logs.length === 0) {
       Alert.alert("No Logs", "There are no debug logs to export.");
@@ -423,8 +529,12 @@ export function DebugLogModal({ visible, onClose }: Props) {
       setAntiTheftLogs([]);
     } else if (activeTab === "location") {
       setLocationLogs([]);
-    } else {
+    } else if (activeTab === "trips") {
       setTripLogs([]);
+    } else if (activeTab === "pdf") {
+      setPdfLogs([]);
+    } else if (activeTab === "liveactivity") {
+      setLiveActivityLogs([]);
     }
   };
 
@@ -469,13 +579,15 @@ export function DebugLogModal({ visible, onClose }: Props) {
     </Pressable>
   );
 
-  const getCurrentLogs = () => {
+  const getCurrentLogs = (): DebugLogEntry[] => {
     switch (activeTab) {
       case "bluetooth": return debugLogs;
       case "antitheft": return antiTheftLogs;
       case "location": return locationLogs;
       case "trips": return tripLogs;
       case "pdf": return pdfLogs;
+      case "liveactivity": return liveActivityLogs;
+      default: return [];
     }
   };
 
@@ -499,6 +611,23 @@ export function DebugLogModal({ visible, onClose }: Props) {
         <Button variant="outline" onPress={testTripRecording} style={{ marginBottom: Spacing.sm }}>
           Test Trip Recording State
         </Button>
+      );
+    }
+    if (activeTab === "liveactivity") {
+      return (
+        <View style={{ gap: Spacing.sm, marginBottom: Spacing.sm }}>
+          <Button variant="outline" onPress={testLiveActivity}>
+            Run Diagnostics
+          </Button>
+          <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <Button variant="outline" onPress={testStartLiveActivity} style={{ flex: 1 }}>
+              Test Start
+            </Button>
+            <Button variant="outline" onPress={testEndLiveActivity} style={{ flex: 1 }}>
+              Test End
+            </Button>
+          </View>
+        </View>
       );
     }
     return null;
@@ -534,6 +663,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
           {renderTab("location", "Location", "map-pin")}
           {renderTab("trips", "Trips", "navigation")}
           {renderTab("pdf", "PDF", "file-text")}
+          {renderTab("liveactivity", "Live Activity", "activity")}
         </ScrollView>
 
         <View style={[styles.statusBar, { backgroundColor: theme.surface }]}>
