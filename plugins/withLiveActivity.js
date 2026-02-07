@@ -8,6 +8,20 @@ const fs = require("fs");
 
 const EXT_NAME = "BladeOutboardsWidgetExtension";
 
+function copyDirectorySync(src, dst) {
+  fs.mkdirSync(dst, { recursive: true });
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const dstPath = path.join(dst, entry.name);
+    if (entry.isDirectory()) {
+      copyDirectorySync(srcPath, dstPath);
+    } else {
+      fs.copyFileSync(srcPath, dstPath);
+    }
+  }
+}
+
 function getAppleTeamId(config) {
   if (process.env.APPLE_TEAM_IDENTIFIER) return process.env.APPLE_TEAM_IDENTIFIER;
   if (config.ios && config.ios.appleTeamId) return config.ios.appleTeamId;
@@ -43,6 +57,13 @@ function withLiveActivity(config) {
         if (fs.existsSync(src)) {
           fs.copyFileSync(src, path.join(extPath, file));
         }
+      }
+
+      const assetsSrc = path.join(srcPath, "Assets.xcassets");
+      const assetsDst = path.join(extPath, "Assets.xcassets");
+      if (fs.existsSync(assetsSrc)) {
+        copyDirectorySync(assetsSrc, assetsDst);
+        console.log("[withLiveActivity] Copied Assets.xcassets to widget extension");
       }
 
       const appName = "BladeOutboards";
@@ -213,6 +234,16 @@ function withLiveActivity(config) {
       productsGroup.children.push({ value: productFileRefUuid, comment: EXT_NAME + '.appex' });
     }
 
+    var resourcesPhaseUuid = project.generateUuid();
+    if (!objects.PBXResourcesBuildPhase) objects.PBXResourcesBuildPhase = {};
+    objects.PBXResourcesBuildPhase[resourcesPhaseUuid] = {
+      isa: 'PBXResourcesBuildPhase',
+      buildActionMask: 2147483647,
+      files: [],
+      runOnlyForDeploymentPostprocessing: 0,
+    };
+    objects.PBXResourcesBuildPhase[resourcesPhaseUuid + '_comment'] = 'Resources';
+
     var targetUuid = project.generateUuid();
     var nativeTarget = {
       isa: 'PBXNativeTarget',
@@ -220,6 +251,7 @@ function withLiveActivity(config) {
       buildPhases: [
         { value: sourcesPhaseUuid, comment: 'Sources' },
         { value: frameworksPhaseUuid, comment: 'Frameworks' },
+        { value: resourcesPhaseUuid, comment: 'Resources' },
       ],
       buildRules: [],
       dependencies: [],
@@ -278,6 +310,31 @@ function withLiveActivity(config) {
 
       sourcesPhase.files.push({ value: buildFileUuid, comment: fileName + ' in Sources' });
     }
+
+    var assetsRefUuid = project.generateUuid();
+    objects.PBXFileReference[assetsRefUuid] = {
+      isa: 'PBXFileReference',
+      lastKnownFileType: 'folder.assetcatalog',
+      path: 'Assets.xcassets',
+      sourceTree: '"<group>"',
+    };
+    objects.PBXFileReference[assetsRefUuid + '_comment'] = 'Assets.xcassets';
+
+    var groupObjForAssets = objects.PBXGroup[group.uuid];
+    if (groupObjForAssets && groupObjForAssets.children) {
+      groupObjForAssets.children.push({ value: assetsRefUuid, comment: 'Assets.xcassets' });
+    }
+
+    var assetsBuildFileUuid = project.generateUuid();
+    objects.PBXBuildFile[assetsBuildFileUuid] = {
+      isa: 'PBXBuildFile',
+      fileRef: assetsRefUuid,
+      fileRef_comment: 'Assets.xcassets',
+    };
+    objects.PBXBuildFile[assetsBuildFileUuid + '_comment'] = 'Assets.xcassets in Resources';
+
+    var resourcesPhase = objects.PBXResourcesBuildPhase[resourcesPhaseUuid];
+    resourcesPhase.files.push({ value: assetsBuildFileUuid, comment: 'Assets.xcassets in Resources' });
 
     var embedProductBuildFileUuid = project.generateUuid();
     objects.PBXBuildFile[embedProductBuildFileUuid] = {
