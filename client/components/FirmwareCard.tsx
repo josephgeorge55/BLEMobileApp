@@ -11,8 +11,12 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
-import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, BladeColors } from "@/constants/theme";
+
+const DARK_TILE = "rgba(44,44,46,0.92)";
+const TILE_TEXT = "#FFFFFF";
+const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.5)";
+const TILE_BORDER = "rgba(255,255,255,0.08)";
 
 interface FirmwareCardProps {
   version: string;
@@ -35,7 +39,6 @@ export function FirmwareCard({
   downloadProgress = 0,
   onDownload,
 }: FirmwareCardProps) {
-  const { theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const scale = useSharedValue(1);
 
@@ -61,14 +64,13 @@ export function FirmwareCard({
       entering={FadeIn.duration(300)}
       style={[
         styles.card,
-        { backgroundColor: theme.surface },
         animatedStyle,
         isCurrent && styles.currentCard,
       ]}
     >
       <View style={styles.header}>
         <View style={styles.versionContainer}>
-          <ThemedText type="h3" style={styles.version}>
+          <ThemedText type="h3" style={{ color: TILE_TEXT }}>
             v{version}
           </ThemedText>
           {isCurrent ? (
@@ -98,7 +100,7 @@ export function FirmwareCard({
         {releaseDate ? (
           <ThemedText
             type="caption"
-            style={{ color: theme.textSecondary }}
+            style={{ color: TILE_TEXT_SECONDARY }}
           >
             {formatDate(releaseDate)}
           </ThemedText>
@@ -107,13 +109,13 @@ export function FirmwareCard({
 
       {releaseNotes ? (
         <Pressable onPress={handleToggleExpand} style={styles.notesToggle}>
-          <ThemedText type="small" style={{ color: BladeColors.primary }}>
+          <ThemedText type="small" style={{ color: BladeColors.accent }}>
             {expanded ? "Hide Release Notes" : "View Release Notes"}
           </ThemedText>
           <Feather
             name={expanded ? "chevron-up" : "chevron-down"}
             size={16}
-            color={BladeColors.primary}
+            color={BladeColors.accent}
           />
         </Pressable>
       ) : null}
@@ -122,7 +124,7 @@ export function FirmwareCard({
         <View style={styles.notesContainer}>
           <ThemedText
             type="small"
-            style={{ color: theme.textSecondary, lineHeight: 22 }}
+            style={{ color: TILE_TEXT_SECONDARY, lineHeight: 22 }}
           >
             {releaseNotes}
           </ThemedText>
@@ -132,18 +134,18 @@ export function FirmwareCard({
       {isDownloading ? (
         <View style={styles.progressContainer}>
           <View style={styles.progressHeader}>
-            <ThemedText type="small">
+            <ThemedText type="small" style={{ color: TILE_TEXT }}>
               {downloadProgress < 50
                 ? "Downloading..."
                 : downloadProgress < 100
                   ? "Installing..."
                   : "Complete"}
             </ThemedText>
-            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            <ThemedText type="caption" style={{ color: TILE_TEXT_SECONDARY }}>
               {downloadProgress}%
             </ThemedText>
           </View>
-          <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
+          <View style={styles.progressBar}>
             <View
               style={[
                 styles.progressFill,
@@ -181,8 +183,9 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
+    borderColor: TILE_BORDER,
     marginBottom: Spacing.md,
+    backgroundColor: DARK_TILE,
   },
   currentCard: {
     borderColor: BladeColors.accent,
@@ -197,9 +200,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-  },
-  version: {
-    fontVariant: ["tabular-nums"],
   },
   badge: {
     paddingHorizontal: Spacing.sm,
@@ -218,12 +218,12 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.05)",
+    borderTopColor: TILE_BORDER,
   },
   notesContainer: {
     marginTop: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: "rgba(0,0,0,0.02)",
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: BorderRadius.xs,
   },
   progressContainer: {
@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   progressFill: {
     height: "100%",
