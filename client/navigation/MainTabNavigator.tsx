@@ -147,10 +147,7 @@ export default function MainTabNavigator() {
         component={UpdatesScreen}
         options={{
           title: "Updates",
-          headerTitle: () => <HeaderTitle />,
-          headerTransparent: false,
-          headerStyle: { backgroundColor: "rgba(44,44,46,0.95)" },
-          headerTintColor: "#FFFFFF",
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="download-cloud" color={color} focused={focused} />
           ),
