@@ -20,6 +20,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useUser } from "@/context/UserContext";
+import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 import { 
   registerMotorForUser, 
@@ -43,6 +44,7 @@ export default function SettingsScreen() {
   const { theme, isDark } = useTheme();
   const { motor, telemetry, disconnectMotor, startScan, debugLogs, sendCommand } = useMotor();
   const { user, logout } = useUser();
+  const { showSuccess, showError } = useToast();
   const {
     anonymousDataSharing,
     notificationSettings,
@@ -132,13 +134,14 @@ export default function SettingsScreen() {
         lastThrottleSentRef.current = Date.now();
         setThrottleCooldown(60);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showSuccess(`Throttle limit set to ${percent}%`);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Send Failed", "Failed to send throttle command to motor.");
+        showError("Failed to send throttle command to motor.");
       }
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", error.message || "An error occurred while sending the command.");
+      showError(error.message || "An error occurred while sending the command.");
     } finally {
       setIsSendingThrottle(false);
     }
