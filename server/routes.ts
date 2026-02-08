@@ -870,6 +870,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/passport/wallet/debug-log", async (req, res) => {
+    try {
+      const apiKey = req.headers["x-api-key"] || req.query.key;
+      if (!apiKey || apiKey !== process.env.PUSH_ADMIN_API_KEY) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { getWalletDebugLog } = await import("./walletPassGenerator");
+      const log = getWalletDebugLog();
+      res.json({ log, count: log.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/passport/wallet/test-direct", async (req, res) => {
+    try {
+      const apiKey = req.query.key;
+      if (!apiKey || apiKey !== process.env.PUSH_ADMIN_API_KEY) {
+        return res.status(401).send("Unauthorized - add ?key=YOUR_API_KEY");
+      }
+      const { generateTestPassDirect } = await import("./walletPassGenerator");
+      const result = await generateTestPassDirect();
+
+      if ("error" in result) {
+        return res.status(500).json({ error: result.error, debugLog: result.debugLog });
+      }
+
+      res.removeHeader("X-Powered-By");
+      res.setHeader("Content-Type", "application/vnd.apple.pkpass");
+      res.setHeader("Content-Length", result.buffer.length.toString());
+      res.setHeader("Content-Disposition", 'inline; filename="blade-test-pass.pkpass"');
+      res.setHeader("Content-Transfer-Encoding", "binary");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.end(result.buffer);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/wallet-test", async (req, res) => {
+    try {
+      const { generateTestPassDirect } = await import("./walletPassGenerator");
+      const result = await generateTestPassDirect();
+      const passReady = !("error" in result);
+      const passError = "error" in result ? result.error : null;
+      const passSize = passReady && "buffer" in result ? result.buffer.length : 0;
+
+      let downloadId = "";
+      if (passReady && "buffer" in result) {
+        downloadId = randomUUID();
+        pendingDownloads.set(downloadId, {
+          buffer: result.buffer,
+          mimeType: "application/vnd.apple.pkpass",
+          filename: "blade-test-pass.pkpass",
+          expiresAt: Date.now() + 10 * 60 * 1000,
+        });
+      }
+
+      res.setHeader("Content-Type", "text/html");
+      res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blade Wallet Pass Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0A1628; color: #fff; padding: 20px; min-height: 100vh; }
+    .card { background: rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; margin: 20px auto; max-width: 500px; }
+    h1 { font-size: 24px; margin-bottom: 16px; text-align: center; }
+    .status { padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 14px; }
+    .ok { background: rgba(52,199,89,0.2); border: 1px solid #34C759; }
+    .err { background: rgba(255,59,48,0.2); border: 1px solid #FF3B30; }
+    .info { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); }
+    .download-btn { display: block; width: 100%; padding: 16px; background: #34C759; color: #fff; border: none; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; margin: 16px 0; }
+    .download-btn:active { background: #2DA44E; }
+    .download-btn.disabled { background: #555; cursor: not-allowed; }
+    .instructions { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.7); }
+    .instructions li { margin: 8px 0; }
+    .debug { font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-top: 12px; color: rgba(255,255,255,0.6); }
+    .label { font-size: 12px; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Blade Wallet Pass Test</h1>
+    
+    <div class="status ${passReady ? 'ok' : 'err'}">
+      ${passReady ? 'Pass generated successfully (' + (passSize / 1024).toFixed(1) + ' KB)' : 'Error: ' + passError}
+    </div>
+
+    ${passReady ? `
+    <a class="download-btn" href="/api/passport/download/${downloadId}">
+      Download .pkpass File
+    </a>
+    ` : `
+    <div class="download-btn disabled">Pass Generation Failed</div>
+    `}
+
+    <div class="card" style="padding: 16px;">
+      <div class="label">How to test</div>
+      <ol class="instructions">
+        <li>Open this page in <strong>Safari on your iPhone</strong></li>
+        <li>Tap the green "Download .pkpass" button above</li>
+        <li>Safari should show the Apple Wallet "Add Pass" sheet</li>
+        <li>If it says "pass is invalid", the signing needs fixing</li>
+        <li>If it works, tap "Add" to save it to your Wallet</li>
+      </ol>
+    </div>
+
+    <div class="card" style="padding: 16px;">
+      <div class="label">Other ways to test</div>
+      <ul class="instructions">
+        <li><strong>Email:</strong> Email the .pkpass file to yourself, open attachment on iPhone</li>
+        <li><strong>AirDrop:</strong> AirDrop the .pkpass file to your iPhone</li>
+        <li><strong>iMessage:</strong> Send the .pkpass to yourself via iMessage</li>
+      </ul>
+    </div>
+
+    ${passReady && result.debugLog ? `
+    <details>
+      <summary style="cursor:pointer; color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 16px;">Debug Log (${result.debugLog.length} entries)</summary>
+      <div class="debug">${result.debugLog.join('\\n')}</div>
+    </details>
+    ` : ''}
+  </div>
+</body>
+</html>`);
+    } catch (error: any) {
+      res.status(500).send("Error: " + error.message);
+    }
+  });
+
+  app.get("/api/passport/wallet/test-debug", async (req, res) => {
+    try {
+      const apiKey = req.query.key;
+      if (!apiKey || apiKey !== process.env.PUSH_ADMIN_API_KEY) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { generateTestPassDirect } = await import("./walletPassGenerator");
+      const result = await generateTestPassDirect();
+
+      if ("error" in result) {
+        return res.json({ success: false, error: result.error, debugLog: result.debugLog });
+      }
+
+      res.json({
+        success: true,
+        passSize: result.buffer.length,
+        passSizeKb: (result.buffer.length / 1024).toFixed(2) + " KB",
+        passBase64Preview: result.buffer.subarray(0, 100).toString("base64"),
+        debugLog: result.debugLog,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/passport/wallet/test", async (req, res) => {
     try {
       const apiKey = req.headers["x-api-key"];
