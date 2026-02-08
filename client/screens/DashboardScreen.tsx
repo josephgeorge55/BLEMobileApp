@@ -1117,6 +1117,9 @@ export default function DashboardScreen() {
                 }] : []}
               />
               <View style={styles.mapPreviewOverlay} />
+              <View style={styles.mapPreviewPin}>
+                <Feather name="map-pin" size={24} color={BladeColors.accent} />
+              </View>
             </View>
             <View style={styles.quickActionRow}>
               <View style={[styles.quickActionIconWrap, { backgroundColor: BladeColors.accent + "20" }]}>
@@ -1458,6 +1461,19 @@ const styles = StyleSheet.create({
     right: 0,
     height: 30,
     backgroundColor: "transparent",
+  },
+  mapPreviewPin: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginTop: -24,
+    marginLeft: -24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: BladeColors.accent + "15",
+    alignItems: "center",
+    justifyContent: "center",
   },
   tripPreview: {
     height: 100,
