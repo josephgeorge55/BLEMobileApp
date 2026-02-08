@@ -1116,7 +1116,8 @@ export default function DashboardScreen() {
                   isLive: isConnected,
                 }] : []}
               />
-              <View style={styles.mapPreviewOverlay} />
+              <View style={styles.mapPreviewTouchBlock} pointerEvents="auto" />
+              <View style={styles.mapPreviewBottomFade} />
               <View style={styles.mapPreviewPin}>
                 <Feather name="map-pin" size={24} color={BladeColors.accent} />
               </View>
@@ -1454,13 +1455,23 @@ const styles = StyleSheet.create({
   mapPreviewMap: {
     flex: 1,
   },
-  mapPreviewOverlay: {
+  mapPreviewTouchBlock: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent",
+    zIndex: 1,
+  },
+  mapPreviewBottomFade: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: 30,
-    backgroundColor: "transparent",
+    height: 28,
+    backgroundColor: "rgba(30,30,32,0.95)",
+    zIndex: 2,
   },
   mapPreviewPin: {
     position: "absolute",
@@ -1474,6 +1485,7 @@ const styles = StyleSheet.create({
     backgroundColor: BladeColors.accent + "15",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 3,
   },
   tripPreview: {
     height: 100,
