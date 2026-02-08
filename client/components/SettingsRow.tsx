@@ -14,8 +14,13 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+
+const DARK_TILE = "rgba(44,44,46,0.92)";
+const TILE_TEXT = "#FFFFFF";
+const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.5)";
+const TILE_BORDER = "rgba(255,255,255,0.08)";
+const ICON_BG = "rgba(255,255,255,0.08)";
 
 interface SettingsRowProps {
   icon?: keyof typeof Feather.glyphMap;
@@ -53,7 +58,6 @@ export function SettingsRow({
   destructive,
   disabled,
 }: SettingsRowProps) {
-  const { theme, isDark } = useTheme();
   const pressed = useSharedValue(0);
   const translateX = useSharedValue(0);
 
@@ -85,12 +89,6 @@ export function SettingsRow({
     });
 
   const animatedRowStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolate(
-      pressed.value,
-      [0, 1],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
     const scale = interpolate(
       pressed.value,
       [0, 1],
@@ -99,7 +97,7 @@ export function SettingsRow({
     );
     return {
       backgroundColor: pressed.value > 0.5 
-        ? isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"
+        ? "rgba(255,255,255,0.08)"
         : "transparent",
       transform: [{ scale }, { translateX: translateX.value }],
     };
@@ -127,19 +125,14 @@ export function SettingsRow({
   const content = (
     <Animated.View style={[styles.row, animatedRowStyle, disabled && { opacity: 0.5 }]}>
       {icon ? (
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: isDark ? theme.backgroundSecondary : theme.backgroundTertiary },
-          ]}
-        >
+        <View style={styles.iconContainer}>
           <Feather
             name={icon}
             size={18}
             color={
               destructive
                 ? BladeColors.error
-                : iconColor || BladeColors.primary
+                : iconColor || BladeColors.accent
             }
           />
         </View>
@@ -147,14 +140,14 @@ export function SettingsRow({
       <View style={styles.content}>
         <ThemedText
           type="body"
-          style={destructive ? { color: BladeColors.error } : undefined}
+          style={destructive ? { color: BladeColors.error } : { color: TILE_TEXT }}
         >
           {title}
         </ThemedText>
         {subtitle ? (
           <ThemedText
             type="caption"
-            style={{ color: theme.textSecondary, marginTop: 2 }}
+            style={{ color: TILE_TEXT_SECONDARY, marginTop: 2 }}
           >
             {subtitle}
           </ThemedText>
@@ -165,18 +158,18 @@ export function SettingsRow({
           value={toggleValue}
           onValueChange={handleToggle}
           trackColor={{
-            false: theme.backgroundTertiary,
+            false: "rgba(255,255,255,0.15)",
             true: BladeColors.accent,
           }}
           thumbColor="#FFFFFF"
         />
       ) : value ? (
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+        <ThemedText type="small" style={{ color: TILE_TEXT_SECONDARY }}>
           {value}
         </ThemedText>
       ) : showChevron && onPress ? (
         <Animated.View style={animatedChevronStyle}>
-          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+          <Feather name="chevron-right" size={20} color={TILE_TEXT_SECONDARY} />
         </Animated.View>
       ) : null}
     </Animated.View>
@@ -200,25 +193,15 @@ export function SettingsSection({
   title: string;
   children: React.ReactNode;
 }) {
-  const { theme, isDark } = useTheme();
-
   return (
     <View style={styles.section}>
       <ThemedText
         type="caption"
-        style={[styles.sectionTitle, { color: theme.textSecondary }]}
+        style={styles.sectionTitle}
       >
         {title.toUpperCase()}
       </ThemedText>
-      <View
-        style={[
-          styles.sectionContent,
-          {
-            backgroundColor: theme.surface,
-            borderColor: isDark ? theme.border : "transparent",
-          },
-        ]}
-      >
+      <View style={styles.sectionContent}>
         {children}
       </View>
     </View>
@@ -246,6 +229,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
+    backgroundColor: ICON_BG,
   },
   content: {
     flex: 1,
@@ -258,11 +242,14 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
     letterSpacing: 0.8,
     fontWeight: "600",
+    color: "#8E8E93",
   },
   sectionContent: {
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderWidth: 1,
+    backgroundColor: DARK_TILE,
+    borderColor: TILE_BORDER,
   },
 });
