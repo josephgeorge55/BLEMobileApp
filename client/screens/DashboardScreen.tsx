@@ -1469,12 +1469,13 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   tripPreview: {
-    height: 100,
+    height: 110,
     backgroundColor: "rgba(30,30,32,0.95)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     justifyContent: "center",
     alignItems: "center",
+    paddingVertical: Spacing.md,
     gap: Spacing.sm,
   },
   tripTimerDisplay: {
