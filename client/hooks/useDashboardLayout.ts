@@ -8,6 +8,7 @@ export type DashboardSectionId =
   | 'speed'
   | 'batteryPower'
   | 'throttleMode'
+  | 'motorTelemetry'
   | 'bmsMotor'
   | 'deviceInfo'
   | 'exportReport';
@@ -19,6 +20,7 @@ export const DEFAULT_SECTION_ORDER: DashboardSectionId[] = [
   'speed',
   'batteryPower',
   'throttleMode',
+  'motorTelemetry',
   'bmsMotor',
   'deviceInfo',
   'exportReport',

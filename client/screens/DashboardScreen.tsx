@@ -467,6 +467,7 @@ export default function DashboardScreen() {
   const bms = telemetry?.bms;
   const motorData = telemetry?.motor;
   const vesc = telemetry?.vesc;
+  const gnss = telemetry?.gnss;
 
   const getDriverModeColor = (mode: string | null | undefined) => {
     switch (mode) {
@@ -619,6 +620,107 @@ export default function DashboardScreen() {
                 iconColor={getDriverModeColor(driverMode)}
                 compact
               />
+            </View>
+          </View>
+        );
+      case 'motorTelemetry':
+        return (
+          <View style={styles.statusSection}>
+            <View style={styles.sectionHeader}>
+              <Feather name="cpu" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Motor & Battery Telemetry
+              </ThemedText>
+              <Pressable onPress={() => showInfo('motor')} hitSlop={8}>
+                <Feather name="info" size={14} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+            <View
+              style={[
+                styles.statusCard,
+                {
+                  backgroundColor: "rgba(44,44,46,0.92)",
+                  borderColor: "rgba(255,255,255,0.08)",
+                },
+              ]}
+            >
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "30" }]}>
+                    <Feather name="rotate-cw" size={14} color={BladeColors.marine} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    RPM
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                  {motorData?.motorRPM ?? "--"}
+                </ThemedText>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "30" }]}>
+                    <Feather name="activity" size={14} color={BladeColors.accent} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Motor Amps (Phase)
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                  {motorData?.phaseCurrent?.toFixed(1) ?? "--"} A
+                </ThemedText>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.warning + "30" }]}>
+                    <Feather name="zap" size={14} color={BladeColors.warning} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Battery Amps (BMS)
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                  {bms?.current?.toFixed(1) ?? "--"} A
+                </ThemedText>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "30" }]}>
+                    <Feather name="zap" size={14} color={BladeColors.accent} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Voltage (BMS)
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                  {bms?.voltage?.toFixed(1) ?? "--"} V
+                </ThemedText>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.success + "30" }]}>
+                    <Feather name="map-pin" size={14} color={BladeColors.success} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    GPS Coordinates
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF", fontSize: 12 }]}>
+                  {gnss ? `${gnss.latitude.toFixed(5)}, ${gnss.longitude.toFixed(5)}` : "--"}
+                </ThemedText>
+              </View>
             </View>
           </View>
         );
