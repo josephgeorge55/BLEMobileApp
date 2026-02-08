@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -158,78 +159,51 @@ export default function PassportScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/passport/wallet/apple", baseUrl);
-      console.log("[Passport] Apple Wallet - Base URL:", baseUrl);
-      console.log("[Passport] Apple Wallet - Full URL:", url.toString());
+      console.log("[Passport] Apple Wallet - Requesting pass generation...");
       const passportData = getPassportData();
-      const bodyStr = JSON.stringify(passportData);
-      console.log("[Passport] Apple Wallet - Request body size:", bodyStr.length, "bytes");
 
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: bodyStr,
+        body: JSON.stringify(passportData),
       });
-
-      console.log("[Passport] Apple Wallet - Response status:", response.status);
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "Unknown error");
-        console.error("[Passport] Apple Wallet - Error response:", errorText.substring(0, 500));
         throw new Error(`Server ${response.status}: ${errorText.substring(0, 200)}`);
       }
 
       const data = await response.json();
       console.log("[Passport] Apple Wallet - Response type:", data.type);
-      console.log("[Passport] Apple Wallet - Has data:", !!data.data);
-      console.log("[Passport] Apple Wallet - Message:", data.message || "none");
+      console.log("[Passport] Apple Wallet - Download path:", data.downloadPath);
 
-      const base64Data = data.data;
-      if (!base64Data) {
-        if (data.message) {
-          Alert.alert("Apple Wallet", data.message);
-          return;
-        }
-        throw new Error("No pass data received from server");
+      if (!data.downloadPath) {
+        throw new Error("No download path received from server");
       }
+
+      const downloadUrl = baseUrl + data.downloadPath;
 
       if (data.type === "pkpass" && Platform.OS === "ios") {
-        const BladeWalletPass = require("../../modules/blade-wallet-pass").default;
-        if (BladeWalletPass) {
-          console.log("[Passport] Apple Wallet - Using native PKAddPassesViewController");
-          try {
-            const added = await BladeWalletPass.addPassFromBase64(base64Data);
-            console.log("[Passport] Apple Wallet - Native add result:", added);
-            if (added) {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }
-            return;
-          } catch (nativeError: any) {
-            console.warn("[Passport] Apple Wallet - Native module error, falling back:", nativeError.message);
-          }
-        } else {
-          console.log("[Passport] Apple Wallet - Native module not available, using share sheet fallback");
-        }
-      }
-
-      if (data.type === "pkpass") {
-        const filename = data.filename || "blade-passport.pkpass";
-        console.log("[Passport] Apple Wallet - Using share sheet for:", filename);
+        console.log("[Passport] Apple Wallet - Opening raw .pkpass URL for native Wallet prompt");
+        await Linking.openURL(downloadUrl);
+      } else if (data.type === "pkpass" && Platform.OS !== "web") {
+        const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pkpass");
+        const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+        await Sharing.shareAsync(downloadResult.uri, {
+          mimeType: "application/vnd.apple.pkpass",
+          UTI: "com.apple.pkpass",
+        });
+      } else if (data.type === "pdf_fallback") {
         if (Platform.OS !== "web") {
-          const localPath = FileSystem.cacheDirectory + filename;
-          await FileSystem.writeAsStringAsync(localPath, base64Data, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          await Sharing.shareAsync(localPath, {
-            mimeType: "application/vnd.apple.pkpass",
-            UTI: "com.apple.pkpass",
-          });
+          const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pdf");
+          const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+          await Sharing.shareAsync(downloadResult.uri, { mimeType: "application/pdf" });
         } else {
-          await shareOrDownload(base64Data, filename, "application/vnd.apple.pkpass");
+          const pdfResponse = await fetch(downloadUrl);
+          const arrayBuffer = await pdfResponse.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          await shareOrDownload(base64, data.filename || "blade-passport.pdf", "application/pdf");
         }
-      } else {
-        const filename = data.filename || "blade-passport.pdf";
-        console.log("[Passport] Apple Wallet - PDF fallback:", filename);
-        await shareOrDownload(base64Data, filename, "application/pdf");
         if (data.message) {
           Alert.alert("Apple Wallet", data.message);
         }
