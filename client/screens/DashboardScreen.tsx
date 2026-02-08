@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { StyleSheet, View, ScrollView, RefreshControl, Image, Pressable, Modal, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -93,9 +93,15 @@ export default function DashboardScreen() {
   const { motor, telemetry, isConnecting, startScan, setLocation } =
     useMotor();
   
+  const scrollViewRef = useRef<ScrollView>(null);
+  const telemetrySectionY = useRef(0);
   const [infoModal, setInfoModal] = useState<{ visible: boolean; key: InfoHelpKey | null }>({ visible: false, key: null });
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { sectionOrder, isEditMode, moveSection, toggleEditMode, resetLayout } = useDashboardLayout();
+
+  const scrollToTelemetry = () => {
+    scrollViewRef.current?.scrollTo({ y: telemetrySectionY.current, animated: true });
+  };
 
   const showInfo = (key: InfoHelpKey) => setInfoModal({ visible: true, key });
   const hideInfo = () => setInfoModal({ visible: false, key: null });
@@ -391,66 +397,87 @@ export default function DashboardScreen() {
       <ScrollView
         style={[styles.container, { backgroundColor: "#F2F2F7" }]}
         contentContainerStyle={{
-          paddingTop: insets.top + Spacing.lg,
           paddingBottom: tabBarHeight + Spacing.xl,
-          paddingHorizontal: Spacing.screenPadding,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeIn.duration(600)} style={styles.premiumHeader}>
-          <View style={styles.headerContent}>
-            <Image 
-              source={require("../../assets/images/blade-outboards-logo.png")} 
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
-            <View style={styles.headerDivider} />
-            <View style={styles.headerTitleContainer}>
-              <ThemedText style={styles.headerTitle}>
-                BLADE<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO CONNECT
-              </ThemedText>
-              <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
+        <Animated.View entering={FadeIn.duration(600)}>
+          <View style={styles.heroSection}>
+            <LinearGradient colors={["#2C2C2E", "#1C1C1E"]} style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
+              <Image
+                source={require("../../assets/images/halo-outboard.png")}
+                style={styles.heroImage}
+                resizeMode="contain"
+              />
+              <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
+              <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
+            </LinearGradient>
+          </View>
+        </Animated.View>
+
+        <View style={{ paddingHorizontal: Spacing.screenPadding }}>
+          <View style={styles.currentDeviceCard}>
+            <View style={styles.currentDeviceContent}>
+              <View style={styles.currentDeviceInfo}>
+                <View style={styles.currentDeviceHeader}>
+                  <ThemedText type="h4" style={{ color: "#FFFFFF" }}>Current Device</ThemedText>
+                  <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
+                    <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
+                    <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
+                      Offline
+                    </ThemedText>
+                  </View>
+                </View>
+                <Pressable
+                  style={styles.connectButton}
+                  onPress={handleConnect}
+                >
+                  <Feather name="bluetooth" size={14} color="#FFFFFF" />
+                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
+                    Scan for Motors
+                  </ThemedText>
+                </Pressable>
+              </View>
             </View>
           </View>
-          <View style={styles.headerAccentLine} />
-        </Animated.View>
-        
-        <View style={styles.descriptionTile}>
-          <Feather name="activity" size={16} color="rgba(255,255,255,0.55)" />
-          <ThemedText type="small" style={styles.descriptionTileText}>
-            Live telemetry, weather, and system information for your outboard.
-          </ThemedText>
+
+          <View style={styles.descriptionTile}>
+            <Feather name="activity" size={16} color="rgba(255,255,255,0.55)" />
+            <ThemedText type="small" style={styles.descriptionTileText}>
+              Live telemetry, weather, and system information for your outboard.
+            </ThemedText>
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <Feather name="cloud" size={14} color={theme.textSecondary} />
+            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+              Marine Weather
+            </ThemedText>
+            <Pressable onPress={() => showInfo('weather')} hitSlop={8}>
+              <Feather name="info" size={14} color={theme.textTertiary} />
+            </Pressable>
+          </View>
+          <WeatherCard variant="weather" />
+
+          <View style={styles.sectionHeader}>
+            <Feather name="navigation" size={14} color={theme.textSecondary} />
+            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+              Conditions at Sea Level
+            </ThemedText>
+            <Pressable onPress={() => showInfo('conditions')} hitSlop={8}>
+              <Feather name="info" size={14} color={theme.textTertiary} />
+            </Pressable>
+          </View>
+          <WeatherCard variant="conditions" />
+
+          <EmptyState
+            image={require("../../assets/images/halo-outboard.png")}
+            title="Connect Your Outboard"
+            description="Tap the Bluetooth button to scan for nearby Blade outboards and view real-time telemetry."
+            actionLabel="Scan for Motors"
+            onAction={handleConnect}
+          />
         </View>
-        
-        <View style={styles.sectionHeader}>
-          <Feather name="cloud" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-            Marine Weather
-          </ThemedText>
-          <Pressable onPress={() => showInfo('weather')} hitSlop={8}>
-            <Feather name="info" size={14} color={theme.textTertiary} />
-          </Pressable>
-        </View>
-        <WeatherCard variant="weather" />
-        
-        <View style={styles.sectionHeader}>
-          <Feather name="navigation" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-            Conditions at Sea Level
-          </ThemedText>
-          <Pressable onPress={() => showInfo('conditions')} hitSlop={8}>
-            <Feather name="info" size={14} color={theme.textTertiary} />
-          </Pressable>
-        </View>
-        <WeatherCard variant="conditions" />
-        
-        <EmptyState
-          image={require("../../assets/images/halo-outboard.png")}
-          title="Connect Your Outboard"
-          description="Tap the Bluetooth button to scan for nearby Blade outboards and view real-time telemetry."
-          actionLabel="Scan for Motors"
-          onAction={handleConnect}
-        />
       </ScrollView>
     );
   }
@@ -997,11 +1024,10 @@ export default function DashboardScreen() {
   return (
     <>
     <ScrollView
+      ref={scrollViewRef}
       style={[styles.container, { backgroundColor: "#F2F2F7" }]}
       contentContainerStyle={{
-        paddingTop: insets.top + Spacing.lg,
         paddingBottom: tabBarHeight + Spacing["4xl"],
-        paddingHorizontal: Spacing.screenPadding,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       showsVerticalScrollIndicator={false}
@@ -1013,80 +1039,51 @@ export default function DashboardScreen() {
         />
       }
     >
-      <Animated.View entering={FadeIn.duration(600)} style={styles.premiumHeader}>
-        <View style={styles.headerContent}>
-          <Image 
-            source={require("../../assets/images/blade-outboards-logo.png")} 
-            style={styles.brandLogo}
-            resizeMode="contain"
-          />
-          <View style={styles.headerDivider} />
-          <View style={styles.headerTitleContainer}>
-            <ThemedText style={styles.headerTitle}>
-              BLADE<ThemedText style={styles.registeredSymbol}>®</ThemedText> HALO CONNECT
-            </ThemedText>
-            <ThemedText type="caption" style={styles.headerSubtitle}>Dashboard</ThemedText>
-          </View>
+      <Animated.View entering={FadeIn.duration(600)}>
+        <View style={styles.heroSection}>
+          <LinearGradient colors={["#2C2C2E", "#1C1C1E"]} style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
+            <Image
+              source={require("../../assets/images/halo-outboard.png")}
+              style={styles.heroImage}
+              resizeMode="contain"
+            />
+            <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
+            <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
+          </LinearGradient>
         </View>
-        <View style={styles.headerAccentLine} />
       </Animated.View>
 
-      <Animated.View
-        entering={FadeInUp.duration(400).springify()}
-        style={[styles.connectedCard, { backgroundColor: "rgba(44,44,46,0.92)" }]}
-      >
-        <View style={styles.connectedCardGlow} />
-        <View style={styles.connectedCardContent}>
-          <Image
-            source={require("../../assets/images/halo-outboard.png")}
-            style={styles.connectedMotorImage}
-            resizeMode="contain"
-          />
-          <View style={styles.connectedMotorInfo}>
-            <View style={styles.connectedMotorHeader}>
-              <ThemedText type="h3" style={{ color: "#FFFFFF" }}>Blade Halo</ThemedText>
+      <View style={{ paddingHorizontal: Spacing.screenPadding }}>
+        <Animated.View
+          entering={FadeInUp.duration(400).springify()}
+          style={styles.currentDeviceCard}
+        >
+          <View style={styles.currentDeviceContent}>
+            <View style={styles.currentDeviceInfo}>
+              <View style={styles.currentDeviceHeader}>
+                <ThemedText type="h4" style={{ color: "#FFFFFF" }}>Current Device</ThemedText>
+                {isConnected ? (
+                  <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
+                    <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
+                    <ThemedText type="caption" style={{ color: BladeColors.accent, fontWeight: "600" }}>
+                      Live
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
+                    <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
+                    <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
+                      Offline
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
               {isConnected ? (
-                <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
-                  <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
-                  <ThemedText type="caption" style={{ color: BladeColors.accent, fontWeight: "600" }}>
-                    Live
-                  </ThemedText>
-                </View>
-              ) : (
-                <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
-                  <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
-                  <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
-                    Offline
-                  </ThemedText>
-                </View>
-              )}
-            </View>
-            {isConnected ? (
-              <>
-                <ThemedText type="mono" style={styles.connectedSerial}>
+                <ThemedText type="mono" style={styles.currentDeviceSerial}>
                   S/N: {telemetry?.tillerSerialNumber || motor?.serialNumber || "--"}
                 </ThemedText>
-                <View style={styles.connectedMetaRow}>
-                  <View style={styles.connectedMetaItem}>
-                    <Feather name="cpu" size={12} color="rgba(255,255,255,0.45)" />
-                    <ThemedText type="caption" style={styles.connectedMetaText}>
-                      v{firmware}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.connectedMetaItem}>
-                    <Feather name="clock" size={12} color="rgba(255,255,255,0.45)" />
-                    <ThemedText type="caption" style={styles.connectedMetaText}>
-                      {odometer != null ? `${odometer.toFixed(0)} hrs` : "-- hrs"}
-                    </ThemedText>
-                  </View>
-                </View>
-              </>
-            ) : (
-              <>
-                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginTop: Spacing.xs }}>
-                  Connect an outboard to begin
-                </ThemedText>
-                <Pressable 
+              ) : (
+                <Pressable
                   style={styles.connectButton}
                   onPress={handleConnect}
                 >
@@ -1095,96 +1092,152 @@ export default function DashboardScreen() {
                     Scan for Motors
                   </ThemedText>
                 </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-      </Animated.View>
-
-      {errorCode ? (
-        <Animated.View
-          entering={FadeInUp.duration(300).springify()}
-          style={[styles.errorBanner, { backgroundColor: BladeColors.error + "20", borderColor: BladeColors.error }]}
-        >
-          <View style={styles.errorContent}>
-            <Feather name="alert-triangle" size={20} color={BladeColors.error} />
-            <View style={styles.errorText}>
-              <ThemedText type="body" style={{ color: BladeColors.error, fontWeight: "600" }}>
-                Error {errorCode}
-              </ThemedText>
-              <ThemedText type="small" style={{ color: BladeColors.error, opacity: 0.9 }}>
-                {errorDescription}
-              </ThemedText>
+              )}
             </View>
           </View>
         </Animated.View>
-      ) : null}
 
-      {sectionOrder.map((sectionId, index) => {
-        const isFirst = index === 0;
-        const isLast = index === sectionOrder.length - 1;
-        const sectionContent = renderSection(sectionId);
-        if (!sectionContent) return null;
-        return (
-          <View key={sectionId}>
-            {isEditMode ? (
-              <View style={styles.editSectionWrapper}>
-                <View style={styles.editControls}>
-                  <Pressable
-                    onPress={() => moveSection(sectionId, 'up')}
-                    disabled={isFirst}
-                    style={[styles.editArrowButton, isFirst ? styles.editArrowDisabled : null]}
-                    hitSlop={8}
-                  >
-                    <Feather name="chevron-up" size={18} color={isFirst ? "rgba(255,255,255,0.2)" : "#FFFFFF"} />
-                  </Pressable>
-                  <View style={styles.editDragHandle}>
-                    <Feather name="menu" size={16} color="rgba(255,255,255,0.55)" />
-                  </View>
-                  <Pressable
-                    onPress={() => moveSection(sectionId, 'down')}
-                    disabled={isLast}
-                    style={[styles.editArrowButton, isLast ? styles.editArrowDisabled : null]}
-                    hitSlop={8}
-                  >
-                    <Feather name="chevron-down" size={18} color={isLast ? "rgba(255,255,255,0.2)" : "#FFFFFF"} />
-                  </Pressable>
-                </View>
-                <View style={styles.editSectionContent}>
-                  {sectionContent}
-                </View>
+        <Animated.View entering={FadeInUp.duration(500).delay(100).springify()} style={styles.quickActionsGrid}>
+          <Pressable
+            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
+            onPress={scrollToTelemetry}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <Feather name="activity" size={22} color="#FFFFFF" />
+            </View>
+            <ThemedText style={styles.quickActionLabel}>Live Telemetry</ThemedText>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
+            onPress={() => navigation.navigate("LocationTab" as any)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <Feather name="shield" size={22} color="#FFFFFF" />
+            </View>
+            <ThemedText style={styles.quickActionLabel}>Map / Anti-Theft</ThemedText>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
+            onPress={() => navigation.navigate("TripsTab" as any)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <Feather name="navigation" size={22} color="#FFFFFF" />
+            </View>
+            <ThemedText style={styles.quickActionLabel}>Start / End Trip</ThemedText>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
+            onPress={() => navigation.navigate("UpdatesTab" as any)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <Feather name="download-cloud" size={22} color="#FFFFFF" />
+            </View>
+            <ThemedText style={styles.quickActionLabel}>OTA Updates</ThemedText>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
+            onPress={() => navigation.navigate("SettingsTab" as any)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <Feather name="more-horizontal" size={22} color="#FFFFFF" />
+            </View>
+            <ThemedText style={styles.quickActionLabel}>More</ThemedText>
+          </Pressable>
+        </Animated.View>
+
+        {errorCode ? (
+          <Animated.View
+            entering={FadeInUp.duration(300).springify()}
+            style={[styles.errorBanner, { backgroundColor: BladeColors.error + "20", borderColor: BladeColors.error }]}
+          >
+            <View style={styles.errorContent}>
+              <Feather name="alert-triangle" size={20} color={BladeColors.error} />
+              <View style={styles.errorText}>
+                <ThemedText type="body" style={{ color: BladeColors.error, fontWeight: "600" }}>
+                  Error {errorCode}
+                </ThemedText>
+                <ThemedText type="small" style={{ color: BladeColors.error, opacity: 0.9 }}>
+                  {errorDescription}
+                </ThemedText>
               </View>
-            ) : sectionContent}
+            </View>
+          </Animated.View>
+        ) : null}
+
+        <View onLayout={(e) => { telemetrySectionY.current = e.nativeEvent.layout.y; }}>
+          <View style={styles.telemetrySectionHeader}>
+            <View style={styles.telemetryHeaderLine} />
+            <ThemedText style={styles.telemetryHeaderLabel}>Live Telemetry</ThemedText>
+            <View style={styles.telemetryHeaderLine} />
           </View>
-        );
-      })}
 
-      <Pressable
-        style={styles.editLayoutButton}
-        onPress={toggleEditMode}
-      >
-        <Feather name={isEditMode ? "check" : "layout"} size={16} color={BladeColors.accent} />
-        <ThemedText type="small" style={{ color: BladeColors.accent, fontWeight: "600", marginLeft: Spacing.xs }}>
-          {isEditMode ? "Done" : "Edit Layout"}
-        </ThemedText>
-      </Pressable>
+          {sectionOrder.map((sectionId, index) => {
+            const isFirst = index === 0;
+            const isLast = index === sectionOrder.length - 1;
+            const sectionContent = renderSection(sectionId);
+            if (!sectionContent) return null;
+            return (
+              <View key={sectionId}>
+                {isEditMode ? (
+                  <View style={styles.editSectionWrapper}>
+                    <View style={styles.editControls}>
+                      <Pressable
+                        onPress={() => moveSection(sectionId, 'up')}
+                        disabled={isFirst}
+                        style={[styles.editArrowButton, isFirst ? styles.editArrowDisabled : null]}
+                        hitSlop={8}
+                      >
+                        <Feather name="chevron-up" size={18} color={isFirst ? "rgba(255,255,255,0.2)" : "#FFFFFF"} />
+                      </Pressable>
+                      <View style={styles.editDragHandle}>
+                        <Feather name="menu" size={16} color="rgba(255,255,255,0.55)" />
+                      </View>
+                      <Pressable
+                        onPress={() => moveSection(sectionId, 'down')}
+                        disabled={isLast}
+                        style={[styles.editArrowButton, isLast ? styles.editArrowDisabled : null]}
+                        hitSlop={8}
+                      >
+                        <Feather name="chevron-down" size={18} color={isLast ? "rgba(255,255,255,0.2)" : "#FFFFFF"} />
+                      </Pressable>
+                    </View>
+                    <View style={styles.editSectionContent}>
+                      {sectionContent}
+                    </View>
+                  </View>
+                ) : sectionContent}
+              </View>
+            );
+          })}
 
-      {isEditMode ? (
-        <Pressable
-          style={styles.resetLayoutButton}
-          onPress={resetLayout}
-        >
-          <Feather name="rotate-ccw" size={14} color="rgba(255,255,255,0.55)" />
-          <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: Spacing.xs }}>
-            Reset to Default
-          </ThemedText>
-        </Pressable>
-      ) : null}
+          <Pressable
+            style={styles.editLayoutButton}
+            onPress={toggleEditMode}
+          >
+            <Feather name={isEditMode ? "check" : "layout"} size={16} color={BladeColors.accent} />
+            <ThemedText type="small" style={{ color: BladeColors.accent, fontWeight: "600", marginLeft: Spacing.xs }}>
+              {isEditMode ? "Done" : "Edit Layout"}
+            </ThemedText>
+          </Pressable>
 
-      <View style={styles.disclaimerContainer}>
-        <ThemedText style={styles.disclaimerText}>
-          Data and weather information are provided for reference only and are not guaranteed. Always operate your vessel safely, comply with all warnings and local laws, and never operate a boat under the influence.
-        </ThemedText>
+          {isEditMode ? (
+            <Pressable
+              style={styles.resetLayoutButton}
+              onPress={resetLayout}
+            >
+              <Feather name="rotate-ccw" size={14} color="rgba(255,255,255,0.55)" />
+              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: Spacing.xs }}>
+                Reset to Default
+              </ThemedText>
+            </Pressable>
+          ) : null}
+
+          <View style={styles.disclaimerContainer}>
+            <ThemedText style={styles.disclaimerText}>
+              Data and weather information are provided for reference only and are not guaranteed. Always operate your vessel safely, comply with all warnings and local laws, and never operate a boat under the influence.
+            </ThemedText>
+          </View>
+        </View>
       </View>
 
       <Modal
@@ -1235,64 +1288,115 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.screenPadding,
   },
-  premiumHeader: {
-    marginBottom: Spacing.xl,
-    borderRadius: BorderRadius.lg,
+  heroSection: {
     overflow: "hidden",
-    position: "relative",
+    borderBottomLeftRadius: BorderRadius.xl,
+    borderBottomRightRadius: BorderRadius.xl,
+    marginBottom: Spacing.lg,
+  },
+  heroGradient: {
+    alignItems: "center",
+    paddingBottom: Spacing["3xl"],
+    paddingHorizontal: Spacing.screenPadding,
+  },
+  heroImage: {
+    width: 220,
+    height: 260,
+    marginBottom: Spacing.lg,
+  },
+  heroTitle: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    textAlign: "center",
+    marginBottom: Spacing.xs,
+  },
+  heroSubtitle: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 15,
+    fontWeight: "400",
+    textAlign: "center",
+  },
+  currentDeviceCard: {
     backgroundColor: "rgba(44,44,46,0.92)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    marginBottom: Spacing.lg,
+    overflow: "hidden",
   },
-  headerGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  headerContent: {
+  currentDeviceContent: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    padding: Spacing.lg,
   },
-  brandLogo: {
-    width: 120,
-    height: 40,
-  },
-  headerDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: BladeColors.accent,
-    opacity: 0.4,
-    marginHorizontal: Spacing.md,
-  },
-  headerTitleContainer: {
+  currentDeviceInfo: {
     flex: 1,
   },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "400",
-    letterSpacing: 1.2,
-    fontFamily: "System",
+  currentDeviceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
   },
-  registeredSymbol: {
-    fontSize: 8,
-    color: BladeColors.accent,
-    fontWeight: "400",
-    letterSpacing: 0,
-  },
-  headerSubtitle: {
+  currentDeviceSerial: {
     color: "rgba(255,255,255,0.55)",
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: Spacing.xs,
   },
-  dashboardDescription: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    marginBottom: Spacing.sm,
+  quickActionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  quickActionTile: {
+    backgroundColor: "rgba(44,44,46,0.92)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexBasis: "46%",
+    flexGrow: 1,
+    gap: Spacing.sm,
+  },
+  quickActionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  quickActionLabel: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  telemetrySectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+    marginTop: Spacing.sm,
+    gap: Spacing.md,
+  },
+  telemetryHeaderLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(142,142,147,0.3)",
+  },
+  telemetryHeaderLabel: {
+    color: "#8E8E93",
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   descriptionTile: {
     flexDirection: "row",
@@ -1365,11 +1469,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     opacity: 0.7,
   },
-  headerAccentLine: {
-    height: 2,
-    backgroundColor: BladeColors.accent,
-    opacity: 0.6,
-  },
   metricsGrid: {
     gap: Spacing.md,
   },
@@ -1439,40 +1538,6 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
   },
-  connectedCard: {
-    borderRadius: BorderRadius.xl,
-    marginBottom: Spacing.lg,
-    overflow: "hidden",
-    position: "relative",
-  },
-  connectedCardGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: BladeColors.accent,
-    opacity: 0.6,
-  },
-  connectedCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
-  },
-  connectedMotorImage: {
-    width: 80,
-    height: 100,
-    marginRight: Spacing.md,
-  },
-  connectedMotorInfo: {
-    flex: 1,
-  },
-  connectedMotorHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Spacing.xs,
-  },
   statusPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -1480,24 +1545,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
     gap: 6,
-  },
-  connectedSerial: {
-    color: "rgba(255,255,255,0.55)",
-    fontSize: 12,
-    marginBottom: Spacing.sm,
-  },
-  connectedMetaRow: {
-    flexDirection: "row",
-    gap: Spacing.lg,
-  },
-  connectedMetaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  connectedMetaText: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 11,
   },
   connectButton: {
     flexDirection: "row",
