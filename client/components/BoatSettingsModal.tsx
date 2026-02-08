@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Modal,
   View,
+  Text,
   StyleSheet,
   Pressable,
   TextInput,
@@ -40,6 +41,16 @@ const explicitWords = ['fuck', 'shit', 'ass', 'bitch', 'damn', 'cunt', 'dick', '
 const containsExplicitContent = (text: string): boolean => {
   const lowerText = text.toLowerCase();
   return explicitWords.some(word => lowerText.includes(word));
+};
+
+const BOAT_COLORS = {
+  background: "#1C1C1E",
+  surface: "rgba(44,44,46,0.92)",
+  border: "rgba(255,255,255,0.12)",
+  accent: "#A4D08B",
+  text: "#FFFFFF",
+  textSecondary: "rgba(255,255,255,0.6)",
+  textTertiary: "rgba(255,255,255,0.35)",
 };
 
 export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSettingsModalProps) {
@@ -203,18 +214,18 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <View style={[styles.header, { borderBottomColor: theme.border }]}>
+      <View style={[styles.container, { backgroundColor: BOAT_COLORS.background }]}>
+        <View style={[styles.header, { borderBottomColor: BOAT_COLORS.border }]}>
           <Pressable onPress={onClose} style={styles.closeButton}>
-            <Feather name="x" size={24} color={theme.text} />
+            <Feather name="x" size={24} color={BOAT_COLORS.text} />
           </Pressable>
-          <ThemedText type="h3">My Boat</ThemedText>
+          <Text style={styles.headerTitle}>My Boat</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
+            <ActivityIndicator size="large" color={BOAT_COLORS.accent} />
           </View>
         ) : (
           <ScrollView
@@ -224,12 +235,12 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
               { paddingBottom: insets.bottom + Spacing["2xl"] },
             ]}
           >
-            <ThemedText type="small" style={[styles.description, { color: theme.textSecondary }]}>
+            <Text style={[styles.description, { color: BOAT_COLORS.textSecondary }]}>
               Enter your boat information for trip reports. This data will be included in PDF reports.
-            </ThemedText>
+            </Text>
 
             <View style={styles.section}>
-              <ThemedText type="caption" style={styles.sectionLabel}>Boat Type</ThemedText>
+              <Text style={[styles.sectionLabel, { color: BOAT_COLORS.textSecondary }]}>Boat Type</Text>
               <View style={styles.typeGrid}>
                 {boatTypes.map((type) => (
                   <Pressable
@@ -237,8 +248,8 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                     style={[
                       styles.typeButton,
                       { 
-                        backgroundColor: boatType === type ? theme.primary : theme.surfaceElevated,
-                        borderColor: boatType === type ? theme.primary : theme.border,
+                        backgroundColor: boatType === type ? BOAT_COLORS.accent : BOAT_COLORS.surface,
+                        borderColor: boatType === type ? BOAT_COLORS.accent : BOAT_COLORS.border,
                       },
                     ]}
                     onPress={() => {
@@ -246,36 +257,35 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                       setBoatType(type);
                     }}
                   >
-                    <ThemedText
-                      type="small"
-                      style={{ color: boatType === type ? "#fff" : theme.text }}
+                    <Text
+                      style={[styles.typeButtonText, { color: boatType === type ? "#000" : BOAT_COLORS.text }]}
                     >
                       {type}
-                    </ThemedText>
+                    </Text>
                   </Pressable>
                 ))}
               </View>
             </View>
 
             <View style={styles.section}>
-              <ThemedText type="caption" style={styles.sectionLabel}>Boat Length</ThemedText>
+              <Text style={[styles.sectionLabel, { color: BOAT_COLORS.textSecondary }]}>Boat Length</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={[
                     styles.input,
-                    { backgroundColor: theme.surfaceElevated, color: theme.text, borderColor: theme.border },
+                    { backgroundColor: BOAT_COLORS.surface, color: BOAT_COLORS.text, borderColor: BOAT_COLORS.border },
                   ]}
                   value={lengthValue}
                   onChangeText={setLengthValue}
                   keyboardType="decimal-pad"
                   placeholder="Enter length"
-                  placeholderTextColor={theme.textTertiary}
+                  placeholderTextColor={BOAT_COLORS.textTertiary}
                 />
                 <View style={styles.unitToggle}>
                   <Pressable
                     style={[
                       styles.unitButton,
-                      { backgroundColor: lengthUnit === "ft" ? theme.primary : theme.surfaceElevated },
+                      { backgroundColor: lengthUnit === "ft" ? BOAT_COLORS.accent : BOAT_COLORS.surface },
                     ]}
                     onPress={() => {
                       if (lengthUnit !== "ft" && lengthValue) {
@@ -284,14 +294,14 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                       setLengthUnit("ft");
                     }}
                   >
-                    <ThemedText type="small" style={{ color: lengthUnit === "ft" ? "#fff" : theme.text }}>
+                    <Text style={[styles.unitButtonText, { color: lengthUnit === "ft" ? "#000" : BOAT_COLORS.text }]}>
                       Feet
-                    </ThemedText>
+                    </Text>
                   </Pressable>
                   <Pressable
                     style={[
                       styles.unitButton,
-                      { backgroundColor: lengthUnit === "m" ? theme.primary : theme.surfaceElevated },
+                      { backgroundColor: lengthUnit === "m" ? BOAT_COLORS.accent : BOAT_COLORS.surface },
                     ]}
                     onPress={() => {
                       if (lengthUnit !== "m" && lengthValue) {
@@ -300,33 +310,33 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                       setLengthUnit("m");
                     }}
                   >
-                    <ThemedText type="small" style={{ color: lengthUnit === "m" ? "#fff" : theme.text }}>
+                    <Text style={[styles.unitButtonText, { color: lengthUnit === "m" ? "#000" : BOAT_COLORS.text }]}>
                       Meters
-                    </ThemedText>
+                    </Text>
                   </Pressable>
                 </View>
               </View>
             </View>
 
             <View style={styles.section}>
-              <ThemedText type="caption" style={styles.sectionLabel}>Boat Weight</ThemedText>
+              <Text style={[styles.sectionLabel, { color: BOAT_COLORS.textSecondary }]}>Boat Weight</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={[
                     styles.input,
-                    { backgroundColor: theme.surfaceElevated, color: theme.text, borderColor: theme.border },
+                    { backgroundColor: BOAT_COLORS.surface, color: BOAT_COLORS.text, borderColor: BOAT_COLORS.border },
                   ]}
                   value={weightValue}
                   onChangeText={setWeightValue}
                   keyboardType="decimal-pad"
                   placeholder="Enter weight"
-                  placeholderTextColor={theme.textTertiary}
+                  placeholderTextColor={BOAT_COLORS.textTertiary}
                 />
                 <View style={styles.unitToggle}>
                   <Pressable
                     style={[
                       styles.unitButton,
-                      { backgroundColor: weightUnit === "lbs" ? theme.primary : theme.surfaceElevated },
+                      { backgroundColor: weightUnit === "lbs" ? BOAT_COLORS.accent : BOAT_COLORS.surface },
                     ]}
                     onPress={() => {
                       if (weightUnit !== "lbs" && weightValue) {
@@ -336,14 +346,14 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                       setWeightUnit("lbs");
                     }}
                   >
-                    <ThemedText type="small" style={{ color: weightUnit === "lbs" ? "#fff" : theme.text }}>
+                    <Text style={[styles.unitButtonText, { color: weightUnit === "lbs" ? "#000" : BOAT_COLORS.text }]}>
                       Lbs
-                    </ThemedText>
+                    </Text>
                   </Pressable>
                   <Pressable
                     style={[
                       styles.unitButton,
-                      { backgroundColor: weightUnit === "kg" ? theme.primary : theme.surfaceElevated },
+                      { backgroundColor: weightUnit === "kg" ? BOAT_COLORS.accent : BOAT_COLORS.surface },
                     ]}
                     onPress={() => {
                       if (weightUnit !== "kg" && weightValue) {
@@ -353,14 +363,14 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                       setWeightUnit("kg");
                     }}
                   >
-                    <ThemedText type="small" style={{ color: weightUnit === "kg" ? "#fff" : theme.text }}>
+                    <Text style={[styles.unitButtonText, { color: weightUnit === "kg" ? "#000" : BOAT_COLORS.text }]}>
                       Kg
-                    </ThemedText>
+                    </Text>
                   </Pressable>
                   <Pressable
                     style={[
                       styles.unitButton,
-                      { backgroundColor: weightUnit === "ton" ? theme.primary : theme.surfaceElevated },
+                      { backgroundColor: weightUnit === "ton" ? BOAT_COLORS.accent : BOAT_COLORS.surface },
                     ]}
                     onPress={() => {
                       if (weightUnit !== "ton" && weightValue) {
@@ -370,62 +380,62 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                       setWeightUnit("ton");
                     }}
                   >
-                    <ThemedText type="small" style={{ color: weightUnit === "ton" ? "#fff" : theme.text }}>
+                    <Text style={[styles.unitButtonText, { color: weightUnit === "ton" ? "#000" : BOAT_COLORS.text }]}>
                       Ton
-                    </ThemedText>
+                    </Text>
                   </Pressable>
                 </View>
               </View>
             </View>
 
             <View style={styles.section}>
-              <ThemedText type="caption" style={styles.sectionLabel}>Vessel Name (Optional)</ThemedText>
+              <Text style={[styles.sectionLabel, { color: BOAT_COLORS.textSecondary }]}>Vessel Name (Optional)</Text>
               <TextInput
                 style={[
                   styles.fullInput,
-                  { backgroundColor: theme.surfaceElevated, color: theme.text, borderColor: theme.border },
+                  { backgroundColor: BOAT_COLORS.surface, color: BOAT_COLORS.text, borderColor: BOAT_COLORS.border },
                 ]}
                 value={vesselName}
                 onChangeText={setVesselName}
                 placeholder="Enter vessel name"
-                placeholderTextColor={theme.textTertiary}
+                placeholderTextColor={BOAT_COLORS.textTertiary}
                 maxLength={50}
                 autoCapitalize="words"
               />
             </View>
 
             <View style={styles.section}>
-              <ThemedText type="caption" style={styles.sectionLabel}>VIN / HIN (Optional)</ThemedText>
+              <Text style={[styles.sectionLabel, { color: BOAT_COLORS.textSecondary }]}>VIN / HIN (Optional)</Text>
               <TextInput
                 style={[
                   styles.fullInput,
-                  { backgroundColor: theme.surfaceElevated, color: theme.text, borderColor: theme.border },
+                  { backgroundColor: BOAT_COLORS.surface, color: BOAT_COLORS.text, borderColor: BOAT_COLORS.border },
                 ]}
                 value={vin}
                 onChangeText={setVin}
                 placeholder="Enter VIN or HIN number"
-                placeholderTextColor={theme.textTertiary}
+                placeholderTextColor={BOAT_COLORS.textTertiary}
                 maxLength={30}
                 autoCapitalize="characters"
               />
-              <ThemedText type="caption" style={[styles.helperText, { color: theme.textTertiary }]}>
+              <Text style={[styles.helperText, { color: BOAT_COLORS.textTertiary }]}>
                 Hull Identification Number for registration
-              </ThemedText>
+              </Text>
             </View>
 
             <Pressable
-              style={[styles.saveButton, { backgroundColor: theme.primary }]}
+              style={[styles.saveButton, { backgroundColor: BOAT_COLORS.accent }]}
               onPress={handleSave}
               disabled={isSaving}
             >
               {isSaving ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#000" />
               ) : (
                 <>
-                  <Feather name="check" size={20} color="#fff" />
-                  <ThemedText type="body" style={styles.saveButtonText}>
+                  <Feather name="check" size={20} color="#000" />
+                  <Text style={styles.saveButtonText}>
                     Save Boat Information
-                  </ThemedText>
+                  </Text>
                 </>
               )}
             </Pressable>
@@ -441,9 +451,9 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
                 ) : (
                   <>
                     <Feather name="trash-2" size={18} color={BladeColors.error} />
-                    <ThemedText type="body" style={[styles.deleteButtonText, { color: BladeColors.error }]}>
+                    <Text style={[styles.deleteButtonText, { color: BladeColors.error }]}>
                       Delete Boat Information
-                    </ThemedText>
+                    </Text>
                   </>
                 )}
               </Pressable>
@@ -470,6 +480,11 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: Spacing.xs,
   },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
   headerSpacer: {
     width: 32,
   },
@@ -487,6 +502,7 @@ const styles = StyleSheet.create({
   description: {
     marginBottom: Spacing.xl,
     lineHeight: 20,
+    fontSize: 14,
   },
   section: {
     marginBottom: Spacing.xl,
@@ -504,6 +520,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
+  },
+  typeButtonText: {
+    fontSize: 14,
   },
   inputRow: {
     flexDirection: "row",
@@ -539,6 +558,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  unitButtonText: {
+    fontSize: 14,
+  },
   saveButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -549,8 +571,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
   saveButtonText: {
-    color: "#fff",
+    color: "#000",
     fontWeight: "600",
+    fontSize: 16,
   },
   deleteButton: {
     flexDirection: "row",
@@ -564,5 +587,6 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontWeight: "600",
+    fontSize: 16,
   },
 });
