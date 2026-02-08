@@ -1,16 +1,6 @@
 import React from "react";
-import { StyleSheet, View, Switch } from "react-native";
+import { StyleSheet, View, Switch, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  runOnJS,
-  interpolate,
-  Extrapolation,
-} from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -37,13 +27,6 @@ interface SettingsRowProps {
   disabled?: boolean;
 }
 
-const springConfig = {
-  damping: 18,
-  mass: 0.3,
-  stiffness: 250,
-  overshootClamping: true,
-};
-
 export function SettingsRow({
   icon,
   title,
@@ -58,9 +41,6 @@ export function SettingsRow({
   destructive,
   disabled,
 }: SettingsRowProps) {
-  const pressed = useSharedValue(0);
-  const translateX = useSharedValue(0);
-
   const handleToggle = (newValue: boolean) => {
     Haptics.selectionAsync();
     onToggle?.(newValue);
@@ -73,57 +53,12 @@ export function SettingsRow({
     }
   };
 
-  const tap = Gesture.Tap()
-    .enabled(!!onPress && !isToggle && !disabled)
-    .onBegin(() => {
-      pressed.value = withSpring(1, springConfig);
-      translateX.value = withSpring(4, springConfig);
-    })
-    .onEnd(() => {
-      runOnJS(handlePress)();
-    })
-    .shouldCancelWhenOutside(true)
-    .onFinalize(() => {
-      pressed.value = withTiming(0, { duration: 150 });
-      translateX.value = withTiming(0, { duration: 150 });
-    });
-
-  const animatedRowStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      pressed.value,
-      [0, 1],
-      [1, 0.99],
-      Extrapolation.CLAMP
-    );
-    return {
-      backgroundColor: pressed.value > 0.5 
-        ? "rgba(255,255,255,0.08)"
-        : "transparent",
-      transform: [{ scale }, { translateX: translateX.value }],
-    };
-  });
-
-  const animatedChevronStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: interpolate(
-          pressed.value,
-          [0, 1],
-          [0, 4],
-          Extrapolation.CLAMP
-        ),
-      },
-    ],
-    opacity: interpolate(
-      pressed.value,
-      [0, 1],
-      [0.6, 1],
-      Extrapolation.CLAMP
-    ),
-  }));
-
-  const content = (
-    <Animated.View style={[styles.row, animatedRowStyle, disabled && { opacity: 0.5 }]}>
+  const rowContent = (pressed: boolean) => (
+    <View style={[
+      styles.row,
+      pressed && styles.rowPressed,
+      disabled && { opacity: 0.5 },
+    ]}>
       {icon ? (
         <View style={styles.iconContainer}>
           <Feather
@@ -168,22 +103,26 @@ export function SettingsRow({
           {value}
         </ThemedText>
       ) : showChevron && onPress ? (
-        <Animated.View style={animatedChevronStyle}>
-          <Feather name="chevron-right" size={20} color={TILE_TEXT_SECONDARY} />
-        </Animated.View>
+        <Feather name="chevron-right" size={20} color={TILE_TEXT_SECONDARY} />
       ) : null}
-    </Animated.View>
+    </View>
   );
 
   if (onPress && !isToggle) {
     return (
-      <GestureDetector gesture={tap}>
-        <View style={styles.container}>{content}</View>
-      </GestureDetector>
+      <View style={styles.container}>
+        <Pressable
+          onPress={handlePress}
+          disabled={disabled}
+          style={({ pressed }) => pressed ? { opacity: 0.7 } : undefined}
+        >
+          {({ pressed }) => rowContent(pressed)}
+        </Pressable>
+      </View>
     );
   }
 
-  return <View style={styles.container}>{content}</View>;
+  return <View style={styles.container}>{rowContent(false)}</View>;
 }
 
 export function SettingsSection({
@@ -221,6 +160,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     borderRadius: BorderRadius.sm,
     marginHorizontal: -Spacing.xs,
+  },
+  rowPressed: {
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   iconContainer: {
     width: 34,
