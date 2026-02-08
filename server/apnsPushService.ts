@@ -25,8 +25,8 @@ function isCertAuthConfigured(): boolean {
 }
 
 function getAuthMethod(): "jwt" | "cert" | null {
-  if (isJwtAuthConfigured()) return "jwt";
   if (isCertAuthConfigured()) return "cert";
+  if (isJwtAuthConfigured()) return "jwt";
   return null;
 }
 
@@ -488,18 +488,18 @@ export async function testApnsConnection(): Promise<{
     const client = await connectHttp2(host, authMethod);
     result.connectionOk = true;
 
-    if (authMethod === "jwt") {
-      const dummyToken = "0".repeat(64);
-      const testPayload = JSON.stringify({ aps: { alert: { title: "test", body: "test" } } });
-      const testResult = await sendSinglePush(client, dummyToken, testPayload, bundleId, authMethod);
-      result.liveAuthTest = {
-        statusCode: testResult.statusCode,
-        reason: testResult.reason,
-        authAccepted: testResult.statusCode !== 403,
-      };
-      if (testResult.statusCode === 403) {
-        result.liveAuthTest.hint = "Apple rejected the JWT. Check that the .p8 key ID matches APPLE_APNS_KEY_ID, the key has APNs permission in Apple Developer Portal, and the team ID is correct.";
-      }
+    const dummyToken = "0".repeat(64);
+    const testPayload = JSON.stringify({ aps: { alert: { title: "test", body: "test" } } });
+    const testResult = await sendSinglePush(client, dummyToken, testPayload, bundleId, authMethod);
+    result.liveAuthTest = {
+      statusCode: testResult.statusCode,
+      reason: testResult.reason,
+      authAccepted: testResult.statusCode !== 403,
+    };
+    if (testResult.statusCode === 403) {
+      result.liveAuthTest.hint = authMethod === "jwt"
+        ? "Apple rejected the JWT. Check that the .p8 key ID matches APPLE_APNS_KEY_ID, the key has APNs permission in Apple Developer Portal, and the team ID is correct."
+        : "Apple rejected the certificate. Check that APPLE_APNS_CERTIFICATE_PEM and APPLE_APNS_PRIVATE_KEY_PEM are valid production APNs certificates.";
     }
 
     client.close();
