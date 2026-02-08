@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { WeatherCard } from "@/components/WeatherCard";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
+import { useDashboardLayout, DashboardSectionId } from "@/hooks/useDashboardLayout";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 
 interface LocationQueryData {
@@ -94,6 +95,7 @@ export default function DashboardScreen() {
   
   const [infoModal, setInfoModal] = useState<{ visible: boolean; key: InfoHelpKey | null }>({ visible: false, key: null });
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const { sectionOrder, isEditMode, moveSection, toggleEditMode, resetLayout } = useDashboardLayout();
 
   const showInfo = (key: InfoHelpKey) => setInfoModal({ visible: true, key });
   const hideInfo = () => setInfoModal({ visible: false, key: null });
@@ -490,6 +492,406 @@ export default function DashboardScreen() {
     return BladeColors.error;
   };
 
+  const renderSection = (sectionId: DashboardSectionId): React.ReactNode => {
+    switch (sectionId) {
+      case 'description':
+        return (
+          <View style={styles.descriptionTile}>
+            <Feather name="activity" size={16} color="rgba(255,255,255,0.55)" />
+            <ThemedText type="small" style={styles.descriptionTileText}>
+              Live telemetry, weather, and system information for your outboard.
+            </ThemedText>
+          </View>
+        );
+      case 'weather':
+        return (
+          <View>
+            <View style={styles.sectionHeader}>
+              <Feather name="cloud" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Marine Weather
+              </ThemedText>
+              <Pressable onPress={() => showInfo('weather')} hitSlop={8}>
+                <Feather name="info" size={14} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+            <WeatherCard variant="weather" />
+          </View>
+        );
+      case 'conditions':
+        return (
+          <View>
+            <View style={styles.sectionHeader}>
+              <Feather name="navigation" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Conditions at Sea Level
+              </ThemedText>
+              <Pressable onPress={() => showInfo('conditions')} hitSlop={8}>
+                <Feather name="info" size={14} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+            <WeatherCard variant="conditions" />
+          </View>
+        );
+      case 'speed':
+        return (
+          <View style={styles.metricsGrid}>
+            <View style={styles.sectionHeader}>
+              <Feather name="navigation-2" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Speed
+              </ThemedText>
+              <Pressable onPress={() => showInfo('speed')} hitSlop={8}>
+                <Feather name="info" size={14} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+            <SpeedCard
+              motorSpeed={speed}
+              isConnected={isConnected}
+            />
+          </View>
+        );
+      case 'batteryPower':
+        return (
+          <View style={styles.metricsGrid}>
+            <View style={styles.sectionHeader}>
+              <Feather name="battery-charging" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Battery & Power
+              </ThemedText>
+              <Pressable onPress={() => showInfo('battery')} hitSlop={8} style={{ marginRight: Spacing.sm }}>
+                <Feather name="info" size={14} color={theme.textTertiary} />
+              </Pressable>
+              <Pressable onPress={() => showInfo('power')} hitSlop={8}>
+                <Feather name="zap" size={14} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+            <View style={styles.metricRow}>
+              <MetricCard
+                icon="battery-charging"
+                label="Battery"
+                value={Math.round(soc)}
+                unit="%"
+                iconColor={getBatteryColor()}
+                accentGlow={soc < 20}
+              />
+              <View style={{ width: Spacing.md }} />
+              <MetricCard
+                icon="zap"
+                label="Power"
+                value={power.toFixed(1)}
+                unit="kW"
+                trend={power > 0 ? "up" : "stable"}
+                iconColor={BladeColors.accent}
+              />
+            </View>
+          </View>
+        );
+      case 'throttleMode':
+        return (
+          <View style={styles.metricsGrid}>
+            <View style={styles.sectionHeader}>
+              <Feather name="sliders" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Throttle & Mode
+              </ThemedText>
+              <Pressable onPress={() => showInfo('throttle')} hitSlop={8} style={{ marginRight: Spacing.sm }}>
+                <Feather name="info" size={14} color={theme.textTertiary} />
+              </Pressable>
+              <Pressable onPress={() => showInfo('driveMode')} hitSlop={8}>
+                <Feather name="disc" size={14} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+            <View style={styles.metricRow}>
+              <MetricCard
+                icon="percent"
+                label="Throttle"
+                value={vesc?.throttle ?? 0}
+                unit="%"
+                iconColor={BladeColors.marine}
+                accentGlow={(vesc?.throttle ?? 0) > 80}
+              />
+              <View style={{ width: Spacing.md }} />
+              <MetricCard
+                icon={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"}
+                label="Drive Mode"
+                value={driverMode || "--"}
+                iconColor={getDriverModeColor(driverMode)}
+                compact
+              />
+            </View>
+          </View>
+        );
+      case 'bmsMotor':
+        if (!isConnected || !(bms || motorData || vesc)) return null;
+        return (
+          <View>
+            <View style={styles.statusSection}>
+              <ThemedText
+                type="caption"
+                style={[styles.sectionLabel, { color: theme.textTertiary }]}
+              >
+                BATTERY (BMS)
+              </ThemedText>
+              <View
+                style={[
+                  styles.statusCard,
+                  {
+                    backgroundColor: "rgba(44,44,46,0.92)",
+                    borderColor: "rgba(255,255,255,0.08)",
+                  },
+                ]}
+              >
+                <View style={styles.statusRow}>
+                  <View style={styles.statusLabel}>
+                    <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "30" }]}>
+                      <Feather name="zap" size={14} color={BladeColors.accent} />
+                    </View>
+                    <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      Voltage
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                    {bms?.voltage.toFixed(1) ?? "--"} V
+                  </ThemedText>
+                </View>
+                <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+                <View style={styles.statusRow}>
+                  <View style={styles.statusLabel}>
+                    <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "30" }]}>
+                      <Feather name="activity" size={14} color={BladeColors.marine} />
+                    </View>
+                    <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      Current
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                    {bms?.current.toFixed(1) ?? "--"} A
+                  </ThemedText>
+                </View>
+                <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+                <View style={styles.statusRow}>
+                  <View style={styles.statusLabel}>
+                    <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(bms?.temperature ?? 0) + "30" }]}>
+                      <Feather name="thermometer" size={14} color={getTemperatureColor(bms?.temperature ?? 0)} />
+                    </View>
+                    <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      Temperature
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                    {bms?.temperature ?? "--"}°C
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+            <View style={styles.statusSection}>
+              <ThemedText
+                type="caption"
+                style={[styles.sectionLabel, { color: theme.textTertiary }]}
+              >
+                MOTOR
+              </ThemedText>
+              <View
+                style={[
+                  styles.statusCard,
+                  {
+                    backgroundColor: "rgba(44,44,46,0.92)",
+                    borderColor: "rgba(255,255,255,0.08)",
+                  },
+                ]}
+              >
+                <View style={styles.statusRow}>
+                  <View style={styles.statusLabel}>
+                    <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "30" }]}>
+                      <Feather name="rotate-cw" size={14} color={BladeColors.marine} />
+                    </View>
+                    <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      RPM
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                    {motorData?.motorRPM ?? "--"}
+                  </ThemedText>
+                </View>
+                <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+                <View style={styles.statusRow}>
+                  <View style={styles.statusLabel}>
+                    <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "30" }]}>
+                      <Feather name="activity" size={14} color={BladeColors.accent} />
+                    </View>
+                    <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      Phase Current
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                    {motorData?.phaseCurrent.toFixed(1) ?? "--"} A
+                  </ThemedText>
+                </View>
+                <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+                <View style={styles.statusRow}>
+                  <View style={styles.statusLabel}>
+                    <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(motorData?.temperature ?? 0) + "30" }]}>
+                      <Feather name="thermometer" size={14} color={getTemperatureColor(motorData?.temperature ?? 0)} />
+                    </View>
+                    <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      Temperature
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                    {motorData?.temperature ?? "--"}°C
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          </View>
+        );
+      case 'deviceInfo':
+        return (
+          <View style={styles.statusSection}>
+            <View style={styles.sectionHeader}>
+              <Feather name="info" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Device Info
+              </ThemedText>
+              <Pressable onPress={() => showInfo('deviceInfo')} hitSlop={8}>
+                <Feather name="info" size={14} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+            <View
+              style={[
+                styles.statusCard,
+                {
+                  backgroundColor: "rgba(44,44,46,0.92)",
+                  borderColor: "rgba(255,255,255,0.08)",
+                },
+              ]}
+            >
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: theme.primary + "30" }]}>
+                    <Feather name="hash" size={14} color={theme.primary} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Serial Number
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                  {motor.serialNumber}
+                </ThemedText>
+              </View>
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "30" }]}>
+                    <Feather name="clock" size={14} color={BladeColors.marine} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Odometer
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                  {odometer != null ? `${odometer.toFixed(1)} hrs` : "--"}
+                </ThemedText>
+              </View>
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: theme.primary + "30" }]}>
+                    <Feather name="cpu" size={14} color={theme.primary} />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Firmware
+                  </ThemedText>
+                </View>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
+                  v{firmware}
+                </ThemedText>
+              </View>
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View
+                    style={[
+                      styles.statusIcon,
+                      { backgroundColor: (isConnected ? BladeColors.success : BladeColors.offline) + "30" },
+                    ]}
+                  >
+                    <Feather
+                      name="bluetooth"
+                      size={14}
+                      color={isConnected ? BladeColors.success : BladeColors.offline}
+                    />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Connection
+                  </ThemedText>
+                </View>
+                <View style={styles.connectionStatus}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor: isConnected
+                          ? BladeColors.success
+                          : BladeColors.offline,
+                      },
+                    ]}
+                  />
+                  <ThemedText type="small" style={{ fontWeight: "500", color: "#FFFFFF" }}>
+                    {isConnected ? "Connected" : "Disconnected"}
+                  </ThemedText>
+                </View>
+              </View>
+              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
+              <View style={styles.statusRow}>
+                <View style={styles.statusLabel}>
+                  <View style={[styles.statusIcon, { backgroundColor: "rgba(255,255,255,0.12)" }]}>
+                    <Feather name="clock" size={14} color="rgba(255,255,255,0.45)" />
+                  </View>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Last Updated
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" style={{ fontWeight: "500", color: "#FFFFFF" }}>
+                  {telemetry?.timestamp
+                    ? new Date(telemetry.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })
+                    : "--"}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+        );
+      case 'exportReport':
+        return (
+          <View style={styles.pdfButtonContainer}>
+            <Pressable
+              style={[styles.pdfButton, { backgroundColor: "rgba(44,44,46,0.92)" }]}
+              onPress={generateStatusPdf}
+              disabled={isGeneratingPdf}
+            >
+              {isGeneratingPdf ? (
+                <ActivityIndicator size="small" color={BladeColors.accent} />
+              ) : (
+                <>
+                  <Feather name="file-text" size={16} color={BladeColors.accent} />
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: Spacing.xs }}>
+                    Export Snapshot Report
+                  </ThemedText>
+                </>
+              )}
+            </Pressable>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <>
     <ScrollView
@@ -616,429 +1018,72 @@ export default function DashboardScreen() {
         </Animated.View>
       ) : null}
 
-      <Animated.View entering={FadeInUp.delay(25).duration(400).springify()}>
-        <View style={styles.descriptionTile}>
-          <Feather name="activity" size={16} color="rgba(255,255,255,0.55)" />
-          <ThemedText type="small" style={styles.descriptionTileText}>
-            Live telemetry, weather, and system information for your outboard.
-          </ThemedText>
-        </View>
-      </Animated.View>
+      {sectionOrder.map((sectionId, index) => {
+        const isFirst = index === 0;
+        const isLast = index === sectionOrder.length - 1;
+        const sectionContent = renderSection(sectionId);
+        if (!sectionContent) return null;
+        return (
+          <View key={sectionId}>
+            {isEditMode ? (
+              <View style={styles.editSectionWrapper}>
+                <View style={styles.editControls}>
+                  <Pressable
+                    onPress={() => moveSection(sectionId, 'up')}
+                    disabled={isFirst}
+                    style={[styles.editArrowButton, isFirst ? styles.editArrowDisabled : null]}
+                    hitSlop={8}
+                  >
+                    <Feather name="chevron-up" size={18} color={isFirst ? "rgba(255,255,255,0.2)" : "#FFFFFF"} />
+                  </Pressable>
+                  <View style={styles.editDragHandle}>
+                    <Feather name="menu" size={16} color="rgba(255,255,255,0.55)" />
+                  </View>
+                  <Pressable
+                    onPress={() => moveSection(sectionId, 'down')}
+                    disabled={isLast}
+                    style={[styles.editArrowButton, isLast ? styles.editArrowDisabled : null]}
+                    hitSlop={8}
+                  >
+                    <Feather name="chevron-down" size={18} color={isLast ? "rgba(255,255,255,0.2)" : "#FFFFFF"} />
+                  </Pressable>
+                </View>
+                <View style={styles.editSectionContent}>
+                  {sectionContent}
+                </View>
+              </View>
+            ) : sectionContent}
+          </View>
+        );
+      })}
 
-      <Animated.View entering={FadeInUp.delay(50).duration(400).springify()}>
-        <View style={styles.sectionHeader}>
-          <Feather name="cloud" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-            Marine Weather
-          </ThemedText>
-          <Pressable onPress={() => showInfo('weather')} hitSlop={8}>
-            <Feather name="info" size={14} color={theme.textTertiary} />
-          </Pressable>
-        </View>
-        <WeatherCard variant="weather" />
-      </Animated.View>
-      
-      <Animated.View entering={FadeInUp.delay(75).duration(400).springify()}>
-        <View style={styles.sectionHeader}>
-          <Feather name="navigation" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-            Conditions at Sea Level
-          </ThemedText>
-          <Pressable onPress={() => showInfo('conditions')} hitSlop={8}>
-            <Feather name="info" size={14} color={theme.textTertiary} />
-          </Pressable>
-        </View>
-        <WeatherCard variant="conditions" />
-      </Animated.View>
+      <Pressable
+        style={styles.editLayoutButton}
+        onPress={toggleEditMode}
+      >
+        <Feather name={isEditMode ? "check" : "layout"} size={16} color={BladeColors.accent} />
+        <ThemedText type="small" style={{ color: BladeColors.accent, fontWeight: "600", marginLeft: Spacing.xs }}>
+          {isEditMode ? "Done" : "Edit Layout"}
+        </ThemedText>
+      </Pressable>
 
-      <View style={styles.metricsGrid}>
-        <Animated.View
-          entering={FadeInUp.delay(100).duration(400).springify()}
+      {isEditMode ? (
+        <Pressable
+          style={styles.resetLayoutButton}
+          onPress={resetLayout}
         >
-          <View style={styles.sectionHeader}>
-            <Feather name="navigation-2" size={14} color={theme.textSecondary} />
-            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-              Speed
-            </ThemedText>
-            <Pressable onPress={() => showInfo('speed')} hitSlop={8}>
-              <Feather name="info" size={14} color={theme.textTertiary} />
-            </Pressable>
-          </View>
-          <SpeedCard 
-            motorSpeed={speed} 
-            isConnected={isConnected} 
-          />
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(150).duration(400).springify()}
-        >
-          <View style={styles.sectionHeader}>
-            <Feather name="battery-charging" size={14} color={theme.textSecondary} />
-            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-              Battery & Power
-            </ThemedText>
-            <Pressable onPress={() => showInfo('battery')} hitSlop={8} style={{ marginRight: Spacing.sm }}>
-              <Feather name="info" size={14} color={theme.textTertiary} />
-            </Pressable>
-            <Pressable onPress={() => showInfo('power')} hitSlop={8}>
-              <Feather name="zap" size={14} color={theme.textTertiary} />
-            </Pressable>
-          </View>
-          <View style={styles.metricRow}>
-            <MetricCard
-              icon="battery-charging"
-              label="Battery"
-              value={Math.round(soc)}
-              unit="%"
-              iconColor={getBatteryColor()}
-              accentGlow={soc < 20}
-            />
-            <View style={{ width: Spacing.md }} />
-            <MetricCard
-              icon="zap"
-              label="Power"
-              value={power.toFixed(1)}
-              unit="kW"
-              trend={power > 0 ? "up" : "stable"}
-              iconColor={BladeColors.accent}
-            />
-          </View>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(200).duration(400).springify()}
-        >
-          <View style={styles.sectionHeader}>
-            <Feather name="sliders" size={14} color={theme.textSecondary} />
-            <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-              Throttle & Mode
-            </ThemedText>
-            <Pressable onPress={() => showInfo('throttle')} hitSlop={8} style={{ marginRight: Spacing.sm }}>
-              <Feather name="info" size={14} color={theme.textTertiary} />
-            </Pressable>
-            <Pressable onPress={() => showInfo('driveMode')} hitSlop={8}>
-              <Feather name="disc" size={14} color={theme.textTertiary} />
-            </Pressable>
-          </View>
-          <View style={styles.metricRow}>
-            <MetricCard
-              icon="percent"
-              label="Throttle"
-              value={vesc?.throttle ?? 0}
-              unit="%"
-              iconColor={BladeColors.marine}
-              accentGlow={(vesc?.throttle ?? 0) > 80}
-            />
-            <View style={{ width: Spacing.md }} />
-            <MetricCard
-              icon={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"}
-              label="Drive Mode"
-              value={driverMode || "--"}
-              iconColor={getDriverModeColor(driverMode)}
-              compact
-            />
-          </View>
-        </Animated.View>
-      </View>
-
-      {isConnected && (bms || motorData || vesc) ? (
-        <>
-          <Animated.View
-            entering={FadeIn.delay(300).duration(400)}
-            style={styles.statusSection}
-          >
-            <ThemedText
-              type="caption"
-              style={[styles.sectionLabel, { color: theme.textTertiary }]}
-            >
-              BATTERY (BMS)
-            </ThemedText>
-            <View
-              style={[
-                styles.statusCard,
-                {
-                  backgroundColor: "rgba(44,44,46,0.92)",
-                  borderColor: "rgba(255,255,255,0.08)",
-                },
-              ]}
-            >
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "30" }]}>
-                    <Feather name="zap" size={14} color={BladeColors.accent} />
-                  </View>
-                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                    Voltage
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-                  {bms?.voltage.toFixed(1) ?? "--"} V
-                </ThemedText>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "30" }]}>
-                    <Feather name="activity" size={14} color={BladeColors.marine} />
-                  </View>
-                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                    Current
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-                  {bms?.current.toFixed(1) ?? "--"} A
-                </ThemedText>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(bms?.temperature ?? 0) + "30" }]}>
-                    <Feather name="thermometer" size={14} color={getTemperatureColor(bms?.temperature ?? 0)} />
-                  </View>
-                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                    Temperature
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-                  {bms?.temperature ?? "--"}°C
-                </ThemedText>
-              </View>
-            </View>
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeIn.delay(400).duration(400)}
-            style={styles.statusSection}
-          >
-            <ThemedText
-              type="caption"
-              style={[styles.sectionLabel, { color: theme.textTertiary }]}
-            >
-              MOTOR
-            </ThemedText>
-            <View
-              style={[
-                styles.statusCard,
-                {
-                  backgroundColor: "rgba(44,44,46,0.92)",
-                  borderColor: "rgba(255,255,255,0.08)",
-                },
-              ]}
-            >
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "30" }]}>
-                    <Feather name="rotate-cw" size={14} color={BladeColors.marine} />
-                  </View>
-                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                    RPM
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-                  {motorData?.motorRPM ?? "--"}
-                </ThemedText>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "30" }]}>
-                    <Feather name="activity" size={14} color={BladeColors.accent} />
-                  </View>
-                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                    Phase Current
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-                  {motorData?.phaseCurrent.toFixed(1) ?? "--"} A
-                </ThemedText>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusLabel}>
-                  <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(motorData?.temperature ?? 0) + "30" }]}>
-                    <Feather name="thermometer" size={14} color={getTemperatureColor(motorData?.temperature ?? 0)} />
-                  </View>
-                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                    Temperature
-                  </ThemedText>
-                </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-                  {motorData?.temperature ?? "--"}°C
-                </ThemedText>
-              </View>
-            </View>
-          </Animated.View>
-        </>
+          <Feather name="rotate-ccw" size={14} color="rgba(255,255,255,0.55)" />
+          <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: Spacing.xs }}>
+            Reset to Default
+          </ThemedText>
+        </Pressable>
       ) : null}
 
-      <Animated.View
-        entering={FadeIn.delay(isConnected ? 600 : 300).duration(400)}
-        style={styles.statusSection}
-      >
-        <View style={styles.sectionHeader}>
-          <Feather name="info" size={14} color={theme.textSecondary} />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
-            Device Info
-          </ThemedText>
-          <Pressable onPress={() => showInfo('deviceInfo')} hitSlop={8}>
-            <Feather name="info" size={14} color={theme.textTertiary} />
-          </Pressable>
-        </View>
-        <View
-          style={[
-            styles.statusCard,
-            {
-              backgroundColor: "rgba(44,44,46,0.92)",
-              borderColor: "rgba(255,255,255,0.08)",
-            },
-          ]}
-        >
-          <View style={styles.statusRow}>
-            <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: theme.primary + "30" }]}>
-                <Feather name="hash" size={14} color={theme.primary} />
-              </View>
-              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                Serial Number
-              </ThemedText>
-            </View>
-            <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-              {motor.serialNumber}
-            </ThemedText>
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-          <View style={styles.statusRow}>
-            <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "30" }]}>
-                <Feather name="clock" size={14} color={BladeColors.marine} />
-              </View>
-              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                Odometer
-              </ThemedText>
-            </View>
-            <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-              {odometer != null ? `${odometer.toFixed(1)} hrs` : "--"}
-            </ThemedText>
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-          <View style={styles.statusRow}>
-            <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: theme.primary + "30" }]}>
-                <Feather name="cpu" size={14} color={theme.primary} />
-              </View>
-              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                Firmware
-              </ThemedText>
-            </View>
-            <ThemedText type="mono" style={[styles.statusValue, { color: "#FFFFFF" }]}>
-              v{firmware}
-            </ThemedText>
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-          <View style={styles.statusRow}>
-            <View style={styles.statusLabel}>
-              <View
-                style={[
-                  styles.statusIcon,
-                  { backgroundColor: (isConnected ? BladeColors.success : BladeColors.offline) + "30" },
-                ]}
-              >
-                <Feather
-                  name="bluetooth"
-                  size={14}
-                  color={isConnected ? BladeColors.success : BladeColors.offline}
-                />
-              </View>
-              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                Connection
-              </ThemedText>
-            </View>
-            <View style={styles.connectionStatus}>
-              <View
-                style={[
-                  styles.statusDot,
-                  {
-                    backgroundColor: isConnected
-                      ? BladeColors.success
-                      : BladeColors.offline,
-                  },
-                ]}
-              />
-              <ThemedText type="small" style={{ fontWeight: "500", color: "#FFFFFF" }}>
-                {isConnected ? "Connected" : "Disconnected"}
-              </ThemedText>
-            </View>
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
-
-          <View style={styles.statusRow}>
-            <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: "rgba(255,255,255,0.12)" }]}>
-                <Feather name="clock" size={14} color="rgba(255,255,255,0.45)" />
-              </View>
-              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
-                Last Updated
-              </ThemedText>
-            </View>
-            <ThemedText type="small" style={{ fontWeight: "500", color: "#FFFFFF" }}>
-              {telemetry?.timestamp
-                ? new Date(telemetry.timestamp).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })
-                : "--"}
-            </ThemedText>
-          </View>
-        </View>
-      </Animated.View>
-
-      <Animated.View
-        entering={FadeIn.delay(isConnected ? 700 : 400).duration(400)}
-        style={styles.pdfButtonContainer}
-      >
-        <Pressable
-          style={[styles.pdfButton, { backgroundColor: theme.surfaceElevated }]}
-          onPress={generateStatusPdf}
-          disabled={isGeneratingPdf}
-        >
-          {isGeneratingPdf ? (
-            <ActivityIndicator size="small" color={BladeColors.accent} />
-          ) : (
-            <>
-              <Feather name="file-text" size={16} color={BladeColors.accent} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
-                Export Snapshot Report
-              </ThemedText>
-            </>
-          )}
-        </Pressable>
-      </Animated.View>
-
-      <Animated.View
-        entering={FadeIn.delay(isConnected ? 800 : 500).duration(400)}
-        style={styles.disclaimerContainer}
-      >
+      <View style={styles.disclaimerContainer}>
         <ThemedText style={styles.disclaimerText}>
           Data and weather information are provided for reference only and are not guaranteed. Always operate your vessel safely, comply with all warnings and local laws, and never operate a boat under the influence.
         </ThemedText>
-      </Animated.View>
+      </View>
 
       <Modal
         visible={infoModal.visible}
@@ -1367,5 +1412,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing.sm,
     marginTop: Spacing.sm,
+  },
+  editSectionWrapper: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: BladeColors.accent + "40",
+    borderStyle: "dashed",
+    overflow: "hidden",
+  },
+  editControls: {
+    width: 40,
+    backgroundColor: "rgba(44,44,46,0.95)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    gap: 4,
+  },
+  editArrowButton: {
+    width: 32,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  editArrowDisabled: {
+    opacity: 0.3,
+  },
+  editDragHandle: {
+    paddingVertical: 2,
+  },
+  editSectionContent: {
+    flex: 1,
+    padding: Spacing.sm,
+  },
+  editLayoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: BladeColors.accent + "40",
+    backgroundColor: "rgba(44,44,46,0.92)",
+    marginTop: Spacing.xl,
+  },
+  resetLayoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.md,
   },
 });
