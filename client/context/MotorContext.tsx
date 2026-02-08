@@ -12,6 +12,8 @@ import {
   INFORG2Data,
   ParseResult,
 } from "@/lib/ble-parser";
+import { writeCommand as writeBleCommand, isConnected as isBleConnected } from "@/lib/ble-service";
+import { writeClassicData, isClassicConnected } from "@/lib/bluetooth-classic-service";
 
 interface MotorInfo {
   serialNumber: string;
@@ -70,6 +72,7 @@ interface MotorContextType {
   disconnectMotor: () => void;
   startScan: () => void;
   stopScan: () => void;
+  sendCommand: (command: string) => Promise<boolean>;
   processBLEFrame: (frame: string) => void;
   processParsedData: (data: ParseResult) => void;
   addDebugLog: (level: DebugLogEntry["level"], message: string) => void;
@@ -382,6 +385,42 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     setIsScanning(false);
   };
 
+  const sendCommand = useCallback(async (command: string): Promise<boolean> => {
+    if (!motor?.isConnected) {
+      addDebugLog("ERROR", `sendCommand failed: no motor connected`);
+      return false;
+    }
+
+    addDebugLog("INFO", `sendCommand: "${command}"`);
+
+    try {
+      if (Platform.OS === "web") {
+        addDebugLog("INFO", "sendCommand: Web platform - simulating success");
+        return true;
+      }
+
+      if (isClassicConnected()) {
+        addDebugLog("INFO", "sendCommand: Using Bluetooth Classic");
+        const success = await writeClassicData(command);
+        addDebugLog(success ? "INFO" : "ERROR", `sendCommand Classic result: ${success}`);
+        return success;
+      }
+
+      if (isBleConnected()) {
+        addDebugLog("INFO", "sendCommand: Using BLE");
+        const success = await writeBleCommand(command);
+        addDebugLog(success ? "INFO" : "ERROR", `sendCommand BLE result: ${success}`);
+        return success;
+      }
+
+      addDebugLog("ERROR", "sendCommand: No active BLE or Classic connection found");
+      return false;
+    } catch (error: any) {
+      addDebugLog("ERROR", `sendCommand error: ${error.message || error}`);
+      return false;
+    }
+  }, [motor?.isConnected, addDebugLog]);
+
   return (
     <MotorContext.Provider
       value={{
@@ -401,6 +440,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
         disconnectMotor,
         startScan,
         stopScan,
+        sendCommand,
         processBLEFrame,
         processParsedData,
         addDebugLog,
