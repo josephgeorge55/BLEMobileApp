@@ -73,11 +73,11 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
     return (
       <Animated.View
         entering={FadeIn.duration(300)}
-        style={[styles.container, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
+        style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}
       >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={theme.primary} />
-          <ThemedText type="caption" style={{ marginTop: Spacing.sm, color: theme.textSecondary }}>
+          <ActivityIndicator size="small" color={BladeColors.accent} />
+          <ThemedText type="caption" style={{ marginTop: Spacing.sm, color: "rgba(255,255,255,0.55)" }}>
             Loading weather...
           </ThemedText>
         </View>
@@ -113,7 +113,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
     return (
       <Animated.View
         entering={FadeInUp.duration(300)}
-        style={[styles.container, styles.errorContainer, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
+        style={[styles.container, styles.errorContainer, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}
       >
         <View style={styles.errorContent}>
           <Feather name="cloud-off" size={24} color={theme.textSecondary} />
@@ -186,22 +186,22 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
 
       {/* Conditions-only card for sea level conditions */}
       {variant === 'conditions' ? (
-        <View style={[styles.container, { backgroundColor: theme.surfaceElevated }]}>
+        <View style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}>
           <View style={styles.conditionsSection}>
-            <ThemedText type="caption" style={{ color: theme.textTertiary, marginBottom: Spacing.sm }}>
+            <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.45)", marginBottom: Spacing.sm }}>
               Conditions at Sea Level
             </ThemedText>
             <View style={styles.conditionsRow}>
               {/* Wind */}
               <View style={styles.conditionItem}>
-                <View style={[styles.conditionIcon, { backgroundColor: theme.primary + '15' }]}>
-                  <Feather name="wind" size={18} color={theme.primary} />
+                <View style={[styles.conditionIcon, { backgroundColor: BladeColors.accent + "30" }]}>
+                  <Feather name="wind" size={18} color={BladeColors.accent} />
                 </View>
-                <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Wind</ThemedText>
-                <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", marginTop: 4 }}>Wind</ThemedText>
+                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: '600' }}>
                   {windKnots} kts
                 </ThemedText>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>{windDir}</ThemedText>
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>{windDir}</ThemedText>
               </View>
               
               {/* Visibility */}
@@ -209,30 +209,30 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
                 <View style={[styles.conditionIcon, { backgroundColor: BladeColors.marine + '15' }]}>
                   <Feather name="eye" size={18} color={BladeColors.marine} />
                 </View>
-                <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Visibility</ThemedText>
-                <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", marginTop: 4 }}>Visibility</ThemedText>
+                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: '600' }}>
                   {(current.visibility / 1000).toFixed(1)} km
                 </ThemedText>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
                   {current.visibility >= 10000 ? 'Clear' : current.visibility >= 5000 ? 'Good' : current.visibility >= 2000 ? 'Moderate' : 'Poor'}
                 </ThemedText>
               </View>
               
               {/* Air Quality */}
               <View style={styles.conditionItem}>
-                <View style={[styles.conditionIcon, { backgroundColor: (aqiInfo?.color || theme.textTertiary) + '15' }]}>
-                  <Feather name="cloud" size={18} color={aqiInfo?.color || theme.textTertiary} />
+                <View style={[styles.conditionIcon, { backgroundColor: (aqiInfo?.color || "rgba(255,255,255,0.45)") + '15' }]}>
+                  <Feather name="cloud" size={18} color={aqiInfo?.color || "rgba(255,255,255,0.45)"} />
                 </View>
-                <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Air Quality</ThemedText>
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", marginTop: 4 }}>Air Quality</ThemedText>
                 {aqiInfo ? (
                   <>
                     <ThemedText type="body" style={{ color: aqiInfo.color, fontWeight: '600' }}>
                       {aqiInfo.label}
                     </ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>AQI {airQuality?.aqi}</ThemedText>
+                    <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>AQI {airQuality?.aqi}</ThemedText>
                   </>
                 ) : (
-                  <ThemedText type="body" style={{ color: theme.textSecondary }}>N/A</ThemedText>
+                  <ThemedText type="body" style={{ color: "rgba(255,255,255,0.55)" }}>N/A</ThemedText>
                 )}
               </View>
             </View>
@@ -252,20 +252,20 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
 
       {/* Main weather card */}
       {variant === 'full' || variant === 'weather' ? (
-      <View style={[styles.container, { backgroundColor: theme.surfaceElevated }]}>
+      <View style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Feather name="navigation" size={12} color={theme.textTertiary} />
-            <ThemedText type="caption" style={{ color: theme.textTertiary, marginLeft: 4 }}>
+            <Feather name="navigation" size={12} color={"rgba(255,255,255,0.45)"} />
+            <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.45)", marginLeft: 4 }}>
               Phone GPS
             </ThemedText>
           </View>
           <Pressable onPress={toggleUnit} style={styles.unitToggle}>
-            <ThemedText type="caption" style={{ color: unit === 'C' ? theme.primary : theme.textTertiary, fontWeight: unit === 'C' ? '700' : '400' }}>
+            <ThemedText type="caption" style={{ color: unit === 'C' ? BladeColors.accent : "rgba(255,255,255,0.45)", fontWeight: unit === 'C' ? '700' : '400' }}>
               C
             </ThemedText>
-            <ThemedText type="caption" style={{ color: theme.textTertiary }}> / </ThemedText>
-            <ThemedText type="caption" style={{ color: unit === 'F' ? theme.primary : theme.textTertiary, fontWeight: unit === 'F' ? '700' : '400' }}>
+            <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.45)" }}> / </ThemedText>
+            <ThemedText type="caption" style={{ color: unit === 'F' ? BladeColors.accent : "rgba(255,255,255,0.45)", fontWeight: unit === 'F' ? '700' : '400' }}>
               F
             </ThemedText>
           </Pressable>
@@ -273,12 +273,12 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
 
         <View style={styles.currentWeather}>
           <View style={styles.currentMain}>
-            <Feather name={currentIcon as any} size={48} color={theme.primary} />
+            <Feather name={currentIcon as any} size={48} color={BladeColors.accent} />
             <View style={styles.currentTemp}>
-              <ThemedText type="h1" style={{ color: theme.text, fontSize: 48, lineHeight: 52 }}>
+              <ThemedText type="h1" style={{ color: "#FFFFFF", fontSize: 48, lineHeight: 52 }}>
                 {formatTemp(current.temp, unit)}
               </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+              <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.55)" }}>
                 Feels {formatTemp(current.feels_like, unit)}
               </ThemedText>
             </View>
@@ -286,21 +286,21 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
           
           <View style={styles.currentDetails}>
             <View style={styles.detailRow}>
-              <Feather name="wind" size={14} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: 6 }}>
+              <Feather name="wind" size={14} color={"rgba(255,255,255,0.55)"} />
+              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: 6 }}>
                 {windKnots} kts {windDir}
                 {gustKnots ? ` (G${gustKnots})` : ''}
               </ThemedText>
             </View>
             <View style={styles.detailRow}>
-              <Feather name="droplet" size={14} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: 6 }}>
+              <Feather name="droplet" size={14} color={"rgba(255,255,255,0.55)"} />
+              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: 6 }}>
                 {current.humidity}% humidity
               </ThemedText>
             </View>
             <View style={styles.detailRow}>
-              <Feather name="eye" size={14} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: 6 }}>
+              <Feather name="eye" size={14} color={"rgba(255,255,255,0.55)"} />
+              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: 6 }}>
                 {(current.visibility / 1000).toFixed(1)} km vis
               </ThemedText>
             </View>
@@ -310,23 +310,23 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
         {/* Air Quality & Conditions Section - only show in 'full' variant */}
         {variant === 'full' ? (
           <>
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
             
             <View style={styles.conditionsSection}>
-              <ThemedText type="caption" style={{ color: theme.textTertiary, marginBottom: Spacing.sm }}>
+              <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.45)", marginBottom: Spacing.sm }}>
                 Conditions at Sea Level
               </ThemedText>
               <View style={styles.conditionsRow}>
                 {/* Wind */}
                 <View style={styles.conditionItem}>
-                  <View style={[styles.conditionIcon, { backgroundColor: theme.primary + '15' }]}>
-                    <Feather name="wind" size={18} color={theme.primary} />
+                  <View style={[styles.conditionIcon, { backgroundColor: BladeColors.accent + "30" }]}>
+                    <Feather name="wind" size={18} color={BladeColors.accent} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Wind</ThemedText>
-                  <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", marginTop: 4 }}>Wind</ThemedText>
+                  <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: '600' }}>
                     {windKnots} kts
                   </ThemedText>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>{windDir}</ThemedText>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>{windDir}</ThemedText>
                 </View>
                 
                 {/* Visibility */}
@@ -334,30 +334,30 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
                   <View style={[styles.conditionIcon, { backgroundColor: BladeColors.marine + '15' }]}>
                     <Feather name="eye" size={18} color={BladeColors.marine} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Visibility</ThemedText>
-                  <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", marginTop: 4 }}>Visibility</ThemedText>
+                  <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: '600' }}>
                     {(current.visibility / 1000).toFixed(1)} km
                   </ThemedText>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>
                     {current.visibility >= 10000 ? 'Clear' : current.visibility >= 5000 ? 'Good' : current.visibility >= 2000 ? 'Moderate' : 'Poor'}
                   </ThemedText>
                 </View>
                 
                 {/* Air Quality */}
                 <View style={styles.conditionItem}>
-                  <View style={[styles.conditionIcon, { backgroundColor: (aqiInfo?.color || theme.textTertiary) + '15' }]}>
-                    <Feather name="cloud" size={18} color={aqiInfo?.color || theme.textTertiary} />
+                  <View style={[styles.conditionIcon, { backgroundColor: (aqiInfo?.color || "rgba(255,255,255,0.45)") + '15' }]}>
+                    <Feather name="cloud" size={18} color={aqiInfo?.color || "rgba(255,255,255,0.45)"} />
                   </View>
-                  <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: 4 }}>Air Quality</ThemedText>
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", marginTop: 4 }}>Air Quality</ThemedText>
                   {aqiInfo ? (
                     <>
                       <ThemedText type="body" style={{ color: aqiInfo.color, fontWeight: '600' }}>
                         {aqiInfo.label}
                       </ThemedText>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>AQI {airQuality?.aqi}</ThemedText>
+                      <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)" }}>AQI {airQuality?.aqi}</ThemedText>
                     </>
                   ) : (
-                    <ThemedText type="body" style={{ color: theme.textSecondary }}>N/A</ThemedText>
+                    <ThemedText type="body" style={{ color: "rgba(255,255,255,0.55)" }}>N/A</ThemedText>
                   )}
                 </View>
               </View>
@@ -375,10 +375,10 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
           </>
         ) : null}
 
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={[styles.divider, { backgroundColor: "rgba(255,255,255,0.1)" }]} />
 
         <View style={styles.forecastSection}>
-          <ThemedText type="caption" style={{ color: theme.textTertiary, marginBottom: Spacing.sm }}>
+          <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.45)", marginBottom: Spacing.sm }}>
             3-Hour Forecast
           </ThemedText>
           <View style={styles.forecastRow}>
@@ -388,9 +388,9 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
           </View>
         </View>
 
-        <View style={[styles.disclaimer, { backgroundColor: theme.backgroundTertiary + '50' }]}>
-          <Feather name="info" size={12} color={theme.textTertiary} />
-          <ThemedText type="small" style={{ color: theme.textTertiary, marginLeft: 6, flex: 1 }}>
+        <View style={[styles.disclaimer, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <Feather name="info" size={12} color={"rgba(255,255,255,0.45)"} />
+          <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", marginLeft: 6, flex: 1 }}>
             Weather can change quickly. Monitor local conditions and heed all warnings. Boat safely.
           </ThemedText>
         </View>
@@ -414,11 +414,11 @@ function HourlyItem({ hour, unit, theme }: HourlyItemProps) {
 
   return (
     <View style={styles.hourlyItem}>
-      <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+      <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.55)" }}>
         {timeStr}
       </ThemedText>
       <View style={styles.hourlyIconContainer}>
-        <Feather name={icon as any} size={20} color={theme.primary} />
+        <Feather name={icon as any} size={20} color={BladeColors.accent} />
         {rainChance > 20 ? (
           <View style={styles.rainBadge}>
             <ThemedText type="small" style={{ color: BladeColors.marine, fontSize: 9 }}>
@@ -427,12 +427,12 @@ function HourlyItem({ hour, unit, theme }: HourlyItemProps) {
           </View>
         ) : null}
       </View>
-      <ThemedText type="body" style={{ color: theme.text, fontWeight: '600' }}>
+      <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: '600' }}>
         {formatTemp(hour.temp, unit)}
       </ThemedText>
       <View style={styles.hourlyWind}>
-        <Feather name="wind" size={10} color={theme.textTertiary} />
-        <ThemedText type="small" style={{ color: theme.textTertiary, fontSize: 10, marginLeft: 2 }}>
+        <Feather name="wind" size={10} color={"rgba(255,255,255,0.45)"} />
+        <ThemedText type="small" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, marginLeft: 2 }}>
           {getWindSpeedKnots(hour.wind_speed)}kt
         </ThemedText>
       </View>
