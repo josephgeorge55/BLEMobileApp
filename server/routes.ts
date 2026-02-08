@@ -308,27 +308,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const apnsTokens = tokens.filter(t => t.tokenType === "apns").map(t => t.token);
       const expoTokens = tokens.filter(t => t.tokenType !== "apns").map(t => t.token);
 
+      console.log(`[Push] === Notification Send ===`);
+      console.log(`[Push] Type: ${body.type}, Title: "${body.title}"`);
+      console.log(`[Push] Total tokens found: ${tokens.length}`);
+      console.log(`[Push] APNs tokens: ${apnsTokens.length}, Expo tokens: ${expoTokens.length}`);
+      tokens.forEach((t, i) => {
+        console.log(`[Push] Token ${i + 1}: type=${t.tokenType}, token=${t.token.substring(0, 16)}...`);
+      });
+      console.log(`[Push] APNs configured: ${isApnsConfigured()}`);
+
       let apnsResult = { sent: 0, failed: 0 };
       let expoResult = { sent: 0, failed: 0 };
 
       if (apnsTokens.length > 0 && isApnsConfigured()) {
+        console.log(`[Push] Sending ${apnsTokens.length} via APNs...`);
         apnsResult = await sendApnsPushNotifications(
           apnsTokens,
           body.title,
           body.body,
           body.data as Record<string, unknown> | undefined,
         );
+        console.log(`[Push] APNs result: sent=${apnsResult.sent}, failed=${apnsResult.failed}`);
       } else if (apnsTokens.length > 0) {
-        console.warn(`[Push] ${apnsTokens.length} APNs tokens found but APNs not configured`);
+        console.warn(`[Push] ${apnsTokens.length} APNs tokens found but APNs NOT configured!`);
+        console.warn(`[Push] Missing: APPLE_APNS_KEY_P8=${!!process.env.APPLE_APNS_KEY_P8}, APPLE_APNS_KEY_ID=${!!process.env.APPLE_APNS_KEY_ID}, APPLE_TEAM_IDENTIFIER=${!!process.env.APPLE_TEAM_IDENTIFIER}`);
       }
 
       if (expoTokens.length > 0) {
+        console.log(`[Push] Sending ${expoTokens.length} via Expo Push API...`);
         expoResult = await sendExpoPushNotifications(
           expoTokens,
           body.title,
           body.body,
           body.data as Record<string, unknown> | undefined,
         );
+        console.log(`[Push] Expo result: sent=${expoResult.sent}, failed=${expoResult.failed}`);
       }
 
       const pushResult = {
@@ -338,10 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expo: expoResult,
       };
 
-      console.log(
-        `Notification sent to ${tokens.length} devices (APNs: ${apnsTokens.length}, Expo: ${expoTokens.length}):`,
-        body.title,
-      );
+      console.log(`[Push] Final: sent=${pushResult.sent}, failed=${pushResult.failed} (APNs: ${apnsResult.sent}/${apnsTokens.length}, Expo: ${expoResult.sent}/${expoTokens.length})`);
 
       res.json({
         success: true,
@@ -360,6 +371,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const body = registerTokenSchema.parse(req.body);
 
+      console.log(`[Push] === Token Registration ===`);
+      console.log(`[Push] Token type: ${body.tokenType || "expo"}`);
+      console.log(`[Push] Platform: ${body.platform}`);
+      console.log(`[Push] User ID: ${body.userId}`);
+      console.log(`[Push] Token: ${body.token.substring(0, 20)}...`);
+      console.log(`[Push] Preferences: news=${body.notifNews}, service=${body.notifService}, motor=${body.notifMotor}`);
+
       const token = await storage.registerPushToken({
         token: body.token,
         tokenType: body.tokenType || "expo",
@@ -370,6 +388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notifService: body.notifService,
         notifMotor: body.notifMotor,
       });
+
+      console.log(`[Push] Token registered successfully: ID=${token.id}`);
 
       res.json({
         success: true,

@@ -132,12 +132,18 @@ function sendApnsRequest(
   return new Promise((resolve) => {
     const jwt = createApnsJwt();
     if (!jwt) {
+      console.error("[APNs] JWT generation failed - cannot send push");
       resolve({ success: false, reason: "Failed to generate APNs JWT" });
       return;
     }
 
     const host = useSandbox ? APNS_HOST_SANDBOX : APNS_HOST_PRODUCTION;
     const payloadStr = JSON.stringify(payload);
+
+    console.log(`[APNs] Sending to ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
+    console.log(`[APNs] Device token: ${deviceToken.substring(0, 12)}...${deviceToken.substring(deviceToken.length - 6)}`);
+    console.log(`[APNs] Bundle ID (apns-topic): ${bundleId}`);
+    console.log(`[APNs] Payload size: ${Buffer.byteLength(payloadStr)} bytes`);
 
     const options: https.RequestOptions = {
       hostname: host,
@@ -161,6 +167,7 @@ function sendApnsRequest(
       res.on("end", () => {
         const statusCode = res.statusCode || 500;
         if (statusCode === 200) {
+          console.log(`[APNs] SUCCESS: Push delivered to ${deviceToken.substring(0, 12)}... (HTTP 200)`);
           resolve({ success: true, statusCode });
         } else {
           let reason = "Unknown error";
@@ -168,14 +175,21 @@ function sendApnsRequest(
             const parsed = JSON.parse(data);
             reason = parsed.reason || reason;
           } catch {}
-          console.error(`[APNs] Failed for ${deviceToken.substring(0, 8)}...: ${statusCode} ${reason}`);
+          console.error(`[APNs] FAILED for ${deviceToken.substring(0, 12)}...: HTTP ${statusCode} - ${reason}`);
+          if (reason === "BadDeviceToken") {
+            console.error(`[APNs] BadDeviceToken: Token may be from wrong environment (sandbox vs production) or is invalid`);
+          } else if (reason === "TopicDisallowed") {
+            console.error(`[APNs] TopicDisallowed: Bundle ID "${bundleId}" does not match APNs certificate`);
+          } else if (reason === "InvalidProviderToken") {
+            console.error(`[APNs] InvalidProviderToken: JWT signing key may be wrong or expired`);
+          }
           resolve({ success: false, statusCode, reason });
         }
       });
     });
 
     req.on("error", (error) => {
-      console.error(`[APNs] Request error for ${deviceToken.substring(0, 8)}...:`, error.message);
+      console.error(`[APNs] Network error for ${deviceToken.substring(0, 12)}...:`, error.message);
       resolve({ success: false, reason: error.message });
     });
 
@@ -190,10 +204,22 @@ export async function sendApnsPushNotifications(
   body: string,
   data?: Record<string, unknown>,
 ): Promise<{ sent: number; failed: number }> {
-  if (deviceTokens.length === 0) return { sent: 0, failed: 0 };
+  if (deviceTokens.length === 0) {
+    console.log("[APNs] No device tokens to send to");
+    return { sent: 0, failed: 0 };
+  }
 
   const bundleId = process.env.APPLE_BUNDLE_ID || "app.replit.bladeoutboards";
+  const envSetting = process.env.APNS_ENVIRONMENT || "not set (defaulting to production)";
   const useSandbox = process.env.APNS_ENVIRONMENT === "sandbox";
+
+  console.log(`[APNs] === Push Notification Send ===`);
+  console.log(`[APNs] Title: "${title}"`);
+  console.log(`[APNs] Body: "${body}"`);
+  console.log(`[APNs] Token count: ${deviceTokens.length}`);
+  console.log(`[APNs] Bundle ID: ${bundleId}`);
+  console.log(`[APNs] APNS_ENVIRONMENT: ${envSetting}`);
+  console.log(`[APNs] Using endpoint: ${useSandbox ? "SANDBOX" : "PRODUCTION"}`);
 
   const payload: ApnsPayload = {
     aps: {
