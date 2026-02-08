@@ -23,6 +23,7 @@ import { generatePassportPDF, generatePassportPDFBuffer } from "./passportPdfGen
 
 import { randomUUID } from "node:crypto";
 import { sendExpoPushNotifications } from "./pushNotificationService";
+import { sendApnsPushNotifications, isApnsConfigured } from "./apnsPushService";
 
 const LOG_DIR = join(process.cwd(), "logs");
 const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
@@ -284,7 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const body = sendNotificationSchema.parse(req.body);
 
-      let tokens: { token: string }[] = [];
+      let tokens: { token: string; tokenType: string | null }[] = [];
       if (body.targetSerialNumber) {
         tokens = await storage.getPushTokensForMotor(body.targetSerialNumber);
       } else if (body.type === "announcement" || body.type === "promotion") {
@@ -304,15 +305,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "sent",
       });
 
-      const pushResult = await sendExpoPushNotifications(
-        tokens.map(t => t.token),
-        body.title,
-        body.body,
-        body.data as Record<string, unknown> | undefined,
-      );
+      const apnsTokens = tokens.filter(t => t.tokenType === "apns").map(t => t.token);
+      const expoTokens = tokens.filter(t => t.tokenType !== "apns").map(t => t.token);
+
+      let apnsResult = { sent: 0, failed: 0 };
+      let expoResult = { sent: 0, failed: 0 };
+
+      if (apnsTokens.length > 0 && isApnsConfigured()) {
+        apnsResult = await sendApnsPushNotifications(
+          apnsTokens,
+          body.title,
+          body.body,
+          body.data as Record<string, unknown> | undefined,
+        );
+      } else if (apnsTokens.length > 0) {
+        console.warn(`[Push] ${apnsTokens.length} APNs tokens found but APNs not configured`);
+      }
+
+      if (expoTokens.length > 0) {
+        expoResult = await sendExpoPushNotifications(
+          expoTokens,
+          body.title,
+          body.body,
+          body.data as Record<string, unknown> | undefined,
+        );
+      }
+
+      const pushResult = {
+        sent: apnsResult.sent + expoResult.sent,
+        failed: apnsResult.failed + expoResult.failed,
+        apns: apnsResult,
+        expo: expoResult,
+      };
 
       console.log(
-        `Notification sent to ${tokens.length} devices:`,
+        `Notification sent to ${tokens.length} devices (APNs: ${apnsTokens.length}, Expo: ${expoTokens.length}):`,
         body.title,
       );
 
@@ -335,6 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const token = await storage.registerPushToken({
         token: body.token,
+        tokenType: body.tokenType || "expo",
         userId: body.userId,
         motorSerialNumber: body.motorSerialNumber,
         platform: body.platform,

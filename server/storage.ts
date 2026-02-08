@@ -277,6 +277,7 @@ export class DatabaseStorage implements IStorage {
         .set({
           motorSerialNumber: token.motorSerialNumber,
           userId: token.userId,
+          tokenType: token.tokenType,
           notifNews: token.notifNews,
           notifService: token.notifService,
           notifMotor: token.notifMotor,

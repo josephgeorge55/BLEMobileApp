@@ -235,6 +235,7 @@ export const sendNotificationSchema = z.object({
 
 export const registerTokenSchema = z.object({
   token: z.string().min(1),
+  tokenType: z.enum(["apns", "expo"]).optional().default("expo"),
   userId: z.string().optional(),
   motorSerialNumber: z.string().optional(),
   platform: z.enum(["ios", "android", "web"]).optional(),
