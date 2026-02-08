@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { 
   auth, 
@@ -43,13 +44,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
   const authStateReceivedRef = useRef(false);
   const loadedFromStorageRef = useRef(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const lastForegroundCheckRef = useRef<number>(0);
 
   useEffect(() => {
     loadStoredUser();
     
     const currentAuth = getFirebaseAuth();
     if (!currentAuth) {
-      console.warn("Firebase auth not initialized, skipping auth state listener");
+      console.warn("[Auth] Firebase auth not initialized, skipping auth state listener");
       setIsFirebaseReady(true);
       return;
     }
@@ -70,9 +73,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setIsGuestMode(false);
         console.log("[Auth] Firebase auth confirmed user:", firebaseUser.uid);
       } else if (isFirstCallback && loadedFromStorageRef.current) {
-        console.log("[Auth] Firebase says no user but we had one in storage - clearing stale session");
-        await AsyncStorage.removeItem(USER_STORAGE_KEY);
-        setUser(null);
+        const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+        if (storedUser) {
+          console.log("[Auth] Firebase says no user on first callback but we have stored session - keeping stored user while Firebase reconnects");
+        } else {
+          console.log("[Auth] No Firebase user and no stored session");
+          setUser(null);
+        }
       }
       
       setIsFirebaseReady(true);
@@ -84,16 +91,68 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const authTimeout = setTimeout(() => {
       if (!authStateReceivedRef.current) {
-        console.warn("[Auth] Firebase auth state timed out after 5s, proceeding with stored user");
+        console.warn("[Auth] Firebase auth state timed out after 8s, proceeding with stored user");
         setIsFirebaseReady(true);
         setIsLoading(false);
       }
-    }, 5000);
+    }, 8000);
 
     return () => {
       unsubscribe();
       clearTimeout(authTimeout);
     };
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", async (nextState: AppStateStatus) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      if (previousState.match(/inactive|background/) && nextState === "active") {
+        const now = Date.now();
+        if (now - lastForegroundCheckRef.current < 5000) return;
+        lastForegroundCheckRef.current = now;
+
+        console.log("[Auth] App returning to foreground, re-validating auth state...");
+        const currentAuth = getFirebaseAuth();
+        if (!currentAuth) return;
+
+        if (currentAuth.currentUser) {
+          const firebaseUser = currentAuth.currentUser;
+          const userData: UserData = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || "",
+            createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
+          };
+          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+          setUser(userData);
+          setIsFirebaseReady(true);
+          console.log("[Auth] Foreground check: Firebase user confirmed:", firebaseUser.uid);
+        } else {
+          try {
+            await currentAuth.authStateReady();
+            if (currentAuth.currentUser) {
+              const firebaseUser = currentAuth.currentUser;
+              const userData: UserData = {
+                id: firebaseUser.uid,
+                email: firebaseUser.email || "",
+                createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
+              };
+              await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+              setUser(userData);
+              setIsFirebaseReady(true);
+              console.log("[Auth] Foreground check: Firebase user restored after authStateReady:", firebaseUser.uid);
+            } else {
+              console.log("[Auth] Foreground check: Firebase has no user - keeping local state for now");
+            }
+          } catch (err) {
+            console.warn("[Auth] Foreground authStateReady error:", err);
+          }
+        }
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const loadStoredUser = async () => {
@@ -120,7 +179,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         console.log("[Auth] Loaded user from storage:", userData.id);
       }
     } catch (error) {
-      console.error("Error loading stored user:", error);
+      console.error("[Auth] Error loading stored user:", error);
     }
     
     loadedFromStorageRef.current = true;
