@@ -17,6 +17,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { SpeedCard } from "@/components/SpeedCard";
 import { EmptyState } from "@/components/EmptyState";
 import { WeatherCard } from "@/components/WeatherCard";
+import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useTrip } from "@/context/TripContext";
@@ -120,7 +121,7 @@ export default function DashboardScreen() {
   const { data: locationData, refetch: refetchLocation } = useQuery<LocationQueryData>({
     queryKey: ["/api/motor", serialNumber, "location"],
     enabled: !!serialNumber && !isConnected,
-    refetchInterval: isConnected ? false : 30000,
+    refetchInterval: isConnected ? false : 60000,
   });
 
   useEffect(() => {
@@ -135,6 +136,16 @@ export default function DashboardScreen() {
       });
     }
   }, [locationData, isConnected]);
+
+  const mapPreviewLocation = React.useMemo(() => {
+    if (isConnected && telemetry?.gnss) {
+      return { latitude: telemetry.gnss.latitude, longitude: telemetry.gnss.longitude, hasLocation: true };
+    }
+    if (locationData) {
+      return { latitude: locationData.latitude, longitude: locationData.longitude, hasLocation: true };
+    }
+    return { latitude: 25.7617, longitude: -80.1918, hasLocation: false };
+  }, [isConnected, telemetry?.gnss, locationData]);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -1087,17 +1098,25 @@ export default function DashboardScreen() {
             onPress={() => navigation.navigate("LocationTab" as any)}
           >
             <View style={styles.mapPreview}>
-              <View style={styles.mapPreviewGrid}>
-                <View style={styles.mapGridLineH} />
-                <View style={[styles.mapGridLineH, { top: "50%" }]} />
-                <View style={[styles.mapGridLineH, { top: "75%" }]} />
-                <View style={styles.mapGridLineV} />
-                <View style={[styles.mapGridLineV, { left: "50%" }]} />
-                <View style={[styles.mapGridLineV, { left: "75%" }]} />
-              </View>
-              <View style={styles.mapPreviewPin}>
-                <Feather name="map-pin" size={24} color={BladeColors.accent} />
-              </View>
+              <OpenStreetMap
+                style={styles.mapPreviewMap}
+                initialRegion={{
+                  latitude: mapPreviewLocation.latitude,
+                  longitude: mapPreviewLocation.longitude,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+                markers={mapPreviewLocation.hasLocation ? [{
+                  coordinate: {
+                    latitude: mapPreviewLocation.latitude,
+                    longitude: mapPreviewLocation.longitude,
+                  },
+                  title: "Motor",
+                  color: isConnected ? BladeColors.accent : BladeColors.marine,
+                  isLive: isConnected,
+                }] : []}
+              />
+              <View style={styles.mapPreviewOverlay} />
             </View>
             <View style={styles.quickActionRow}>
               <View style={[styles.quickActionIconWrap, { backgroundColor: BladeColors.accent + "20" }]}>
@@ -1423,45 +1442,22 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   mapPreview: {
-    height: 100,
-    backgroundColor: "rgba(30,30,32,0.95)",
+    height: 120,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
     overflow: "hidden",
+    position: "relative",
   },
-  mapPreviewGrid: {
+  mapPreviewMap: {
+    flex: 1,
+  },
+  mapPreviewOverlay: {
     position: "absolute",
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-  },
-  mapGridLineH: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    top: "25%",
-  },
-  mapGridLineV: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    left: "25%",
-  },
-  mapPreviewPin: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: BladeColors.accent + "15",
-    alignItems: "center",
-    justifyContent: "center",
+    height: 30,
+    backgroundColor: "transparent",
   },
   tripPreview: {
     height: 100,
