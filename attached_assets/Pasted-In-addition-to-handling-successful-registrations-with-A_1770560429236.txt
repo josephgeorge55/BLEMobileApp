@@ -1,0 +1,31 @@
+In addition to handling successful registrations with APNs, prepare your app to handle unsuccessful registrations by implementing the application(_:didFailToRegisterForRemoteNotificationsWithError:) method. Registration might fail if the user’s device isn’t connected to the network, if the APNs server is unreachable for any reason, or if the app doesn’t have the proper code-signing entitlement. When a failure occurs, set a flag and try to register again at a later time.
+
+Listing 1 shows a sample implementation of the iOS app delegate methods needed to register for remote notifications and receive the corresponding token. The sendDeviceTokenToServer method is a custom method that the app uses to send the data to its provider server.
+
+Listing 1. Communicating with APNs at launch time
+
+func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions:[UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    // Override point for customization after application launch.
+    UIApplication.shared.registerForRemoteNotifications()
+    return true
+}
+
+
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    self.sendDeviceTokenToServer(data: deviceToken)
+}
+
+
+func application(_ application: UIApplication,
+                 didFailToRegisterForRemoteNotificationsWithError
+                 error: Error) {
+    // Try again later.
+}
+Important
+
+Never cache device tokens in local storage. APNs issues a new token when the user restores a device from a backup, when the user installs your app on a new device, and when the user reinstalls the operating system. You get an up-to-date token each time you ask the system to provide the token.
+
+Forward tokens to your provider server
+Upon receiving a device token, open a network connection from your app to your provider server. Securely forward the device token and any other information you need to identify the specific user to your server. For example, you might include the user’s login name or something that connects them to your service. Encrypt any information you send over the network.
+
+On your provider server, store tokens in a secure place where you can access them to send notifications. When generating notifications, your server must be able to send notifications to specific devices. So, if you have notifications linked to a user’s account, store device tokens with the user’s account information. Because a user can have multiple devices, prepare your app to handle multiple device tokens.

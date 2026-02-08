@@ -23,7 +23,7 @@ import { generatePassportPDF, generatePassportPDFBuffer } from "./passportPdfGen
 
 import { randomUUID } from "node:crypto";
 import { sendExpoPushNotifications } from "./pushNotificationService";
-import { sendApnsPushNotifications, isApnsConfigured } from "./apnsPushService";
+import { sendApnsPushNotifications, isApnsConfigured, testApnsConnection } from "./apnsPushService";
 
 const LOG_DIR = join(process.cwd(), "logs");
 const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
@@ -364,6 +364,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       handleZodError(error, res);
       console.error("Error sending notification:", error);
       res.status(500).json({ error: "Failed to send notification" });
+    }
+  });
+
+  app.get("/api/notifications/test-apns", async (req, res) => {
+    try {
+      const apiKey = req.headers["x-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+      const expectedKey = process.env.PUSH_ADMIN_API_KEY;
+
+      if (!expectedKey || apiKey !== expectedKey) {
+        return res.status(401).json({ error: "Unauthorized. Valid API key required." });
+      }
+
+      console.log("[APNs-Test] Running APNs connection diagnostics...");
+      const diagnostics = await testApnsConnection();
+      console.log("[APNs-Test] Diagnostics result:", JSON.stringify(diagnostics, null, 2));
+
+      const tokens = await storage.getAllPushTokens();
+      const apnsTokens = tokens.filter(t => t.tokenType === "apns");
+
+      res.json({
+        diagnostics,
+        registeredTokens: {
+          total: tokens.length,
+          apns: apnsTokens.length,
+          expo: tokens.filter(t => t.tokenType !== "apns").length,
+          apnsTokenDetails: apnsTokens.map(t => ({
+            id: t.id,
+            tokenStart: t.token.substring(0, 16),
+            tokenLength: t.token.length,
+            userId: t.userId,
+            createdAt: t.createdAt,
+          })),
+        },
+      });
+    } catch (error: any) {
+      console.error("[APNs-Test] Error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 
