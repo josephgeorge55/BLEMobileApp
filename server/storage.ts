@@ -53,8 +53,13 @@ export interface IStorage {
   ): Promise<FirmwareVersion[]>;
 
   getPushTokensBySerial(serialNumber: string): Promise<PushToken[]>;
+  getPushTokensByUserId(userId: string): Promise<PushToken[]>;
+  getPushTokensForNews(): Promise<PushToken[]>;
+  getPushTokensForService(): Promise<PushToken[]>;
+  getPushTokensForMotor(serialNumber: string): Promise<PushToken[]>;
   getAllPushTokens(): Promise<PushToken[]>;
   registerPushToken(token: InsertPushToken): Promise<PushToken>;
+  updatePushTokenPreferences(token: string, prefs: { notifNews?: boolean; notifService?: boolean; notifMotor?: boolean }): Promise<PushToken | undefined>;
 
   createNotification(notification: InsertNotification): Promise<Notification>;
   getNotifications(serialNumber?: string): Promise<Notification[]>;
@@ -227,6 +232,39 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(pushTokens);
   }
 
+  async getPushTokensByUserId(userId: string): Promise<PushToken[]> {
+    return db
+      .select()
+      .from(pushTokens)
+      .where(eq(pushTokens.userId, userId));
+  }
+
+  async getPushTokensForNews(): Promise<PushToken[]> {
+    return db
+      .select()
+      .from(pushTokens)
+      .where(eq(pushTokens.notifNews, true));
+  }
+
+  async getPushTokensForService(): Promise<PushToken[]> {
+    return db
+      .select()
+      .from(pushTokens)
+      .where(eq(pushTokens.notifService, true));
+  }
+
+  async getPushTokensForMotor(serialNumber: string): Promise<PushToken[]> {
+    return db
+      .select()
+      .from(pushTokens)
+      .where(
+        and(
+          eq(pushTokens.motorSerialNumber, serialNumber),
+          eq(pushTokens.notifMotor, true),
+        ),
+      );
+  }
+
   async registerPushToken(token: InsertPushToken): Promise<PushToken> {
     const existing = await db
       .select()
@@ -238,6 +276,10 @@ export class DatabaseStorage implements IStorage {
         .update(pushTokens)
         .set({
           motorSerialNumber: token.motorSerialNumber,
+          userId: token.userId,
+          notifNews: token.notifNews,
+          notifService: token.notifService,
+          notifMotor: token.notifMotor,
           lastUsedAt: new Date(),
         })
         .where(eq(pushTokens.token, token.token!))
@@ -247,6 +289,20 @@ export class DatabaseStorage implements IStorage {
 
     const [created] = await db.insert(pushTokens).values(token).returning();
     return created;
+  }
+
+  async updatePushTokenPreferences(token: string, prefs: { notifNews?: boolean; notifService?: boolean; notifMotor?: boolean }): Promise<PushToken | undefined> {
+    const updateData: Record<string, boolean> = {};
+    if (prefs.notifNews !== undefined) updateData.notifNews = prefs.notifNews;
+    if (prefs.notifService !== undefined) updateData.notifService = prefs.notifService;
+    if (prefs.notifMotor !== undefined) updateData.notifMotor = prefs.notifMotor;
+
+    const [updated] = await db
+      .update(pushTokens)
+      .set(updateData)
+      .where(eq(pushTokens.token, token))
+      .returning();
+    return updated || undefined;
   }
 
   async createNotification(

@@ -22,6 +22,7 @@ import { generateTripPDF } from "./pdfGenerator";
 import { generatePassportPDF, generatePassportPDFBuffer } from "./passportPdfGenerator";
 
 import { randomUUID } from "node:crypto";
+import { sendExpoPushNotifications } from "./pushNotificationService";
 
 const LOG_DIR = join(process.cwd(), "logs");
 const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
@@ -278,7 +279,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let tokens: { token: string }[] = [];
       if (body.targetSerialNumber) {
-        tokens = await storage.getPushTokensBySerial(body.targetSerialNumber);
+        tokens = await storage.getPushTokensForMotor(body.targetSerialNumber);
+      } else if (body.type === "announcement" || body.type === "promotion") {
+        tokens = await storage.getPushTokensForNews();
+      } else if (body.type === "service" || body.type === "maintenance") {
+        tokens = await storage.getPushTokensForService();
       } else {
         tokens = await storage.getAllPushTokens();
       }
@@ -292,6 +297,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "sent",
       });
 
+      const pushResult = await sendExpoPushNotifications(
+        tokens.map(t => t.token),
+        body.title,
+        body.body,
+        body.data as Record<string, unknown> | undefined,
+      );
+
       console.log(
         `Notification sent to ${tokens.length} devices:`,
         body.title,
@@ -301,6 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         notificationId: notification.id,
         recipientCount: tokens.length,
+        pushResult,
       });
     } catch (error) {
       handleZodError(error, res);
@@ -315,8 +328,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const token = await storage.registerPushToken({
         token: body.token,
+        userId: body.userId,
         motorSerialNumber: body.motorSerialNumber,
         platform: body.platform,
+        notifNews: body.notifNews,
+        notifService: body.notifService,
+        notifMotor: body.notifMotor,
       });
 
       res.json({
@@ -327,6 +344,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       handleZodError(error, res);
       console.error("Error registering token:", error);
       res.status(500).json({ error: "Failed to register push token" });
+    }
+  });
+
+  app.put("/api/push-tokens/preferences", async (req, res) => {
+    try {
+      const { token, notifNews, notifService, notifMotor } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+
+      const updated = await storage.updatePushTokenPreferences(token, {
+        notifNews,
+        notifService,
+        notifMotor,
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Push token not found" });
+      }
+
+      res.json({ success: true, token: updated });
+    } catch (error) {
+      console.error("Error updating push token preferences:", error);
+      res.status(500).json({ error: "Failed to update preferences" });
     }
   });
 
