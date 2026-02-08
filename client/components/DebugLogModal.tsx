@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -52,7 +53,7 @@ interface DebugLogEntry {
 export function DebugLogModal({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { debugLogs, clearDebugLogs, telemetry, motor, isRealConnection } = useMotor();
+  const { debugLogs, clearDebugLogs, telemetry, motor, isRealConnection, sendCommand } = useMotor();
   const { user, isGuestMode } = useUser();
   const { activeTrip, isRecording, tripStats, tripDuration } = useTrip();
   
@@ -431,51 +432,68 @@ export function DebugLogModal({ visible, onClose }: Props) {
     }
   };
 
+  const [testThrottlePercent, setTestThrottlePercent] = useState(70);
+
   const testThrottleCommand = async () => {
-    addThrottleLog("INFO", "=== Throttle Command Diagnostics ===");
-    
+    addThrottleLog("INFO", "=== Max Throttle Write Command Test ===");
     addThrottleLog("INFO", `Platform: ${Platform.OS}`);
-    addThrottleLog("INFO", `Motor object exists: ${!!motor}`);
     addThrottleLog("INFO", `Motor connected: ${motor?.isConnected || false}`);
     addThrottleLog("INFO", `Motor serial: ${motor?.serialNumber || 'null'}`);
-    addThrottleLog("INFO", `Motor name: ${motor?.name || 'null'}`);
     addThrottleLog("INFO", `Connection type: ${(motor as any)?.connectionType || 'unknown'}`);
-    addThrottleLog("INFO", `Tiller serial: ${telemetry?.tillerSerialNumber || 'null'}`);
     addThrottleLog("INFO", `Is real connection: ${isRealConnection}`);
     
     if (!motor?.isConnected) {
-      addThrottleLog("ERROR", "Motor NOT connected - throttle commands will fail");
-      addThrottleLog("WARN", "Connect to motor via Bluetooth first, then use throttle slider in Settings");
+      addThrottleLog("ERROR", "Motor NOT connected - cannot send max throttle command");
+      addThrottleLog("WARN", "Connect to motor via Bluetooth first");
       return;
     }
+
+    const percent = Math.round(Math.min(100, Math.max(10, testThrottlePercent)));
+    const command = `$APP_CONFIG,MAX_THROTTLE,${percent}`;
+    addThrottleLog("THROTTLE", `Command format: "${command}"`);
+    addThrottleLog("INFO", `This WRITES the max throttle limit to the motor controller`);
+    addThrottleLog("INFO", `It does NOT read or display current throttle position`);
+    addThrottleLog("INFO", `Use the slider in Settings > Max Throttle Limit to send this command`);
     
-    if (telemetry) {
-      addThrottleLog("INFO", "--- Current VESC/Throttle State ---");
-      addThrottleLog("DATA", `Current throttle: ${telemetry.vesc?.throttle ?? 'N/A'}%`);
-      addThrottleLog("DATA", `VESC wattage: ${telemetry.vesc?.wattage ?? 'N/A'}W`);
-      addThrottleLog("DATA", `VESC voltage: ${telemetry.vesc?.voltage ?? 'N/A'}V`);
-      addThrottleLog("DATA", `VESC current: ${telemetry.vesc?.current ?? 'N/A'}A`);
-      addThrottleLog("DATA", `VESC temp: ${telemetry.vesc?.temperature ?? 'N/A'}C`);
-      addThrottleLog("DATA", `Drive mode: ${telemetry.driverMode || 'N/A'}`);
-      addThrottleLog("DATA", `Error code: ${telemetry.errorCode || 'none'}`);
-      if (telemetry.errorCode) {
-        addThrottleLog("ERROR", `Motor error active: ${telemetry.errorDescription || telemetry.errorCode}`);
-      }
-    } else {
-      addThrottleLog("WARN", "No telemetry data available - motor may not be streaming data");
-    }
-    
-    addThrottleLog("INFO", "--- Bluetooth Debug Logs (THROTTLE entries) ---");
+    addThrottleLog("INFO", "--- Previous Throttle Write Logs ---");
     const throttleRelated = debugLogs.filter(l => 
-      l.message.includes("THROTTLE") || l.message.includes("Throttle") || l.message.includes("throttle") || l.level === "THROTTLE"
+      l.level === "THROTTLE" || l.message.includes("MAX_THROTTLE") || l.message.includes("APP_CONFIG")
     );
     if (throttleRelated.length > 0) {
       throttleRelated.forEach(l => {
-        addThrottleLog(l.level === "THROTTLE" ? "THROTTLE" : l.level, `[BT] ${l.message}`);
+        addThrottleLog(l.level === "THROTTLE" ? "THROTTLE" : l.level, `${l.message}`);
       });
     } else {
-      addThrottleLog("INFO", "No throttle-related entries in Bluetooth log yet");
-      addThrottleLog("INFO", "Use the throttle slider in Settings to send a command, then check here");
+      addThrottleLog("INFO", "No MAX_THROTTLE write commands sent yet this session");
+    }
+    
+    if (telemetry?.errorCode) {
+      addThrottleLog("ERROR", `Motor error active: ${telemetry.errorDescription || telemetry.errorCode}`);
+    }
+  };
+
+  const testSendThrottleNow = async () => {
+    addThrottleLog("INFO", "=== Sending Max Throttle Command NOW ===");
+    
+    if (!motor?.isConnected) {
+      addThrottleLog("ERROR", "Motor NOT connected - cannot send");
+      return;
+    }
+
+    const percent = Math.round(Math.min(100, Math.max(10, testThrottlePercent)));
+    const command = `$APP_CONFIG,MAX_THROTTLE,${percent}`;
+    addThrottleLog("THROTTLE", `Writing: "${command}"`);
+    
+    try {
+      const success = await sendCommand(command);
+      if (success) {
+        addThrottleLog("THROTTLE", `SUCCESS: Max throttle set to ${percent}%`);
+      } else {
+        addThrottleLog("ERROR", `FAILED: sendCommand returned false`);
+        addThrottleLog("WARN", "Check Bluetooth connection and try again");
+      }
+    } catch (error: any) {
+      addThrottleLog("ERROR", `Exception: ${error.message}`);
     }
   };
 
@@ -648,9 +666,43 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const renderTestButton = () => {
     if (activeTab === "throttle") {
       return (
-        <Button variant="accent" onPress={testThrottleCommand} style={{ marginBottom: Spacing.sm }}>
-          Run Throttle Diagnostics
-        </Button>
+        <View style={{ gap: Spacing.sm, marginBottom: Spacing.sm }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+              Test %:
+            </ThemedText>
+            <TextInput
+              value={String(testThrottlePercent)}
+              onChangeText={(t) => {
+                const n = parseInt(t) || 10;
+                setTestThrottlePercent(Math.min(100, Math.max(10, n)));
+              }}
+              keyboardType="numeric"
+              style={{
+                backgroundColor: theme.surface,
+                color: theme.text,
+                borderRadius: BorderRadius.sm,
+                paddingHorizontal: Spacing.sm,
+                paddingVertical: Spacing.xs,
+                width: 60,
+                textAlign: "center",
+                fontSize: 14,
+                fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+              }}
+            />
+            <ThemedText type="caption" style={{ color: theme.textSecondary, flex: 1 }}>
+              $APP_CONFIG,MAX_THROTTLE,{testThrottlePercent}
+            </ThemedText>
+          </View>
+          <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <Button variant="outline" onPress={testThrottleCommand} style={{ flex: 1 }}>
+              Diagnostics
+            </Button>
+            <Button variant="accent" onPress={testSendThrottleNow} style={{ flex: 1 }}>
+              Send to Motor
+            </Button>
+          </View>
+        </View>
       );
     }
     if (activeTab === "antitheft") {
