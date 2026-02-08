@@ -117,8 +117,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const currentAuth = getFirebaseAuth();
         if (!currentAuth) return;
 
-        if (currentAuth.currentUser) {
-          const firebaseUser = currentAuth.currentUser;
+        let firebaseUser = currentAuth.currentUser;
+        if (!firebaseUser) {
+          try {
+            await new Promise<void>((resolve) => {
+              const timeout = setTimeout(() => resolve(), 3000);
+              const unsub = onAuthStateChanged(currentAuth, () => {
+                clearTimeout(timeout);
+                unsub();
+                resolve();
+              });
+            });
+            firebaseUser = currentAuth.currentUser;
+          } catch (err) {
+            console.warn("[Auth] Foreground auth wait error:", err);
+          }
+        }
+
+        if (firebaseUser) {
           const userData: UserData = {
             id: firebaseUser.uid,
             email: firebaseUser.email || "",
@@ -129,25 +145,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           setIsFirebaseReady(true);
           console.log("[Auth] Foreground check: Firebase user confirmed:", firebaseUser.uid);
         } else {
-          try {
-            await currentAuth.authStateReady();
-            if (currentAuth.currentUser) {
-              const firebaseUser = currentAuth.currentUser;
-              const userData: UserData = {
-                id: firebaseUser.uid,
-                email: firebaseUser.email || "",
-                createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
-              };
-              await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-              setUser(userData);
-              setIsFirebaseReady(true);
-              console.log("[Auth] Foreground check: Firebase user restored after authStateReady:", firebaseUser.uid);
-            } else {
-              console.log("[Auth] Foreground check: Firebase has no user - keeping local state for now");
-            }
-          } catch (err) {
-            console.warn("[Auth] Foreground authStateReady error:", err);
-          }
+          console.log("[Auth] Foreground check: Firebase has no user - keeping local state for now");
         }
       }
     });

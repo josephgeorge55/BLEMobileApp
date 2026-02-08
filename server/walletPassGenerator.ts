@@ -74,9 +74,26 @@ async function prepareWalletImages(): Promise<Record<string, Buffer>> {
 
   try {
     if (fs.existsSync(ukcaLogoPath)) {
-      images["thumbnail.png"] = await sharp(ukcaLogoPath).resize(90, 90, { fit: "contain", background: { r: 20, g: 40, b: 65, alpha: 1 } }).png().toBuffer();
-      images["thumbnail@2x.png"] = await sharp(ukcaLogoPath).resize(180, 180, { fit: "contain", background: { r: 20, g: 40, b: 65, alpha: 1 } }).png().toBuffer();
-      debugLog(`Prepared UKCA thumbnail images: thumbnail.png(${images["thumbnail.png"].length}b), thumbnail@2x.png(${images["thumbnail@2x.png"].length}b)`);
+      const bgColor = { r: 10, g: 22, b: 40 };
+      const invertedLogo = await sharp(ukcaLogoPath)
+        .negate({ alpha: false })
+        .resize(70, 70, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+      images["thumbnail.png"] = await sharp({
+        create: { width: 90, height: 90, channels: 4, background: { ...bgColor, alpha: 1 } }
+      }).composite([{ input: invertedLogo, gravity: "centre" }]).png().toBuffer();
+      
+      const invertedLogo2x = await sharp(ukcaLogoPath)
+        .negate({ alpha: false })
+        .resize(140, 140, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+      images["thumbnail@2x.png"] = await sharp({
+        create: { width: 180, height: 180, channels: 4, background: { ...bgColor, alpha: 1 } }
+      }).composite([{ input: invertedLogo2x, gravity: "centre" }]).png().toBuffer();
+      
+      debugLog(`Prepared UKCA thumbnail images (white on navy): thumbnail.png(${images["thumbnail.png"].length}b), thumbnail@2x.png(${images["thumbnail@2x.png"].length}b)`);
     } else {
       debugLog("WARN: ukca-logo.png not found, using icon as thumbnail fallback");
       if (fs.existsSync(iconSourcePath)) {
@@ -229,7 +246,7 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
         foregroundColor: "rgb(255, 255, 255)",
         backgroundColor: "rgb(10, 22, 40)",
         labelColor: "rgb(164, 208, 139)",
-        logoText: "DIGITAL PASSPORT",
+        logoText: "Blade Outboards",
       }
     );
 
@@ -243,14 +260,14 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
     });
 
     pass.headerFields.push({
-      key: "serial",
-      label: "S/N",
-      value: passportData.serialNumber,
+      key: "passport",
+      label: "PASSPORT",
+      value: "Digital",
     });
 
     pass.primaryFields.push({
       key: "product",
-      label: "OUTBOARD MOTOR",
+      label: passportData.serialNumber,
       value: passportData.productName || "Blade Halo 6",
     });
 
