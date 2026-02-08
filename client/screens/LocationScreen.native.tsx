@@ -230,7 +230,7 @@ export default function LocationScreen() {
                 longitude: currentLocation.longitude,
               },
               title: displayName,
-              color: currentLocation.isLive ? BladeColors.success : BladeColors.marine,
+              color: currentLocation.isLive ? BladeColors.success : "#8E8E93",
               isLive: currentLocation.isLive,
             },
           ] : []}
@@ -242,7 +242,7 @@ export default function LocationScreen() {
       {showLoadingState ? (
         <View style={styles.overlayContainer}>
           <View style={styles.overlayContent}>
-            <ActivityIndicator size="large" color={BladeColors.marine} />
+            <ActivityIndicator size="large" color="#8E8E93" />
             <ThemedText type="body" style={styles.loadingText}>
               Fetching location...
             </ThemedText>

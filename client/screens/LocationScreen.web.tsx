@@ -174,7 +174,7 @@ export default function LocationScreen() {
   if (isLoadingLocation && !currentLocation) {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
-        <ActivityIndicator size="large" color={BladeColors.marine} />
+        <ActivityIndicator size="large" color="#8E8E93" />
         <ThemedText type="body" style={styles.loadingText}>
           Fetching location from Firestore...
         </ThemedText>
@@ -229,7 +229,7 @@ export default function LocationScreen() {
                 longitude: currentLocation.longitude,
               },
               title: displayName,
-              color: currentLocation.isLive ? BladeColors.success : BladeColors.marine,
+              color: currentLocation.isLive ? BladeColors.success : "#8E8E93",
               isLive: currentLocation.isLive,
             },
           ]}

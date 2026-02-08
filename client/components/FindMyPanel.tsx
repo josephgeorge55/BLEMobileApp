@@ -170,7 +170,7 @@ export function FindMyPanel({
     <GestureDetector gesture={panGesture}>
       <Animated.View
         entering={FadeInUp.duration(400).springify()}
-        style={[styles.container, { backgroundColor: theme.surface }, Shadows.large, animatedContainerStyle]}
+        style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)" }, Shadows.large, animatedContainerStyle]}
       >
         <Pressable onPress={handleExpandToggle} style={styles.handleContainer}>
           <View style={styles.handle} />
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: "rgba(0,0,0,0.15)",
+    backgroundColor: "rgba(255,255,255,0.3)",
     borderRadius: 2,
   },
   scrollContent: {
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.xl * 2,
   },
   motorSection: {
     flexDirection: "row",

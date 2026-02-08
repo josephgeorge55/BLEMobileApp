@@ -121,7 +121,7 @@ export function OpenStreetMap({
       width: 48px;
       height: 48px;
       border-radius: 14px;
-      background: rgba(20, 30, 50, 0.85);
+      background: rgba(44, 44, 46, 0.92);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -133,7 +133,7 @@ export function OpenStreetMap({
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
     }
     .glass-btn:hover {
-      background: rgba(30, 45, 70, 0.9);
+      background: rgba(58, 58, 60, 0.95);
       transform: scale(1.05);
     }
     .glass-btn:active {
@@ -173,7 +173,7 @@ export function OpenStreetMap({
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: rgba(20, 30, 50, 0.85);
+      background: rgba(44, 44, 46, 0.92);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -228,7 +228,7 @@ export function OpenStreetMap({
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(10, 77, 110, 0.3) 0%, rgba(10, 77, 110, 0.1) 100%);
+      background: linear-gradient(135deg, rgba(99, 99, 102, 0.3) 0%, rgba(99, 99, 102, 0.1) 100%);
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
     .marker-outer-ring.live {
@@ -239,12 +239,12 @@ export function OpenStreetMap({
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      background: linear-gradient(145deg, ${BladeColors.marine} 0%, ${BladeColors.primary} 100%);
+      background: linear-gradient(145deg, #636366 0%, #48484A 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 
-        0 4px 20px rgba(10, 77, 110, 0.5),
+        0 4px 20px rgba(99, 99, 102, 0.5),
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 2px 4px rgba(255, 255, 255, 0.2),
         inset 0 -2px 4px rgba(0, 0, 0, 0.2);
@@ -269,7 +269,7 @@ export function OpenStreetMap({
       width: 72px;
       height: 72px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(10, 77, 110, 0.4) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(99, 99, 102, 0.4) 0%, transparent 70%);
       opacity: 0;
     }
     .marker-glow.live {
@@ -497,7 +497,7 @@ export function OpenStreetMap({
             <button onclick="openDirections(\${lat}, \${lng})" style="
               flex: 1;
               padding: 10px 12px;
-              background: linear-gradient(145deg, #0A4D6E, #083d58);
+              background: linear-gradient(145deg, #636366, #48484A);
               color: white;
               border: none;
               border-radius: 8px;
