@@ -110,15 +110,21 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - **Native Path**: Passport/wallet files use `downloadAsync` with UUID-based temporary server URLs; trip reports use the ArrayBuffer → base64 → `writeAsStringAsync` approach.
 
 ### Push Notification System
-- **Architecture**: Backend-driven push notifications using Expo Push Notification API (`https://exp.host/--/api/v2/push/send`).
-- **Token Registration**: Client registers Expo push tokens via `POST /api/push-tokens/register` with userId, platform, motorSerialNumber, and notification preferences.
+- **Dual-Transport Architecture**: iOS uses direct APNs (HTTP/2 + JWT auth) for Xcode builds; Android uses Expo Push API for EAS builds.
+- **Token Types**: `push_tokens` table has `token_type` column: `"apns"` for iOS device tokens, `"expo"` for Android Expo push tokens.
+- **iOS Token**: Client calls `getDevicePushTokenAsync()` on iOS to get raw APNs device token. Server sends directly to `api.push.apple.com` using ES256-signed JWT.
+- **Android Token**: Client calls `getExpoPushTokenAsync()` on Android. Server sends via Expo Push API (`exp.host`).
+- **APNs Service**: `server/apnsPushService.ts` - JWT caching (50min), batch size 50, production/sandbox toggle via `APNS_ENVIRONMENT` env var.
+- **APNs Secrets**: `APPLE_APNS_KEY_P8` (.p8 key content), `APPLE_APNS_KEY_ID`, `APPLE_TEAM_IDENTIFIER`, `APPLE_BUNDLE_ID`.
+- **Routing**: `server/routes.ts` `/api/notifications/send` splits tokens by `tokenType`, routes APNs tokens to Apple and Expo tokens to Expo API.
+- **Token Registration**: Client registers tokens via `POST /api/push-tokens/register` with `tokenType` field (`apns` or `expo`).
 - **Preference Syncing**: Client syncs notification toggle changes to server via `PUT /api/push-tokens/preferences`. Preferences stored per-token in `push_tokens` table.
 - **Three Categories**:
   1. **News/Promotions** (`notif_news`): Sent to all opted-in users. Mapped from client `announcements` setting. Type: `"announcement"` or `"news"`.
   2. **Service/Warranty** (`notif_service`): Time-based reminders from backend. Mapped from client `maintenance` setting. Type: `"service"` or `"maintenance"`.
   3. **Motor-Specific** (`notif_motor`): Targeted by serial number for firmware/recalls. Mapped from client `firmware` setting. Uses `targetSerialNumber` field.
-- **Service**: `server/pushNotificationService.ts` handles batched sending (100 per batch) with error tracking.
-- **Client Integration**: `SettingsContext.tsx` handles Expo Notifications permission request, token retrieval, server registration, and preference syncing on toggle changes.
+- **Expo Service**: `server/pushNotificationService.ts` handles batched sending (100 per batch) with error tracking.
+- **Client Integration**: `SettingsContext.tsx` handles platform detection, permission request, token retrieval (APNs on iOS, Expo on Android), server registration with tokenType, and preference syncing on toggle changes.
 - **NOT for real-time**: Push is NOT used for BLE disconnect, sensor faults, low battery, or overheating (those use local haptics/alerts).
 
 ### Third-Party APIs
