@@ -417,6 +417,7 @@ export default function DashboardScreen() {
           />
           <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
           <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
+          <ThemedText style={styles.heroTagline}>Cutting-edge technology features that enhance the e-boating experience.</ThemedText>
           <View style={styles.heroDeviceRow}>
             <Pressable
               style={styles.connectButton}
@@ -424,7 +425,7 @@ export default function DashboardScreen() {
             >
               <Feather name="bluetooth" size={14} color="#FFFFFF" />
               <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
-                Scan for Motors
+                Disconnected
               </ThemedText>
             </Pressable>
           </View>
@@ -464,7 +465,7 @@ export default function DashboardScreen() {
             image={require("../../assets/images/halo-outboard.png")}
             title="Connect Your Outboard"
             description="Tap the Bluetooth button to scan for nearby Blade outboards and view real-time telemetry."
-            actionLabel="Scan for Motors"
+            actionLabel="Disconnected"
             onAction={handleConnect}
           />
         </View>
@@ -1037,6 +1038,7 @@ export default function DashboardScreen() {
         />
         <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
         <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
+        <ThemedText style={styles.heroTagline}>Cutting-edge technology features that enhance the e-boating experience.</ThemedText>
         <View style={styles.heroDeviceRow}>
           {isConnected ? (
             <>
@@ -1057,7 +1059,7 @@ export default function DashboardScreen() {
             >
               <Feather name="bluetooth" size={14} color="#FFFFFF" />
               <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
-                Scan for Motors
+                Disconnected
               </ThemedText>
             </Pressable>
           )}
@@ -1315,6 +1317,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "400",
     textAlign: "center",
+  },
+  heroTagline: {
+    color: "#8E8E93",
+    fontSize: 13,
+    fontWeight: "400",
+    textAlign: "center",
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    lineHeight: 18,
   },
   heroDeviceRow: {
     flexDirection: "row",
