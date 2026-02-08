@@ -1362,6 +1362,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     textAlign: "center",
     marginBottom: Spacing.xs,
+    paddingTop: 4,
   },
   heroSubtitle: {
     color: "#8E8E93",
@@ -1469,13 +1470,14 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   tripPreview: {
-    height: 110,
+    minHeight: 110,
     backgroundColor: "rgba(30,30,32,0.95)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.lg,
+    paddingTop: Spacing.xl,
     gap: Spacing.sm,
   },
   tripTimerDisplay: {
@@ -1489,6 +1491,7 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     fontVariant: ["tabular-nums"],
     letterSpacing: 2,
+    includeFontPadding: false,
   },
   tripActionRow: {
     flexDirection: "row",
