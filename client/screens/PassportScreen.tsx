@@ -46,7 +46,7 @@ function metersToFeet(meters: number): number {
 export default function PassportScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { user } = useUser();
+  const { user, isFirebaseReady } = useUser();
   const { motor } = useMotor();
   const navigation = useNavigation();
   const cardRef = useRef<View>(null);
@@ -58,12 +58,14 @@ export default function PassportScreen() {
   const [addingToWallet, setAddingToWallet] = useState(false);
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && isFirebaseReady) {
       loadData();
+    } else if (!isFirebaseReady) {
+      // Still waiting for Firebase
     } else {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, isFirebaseReady]);
 
   const loadData = async () => {
     if (!user?.id) return;

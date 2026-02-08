@@ -66,7 +66,7 @@ export default function BleScannerModal() {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { motor, connectToMotor, isConnecting, stopScan, processParsedData, disconnectMotor, addDebugLog } = useMotor();
-  const { user } = useUser();
+  const { user, isGuestMode, isFirebaseReady } = useUser();
 
   const [isScanning, setIsScanning] = useState(true);
   const [devices, setDevices] = useState<ScanDevice[]>([]);
@@ -78,7 +78,6 @@ export default function BleScannerModal() {
   const [bleError, setBleError] = useState<string | null>(null);
   const [showConnectingModal, setShowConnectingModal] = useState(false);
   const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
-  const { isGuestMode } = useUser();
   const pulseOpacity = useSharedValue(1);
   useEffect(() => {
     pulseOpacity.value = withRepeat(

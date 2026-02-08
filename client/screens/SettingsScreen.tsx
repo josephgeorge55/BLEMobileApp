@@ -42,7 +42,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
   const { motor, telemetry, disconnectMotor, startScan, debugLogs, sendCommand } = useMotor();
-  const { user, logout } = useUser();
+  const { user, logout, isFirebaseReady, isGuestMode } = useUser();
   const { showSuccess, showError } = useToast();
   const {
     anonymousDataSharing,
@@ -59,29 +59,26 @@ export default function SettingsScreen() {
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [showBoatModal, setShowBoatModal] = useState(false);
   const [boatData, setBoatData] = useState<BoatData | null>(null);
-  const { isGuestMode } = useUser();
 
   const [maxThrottle, setMaxThrottle] = useState(100);
   const [throttleCooldown, setThrottleCooldown] = useState(0);
   const [isSendingThrottle, setIsSendingThrottle] = useState(false);
   const lastThrottleSentRef = useRef(0);
 
-  // Check if currently connected motor is registered
   const isConnectedMotorRegistered = motor?.isConnected && registeredMotors.some(
     rm => rm.serialNumber === motor.serialNumber || rm.serialNumber === telemetry?.tillerSerialNumber
   );
 
-  // Load registered motors and boat data whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (user?.id) {
+      if (user?.id && isFirebaseReady) {
         loadRegisteredMotors();
         loadBoatData();
-      } else {
+      } else if (!user?.id) {
         setRegisteredMotors([]);
         setBoatData(null);
       }
-    }, [user?.id])
+    }, [user?.id, isFirebaseReady])
   );
 
   const loadBoatData = async () => {

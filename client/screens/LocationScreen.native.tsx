@@ -30,7 +30,7 @@ export default function LocationScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { motor, location, setLocation, telemetry, addDebugLog } = useMotor();
-  const { user, isGuestMode } = useUser();
+  const { user, isGuestMode, isFirebaseReady } = useUser();
 
   const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
   const [firestoreLocation, setFirestoreLocation] = useState<LocationData | null>(null);
@@ -39,10 +39,6 @@ export default function LocationScreen() {
 
   const isConnected = motor?.isConnected;
   
-  // Get the effective serial number:
-  // 1. If connected and motor has a valid serial (not Bluetooth MAC address or iOS UUID), use it
-  // 2. If connected but motor.serialNumber is a placeholder, check telemetry.tillerSerialNumber (from INFOR G1)
-  // 3. Fall back to first registered motor's serial
   const isPlaceholder = (s: string) => s.includes(':') || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s);
   const getEffectiveSerialNumber = (): string | undefined => {
     if (motor?.serialNumber && !isPlaceholder(motor.serialNumber)) {
@@ -59,7 +55,6 @@ export default function LocationScreen() {
   
   const serialNumber = getEffectiveSerialNumber();
   
-  // Debug log the serial number resolution
   useEffect(() => {
     addDebugLog("INFO", `[Location] Serial number resolved: ${serialNumber || 'none'}`);
     addDebugLog("INFO", `[Location] Source: motor=${motor?.serialNumber || 'none'}, telemetry=${telemetry?.tillerSerialNumber || 'none'}, registered=${registeredMotors[0]?.serialNumber || 'none'}`);
@@ -67,7 +62,8 @@ export default function LocationScreen() {
 
   useEffect(() => {
     const loadRegisteredMotors = async () => {
-      if (!user || isGuestMode || user.id === "guest") {
+      if (!user || isGuestMode || user.id === "guest" || !isFirebaseReady) {
+        if (!isFirebaseReady) return;
         setRegisteredMotors([]);
         return;
       }
@@ -84,7 +80,7 @@ export default function LocationScreen() {
     };
 
     loadRegisteredMotors();
-  }, [user, isGuestMode]);
+  }, [user, isGuestMode, isFirebaseReady]);
 
   const fetchFirestoreGPS = async () => {
     addDebugLog("INFO", "--- Firestore GPS Fetch Started ---");
