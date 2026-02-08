@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { apiRequest } from "@/lib/query-client";
+import { useUser } from "@/context/UserContext";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -43,11 +44,13 @@ const defaultNotificationSettings: NotificationSettings = {
 };
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const { user, isGuestMode } = useUser();
   const [anonymousDataSharing, setAnonymousDataSharingState] = useState(false);
   const [notificationSettings, setNotificationSettingsState] =
     useState<NotificationSettings>(defaultNotificationSettings);
   const [pushToken, setPushTokenState] = useState<string | null>(null);
   const settingsLoadedRef = useRef(false);
+  const pushRegistrationAttemptedRef = useRef(false);
 
   useEffect(() => {
     loadSettings();
@@ -178,6 +181,24 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   }, [notificationSettings]);
+
+  useEffect(() => {
+    if (!user || user.id === "guest" || isGuestMode) {
+      return;
+    }
+    if (pushRegistrationAttemptedRef.current) {
+      return;
+    }
+    pushRegistrationAttemptedRef.current = true;
+    console.log("[Push] Auto-registering push notifications for user:", user.id);
+    registerForPushNotifications(user.id).then((token) => {
+      if (token) {
+        console.log("[Push] Auto-registration successful, token obtained");
+      } else {
+        console.log("[Push] Auto-registration: no token (permission denied or unsupported)");
+      }
+    });
+  }, [user, isGuestMode, registerForPushNotifications]);
 
   const setAnonymousDataSharing = (value: boolean) => {
     setAnonymousDataSharingState(value);
