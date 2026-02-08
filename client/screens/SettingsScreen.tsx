@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import { Feather } from "@expo/vector-icons";
+import Animated, { FadeInUp } from "react-native-reanimated";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -303,91 +304,100 @@ export default function SettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       {user ? (
-        <SettingsSection title="Account">
-          <SettingsRow
-            icon="user"
-            title={user.email}
-            subtitle="Signed in"
-            showChevron={false}
-          />
-          <SettingsRow
-            icon="log-out"
-            title="Sign Out"
-            onPress={handleLogout}
-            destructive
-            showChevron={false}
-          />
-        </SettingsSection>
+        <Animated.View entering={FadeInUp.duration(350).springify()}>
+          <SettingsSection title="Account">
+            <SettingsRow
+              icon="user"
+              title={user.email}
+              subtitle="Signed in"
+              showChevron={false}
+            />
+            <SettingsRow
+              icon="log-out"
+              title="Sign Out"
+              onPress={handleLogout}
+              destructive
+              showChevron={false}
+            />
+          </SettingsSection>
+        </Animated.View>
       ) : null}
 
       {user && !isGuestMode ? (
-        <SettingsSection title="My Boat">
-          <SettingsRow
-            icon="anchor"
-            title={boatData ? boatData.boatType : "Add Boat Information"}
-            subtitle={boatData 
-              ? `${(boatData.lengthMeters * 3.28084).toFixed(1)} ft / ${boatData.weightKg.toFixed(0)} kg`
-              : "Enter your boat details for trip reports"
-            }
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowBoatModal(true);
-            }}
-            iconColor={boatData ? BladeColors.marine : "rgba(255,255,255,0.5)"}
-          />
-        </SettingsSection>
+        <Animated.View entering={FadeInUp.delay(50).duration(350).springify()}>
+          <SettingsSection title="My Boat">
+            <SettingsRow
+              icon="anchor"
+              title={boatData ? boatData.boatType : "Add Boat Information"}
+              subtitle={boatData 
+                ? `${(boatData.lengthMeters * 3.28084).toFixed(1)} ft / ${boatData.weightKg.toFixed(0)} kg`
+                : "Enter your boat details for trip reports"
+              }
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowBoatModal(true);
+              }}
+              iconColor={boatData ? BladeColors.marine : "rgba(255,255,255,0.5)"}
+            />
+          </SettingsSection>
+        </Animated.View>
       ) : null}
 
       {user && !isGuestMode ? (
-        <SettingsSection title="Ownership">
-          <SettingsRow
-            icon="award"
-            title="Blade Outboard Passport"
-            subtitle="Digital proof of ownership, warranty & wallet pass"
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("Passport");
-            }}
-            iconColor={BladeColors.gold}
-          />
-        </SettingsSection>
+        <Animated.View entering={FadeInUp.delay(100).duration(350).springify()}>
+          <SettingsSection title="Ownership">
+            <SettingsRow
+              icon="award"
+              title="Blade Outboard Passport"
+              subtitle="Digital proof of ownership, warranty & wallet pass"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("Passport");
+              }}
+              iconColor={BladeColors.gold}
+            />
+          </SettingsSection>
+        </Animated.View>
       ) : null}
 
       {user && !isGuestMode ? (
-        <SettingsSection title="Registered Outboards">
-          {loadingMotors ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={BladeColors.accent} />
-              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.5)", marginLeft: Spacing.sm }}>
-                Loading...
-              </ThemedText>
-            </View>
-          ) : registeredMotors.length > 0 ? (
-            registeredMotors.map((registeredMotor, index) => (
-              <SettingsRow
-                key={`${registeredMotor.serialNumber}-${index}`}
-                icon="lock"
-                title={registeredMotor.name || registeredMotor.serialNumber}
-                subtitle={registeredMotor.name ? `S/N: ${registeredMotor.serialNumber}` : "Protected"}
-                onPress={() => handleRemoveMotor(registeredMotor.serialNumber)}
-                iconColor={BladeColors.success}
-              />
-            ))
-          ) : (
-            <View style={styles.emptyRegisteredContainer}>
-              <Feather name="shield-off" size={32} color={"rgba(255,255,255,0.35)"} />
-              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.sm, textAlign: 'center' }}>
-                No outboards registered for anti-theft protection
-              </ThemedText>
-              <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.xs, textAlign: 'center' }}>
-                Connect an outboard via Bluetooth to enable protection
-              </ThemedText>
-            </View>
-          )}
-        </SettingsSection>
+        <Animated.View entering={FadeInUp.delay(150).duration(350).springify()}>
+          <SettingsSection title="Registered Outboards">
+            {loadingMotors ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={BladeColors.accent} />
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.5)", marginLeft: Spacing.sm }}>
+                  Loading...
+                </ThemedText>
+              </View>
+            ) : registeredMotors.length > 0 ? (
+              registeredMotors.map((registeredMotor, index) => (
+                <SettingsRow
+                  key={`${registeredMotor.serialNumber}-${index}`}
+                  icon="lock"
+                  title={registeredMotor.name || registeredMotor.serialNumber}
+                  subtitle={registeredMotor.name ? `S/N: ${registeredMotor.serialNumber}` : "Protected"}
+                  onPress={() => handleRemoveMotor(registeredMotor.serialNumber)}
+                  iconColor={BladeColors.success}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyRegisteredContainer}>
+                <Feather name="shield-off" size={32} color={"rgba(255,255,255,0.35)"} />
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.sm, textAlign: 'center' }}>
+                  No outboards registered for anti-theft protection
+                </ThemedText>
+                <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.xs, textAlign: 'center' }}>
+                  Connect an outboard via Bluetooth to enable protection
+                </ThemedText>
+              </View>
+            )}
+          </SettingsSection>
+        </Animated.View>
       ) : null}
 
       {motor?.isConnected ? (
+        <Animated.View entering={FadeInUp.delay(200).duration(350).springify()}>
         <SettingsSection title="Connected Outboard">
           <View style={[styles.motorCard, { backgroundColor: "transparent" }]}>
             <View style={styles.motorImageContainer}>
@@ -550,7 +560,9 @@ export default function SettingsScreen() {
             disabled={isDisconnecting}
           />
         </SettingsSection>
+        </Animated.View>
       ) : (
+        <Animated.View entering={FadeInUp.delay(200).duration(350).springify()}>
         <SettingsSection title="Outboard">
           <Pressable 
             style={[styles.emptyMotorCard, { backgroundColor: "transparent" }]}
@@ -571,8 +583,10 @@ export default function SettingsScreen() {
             </ThemedText>
           </Pressable>
         </SettingsSection>
+        </Animated.View>
       )}
 
+      <Animated.View entering={FadeInUp.delay(250).duration(350).springify()}>
       <SettingsSection title="Notifications">
         <SettingsRow
           icon="tool"
@@ -599,7 +613,9 @@ export default function SettingsScreen() {
           onToggle={() => toggleNotification("announcements")}
         />
       </SettingsSection>
+      </Animated.View>
 
+      <Animated.View entering={FadeInUp.delay(300).duration(350).springify()}>
       <SettingsSection title="Privacy">
         <SettingsRow
           icon="share-2"
@@ -615,7 +631,9 @@ export default function SettingsScreen() {
           </ThemedText>
         </View>
       </SettingsSection>
+      </Animated.View>
 
+      <Animated.View entering={FadeInUp.delay(350).duration(350).springify()}>
       <SettingsSection title="Support">
         <SettingsRow
           icon="life-buoy"
@@ -637,7 +655,9 @@ export default function SettingsScreen() {
           onPress={handleOpenSupport}
         />
       </SettingsSection>
+      </Animated.View>
 
+      <Animated.View entering={FadeInUp.delay(400).duration(350).springify()}>
       <SettingsSection title="Developer">
         <SettingsRow
           icon="terminal"
@@ -647,7 +667,9 @@ export default function SettingsScreen() {
           iconColor={BladeColors.marine}
         />
       </SettingsSection>
+      </Animated.View>
 
+      <Animated.View entering={FadeInUp.delay(450).duration(350).springify()}>
       <SettingsSection title="Legal">
         <SettingsRow
           icon="shield"
@@ -660,7 +682,9 @@ export default function SettingsScreen() {
           onPress={handleOpenTerms}
         />
       </SettingsSection>
+      </Animated.View>
 
+      <Animated.View entering={FadeInUp.delay(500).duration(350).springify()}>
       <SettingsSection title="System Information">
         <SettingsRow
           icon="smartphone"
@@ -692,7 +716,9 @@ export default function SettingsScreen() {
           onPress={handleOpenWebsite}
         />
       </SettingsSection>
+      </Animated.View>
 
+      <Animated.View entering={FadeInUp.delay(550).duration(350).springify()}>
       <View style={styles.footer}>
         <View style={[styles.oemBadge, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}>
           <Feather name="anchor" size={16} color={"rgba(255,255,255,0.35)"} />
@@ -731,6 +757,7 @@ export default function SettingsScreen() {
           {"\u00A9"} 2026 Blade Marine Technologies Ltd. All rights reserved.
         </ThemedText>
       </View>
+      </Animated.View>
     </ScrollView>
       
     <FirmwareUpdateModal

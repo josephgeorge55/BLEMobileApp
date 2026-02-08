@@ -11,6 +11,7 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
+import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
@@ -280,7 +281,7 @@ export default function TripDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.tile}>
+        <Animated.View entering={FadeIn.duration(300)} style={styles.tile}>
           <View style={styles.tripHeaderRow}>
             <View style={styles.tripTitleSection}>
               <Text style={styles.tripName}>
@@ -327,10 +328,10 @@ export default function TripDetailScreen() {
               <Text style={styles.statLabel}>Avg km/h</Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {mapRegion && routeCoordinates.length > 1 ? (
-          <View style={styles.tile}>
+          <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
                 <Feather name="map" size={14} color="#5AC8FA" />
@@ -360,10 +361,10 @@ export default function TripDetailScreen() {
                 ]}
               />
             </View>
-          </View>
+          </Animated.View>
         ) : null}
 
-        <View style={styles.tile}>
+        <Animated.View entering={FadeInUp.delay(150).duration(400).springify()} style={styles.tile}>
           <View style={styles.tileSectionHeader}>
             <View style={styles.tileSectionIcon}>
               <Feather name="zap" size={14} color="#FF9500" />
@@ -413,10 +414,10 @@ export default function TripDetailScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {speedData.length > 0 ? (
-          <View style={styles.tile}>
+          <Animated.View entering={FadeInUp.delay(230).duration(400).springify()} style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
                 <Feather name="activity" size={14} color="#5AC8FA" />
@@ -445,11 +446,11 @@ export default function TripDetailScreen() {
                 <Text style={styles.miniChartLabel}>Samples</Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
         ) : null}
 
         {batteryData.length > 0 ? (
-          <View style={styles.tile}>
+          <Animated.View entering={FadeInUp.delay(310).duration(400).springify()} style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
                 <Feather name="battery-charging" size={14} color={BladeColors.success} />
@@ -478,11 +479,11 @@ export default function TripDetailScreen() {
                 <Text style={styles.miniChartLabel}>Used</Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
         ) : null}
 
         {powerData.length > 0 ? (
-          <View style={styles.tile}>
+          <Animated.View entering={FadeInUp.delay(390).duration(400).springify()} style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
                 <Feather name="cpu" size={14} color="#FF6B6B" />
@@ -504,10 +505,10 @@ export default function TripDetailScreen() {
                 <Text style={styles.miniChartLabel}>Average</Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
         ) : null}
 
-        <View style={styles.tile}>
+        <Animated.View entering={FadeInUp.delay(470).duration(400).springify()} style={styles.tile}>
           <View style={styles.tileSectionHeader}>
             <View style={styles.tileSectionIcon}>
               <Feather name="database" size={14} color="#AF52DE" />
@@ -518,7 +519,7 @@ export default function TripDetailScreen() {
             <Text style={styles.dataPointsValue}>{dataPoints.length}</Text>
             <Text style={styles.dataPointsLabel}>data points recorded at 4-second intervals</Text>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
 
       <View style={[styles.actionBar, { paddingBottom: insets.bottom + Spacing.md }]}>

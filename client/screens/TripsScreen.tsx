@@ -15,7 +15,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInUp, FadeIn, FadeInDown } from "react-native-reanimated";
 import { useUser } from "@/context/UserContext";
 import { useTrip } from "@/context/TripContext";
 import { BladeColors, Spacing, BorderRadius } from "@/constants/theme";
@@ -55,7 +55,7 @@ function TripControlTile({
   const canPress = !disabled && !isLoading;
 
   return (
-    <View style={styles.tripControlTile}>
+    <Animated.View entering={FadeInUp.duration(400).springify()} style={styles.tripControlTile}>
       <View style={styles.tripControlHeader}>
         <View style={styles.tripControlIconCircle}>
           <Feather name="sliders" size={18} color={ACCENT} />
@@ -100,7 +100,7 @@ function TripControlTile({
           ))}
         </View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -314,18 +314,18 @@ export default function TripsScreen() {
       </Animated.View>
       
       {trips.length > 0 ? (
-        <View style={styles.sectionHeader}>
+        <Animated.View entering={FadeIn.delay(200).duration(300)} style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>HISTORY</Text>
           <View style={styles.sectionCountBadge}>
             <Text style={styles.sectionCount}>{trips.length}</Text>
           </View>
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );
 
   const EmptyState = () => (
-    <View style={styles.emptyContainer}>
+    <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.emptyContainer}>
       <View style={styles.emptyIconCircle}>
         <Feather name="anchor" size={28} color={ACCENT} />
       </View>
@@ -333,7 +333,7 @@ export default function TripsScreen() {
       <Text style={styles.emptySubtitle}>
         Connect your Blade outboard and start recording to track your journeys.
       </Text>
-    </View>
+    </Animated.View>
   );
 
   return (
@@ -668,6 +668,10 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: BladeColors.success,
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
   },
   liveBadgeText: {
     color: BladeColors.success,

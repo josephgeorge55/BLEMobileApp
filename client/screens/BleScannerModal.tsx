@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInUp, useSharedValue, withRepeat, withTiming, useAnimatedStyle, ZoomIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -79,6 +79,18 @@ export default function BleScannerModal() {
   const [showConnectingModal, setShowConnectingModal] = useState(false);
   const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
   const { isGuestMode } = useUser();
+  const pulseOpacity = useSharedValue(1);
+  useEffect(() => {
+    pulseOpacity.value = withRepeat(
+      withTiming(0.4, { duration: 800 }),
+      -1,
+      true
+    );
+  }, []);
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: pulseOpacity.value,
+  }));
+
   const [bleDiagnostics, setBleDiagnostics] = useState<{
     bleInitialized: boolean;
     classicInitialized: boolean;
@@ -548,7 +560,7 @@ export default function BleScannerModal() {
     const isConnectingToThis = isSelected && isConnecting;
 
     return (
-      <Animated.View entering={FadeInUp.delay(index * 100).duration(300)}>
+      <Animated.View entering={FadeInUp.delay(index * 60).duration(300).springify()}>
         <Pressable
           onPress={() => handleDevicePress(item)}
           disabled={isConnecting}
@@ -734,13 +746,17 @@ export default function BleScannerModal() {
 
       {isScanning ? (
         <Animated.View entering={FadeIn.duration(300)} style={styles.scanning}>
-          <ActivityIndicator size="large" color={BladeColors.accent} />
-          <ThemedText
-            type="body"
-            style={[styles.scanningText, { color: "rgba(255,255,255,0.55)" }]}
-          >
-            Scanning for all Bluetooth devices...
-          </ThemedText>
+          <Animated.View style={pulseStyle}>
+            <ActivityIndicator size="large" color={BladeColors.accent} />
+          </Animated.View>
+          <Animated.View style={pulseStyle}>
+            <ThemedText
+              type="body"
+              style={[styles.scanningText, { color: "rgba(255,255,255,0.55)" }]}
+            >
+              Scanning for all Bluetooth devices...
+            </ThemedText>
+          </Animated.View>
           <ThemedText
             type="caption"
             style={{ color: "rgba(255,255,255,0.45)", marginTop: Spacing.sm }}
@@ -850,19 +866,27 @@ export default function BleScannerModal() {
     >
       <View style={styles.connectingOverlay}>
         <Animated.View 
-          entering={FadeIn.duration(200)}
+          entering={ZoomIn.duration(300).springify()}
           style={[styles.connectingModal, { backgroundColor: "rgba(44,44,46,0.95)" }]}
         >
-          <ActivityIndicator size="large" color={BladeColors.accent} />
-          <ThemedText type="h4" style={[styles.connectingTitle, { color: "#FFFFFF" }]}>
-            Connecting...
-          </ThemedText>
-          <ThemedText type="body" style={[styles.connectingSubtitle, { color: "rgba(255,255,255,0.55)" }]}>
-            {connectingDevice || "Blade Outboard"}
-          </ThemedText>
-          <ThemedText type="caption" style={[styles.connectingNote, { color: "rgba(255,255,255,0.35)" }]}>
-            Please keep your device nearby
-          </ThemedText>
+          <Animated.View style={pulseStyle}>
+            <ActivityIndicator size="large" color={BladeColors.accent} />
+          </Animated.View>
+          <Animated.View entering={FadeInUp.delay(100).duration(250)}>
+            <ThemedText type="h4" style={[styles.connectingTitle, { color: "#FFFFFF" }]}>
+              Connecting...
+            </ThemedText>
+          </Animated.View>
+          <Animated.View entering={FadeInUp.delay(200).duration(250)}>
+            <ThemedText type="body" style={[styles.connectingSubtitle, { color: "rgba(255,255,255,0.55)" }]}>
+              {connectingDevice || "Blade Outboard"}
+            </ThemedText>
+          </Animated.View>
+          <Animated.View entering={FadeInUp.delay(300).duration(250)}>
+            <ThemedText type="caption" style={[styles.connectingNote, { color: "rgba(255,255,255,0.35)" }]}>
+              Please keep your device nearby
+            </ThemedText>
+          </Animated.View>
         </Animated.View>
       </View>
     </Modal>

@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -377,7 +378,7 @@ export default function PassportScreen() {
   if (!isLoading && registeredMotors.length === 0) {
     return (
       <View style={[styles.screen, styles.centered, { paddingHorizontal: Spacing.xl }]}>
-        <View style={styles.lockedCard}>
+        <Animated.View entering={FadeIn.duration(400)} style={styles.lockedCard}>
           <Feather name="lock" size={48} color="#D1D5DB" />
           <Text style={styles.lockedTitle}>Passport Locked</Text>
           <Text style={styles.lockedDescription}>
@@ -393,7 +394,7 @@ export default function PassportScreen() {
             <Feather name="arrow-left" size={16} color="#FFFFFF" />
             <Text style={styles.lockedButtonText}>Go Back</Text>
           </Pressable>
-        </View>
+        </Animated.View>
       </View>
     );
   }
@@ -416,7 +417,7 @@ export default function PassportScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View ref={cardRef} style={styles.card}>
+        <Animated.View ref={cardRef} entering={FadeInUp.duration(500).springify()} style={styles.card}>
           <View style={styles.logoContainer}>
             <Image
               source={bladePassportLogo}
@@ -517,9 +518,9 @@ export default function PassportScreen() {
             Blade outboard motor. Keep this document safe for warranty and
             service purposes.
           </Text>
-        </View>
+        </Animated.View>
 
-        <View style={styles.buttonsContainer}>
+        <Animated.View entering={FadeInUp.delay(150).duration(400).springify()} style={styles.buttonsContainer}>
           <Pressable
             onPress={handleAddToAppleWallet}
             disabled={addingToWallet}
@@ -569,7 +570,7 @@ export default function PassportScreen() {
               </>
             )}
           </Pressable>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );

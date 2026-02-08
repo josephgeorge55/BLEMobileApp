@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import { Feather } from "@expo/vector-icons";
+import Animated, { FadeInUp, FadeIn, FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -140,24 +141,29 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.logoSection}>
-            <Image
+          <Animated.View style={styles.logoSection} entering={FadeIn.duration(800)}>
+            <Animated.Image
               source={require("../../assets/images/halo-outboard.png")}
               style={styles.productImage}
               resizeMode="contain"
+              entering={FadeInUp.delay(200).duration(600).springify()}
             />
-            <Image
+            <Animated.Image
               source={require("../../assets/images/blade-logo-white.png")}
               style={styles.logo}
               resizeMode="contain"
+              entering={FadeIn.delay(500).duration(400)}
             />
-            <ThemedText type="body" style={styles.tagline}>
-              Precision Electric Propulsion
-            </ThemedText>
-          </View>
+            <Animated.View entering={FadeIn.delay(700).duration(400)}>
+              <ThemedText type="body" style={styles.tagline}>
+                Precision Electric Propulsion
+              </ThemedText>
+            </Animated.View>
+          </Animated.View>
 
           <View style={styles.formSection}>
-            <View style={styles.formCard}>
+            <Animated.View entering={FadeInUp.delay(400).duration(500).springify()}>
+              <View style={styles.formCard}>
               <ThemedText type="h2" style={styles.formTitle}>
                 {mode === "login" ? "Welcome Back" : mode === "register" ? "Create Account" : "Reset Password"}
               </ThemedText>
@@ -293,10 +299,11 @@ export default function AuthScreen() {
                   </Pressable>
                 </>
               ) : null}
-            </View>
+              </View>
+            </Animated.View>
           </View>
 
-          <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <Animated.View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]} entering={FadeIn.delay(800).duration(400)}>
             <Pressable onPress={handleOpenSupport} style={styles.supportLink}>
               <Feather name="life-buoy" size={14} color="rgba(255,255,255,0.35)" />
               <ThemedText type="caption" style={styles.supportText}>
@@ -322,7 +329,7 @@ export default function AuthScreen() {
                 </ThemedText>
               </View>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
