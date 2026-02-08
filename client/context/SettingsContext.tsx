@@ -29,7 +29,7 @@ interface SettingsContextType {
   setAnonymousDataSharing: (value: boolean) => void;
   setNotificationSettings: (settings: NotificationSettings) => void;
   setPushToken: (token: string | null) => void;
-  toggleNotification: (key: keyof NotificationSettings) => void;
+  toggleNotification: (key: keyof NotificationSettings) => Promise<void> | void;
   registerForPushNotifications: (userId?: string, motorSerialNumber?: string) => Promise<string | null>;
 }
 
@@ -215,16 +215,28 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     saveSettings({ pushToken: token });
   };
 
-  const toggleNotification = (key: keyof NotificationSettings) => {
+  const toggleNotification = useCallback(async (key: keyof NotificationSettings) => {
     const newSettings = {
       ...notificationSettings,
       [key]: !notificationSettings[key],
     };
-    setNotificationSettings(newSettings);
+    setNotificationSettingsState(newSettings);
+    saveSettings({ notificationSettings: newSettings });
+
+    const isEnablingAny = Object.values(newSettings).some(v => v);
+
     if (pushToken) {
+      console.log("[Push] Syncing preference change to server:", key, "→", newSettings[key]);
       syncPreferencesToServer(pushToken, newSettings);
+    } else if (isEnablingAny && user && user.id !== "guest" && !isGuestMode) {
+      console.log("[Push] No token yet — registering push notifications before syncing preferences");
+      const token = await registerForPushNotifications(user.id);
+      if (token) {
+        console.log("[Push] Registration triggered by toggle, now syncing preferences");
+        syncPreferencesToServer(token, newSettings);
+      }
     }
-  };
+  }, [notificationSettings, pushToken, user, isGuestMode, registerForPushNotifications, syncPreferencesToServer]);
 
   return (
     <SettingsContext.Provider
