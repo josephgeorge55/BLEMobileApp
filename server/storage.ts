@@ -29,7 +29,7 @@ import {
   type InsertTripDataPoint,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, asc } from "drizzle-orm";
+import { eq, ne, desc, and, sql, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -60,6 +60,7 @@ export interface IStorage {
   getAllPushTokens(): Promise<PushToken[]>;
   registerPushToken(token: InsertPushToken): Promise<PushToken>;
   updatePushTokenPreferences(token: string, prefs: { notifNews?: boolean; notifService?: boolean; notifMotor?: boolean }): Promise<PushToken | undefined>;
+  removePushToken(token: string): Promise<void>;
 
   createNotification(notification: InsertNotification): Promise<Notification>;
   getNotifications(serialNumber?: string): Promise<Notification[]>;
@@ -285,7 +286,38 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(pushTokens.token, token.token!))
         .returning();
+
+      if (token.userId) {
+        const deleted = await db
+          .delete(pushTokens)
+          .where(
+            and(
+              eq(pushTokens.userId, token.userId),
+              ne(pushTokens.token, token.token!),
+            ),
+          )
+          .returning();
+        if (deleted.length > 0) {
+          console.log(`[Push] Cleaned up ${deleted.length} stale token(s) for user ${token.userId}`);
+        }
+      }
+
       return updated;
+    }
+
+    if (token.userId) {
+      const deleted = await db
+        .delete(pushTokens)
+        .where(
+          and(
+            eq(pushTokens.userId, token.userId),
+            ne(pushTokens.token, token.token!),
+          ),
+        )
+        .returning();
+      if (deleted.length > 0) {
+        console.log(`[Push] Cleaned up ${deleted.length} stale token(s) for user ${token.userId}`);
+      }
     }
 
     const [created] = await db.insert(pushTokens).values(token).returning();
@@ -304,6 +336,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(pushTokens.token, token))
       .returning();
     return updated || undefined;
+  }
+
+  async removePushToken(token: string): Promise<void> {
+    await db.delete(pushTokens).where(eq(pushTokens.token, token));
   }
 
   async createNotification(

@@ -320,6 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let apnsResult = { sent: 0, failed: 0 };
       let expoResult = { sent: 0, failed: 0 };
 
+      let apnsDetails: any[] = [];
       if (apnsTokens.length > 0 && isApnsConfigured()) {
         console.log(`[Push] Sending ${apnsTokens.length} via APNs...`);
         const apnsFullResult = await sendApnsPushNotifications(
@@ -330,11 +331,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         apnsResult = { sent: apnsFullResult.sent, failed: apnsFullResult.failed };
         if (apnsFullResult.details) {
+          apnsDetails = apnsFullResult.details.map((d) => ({
+            tokenPrefix: d.token.substring(0, 16) + "...",
+            success: d.success,
+            statusCode: d.statusCode,
+            reason: d.reason || null,
+            apnsId: d.apnsId || null,
+          }));
+          const tokensToRemove: string[] = [];
           apnsFullResult.details.forEach((d) => {
             if (!d.success) {
               console.error(`[Push] APNs detail: token=${d.token.substring(0, 12)}... status=${d.statusCode} reason=${d.reason}`);
+              if (d.reason === "Unregistered" || d.reason === "BadDeviceToken" || d.statusCode === 410) {
+                tokensToRemove.push(d.token);
+              }
             }
           });
+          if (tokensToRemove.length > 0) {
+            for (const badToken of tokensToRemove) {
+              try {
+                await storage.removePushToken(badToken);
+                console.log(`[Push] Removed invalid token: ${badToken.substring(0, 12)}...`);
+              } catch (e) {
+                console.error(`[Push] Failed to remove token: ${badToken.substring(0, 12)}...`);
+              }
+            }
+          }
         }
         console.log(`[Push] APNs result: sent=${apnsResult.sent}, failed=${apnsResult.failed}`);
       } else if (apnsTokens.length > 0) {
@@ -356,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pushResult = {
         sent: apnsResult.sent + expoResult.sent,
         failed: apnsResult.failed + expoResult.failed,
-        apns: apnsResult,
+        apns: { ...apnsResult, details: apnsDetails },
         expo: expoResult,
       };
 
