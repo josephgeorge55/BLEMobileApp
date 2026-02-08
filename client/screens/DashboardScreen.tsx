@@ -419,6 +419,12 @@ export default function DashboardScreen() {
           <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
           <ThemedText style={styles.heroTagline}>Cutting-edge technology features that enhance the e-boating experience.</ThemedText>
           <View style={styles.heroDeviceRow}>
+            <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
+              <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
+              <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
+                Disconnected
+              </ThemedText>
+            </View>
             <Pressable
               style={styles.connectButton}
               onPress={handleConnect}
@@ -428,7 +434,6 @@ export default function DashboardScreen() {
                 Scan for Motors
               </ThemedText>
             </Pressable>
-            <ThemedText type="caption" style={styles.heroDisconnectedLabel}>Disconnected</ThemedText>
           </View>
         </Animated.View>
 
@@ -1055,6 +1060,12 @@ export default function DashboardScreen() {
             </>
           ) : (
             <>
+              <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
+                <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
+                <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
+                  Disconnected
+                </ThemedText>
+              </View>
               <Pressable
                 style={styles.connectButton}
                 onPress={handleConnect}
@@ -1064,7 +1075,6 @@ export default function DashboardScreen() {
                   Scan for Motors
                 </ThemedText>
               </Pressable>
-              <ThemedText type="caption" style={styles.heroDisconnectedLabel}>Disconnected</ThemedText>
             </>
           )}
         </View>
