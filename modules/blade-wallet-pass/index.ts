@@ -6,10 +6,27 @@ interface WalletPassResult {
   presented: boolean;
   added: boolean;
   alreadyInWallet: boolean;
+  serialNumber?: string;
+  passTypeIdentifier?: string;
+  debug?: string;
+}
+
+interface WalletDebugInfo {
+  canAddPasses: boolean;
+  passCount: number;
+  passes: Array<{
+    serialNumber: string;
+    passTypeIdentifier: string;
+    organizationName: string;
+    localizedDescription: string;
+  }>;
+  platform: string;
+  moduleVersion: string;
 }
 
 let BladeWalletPassModule: {
   canAddPasses(): boolean;
+  getDebugInfo(): WalletDebugInfo;
   addPassFromUrl(url: string): Promise<WalletPassResult>;
   addPassFromData(base64Data: string): Promise<WalletPassResult>;
 } | null = null;
@@ -38,5 +55,5 @@ export function isNativeWalletAvailable(): boolean {
   return BladeWalletPassModule !== null;
 }
 
-export type { WalletPassResult };
+export type { WalletPassResult, WalletDebugInfo };
 export default BladeWalletPassModule;
