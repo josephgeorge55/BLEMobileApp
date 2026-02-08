@@ -9,7 +9,6 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  Linking,
 } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
