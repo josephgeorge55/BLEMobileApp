@@ -79,6 +79,7 @@ export const pushTokens = pgTable("push_tokens", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   token: text("token").notNull().unique(),
+  tokenType: varchar("token_type", { length: 10 }).default("expo"),
   userId: varchar("user_id", { length: 255 }),
   motorSerialNumber: varchar("motor_serial_number", { length: 50 }),
   platform: varchar("platform", { length: 20 }),
