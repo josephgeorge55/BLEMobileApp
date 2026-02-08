@@ -1,144 +1,142 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
-  withTiming,
   withSequence,
+  withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BladeColors } from '@/constants/theme';
 
-const splashIcon = require('../../assets/images/splash-icon.png');
+const splashPhoto = require('../../assets/images/splash-photo.jpg');
+const { width, height } = Dimensions.get('window');
 
 export function LoadingScreen() {
-  const rotation = useSharedValue(0);
-  const pulse = useSharedValue(1);
-  const opacity = useSharedValue(0.6);
+  const dotOpacity1 = useSharedValue(0.3);
+  const dotOpacity2 = useSharedValue(0.3);
+  const dotOpacity3 = useSharedValue(0.3);
 
   useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 3000, easing: Easing.linear }),
+    const duration = 600;
+    const delay = 200;
+
+    dotOpacity1.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.3, { duration, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.3, { duration: duration * 2 })
+      ),
       -1,
       false
     );
 
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
+    setTimeout(() => {
+      dotOpacity2.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: duration * 2 })
+        ),
+        -1,
+        false
+      );
+    }, delay);
 
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.6, { duration: 1200, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
+    setTimeout(() => {
+      dotOpacity3.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: duration * 2 })
+        ),
+        -1,
+        false
+      );
+    }, delay * 2);
   }, []);
 
-  const rotatingStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  const dot1Style = useAnimatedStyle(() => ({ opacity: dotOpacity1.value }));
+  const dot2Style = useAnimatedStyle(() => ({ opacity: dotOpacity2.value }));
+  const dot3Style = useAnimatedStyle(() => ({ opacity: dotOpacity3.value }));
 
   return (
-    <LinearGradient
-      colors={[BladeColors.primaryDark, BladeColors.primary, '#0E6B96']}
-      style={styles.container}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-    >
-      <View style={styles.content}>
-        <Animated.View style={[styles.glowContainer, glowStyle]}>
-          <View style={styles.glow} />
-        </Animated.View>
-
-        <Animated.View style={[styles.logoContainer, pulseStyle]}>
-          <Animated.View style={rotatingStyle}>
-            <Image source={splashIcon} style={styles.logo} resizeMode="contain" />
-          </Animated.View>
-        </Animated.View>
-
-        <Text style={styles.title}>BLADE OUTBOARDS</Text>
-        <Text style={styles.subtitle}>Electric Marine Power</Text>
-
-        <View style={styles.loadingBarContainer}>
-          <Animated.View style={[styles.loadingBar, glowStyle]} />
+    <View style={styles.container}>
+      <ImageBackground
+        source={splashPhoto}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay} />
+        <View style={styles.content}>
+          <Text style={styles.title}>Blade Outboards</Text>
+          <View style={styles.loadingRow}>
+            <Text style={styles.loadingText}>Loading</Text>
+            <View style={styles.dotsContainer}>
+              <Animated.Text style={[styles.dot, dot1Style]}>.</Animated.Text>
+              <Animated.Text style={[styles.dot, dot2Style]}>.</Animated.Text>
+              <Animated.Text style={[styles.dot, dot3Style]}>.</Animated.Text>
+            </View>
+          </View>
         </View>
-      </View>
-    </LinearGradient>
+      </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   content: {
+    flex: 1,
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  glowContainer: {
-    position: 'absolute',
-    top: -40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  glow: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(164, 208, 139, 0.15)',
-  },
-  logoContainer: {
-    marginBottom: 24,
-  },
-  logo: {
-    width: 120,
-    height: 120,
+    paddingBottom: height * 0.15,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '600',
     color: '#FFFFFF',
-    letterSpacing: 3,
-    marginBottom: 8,
+    letterSpacing: 1.5,
+    marginBottom: 12,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  subtitle: {
-    fontSize: 14,
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
     fontWeight: '400',
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.8)',
     letterSpacing: 1,
-    marginBottom: 48,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  loadingBarContainer: {
-    width: 120,
-    height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 2,
-    overflow: 'hidden',
+  dotsContainer: {
+    flexDirection: 'row',
+    width: 24,
   },
-  loadingBar: {
-    width: '60%',
-    height: '100%',
-    backgroundColor: BladeColors.accent,
-    borderRadius: 2,
+  dot: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.8)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });
