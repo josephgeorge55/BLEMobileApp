@@ -554,14 +554,14 @@ export default function BleScannerModal() {
           disabled={isConnecting}
           style={({ pressed }) => [
             styles.deviceCard,
-            { backgroundColor: theme.surface },
+            { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" },
             pressed && { opacity: 0.8 },
-            isSelected && { borderColor: BladeColors.primary, borderWidth: 2 },
+            isSelected && { borderColor: BladeColors.accent, borderWidth: 2 },
           ]}
         >
           <View style={styles.deviceInfo}>
             <View style={styles.deviceHeader}>
-              <ThemedText type="h4">{item.name}</ThemedText>
+              <ThemedText type="h4" style={{ color: "#FFFFFF" }}>{item.name}</ThemedText>
               <View
                 style={[
                   styles.signalBadge,
@@ -583,7 +583,7 @@ export default function BleScannerModal() {
             </View>
             <ThemedText
               type="mono"
-              style={{ color: theme.textSecondary, marginTop: 4 }}
+              style={{ color: "rgba(255,255,255,0.55)", marginTop: 4 }}
             >
               {item.serialNumber}
             </ThemedText>
@@ -611,12 +611,12 @@ export default function BleScannerModal() {
           </View>
 
           {isConnectingToThis ? (
-            <ActivityIndicator color={BladeColors.primary} />
+            <ActivityIndicator color={BladeColors.accent} />
           ) : (
             <Feather
               name="chevron-right"
               size={24}
-              color={theme.textSecondary}
+              color="rgba(255,255,255,0.35)"
             />
           )}
         </Pressable>
@@ -644,8 +644,8 @@ export default function BleScannerModal() {
     if (useMockMode) return null;
 
     return (
-      <View style={[styles.diagnosticsContainer, { backgroundColor: theme.surface }]}>
-        <ThemedText type="caption" style={[styles.diagnosticsTitle, { color: theme.textSecondary }]}>
+      <View style={[styles.diagnosticsContainer, { backgroundColor: "rgba(44,44,46,0.92)" }]}>
+        <ThemedText type="caption" style={[styles.diagnosticsTitle, { color: "rgba(255,255,255,0.55)" }]}>
           Bluetooth Diagnostics
         </ThemedText>
         <View style={styles.diagnosticsRow}>
@@ -655,7 +655,7 @@ export default function BleScannerModal() {
               size={14} 
               color={bleDiagnostics.bleInitialized ? BladeColors.success : BladeColors.error} 
             />
-            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+            <ThemedText type="caption" style={{ marginLeft: 4, color: "rgba(255,255,255,0.55)" }}>
               BLE
             </ThemedText>
           </View>
@@ -665,7 +665,7 @@ export default function BleScannerModal() {
               size={14} 
               color={bleDiagnostics.classicInitialized ? BladeColors.success : BladeColors.error} 
             />
-            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+            <ThemedText type="caption" style={{ marginLeft: 4, color: "rgba(255,255,255,0.55)" }}>
               Classic
             </ThemedText>
           </View>
@@ -675,7 +675,7 @@ export default function BleScannerModal() {
               size={14} 
               color={bleDiagnostics.permissions ? BladeColors.success : BladeColors.error} 
             />
-            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+            <ThemedText type="caption" style={{ marginLeft: 4, color: "rgba(255,255,255,0.55)" }}>
               Perms
             </ThemedText>
           </View>
@@ -685,12 +685,12 @@ export default function BleScannerModal() {
               size={14} 
               color={bleDiagnostics.bleState === "PoweredOn" ? BladeColors.success : BladeColors.warning} 
             />
-            <ThemedText type="caption" style={{ marginLeft: 4 }}>
+            <ThemedText type="caption" style={{ marginLeft: 4, color: "rgba(255,255,255,0.55)" }}>
               {bleDiagnostics.bleState}
             </ThemedText>
           </View>
         </View>
-        <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 4 }}>
+        <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.45)", marginTop: 4 }}>
           BLE: {bleDiagnostics.bleDeviceCount} | Classic: {bleDiagnostics.classicDeviceCount}
         </ThemedText>
       </View>
@@ -702,7 +702,7 @@ export default function BleScannerModal() {
     <View
       style={[
         styles.container,
-        { backgroundColor: theme.backgroundRoot, paddingBottom: insets.bottom },
+        { backgroundColor: "#1C1C1E", paddingBottom: insets.bottom },
       ]}
     >
       <View style={styles.header}>
@@ -712,14 +712,14 @@ export default function BleScannerModal() {
           style={styles.closeButton}
           testID="close-scanner-button"
         >
-          <Feather name="x" size={24} color={theme.text} />
+          <Feather name="x" size={24} color="#FFFFFF" />
         </Pressable>
-        <ThemedText type="h2" style={styles.title}>
+        <ThemedText type="h2" style={[styles.title, { color: "#FFFFFF" }]}>
           Nearby Outboards
         </ThemedText>
         <ThemedText
           type="body"
-          style={[styles.subtitle, { color: theme.textSecondary }]}
+          style={[styles.subtitle, { color: "rgba(255,255,255,0.55)" }]}
         >
           {isScanning
             ? "Scanning for Blade motors..."
@@ -734,25 +734,25 @@ export default function BleScannerModal() {
 
       {isScanning ? (
         <Animated.View entering={FadeIn.duration(300)} style={styles.scanning}>
-          <ActivityIndicator size="large" color={BladeColors.primary} />
+          <ActivityIndicator size="large" color={BladeColors.accent} />
           <ThemedText
             type="body"
-            style={[styles.scanningText, { color: theme.textSecondary }]}
+            style={[styles.scanningText, { color: "rgba(255,255,255,0.55)" }]}
           >
             Scanning for all Bluetooth devices...
           </ThemedText>
           <ThemedText
             type="caption"
-            style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+            style={{ color: "rgba(255,255,255,0.45)", marginTop: Spacing.sm }}
           >
             Found {devices.length} device{devices.length !== 1 ? "s" : ""} so far
           </ThemedText>
           <Pressable 
             onPress={handleRescan} 
-            style={[styles.refreshButton, { backgroundColor: theme.surface }]}
+            style={[styles.refreshButton, { backgroundColor: "rgba(44,44,46,0.92)" }]}
           >
-            <Feather name="refresh-cw" size={16} color={BladeColors.primary} />
-            <ThemedText type="link" style={{ marginLeft: Spacing.xs }}>
+            <Feather name="refresh-cw" size={16} color={BladeColors.accent} />
+            <ThemedText type="link" style={{ marginLeft: Spacing.xs, color: BladeColors.accent }}>
               Restart Scan
             </ThemedText>
           </Pressable>
@@ -765,40 +765,46 @@ export default function BleScannerModal() {
             color={BladeColors.warning}
             style={{ marginBottom: Spacing.lg }}
           />
-          <ThemedText type="h3" style={{ marginBottom: Spacing.sm }}>
+          <ThemedText type="h3" style={{ marginBottom: Spacing.sm, color: "#FFFFFF" }}>
             Bluetooth Issue
           </ThemedText>
           <ThemedText
             type="body"
-            style={{ color: theme.textSecondary, textAlign: "center" }}
+            style={{ color: "rgba(255,255,255,0.55)", textAlign: "center" }}
           >
             {bleError}
           </ThemedText>
-          <View style={styles.rescanButton}>
-            <Button onPress={handleRescan}>Try Again</Button>
-          </View>
+          <Pressable onPress={handleRescan} style={styles.retryButton}>
+            <Feather name="refresh-cw" size={16} color="#FFFFFF" />
+            <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
+              Try Again
+            </ThemedText>
+          </Pressable>
         </View>
       ) : devices.length === 0 ? (
         <View style={styles.emptyState}>
           <Feather
             name="bluetooth"
             size={48}
-            color={theme.textSecondary}
+            color="rgba(255,255,255,0.35)"
             style={{ marginBottom: Spacing.lg }}
           />
-          <ThemedText type="h3" style={{ marginBottom: Spacing.sm }}>
+          <ThemedText type="h3" style={{ marginBottom: Spacing.sm, color: "#FFFFFF" }}>
             No Motors Found
           </ThemedText>
           <ThemedText
             type="body"
-            style={{ color: theme.textSecondary, textAlign: "center" }}
+            style={{ color: "rgba(255,255,255,0.55)", textAlign: "center" }}
           >
             Make sure your Blade outboard is powered on and within Bluetooth
             range.
           </ThemedText>
-          <View style={styles.rescanButton}>
-            <Button onPress={handleRescan}>Scan Again</Button>
-          </View>
+          <Pressable onPress={handleRescan} style={styles.retryButton}>
+            <Feather name="refresh-cw" size={16} color="#FFFFFF" />
+            <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
+              Scan Again
+            </ThemedText>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -813,9 +819,9 @@ export default function BleScannerModal() {
                 <Feather
                   name="refresh-cw"
                   size={16}
-                  color={BladeColors.primary}
+                  color={BladeColors.accent}
                 />
-                <ThemedText type="link" style={{ marginLeft: Spacing.xs }}>
+                <ThemedText type="link" style={{ marginLeft: Spacing.xs, color: BladeColors.accent }}>
                   Scan Again
                 </ThemedText>
               </Pressable>
@@ -845,16 +851,16 @@ export default function BleScannerModal() {
       <View style={styles.connectingOverlay}>
         <Animated.View 
           entering={FadeIn.duration(200)}
-          style={[styles.connectingModal, { backgroundColor: theme.surface }]}
+          style={[styles.connectingModal, { backgroundColor: "rgba(44,44,46,0.95)" }]}
         >
-          <ActivityIndicator size="large" color={BladeColors.primary} />
-          <ThemedText type="h4" style={styles.connectingTitle}>
+          <ActivityIndicator size="large" color={BladeColors.accent} />
+          <ThemedText type="h4" style={[styles.connectingTitle, { color: "#FFFFFF" }]}>
             Connecting...
           </ThemedText>
-          <ThemedText type="body" style={[styles.connectingSubtitle, { color: theme.textSecondary }]}>
+          <ThemedText type="body" style={[styles.connectingSubtitle, { color: "rgba(255,255,255,0.55)" }]}>
             {connectingDevice || "Blade Outboard"}
           </ThemedText>
-          <ThemedText type="caption" style={[styles.connectingNote, { color: theme.textTertiary }]}>
+          <ThemedText type="caption" style={[styles.connectingNote, { color: "rgba(255,255,255,0.35)" }]}>
             Please keep your device nearby
           </ThemedText>
         </Animated.View>
@@ -878,7 +884,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: "rgba(0,0,0,0.2)",
+    backgroundColor: "rgba(255,255,255,0.2)",
     marginBottom: Spacing.sm,
   },
   closeButton: {
@@ -964,7 +970,17 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(44,44,46,0.92)",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing["2xl"],
   },
   deviceInfo: {
     flex: 1,
