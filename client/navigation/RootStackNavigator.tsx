@@ -107,6 +107,8 @@ export default function RootStackNavigator() {
               headerBackTitle: "Back",
               animation: "fade_from_bottom",
               animationDuration: 350,
+              headerStyle: { backgroundColor: "rgba(44,44,46,0.95)" },
+              headerTintColor: "#FFFFFF",
             }}
           />
           <Stack.Screen

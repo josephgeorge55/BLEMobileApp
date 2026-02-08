@@ -333,7 +333,7 @@ export default function TripDetailScreen() {
           <View style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
-                <Feather name="map" size={14} color={TILE_ACCENT} />
+                <Feather name="map" size={14} color="#5AC8FA" />
               </View>
               <Text style={styles.tileSectionTitle}>Route</Text>
             </View>
@@ -366,7 +366,7 @@ export default function TripDetailScreen() {
         <View style={styles.tile}>
           <View style={styles.tileSectionHeader}>
             <View style={styles.tileSectionIcon}>
-              <Feather name="zap" size={14} color={TILE_ACCENT} />
+              <Feather name="zap" size={14} color="#FF9500" />
             </View>
             <Text style={styles.tileSectionTitle}>Energy Consumption</Text>
           </View>
@@ -419,7 +419,7 @@ export default function TripDetailScreen() {
           <View style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
-                <Feather name="activity" size={14} color={TILE_ACCENT} />
+                <Feather name="activity" size={14} color="#5AC8FA" />
               </View>
               <Text style={styles.tileSectionTitle}>Speed Over Time</Text>
             </View>
@@ -452,7 +452,7 @@ export default function TripDetailScreen() {
           <View style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
-                <Feather name="battery-charging" size={14} color={TILE_ACCENT} />
+                <Feather name="battery-charging" size={14} color={BladeColors.success} />
               </View>
               <Text style={styles.tileSectionTitle}>Battery Level</Text>
             </View>
@@ -485,7 +485,7 @@ export default function TripDetailScreen() {
           <View style={styles.tile}>
             <View style={styles.tileSectionHeader}>
               <View style={styles.tileSectionIcon}>
-                <Feather name="cpu" size={14} color={TILE_ACCENT} />
+                <Feather name="cpu" size={14} color="#FF6B6B" />
               </View>
               <Text style={styles.tileSectionTitle}>Power Output</Text>
             </View>
@@ -510,7 +510,7 @@ export default function TripDetailScreen() {
         <View style={styles.tile}>
           <View style={styles.tileSectionHeader}>
             <View style={styles.tileSectionIcon}>
-              <Feather name="database" size={14} color={TILE_ACCENT} />
+              <Feather name="database" size={14} color="#AF52DE" />
             </View>
             <Text style={styles.tileSectionTitle}>Trip Data</Text>
           </View>
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(52,199,89,0.15)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
