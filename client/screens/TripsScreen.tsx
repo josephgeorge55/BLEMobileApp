@@ -10,32 +10,32 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInUp } from "react-native-reanimated";
-import { useTheme } from "@/hooks/useTheme";
 import { useUser } from "@/context/UserContext";
 import { useTrip } from "@/context/TripContext";
-import { BladeColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { BladeColors, Spacing, BorderRadius } from "@/constants/theme";
 import type { Trip } from "@shared/schema";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
 
-const BG = "#0B1120";
-const CARD_BG = "#151D2E";
-const CARD_BORDER = "#1E2D44";
-const TEXT_PRIMARY = "#F1F5F9";
-const TEXT_SECONDARY = "#8899AA";
-const TEXT_MUTED = "#556677";
-const ACCENT = "#3B9EFF";
-const ACCENT_DIM = "rgba(59,158,255,0.10)";
-const RECORDING_RED = "#EF4444";
-const SUCCESS_GREEN = "#A4D08B";
-const STAT_BG = "rgba(255,255,255,0.04)";
+const BG = "#F5F7FA";
+const CARD_BG = "rgba(255,255,255,0.72)";
+const CARD_BORDER = "rgba(0,0,0,0.06)";
+const TEXT_PRIMARY = "#1A1F2E";
+const TEXT_SECONDARY = "#5A6478";
+const TEXT_MUTED = "#8E95A5";
+const ACCENT = "#0A4D6E";
+const ACCENT_LIGHT = "rgba(10,77,110,0.08)";
+const RECORDING_RED = "#DC2626";
+const SUCCESS_GREEN = "#0A4D6E";
+const STAT_BG = "rgba(0,0,0,0.03)";
+const DIVIDER = "rgba(0,0,0,0.06)";
 
 function TripButton({ 
   onPress, 
@@ -62,22 +62,18 @@ function TripButton({
         style={({ pressed }) => [
           styles.tripButton,
           isStart 
-            ? { backgroundColor: canPress ? SUCCESS_GREEN : "#334155" }
+            ? { backgroundColor: canPress ? ACCENT : "#C8CED8" }
             : { backgroundColor: RECORDING_RED },
-          { opacity: pressed ? 0.85 : 1 },
+          { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
         ]}
         testID={isStart ? "start-trip-btn" : "end-trip-btn"}
       >
         {isLoading ? (
-          <ActivityIndicator color={isStart ? "#0B1120" : "#FFF"} size="small" />
+          <ActivityIndicator color="#FFF" size="small" />
         ) : (
           <>
-            <View style={[styles.buttonIconWrap, isStart ? { backgroundColor: "rgba(11,17,32,0.15)" } : { backgroundColor: "rgba(255,255,255,0.18)" }]}>
-              <Feather name={icon} size={16} color={isStart ? "#0B1120" : "#FFF"} />
-            </View>
-            <Text style={[styles.tripButtonText, isStart ? { color: "#0B1120" } : { color: "#FFF" }]}>
-              {label}
-            </Text>
+            <Feather name={icon} size={17} color="#FFF" />
+            <Text style={styles.tripButtonText}>{label}</Text>
           </>
         )}
       </Pressable>
@@ -85,7 +81,7 @@ function TripButton({
         <View style={styles.reasonsContainer}>
           {disabledReasons.map((reason, idx) => (
             <View key={idx} style={styles.reasonRow}>
-              <Feather name="info" size={13} color={TEXT_SECONDARY} />
+              <Feather name="info" size={13} color={TEXT_MUTED} />
               <Text style={styles.reasonText}>{reason}</Text>
             </View>
           ))}
@@ -96,9 +92,8 @@ function TripButton({
 }
 
 export default function TripsScreen() {
-  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const { user } = useUser();
   const { isRecording, tripDuration, tripStats, isLoading, startTrip, endTrip } = useTrip();
@@ -144,7 +139,6 @@ export default function TripsScreen() {
 
   const handleStartTrip = async () => {
     console.log("[Trips] handleStartTrip called");
-    
     if (!user?.id) {
       console.log("[Trips] No user, cannot start");
       if (Platform.OS !== "web") {
@@ -152,25 +146,12 @@ export default function TripsScreen() {
       }
       return;
     }
-
     setButtonLoading(true);
+    try { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
     try {
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-    } catch {}
-
-    try {
-      console.log("[Trips] Calling startTrip...");
       const success = await startTrip();
-      console.log("[Trips] startTrip result:", success);
-      
       if (success) {
-        try {
-          if (Platform.OS !== "web") {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-        } catch {}
+        try { if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
         loadTrips();
       }
     } catch (err) {
@@ -182,25 +163,12 @@ export default function TripsScreen() {
 
   const handleEndTrip = async () => {
     console.log("[Trips] handleEndTrip called");
-    
     setButtonLoading(true);
+    try { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
     try {
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-    } catch {}
-
-    try {
-      console.log("[Trips] Calling endTrip...");
       const success = await endTrip();
-      console.log("[Trips] endTrip result:", success);
-      
       if (success) {
-        try {
-          if (Platform.OS !== "web") {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-        } catch {}
+        try { if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
         loadTrips();
       }
     } catch (err) {
@@ -214,9 +182,7 @@ export default function TripsScreen() {
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     const s = sec % 60;
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-    }
+    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
@@ -232,23 +198,20 @@ export default function TripsScreen() {
   const renderTrip = ({ item, index }: { item: Trip; index: number }) => (
     <Animated.View entering={FadeInUp.delay(index * 40).duration(350).springify()}>
       <Pressable
-        onPress={() => {
-          console.log("[Trips] Trip card pressed, navigating to TripDetail:", item.id);
-          navigation.navigate("TripDetail", { tripId: item.id });
-        }}
+        onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}
         style={({ pressed }) => [
           styles.tripCard,
           item.isActive ? styles.tripCardActive : null,
-          { opacity: pressed ? 0.8 : 1 },
+          { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
         ]}
         testID={`card-trip-${item.id}`}
       >
         <View style={styles.tripCardHeader}>
-          <View style={[styles.tripCardIcon, item.isActive ? { backgroundColor: "rgba(164,208,139,0.12)" } : null]}>
+          <View style={[styles.tripCardIcon, item.isActive ? { backgroundColor: "rgba(10,77,110,0.10)" } : null]}>
             <Feather 
               name={item.isActive ? "navigation" : "anchor"} 
               size={15} 
-              color={item.isActive ? SUCCESS_GREEN : ACCENT} 
+              color={item.isActive ? BladeColors.success : ACCENT} 
             />
           </View>
           <View style={styles.tripCardTitleBlock}>
@@ -257,11 +220,8 @@ export default function TripsScreen() {
             </Text>
             <Text style={styles.tripCardDate}>
               {new Date(item.startTime).toLocaleDateString(undefined, { 
-                weekday: "short", 
-                month: "short", 
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
+                weekday: "short", month: "short", day: "numeric",
+                hour: "2-digit", minute: "2-digit",
               })}
             </Text>
           </View>
@@ -289,6 +249,8 @@ export default function TripsScreen() {
 
   const ListHeader = () => (
     <View style={styles.headerSection}>
+      <Text style={styles.screenTitle}>Trips</Text>
+
       {isRecording ? (
         <Animated.View entering={FadeInUp.duration(400).springify()}>
           <View style={styles.recordingTile}>
@@ -329,22 +291,10 @@ export default function TripsScreen() {
               </View>
             </View>
             <View style={styles.introChipsRow}>
-              <View style={styles.introChip}>
-                <Feather name="clock" size={11} color={TEXT_SECONDARY} />
-                <Text style={styles.introChipText}>60s min</Text>
-              </View>
-              <View style={styles.introChip}>
-                <Feather name="clock" size={11} color={TEXT_SECONDARY} />
-                <Text style={styles.introChipText}>8h max</Text>
-              </View>
-              <View style={styles.introChip}>
-                <Feather name="zap" size={11} color={TEXT_SECONDARY} />
-                <Text style={styles.introChipText}>4s intervals</Text>
-              </View>
-              <View style={styles.introChip}>
-                <Feather name="file-text" size={11} color={TEXT_SECONDARY} />
-                <Text style={styles.introChipText}>PDF reports</Text>
-              </View>
+              <ChipItem icon="clock" text="60s min" />
+              <ChipItem icon="clock" text="8h max" />
+              <ChipItem icon="zap" text="4s intervals" />
+              <ChipItem icon="file-text" text="PDF reports" />
             </View>
           </View>
           <TripButton 
@@ -359,8 +309,10 @@ export default function TripsScreen() {
       
       {trips.length > 0 ? (
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>TRIP HISTORY</Text>
-          <Text style={styles.sectionCount}>{trips.length}</Text>
+          <Text style={styles.sectionTitle}>HISTORY</Text>
+          <View style={styles.sectionCountBadge}>
+            <Text style={styles.sectionCount}>{trips.length}</Text>
+          </View>
         </View>
       ) : null}
     </View>
@@ -369,7 +321,7 @@ export default function TripsScreen() {
   const EmptyState = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconCircle}>
-        <Feather name="anchor" size={32} color={ACCENT} />
+        <Feather name="anchor" size={28} color={ACCENT} />
       </View>
       <Text style={styles.emptyTitle}>No Trips Yet</Text>
       <Text style={styles.emptySubtitle}>
@@ -386,7 +338,7 @@ export default function TripsScreen() {
         renderItem={renderTrip}
         contentContainerStyle={[
           styles.listContent, 
-          { paddingTop: headerHeight + Spacing.md, paddingBottom: insets.bottom + 100 }
+          { paddingTop: insets.top + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl }
         ]}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={loading ? null : EmptyState}
@@ -415,9 +367,18 @@ function StatCell({ value, label }: { value: string; label: string }) {
 function LiveStatCell({ value, label, icon }: { value: string; label: string; icon: string }) {
   return (
     <View style={styles.liveStat}>
-      <Feather name={icon as any} size={13} color={TEXT_MUTED} style={{ marginBottom: 4 }} />
+      <Feather name={icon as any} size={12} color={TEXT_MUTED} style={{ marginBottom: 3 }} />
       <Text style={styles.liveStatValue}>{value}</Text>
       <Text style={styles.liveStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ChipItem({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View style={styles.introChip}>
+      <Feather name={icon as any} size={11} color={TEXT_MUTED} />
+      <Text style={styles.introChipText}>{text}</Text>
     </View>
   );
 }
@@ -429,55 +390,56 @@ const styles = StyleSheet.create({
   },
   listContent: { 
     paddingHorizontal: Spacing.lg, 
-    flexGrow: 1 
+    flexGrow: 1,
   },
   headerSection: { 
-    marginBottom: Spacing.sm 
+    marginBottom: Spacing.sm,
+  },
+  screenTitle: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: TEXT_PRIMARY,
+    letterSpacing: -0.5,
+    marginBottom: Spacing.xl,
   },
   
   tripButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
+    gap: 10,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
-    minHeight: 56,
-  },
-  buttonIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
+    minHeight: 54,
   },
   tripButtonText: {
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: 0.3,
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   
   reasonsContainer: {
     marginTop: -Spacing.sm,
     marginBottom: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
   },
   reasonRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 6,
     marginBottom: 4,
   },
   reasonText: {
-    color: TEXT_SECONDARY,
+    color: TEXT_MUTED,
     fontSize: 12,
   },
 
   introTile: {
     backgroundColor: CARD_BG,
-    borderRadius: BorderRadius["2xl"],
+    borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: CARD_BORDER,
     padding: Spacing.xl,
@@ -493,7 +455,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: ACCENT_DIM,
+    backgroundColor: ACCENT_LIGHT,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -502,7 +464,7 @@ const styles = StyleSheet.create({
   },
   introTitle: {
     color: TEXT_PRIMARY,
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "700",
     letterSpacing: -0.3,
   },
@@ -514,16 +476,16 @@ const styles = StyleSheet.create({
   introChipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: Spacing.sm,
+    gap: 8,
   },
   introChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,0,0,0.04)",
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: BorderRadius.sm,
+    borderRadius: 8,
   },
   introChipText: {
     color: TEXT_SECONDARY,
@@ -533,7 +495,7 @@ const styles = StyleSheet.create({
 
   recordingTile: { 
     backgroundColor: CARD_BG,
-    borderRadius: BorderRadius["2xl"],
+    borderRadius: BorderRadius.xl,
     padding: Spacing.xl, 
     marginBottom: Spacing.md, 
     borderWidth: 1.5, 
@@ -569,7 +531,7 @@ const styles = StyleSheet.create({
   },
   liveStatsRow: { 
     flexDirection: "row", 
-    gap: Spacing.sm,
+    gap: 8,
     marginBottom: Spacing.md,
   },
   liveStat: { 
@@ -602,27 +564,28 @@ const styles = StyleSheet.create({
   
   sectionHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
     marginTop: Spacing.sm,
     marginBottom: Spacing.md,
     paddingHorizontal: 2,
   },
   sectionTitle: { 
-    fontSize: 11, 
+    fontSize: 12, 
     fontWeight: "600", 
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     color: TEXT_MUTED,
   },
-  sectionCount: {
-    fontSize: 11,
-    color: TEXT_MUTED,
-    fontWeight: "600",
-    backgroundColor: "rgba(255,255,255,0.06)",
+  sectionCountBadge: {
+    backgroundColor: ACCENT_LIGHT,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
-    overflow: "hidden",
+  },
+  sectionCount: {
+    fontSize: 11,
+    color: ACCENT,
+    fontWeight: "700",
   },
 
   tripCard: {
@@ -631,10 +594,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: CARD_BORDER,
     padding: Spacing.lg,
-    marginBottom: Spacing.sm,
+    marginBottom: 10,
   },
   tripCardActive: {
-    borderColor: SUCCESS_GREEN,
+    borderColor: BladeColors.success,
   },
   tripCardHeader: { 
     flexDirection: "row", 
@@ -646,7 +609,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: ACCENT_DIM,
+    backgroundColor: ACCENT_LIGHT,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -659,7 +622,7 @@ const styles = StyleSheet.create({
     fontWeight: "600", 
   },
   tripCardDate: {
-    color: TEXT_SECONDARY,
+    color: TEXT_MUTED,
     fontSize: 12,
     marginTop: 2,
   },
@@ -667,19 +630,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(164,208,139,0.12)",
+    backgroundColor: "rgba(164,208,139,0.15)",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
+    borderRadius: 8,
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: SUCCESS_GREEN,
+    backgroundColor: BladeColors.success,
   },
   liveBadgeText: {
-    color: SUCCESS_GREEN,
+    color: BladeColors.success,
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -710,7 +673,7 @@ const styles = StyleSheet.create({
   tripStatDivider: { 
     width: 1, 
     height: 22, 
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: DIVIDER,
   },
   
   emptyContainer: { 
@@ -720,10 +683,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   emptyIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: ACCENT_DIM,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: ACCENT_LIGHT,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
@@ -745,6 +708,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject, 
     justifyContent: "center", 
     alignItems: "center", 
-    backgroundColor: "rgba(11,17,32,0.7)",
+    backgroundColor: "rgba(245,247,250,0.7)",
   },
 });

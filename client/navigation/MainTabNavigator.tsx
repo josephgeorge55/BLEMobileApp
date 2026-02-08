@@ -136,7 +136,7 @@ export default function MainTabNavigator() {
         component={TripsScreen}
         options={{
           title: "Trips",
-          headerTitle: () => <HeaderTitle />,
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="navigation" color={color} focused={focused} />
           ),
