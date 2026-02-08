@@ -92,7 +92,7 @@ export default function DashboardScreen() {
   const { theme, isDark } = useTheme();
   const { motor, telemetry, isConnecting, startScan, setLocation } =
     useMotor();
-  const { isRecording: tripRecording, tripDuration } = useTrip();
+  const { isRecording: tripRecording, tripDuration, startTrip, endTrip } = useTrip();
 
   const formatTripDuration = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -1097,15 +1097,12 @@ export default function DashboardScreen() {
             </View>
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [styles.quickActionTileFull, pressed ? { opacity: 0.8 } : null]}
-            onPress={() => navigation.navigate("TripsTab" as any)}
-          >
+          <View style={styles.quickActionTileFull}>
             <View style={styles.tripPreview}>
               <View style={styles.tripTimerDisplay}>
-                <Feather name="play-circle" size={28} color={BladeColors.accent} />
+                <Feather name={tripRecording ? "pause-circle" : "play-circle"} size={28} color={tripRecording ? BladeColors.error : BladeColors.accent} />
                 <ThemedText style={styles.tripTimerText}>
-                  {tripRecording ? formatTripDuration(tripDuration) : "00:00:00"}
+                  {formatTripDuration(tripDuration)}
                 </ThemedText>
               </View>
               {tripRecording ? (
@@ -1115,17 +1112,35 @@ export default function DashboardScreen() {
                 </View>
               ) : null}
             </View>
-            <View style={styles.quickActionRow}>
-              <View style={[styles.quickActionIconWrap, { backgroundColor: "#007AFF20" }]}>
-                <Feather name="navigation" size={18} color="#007AFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.quickActionLabel}>Trips</ThemedText>
-                <ThemedText style={styles.quickActionSublabel}>Record and review trips</ThemedText>
-              </View>
-              <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.3)" />
+            <View style={styles.tripActionRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.tripStartStopButton,
+                  { backgroundColor: tripRecording ? BladeColors.error : BladeColors.accent },
+                  pressed ? { opacity: 0.8 } : null,
+                ]}
+                onPress={() => {
+                  if (tripRecording) {
+                    endTrip('user_button');
+                  } else {
+                    startTrip();
+                  }
+                }}
+              >
+                <Feather name={tripRecording ? "square" : "play"} size={16} color="#FFFFFF" />
+                <ThemedText style={styles.tripStartStopText}>
+                  {tripRecording ? "End Trip" : "Start Trip"}
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.tripViewButton, pressed ? { opacity: 0.7 } : null]}
+                onPress={() => navigation.navigate("TripsTab" as any)}
+              >
+                <ThemedText style={styles.tripViewText}>View Trips</ThemedText>
+                <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.5)" />
+              </Pressable>
             </View>
-          </Pressable>
+          </View>
 
           <View style={styles.quickActionSplitRow}>
             <Pressable
@@ -1450,6 +1465,36 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     fontVariant: ["tabular-nums"],
     letterSpacing: 2,
+  },
+  tripActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  tripStartStopButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+  },
+  tripStartStopText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  tripViewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  tripViewText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
+    fontWeight: "500",
   },
   telemetrySectionHeader: {
     flexDirection: "row",
