@@ -425,9 +425,10 @@ export default function DashboardScreen() {
             >
               <Feather name="bluetooth" size={14} color="#FFFFFF" />
               <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
-                Disconnected
+                Scan for Motors
               </ThemedText>
             </Pressable>
+            <ThemedText type="caption" style={styles.heroDisconnectedLabel}>Disconnected</ThemedText>
           </View>
         </Animated.View>
 
@@ -465,7 +466,7 @@ export default function DashboardScreen() {
             image={require("../../assets/images/halo-outboard.png")}
             title="Connect Your Outboard"
             description="Tap the Bluetooth button to scan for nearby Blade outboards and view real-time telemetry."
-            actionLabel="Disconnected"
+            actionLabel="Scan for Motors"
             onAction={handleConnect}
           />
         </View>
@@ -1053,15 +1054,18 @@ export default function DashboardScreen() {
               </ThemedText>
             </>
           ) : (
-            <Pressable
-              style={styles.connectButton}
-              onPress={handleConnect}
-            >
-              <Feather name="bluetooth" size={14} color="#FFFFFF" />
-              <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
-                Disconnected
-              </ThemedText>
-            </Pressable>
+            <>
+              <Pressable
+                style={styles.connectButton}
+                onPress={handleConnect}
+              >
+                <Feather name="bluetooth" size={14} color="#FFFFFF" />
+                <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
+                  Scan for Motors
+                </ThemedText>
+              </Pressable>
+              <ThemedText type="caption" style={styles.heroDisconnectedLabel}>Disconnected</ThemedText>
+            </>
           )}
         </View>
       </Animated.View>
@@ -1160,7 +1164,7 @@ export default function DashboardScreen() {
               <View style={[styles.quickActionIconWrap, { backgroundColor: "#8E8E9320" }]}>
                 <Feather name="settings" size={18} color="#8E8E93" />
               </View>
-              <ThemedText style={styles.quickActionLabel}>Settings</ThemedText>
+              <ThemedText style={styles.quickActionLabel}>More</ThemedText>
               <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.3)" />
             </Pressable>
           </View>
@@ -1349,6 +1353,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   heroSerial: {
+    color: "#8E8E93",
+    fontSize: 12,
+  },
+  heroDisconnectedLabel: {
     color: "#8E8E93",
     fontSize: 12,
   },
