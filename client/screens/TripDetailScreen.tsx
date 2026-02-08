@@ -28,10 +28,10 @@ import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
 
-const DARK_TILE = "rgba(255,255,255,0.85)";
-const TILE_TEXT = "#1C1C1E";
-const TILE_TEXT_SECONDARY = "#8E8E93";
-const TILE_ACCENT = "#0A4D6E";
+const DARK_TILE = "rgba(44,44,46,0.92)";
+const TILE_TEXT = "#FFFFFF";
+const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.5)";
+const TILE_ACCENT = "#34C759";
 const SCREEN_BG = "#F2F2F7";
 
 const ktsToKmh = (kts: number) => kts * 1.852;
@@ -398,7 +398,7 @@ export default function TripDetailScreen() {
               </View>
             </View>
             <View style={styles.energyStat}>
-              <View style={[styles.energyIconCircle, { backgroundColor: "rgba(10,77,110,0.12)" }]}>
+              <View style={[styles.energyIconCircle, { backgroundColor: "rgba(52,199,89,0.15)" }]}>
                 <Feather name="trending-up" size={16} color={TILE_ACCENT} />
               </View>
               <View style={styles.energyStatText}>
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "rgba(120,120,128,0.08)",
+    backgroundColor: "rgba(44,44,46,0.92)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.md,
@@ -588,8 +588,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius["2xl"],
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: "rgba(60,60,67,0.12)",
   },
 
   tripHeaderRow: {
@@ -635,7 +633,7 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(120,120,128,0.08)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
   },
@@ -657,7 +655,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: "rgba(0,0,0,0.08)",
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
 
   tileSectionHeader: {
@@ -670,7 +668,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(10,77,110,0.12)",
+    backgroundColor: "rgba(52,199,89,0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -744,13 +742,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     overflow: "hidden",
-    backgroundColor: "rgba(120,120,128,0.08)",
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
 
   miniChartRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(120,120,128,0.08)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
   },
@@ -772,7 +770,7 @@ const styles = StyleSheet.create({
   miniStatDivider: {
     width: 1,
     height: 24,
-    backgroundColor: "rgba(0,0,0,0.08)",
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
 
   dataPointsInfo: {
@@ -803,7 +801,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     backgroundColor: SCREEN_BG,
     borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.1)",
+    borderTopColor: "rgba(60,60,67,0.12)",
   },
   shareButton: {
     flexDirection: "row",
@@ -813,10 +811,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(120,120,128,0.12)",
+    backgroundColor: "rgba(44,44,46,0.92)",
   },
   shareButtonText: {
-    color: "#1C1C1E",
+    color: "#FFFFFF",
     fontSize: Typography.sizes.md,
     fontWeight: "600",
   },
