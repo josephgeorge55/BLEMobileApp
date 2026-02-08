@@ -1092,7 +1092,7 @@ export default function DashboardScreen() {
       </Animated.View>
 
       <View style={{ paddingHorizontal: Spacing.screenPadding }}>
-        <Animated.View entering={FadeInUp.duration(500).delay(100).springify()} style={styles.quickActionsGrid}>
+        <View style={styles.quickActionsGrid}>
           <Pressable
             style={({ pressed }) => [styles.quickActionTileFull, pressed ? { opacity: 0.8 } : null]}
             onPress={() => navigation.navigate("LocationTab" as any)}
@@ -1200,7 +1200,7 @@ export default function DashboardScreen() {
               <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.3)" />
             </Pressable>
           </View>
-        </Animated.View>
+        </View>
 
         {errorCode ? (
           <Animated.View
