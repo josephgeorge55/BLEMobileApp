@@ -32,7 +32,7 @@ const LOCAL_TRIPS_KEY = "@blade_local_trips";
 const DARK_TILE = "rgba(44,44,46,0.92)";
 const TILE_TEXT = "#FFFFFF";
 const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.5)";
-const TILE_ACCENT = "#34C759";
+const TILE_ACCENT = "#A4D08B";
 const SCREEN_BG = "#F2F2F7";
 
 const ktsToKmh = (kts: number) => kts * 1.852;
