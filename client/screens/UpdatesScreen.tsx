@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Image } from "react-native";
+import { StyleSheet, View, ScrollView, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { FirmwareCard } from "@/components/FirmwareCard";
@@ -13,7 +14,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { FirmwareCardSkeleton } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
-import { Spacing, BladeColors } from "@/constants/theme";
+import { Spacing, BorderRadius, BladeColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface FirmwareVersion {
@@ -168,25 +169,44 @@ export default function UpdatesScreen() {
           entering={FadeIn.delay(100).duration(300)}
           style={styles.upToDateSection}
         >
-          <Image
-            source={require("../../assets/images/firmware-success.png")}
-            style={styles.successImage}
-            resizeMode="contain"
-          />
-          <ThemedText type="h3" style={styles.upToDateTitle}>
-            Up to Date
-          </ThemedText>
-          <ThemedText
-            type="body"
-            style={[styles.upToDateText, { color: "#8E8E93" }]}
-          >
-            Your Blade outboard is running the latest firmware version.
-          </ThemedText>
+          <View style={styles.upToDateCard}>
+            <View style={styles.checkCircle}>
+              <Feather name="check" size={32} color="#FFFFFF" />
+            </View>
+            <ThemedText type="h3" style={styles.upToDateTitle}>
+              You're All Set
+            </ThemedText>
+            <ThemedText type="body" style={styles.upToDateText}>
+              Your Blade outboard is running the latest firmware. No action needed right now.
+            </ThemedText>
+            <View style={styles.divider} />
+            <View style={styles.infoRow}>
+              <Feather name="shield" size={16} color={BladeColors.accent} />
+              <ThemedText type="small" style={styles.infoText}>
+                Firmware updates include performance improvements, safety patches, and new features for your motor.
+              </ThemedText>
+            </View>
+            <View style={styles.infoRow}>
+              <Feather name="wifi" size={16} color={BladeColors.accent} />
+              <ThemedText type="small" style={styles.infoText}>
+                Updates are delivered wirelessly over Bluetooth when your motor is connected.
+              </ThemedText>
+            </View>
+            <View style={styles.infoRow}>
+              <Feather name="refresh-cw" size={16} color={BladeColors.accent} />
+              <ThemedText type="small" style={styles.infoText}>
+                Pull down to check again, or we'll notify you when a new update is available.
+              </ThemedText>
+            </View>
+          </View>
         </Animated.View>
       )}
     </ScrollView>
   );
 }
+
+const DARK_TILE = "rgba(44,44,46,0.92)";
+const TILE_BORDER = "rgba(255,255,255,0.08)";
 
 const styles = StyleSheet.create({
   container: {
@@ -204,20 +224,51 @@ const styles = StyleSheet.create({
     marginTop: Spacing["2xl"],
   },
   upToDateSection: {
-    marginTop: Spacing["4xl"],
-    alignItems: "center",
-    paddingHorizontal: Spacing["2xl"],
+    marginTop: Spacing["2xl"],
   },
-  successImage: {
-    width: 120,
-    height: 120,
-    marginBottom: Spacing["2xl"],
+  upToDateCard: {
+    backgroundColor: DARK_TILE,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: TILE_BORDER,
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
+  checkCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: BladeColors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
   },
   upToDateTitle: {
+    color: "#FFFFFF",
     marginBottom: Spacing.sm,
-    color: BladeColors.success,
+    textAlign: "center",
   },
   upToDateText: {
     textAlign: "center",
+    color: "rgba(255,255,255,0.6)",
+    lineHeight: 22,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: TILE_BORDER,
+    alignSelf: "stretch",
+    marginVertical: Spacing.xl,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    alignSelf: "stretch",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  infoText: {
+    color: "rgba(255,255,255,0.5)",
+    flex: 1,
+    lineHeight: 20,
   },
 });
