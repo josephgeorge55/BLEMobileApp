@@ -35,6 +35,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { setPdfLogCallback, getPendingLogs, clearPendingLogs } from "@/lib/pdf-logger";
 import BladeLiveActivityModule, { getModuleLoadError } from "../../modules/blade-live-activity";
 import { isLiveActivitySupported, isLiveActivityActive, startLiveActivity, endLiveActivity } from "@/services/LiveActivityService";
+import BladeWalletPassModule, { isNativeWalletAvailable, getWalletModuleLoadError } from "../../modules/blade-wallet-pass";
 import type { Trip } from "@shared/schema";
 
 interface Props {
@@ -42,7 +43,7 @@ interface Props {
   onClose: () => void;
 }
 
-type TabType = "bluetooth" | "throttle" | "antitheft" | "location" | "trips" | "pdf" | "liveactivity";
+type TabType = "bluetooth" | "throttle" | "antitheft" | "location" | "trips" | "pdf" | "liveactivity" | "wallet";
 
 interface DebugLogEntry {
   timestamp: string;
@@ -69,6 +70,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const [pdfLogs, setPdfLogs] = useState<DebugLogEntry[]>([]);
   const [liveActivityLogs, setLiveActivityLogs] = useState<DebugLogEntry[]>([]);
   const [throttleLogs, setThrottleLogs] = useState<DebugLogEntry[]>([]);
+  const [walletLogs, setWalletLogs] = useState<DebugLogEntry[]>([]);
 
   const addAntiTheftLog = useCallback((level: string, message: string) => {
     setAntiTheftLogs(prev => [...prev.slice(-99), {
@@ -112,6 +114,14 @@ export function DebugLogModal({ visible, onClose }: Props) {
 
   const addThrottleLog = useCallback((level: string, message: string) => {
     setThrottleLogs(prev => [...prev.slice(-99), {
+      timestamp: new Date().toISOString(),
+      level,
+      message
+    }]);
+  }, []);
+
+  const addWalletLog = useCallback((level: string, message: string) => {
+    setWalletLogs(prev => [...prev.slice(-99), {
       timestamp: new Date().toISOString(),
       level,
       message
@@ -432,6 +442,160 @@ export function DebugLogModal({ visible, onClose }: Props) {
     }
   };
 
+  const testWalletDiagnostics = async () => {
+    addWalletLog("INFO", "=== Wallet Pass Diagnostics ===");
+    addWalletLog("INFO", `Platform: ${Platform.OS}`);
+    addWalletLog("INFO", `Native module available: ${isNativeWalletAvailable()}`);
+    
+    const loadError = getWalletModuleLoadError();
+    if (loadError) {
+      addWalletLog("WARN", `Module load error: ${loadError}`);
+    } else {
+      addWalletLog("INFO", "Module load: OK");
+    }
+    
+    if (BladeWalletPassModule && isNativeWalletAvailable()) {
+      try {
+        const canAdd = BladeWalletPassModule.canAddPasses();
+        addWalletLog(canAdd ? "INFO" : "ERROR", `canAddPasses: ${canAdd}`);
+      } catch (e: any) {
+        addWalletLog("ERROR", `canAddPasses error: ${e.message}`);
+      }
+      
+      try {
+        const debugInfo = BladeWalletPassModule.getDebugInfo();
+        addWalletLog("INFO", `Module version: ${debugInfo.moduleVersion}`);
+        addWalletLog("INFO", `Passes in wallet: ${debugInfo.passCount}`);
+        if (debugInfo.passes && debugInfo.passes.length > 0) {
+          debugInfo.passes.forEach((p: any) => {
+            addWalletLog("DATA", `Pass: ${p.serialNumber} (${p.passTypeIdentifier})`);
+          });
+        }
+      } catch (e: any) {
+        addWalletLog("WARN", `getDebugInfo unavailable: ${e.message}`);
+      }
+    } else {
+      addWalletLog("WARN", "Native module not available (expected in Expo Go)");
+      addWalletLog("INFO", "Fallback: will use share sheet for .pkpass files");
+    }
+    
+    addWalletLog("INFO", "--- Server Diagnostics ---");
+    try {
+      const baseUrl = getApiUrl();
+      const diagUrl = new URL("/api/passport/wallet/test-debug", baseUrl);
+      addWalletLog("INFO", `Server URL: ${baseUrl}`);
+      addWalletLog("INFO", `Diagnostics endpoint: ${diagUrl.toString()}`);
+      
+      const response = await fetch(diagUrl.toString() + "?key=debug-check");
+      addWalletLog("INFO", `Server response: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.diagnostics) {
+          const d = data.diagnostics;
+          addWalletLog("INFO", `Pass Type ID: ${d.passTypeIdentifier}`);
+          addWalletLog("INFO", `Team ID: ${d.teamIdentifier}`);
+          addWalletLog(d.ready ? "INFO" : "ERROR", `Server ready: ${d.ready}`);
+          addWalletLog("INFO", `Library: ${d.library}`);
+          addWalletLog("INFO", `WWDR: file=${d.wwdr?.fileExists}, env=${d.wwdr?.envExists}`);
+          addWalletLog("INFO", `Signer cert: file=${d.signerCert?.fileExists}, env=${d.signerCert?.envExists}`);
+          addWalletLog("INFO", `Signer key: file=${d.signerKey?.fileExists}, env=${d.signerKey?.envExists}`);
+          addWalletLog("INFO", `Icon source: ${d.images?.iconSource}`);
+          addWalletLog("INFO", `Logo source: ${d.images?.logoSource}`);
+        }
+      } else {
+        addWalletLog("WARN", `Server diagnostics returned ${response.status} (may require API key)`);
+      }
+    } catch (e: any) {
+      addWalletLog("ERROR", `Server check failed: ${e.message}`);
+    }
+    
+    addWalletLog("INFO", "--- User Context ---");
+    addWalletLog("INFO", `User ID: ${user?.id || 'null'}`);
+    addWalletLog("INFO", `User email: ${user?.email || 'null'}`);
+    addWalletLog("INFO", `Guest mode: ${isGuestMode}`);
+  };
+
+  const testGeneratePass = async () => {
+    addWalletLog("INFO", "=== Test: Generate Wallet Pass ===");
+    
+    const testData = {
+      ownerEmail: user?.email || "test@bladeoutboards.com",
+      ownerId: user?.id || "test-user",
+      serialNumber: motor?.serialNumber || "BLD-TEST-001",
+      purchaseDate: "2025-01-01",
+      warrantyExpires: "2027-01-01",
+      productName: "Blade Halo 6",
+      maxPower: "3000W",
+      batteryCapacity: "1700Wh",
+    };
+    
+    addWalletLog("INFO", `Serial: ${testData.serialNumber}`);
+    addWalletLog("INFO", `Owner: ${testData.ownerEmail}`);
+    
+    try {
+      const baseUrl = getApiUrl();
+      const url = new URL("/api/passport/wallet/apple", baseUrl);
+      addWalletLog("INFO", `POST ${url.toString()}`);
+      
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(testData),
+      });
+      
+      addWalletLog("INFO", `Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error");
+        addWalletLog("ERROR", `Server error: ${errorText.substring(0, 300)}`);
+        return;
+      }
+      
+      const data = await response.json();
+      addWalletLog("INFO", `Response type: ${data.type}`);
+      addWalletLog("INFO", `Download path: ${data.downloadPath}`);
+      addWalletLog("INFO", `Filename: ${data.filename}`);
+      addWalletLog("INFO", `Pass size: ${data.passSize} bytes`);
+      
+      if (data.serverDebug) {
+        addWalletLog("INFO", "--- Server Debug Log ---");
+        data.serverDebug.forEach((line: string) => {
+          addWalletLog("DATA", line);
+        });
+      }
+      
+      if (data.type === "pkpass" && data.downloadPath) {
+        addWalletLog("INFO", "--- Testing Download ---");
+        const downloadUrl = baseUrl + data.downloadPath;
+        addWalletLog("INFO", `Download URL: ${downloadUrl}`);
+        
+        if (Platform.OS !== "web") {
+          const localPath = FileSystem.cacheDirectory + "wallet-test.pkpass";
+          const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+          addWalletLog("INFO", `Download status: ${downloadResult.status}`);
+          
+          const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+          addWalletLog("INFO", `File exists: ${fileInfo.exists}`);
+          addWalletLog("INFO", `File size: ${fileInfo.exists ? (fileInfo as any).size : 0} bytes`);
+          addWalletLog("INFO", `File URI: ${downloadResult.uri}`);
+          
+          if (isNativeWalletAvailable() && BladeWalletPassModule) {
+            addWalletLog("INFO", "Native module available - ready for addPassFromUrl");
+          } else {
+            addWalletLog("INFO", "Will use share sheet fallback on this device");
+          }
+        } else {
+          addWalletLog("INFO", "Web platform - download test skipped");
+        }
+      }
+      
+      addWalletLog("INFO", "=== Test Complete ===");
+    } catch (e: any) {
+      addWalletLog("ERROR", `Test failed: ${e.message}`);
+    }
+  };
+
   const [testThrottlePercent, setTestThrottlePercent] = useState(70);
 
   const testThrottleCommand = async () => {
@@ -606,6 +770,8 @@ export function DebugLogModal({ visible, onClose }: Props) {
       setPdfLogs([]);
     } else if (activeTab === "liveactivity") {
       setLiveActivityLogs([]);
+    } else if (activeTab === "wallet") {
+      setWalletLogs([]);
     }
   };
 
@@ -659,6 +825,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
       case "trips": return tripLogs;
       case "pdf": return pdfLogs;
       case "liveactivity": return liveActivityLogs;
+      case "wallet": return walletLogs;
       default: return [];
     }
   };
@@ -743,6 +910,18 @@ export function DebugLogModal({ visible, onClose }: Props) {
         </View>
       );
     }
+    if (activeTab === "wallet") {
+      return (
+        <View style={{ gap: Spacing.sm, marginBottom: Spacing.sm }}>
+          <Button variant="outline" onPress={testWalletDiagnostics}>
+            Run Diagnostics
+          </Button>
+          <Button variant="outline" onPress={testGeneratePass}>
+            Test Generate Pass
+          </Button>
+        </View>
+      );
+    }
     return null;
   };
 
@@ -778,6 +957,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
           {renderTab("trips", "Trips", "navigation")}
           {renderTab("pdf", "PDF", "file-text")}
           {renderTab("liveactivity", "Live Activity", "activity")}
+          {renderTab("wallet", "Wallet", "credit-card")}
         </ScrollView>
 
         <View style={[styles.statusBar, { backgroundColor: theme.surface }]}>
