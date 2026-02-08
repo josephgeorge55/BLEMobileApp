@@ -9,7 +9,6 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  Linking,
 } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,6 +33,7 @@ import {
 } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+import BladeWalletPassModule, { isNativeWalletAvailable } from "blade-wallet-pass";
 
 const bladePassportLogo = require("../../assets/images/blade-passport-logo.png");
 const ukcaLogo = require("../../assets/images/ukca-logo.png");
@@ -186,12 +186,16 @@ export default function PassportScreen() {
       const downloadUrl = baseUrl + data.downloadPath;
 
       if (data.type === "pkpass" && Platform.OS === "ios") {
-        console.log("[Passport] Apple Wallet - Opening direct URL for native Add to Wallet sheet");
-        const canOpen = await Linking.canOpenURL(downloadUrl);
-        if (canOpen) {
-          await Linking.openURL(downloadUrl);
+        if (isNativeWalletAvailable() && BladeWalletPassModule) {
+          console.log("[Passport] Apple Wallet - Using native PKAddPassesViewController");
+          const canAdd = BladeWalletPassModule.canAddPasses();
+          if (!canAdd) {
+            throw new Error("This device cannot add passes to Apple Wallet");
+          }
+          const result = await BladeWalletPassModule.addPassFromUrl(downloadUrl);
+          console.log("[Passport] Apple Wallet - PKAddPassesViewController result:", result);
         } else {
-          console.log("[Passport] Apple Wallet - Linking failed, falling back to share sheet");
+          console.log("[Passport] Apple Wallet - Native module unavailable, falling back to share sheet");
           const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pkpass");
           const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
           if (downloadResult.status !== 200) {
