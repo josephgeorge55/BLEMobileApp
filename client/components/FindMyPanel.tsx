@@ -224,7 +224,7 @@ export function FindMyPanel({
 
         <View style={[styles.locationSection, { borderTopColor: theme.border }]}>
           <View style={styles.locationIcon}>
-            <Feather name="map-pin" size={20} color={BladeColors.marine} />
+            <Feather name="map-pin" size={20} color={theme.textSecondary} />
           </View>
           <View style={styles.locationInfo}>
             {isLoadingLocation ? (
@@ -261,7 +261,7 @@ export function FindMyPanel({
           disabled={isFinding}
           style={({ pressed }) => [
             styles.findButton,
-            { backgroundColor: BladeColors.marine },
+            { backgroundColor: BladeColors.accent },
             pressed && styles.findButtonPressed,
             isFinding && styles.findButtonDisabled,
           ]}
@@ -279,7 +279,7 @@ export function FindMyPanel({
         </Pressable>
 
         <View style={styles.antiTheftNote}>
-          <Feather name="shield" size={14} color={BladeColors.marine} />
+          <Feather name="shield" size={14} color={theme.textSecondary} />
           <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: 6, flex: 1 }}>
             Anti-theft tracking active. Your outboard reports location every hour for up to 30 days.
           </ThemedText>
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: "rgba(142,142,147,0.12)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: BladeColors.marine + "20",
+    backgroundColor: "rgba(142,142,147,0.15)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -421,12 +421,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginTop: Spacing.lg,
     padding: Spacing.md,
-    backgroundColor: BladeColors.marine + "10",
+    backgroundColor: "rgba(142,142,147,0.10)",
     borderRadius: BorderRadius.md,
   },
   additionalInfo: {
     marginTop: Spacing.lg,
     paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
     borderTopWidth: 1,
   },
   infoRow: {

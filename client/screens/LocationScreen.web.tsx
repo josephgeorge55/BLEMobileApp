@@ -208,7 +208,7 @@ export default function LocationScreen() {
     );
   }
 
-  const displayName = motor?.name || registeredMotors[0]?.name || "Blade Outboard";
+  const displayName = motor?.name || registeredMotors[0]?.name || "Blade Halo";
   const displaySerial = serialNumber || "--";
 
   return (
