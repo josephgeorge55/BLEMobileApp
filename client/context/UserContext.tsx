@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { 
   auth, 
@@ -23,6 +23,7 @@ interface UserContextType {
   isLoading: boolean;
   isLoggedIn: boolean;
   isGuestMode: boolean;
+  isFirebaseReady: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: () => Promise<void>;
@@ -39,20 +40,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+  const authStateReceivedRef = useRef(false);
+  const loadedFromStorageRef = useRef(false);
 
   useEffect(() => {
     loadStoredUser();
     
-    // Listen for Firebase auth state changes only if Firebase is initialized
     const currentAuth = getFirebaseAuth();
     if (!currentAuth) {
       console.warn("Firebase auth not initialized, skipping auth state listener");
+      setIsFirebaseReady(true);
       return;
     }
     
     const unsubscribe = onAuthStateChanged(currentAuth, async (firebaseUser) => {
+      const isFirstCallback = !authStateReceivedRef.current;
+      authStateReceivedRef.current = true;
+      
       if (firebaseUser) {
-        // User is signed in with Firebase
         const userData: UserData = {
           id: firebaseUser.uid,
           email: firebaseUser.email || "",
@@ -62,16 +68,36 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
         setUser(userData);
         setIsGuestMode(false);
+        console.log("[Auth] Firebase auth confirmed user:", firebaseUser.uid);
+      } else if (isFirstCallback && loadedFromStorageRef.current) {
+        console.log("[Auth] Firebase says no user but we had one in storage - clearing stale session");
+        await AsyncStorage.removeItem(USER_STORAGE_KEY);
+        setUser(null);
       }
-      // Note: We don't clear user on sign out here because guest mode handles that differently
+      
+      setIsFirebaseReady(true);
+      
+      if (isFirstCallback && loadedFromStorageRef.current) {
+        setIsLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    const authTimeout = setTimeout(() => {
+      if (!authStateReceivedRef.current) {
+        console.warn("[Auth] Firebase auth state timed out after 5s, proceeding with stored user");
+        setIsFirebaseReady(true);
+        setIsLoading(false);
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(authTimeout);
+    };
   }, []);
 
   const loadStoredUser = async () => {
     try {
-      // Check for guest mode first
       const storedGuest = await AsyncStorage.getItem(GUEST_STORAGE_KEY);
       if (storedGuest === "true") {
         setIsGuestMode(true);
@@ -80,20 +106,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           email: "guest@bladeoutboards.com",
           createdAt: new Date(),
         });
+        setIsFirebaseReady(true);
         setIsLoading(false);
+        loadedFromStorageRef.current = true;
         return;
       }
 
-      // Check for stored Firebase user (for offline access)
       const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         userData.createdAt = new Date(userData.createdAt);
         setUser(userData);
+        console.log("[Auth] Loaded user from storage:", userData.id);
       }
     } catch (error) {
       console.error("Error loading stored user:", error);
-    } finally {
+    }
+    
+    loadedFromStorageRef.current = true;
+    
+    if (authStateReceivedRef.current) {
       setIsLoading(false);
     }
   };
@@ -123,7 +155,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error("Firebase registration error:", error);
       
-      // Map Firebase error codes to user-friendly messages
       let errorMessage = "Registration failed";
       switch (error.code) {
         case "auth/email-already-in-use":
@@ -171,7 +202,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error("Firebase login error:", error);
       
-      // Map Firebase error codes to user-friendly messages
       let errorMessage = "Login failed";
       switch (error.code) {
         case "auth/user-not-found":
@@ -213,7 +243,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      // Sign out from Firebase if not in guest mode
       const currentAuth = getFirebaseAuth();
       if (!isGuestMode && currentAuth?.currentUser) {
         await firebaseSignOut(currentAuth);
@@ -263,6 +292,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isLoggedIn: !!user,
         isGuestMode,
+        isFirebaseReady,
         login,
         register,
         loginAsGuest,
