@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Pressable } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp, useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -39,7 +38,6 @@ const HARDWARE_REV = "HW-R3";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
@@ -309,13 +307,51 @@ export default function SettingsScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: "#F2F2F7" }]}
       contentContainerStyle={{
-        paddingTop: Spacing.lg,
+        paddingTop: insets.top + Spacing.md,
         paddingBottom: tabBarHeight + Spacing["4xl"],
         paddingHorizontal: Spacing.screenPadding,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       showsVerticalScrollIndicator={false}
     >
+      <Animated.View entering={FadeInUp.duration(350).springify()}>
+        <View style={styles.heroTile}>
+          <View style={styles.heroIconRow}>
+            <View style={styles.heroIconCircle}>
+              <Image
+                source={require("../../assets/images/blade-logo-white.png")}
+                style={styles.heroLogo}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.heroTextGroup}>
+              <ThemedText type="h2" style={styles.heroTitle}>
+                Blade Halo
+              </ThemedText>
+              <ThemedText type="small" style={styles.heroSubtitle}>
+                Settings
+              </ThemedText>
+            </View>
+          </View>
+          <View style={styles.heroInfoRow}>
+            <View style={styles.heroInfoItem}>
+              <Feather name="smartphone" size={13} color="rgba(255,255,255,0.4)" />
+              <ThemedText type="caption" style={styles.heroInfoText}>v{APP_VERSION}</ThemedText>
+            </View>
+            <View style={styles.heroInfoDot} />
+            <View style={styles.heroInfoItem}>
+              <Feather name="bluetooth" size={13} color="rgba(255,255,255,0.4)" />
+              <ThemedText type="caption" style={styles.heroInfoText}>{FIRMWARE_PROTOCOL}</ThemedText>
+            </View>
+            <View style={styles.heroInfoDot} />
+            <View style={styles.heroInfoItem}>
+              <Feather name="cpu" size={13} color="rgba(255,255,255,0.4)" />
+              <ThemedText type="caption" style={styles.heroInfoText}>{HARDWARE_REV}</ThemedText>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+
       {user ? (
         <Animated.View entering={FadeInUp.duration(350).springify()}>
           <SettingsSection title="Account">
@@ -979,5 +1015,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     marginTop: Spacing.md,
+  },
+  heroTile: {
+    backgroundColor: "rgba(44,44,46,0.92)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    padding: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  heroIconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+  },
+  heroIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "rgba(164,208,139,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(164,208,139,0.25)",
+  },
+  heroLogo: {
+    width: 36,
+    height: 20,
+    tintColor: BladeColors.accent,
+  },
+  heroTextGroup: {
+    flex: 1,
+  },
+  heroTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  heroSubtitle: {
+    color: "rgba(255,255,255,0.45)",
+    marginTop: 2,
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  heroInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+  },
+  heroInfoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  heroInfoText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 11,
+  },
+  heroInfoDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    marginHorizontal: Spacing.sm,
   },
 });

@@ -161,10 +161,7 @@ export default function MainTabNavigator() {
         component={SettingsScreen}
         options={{
           title: "Settings",
-          headerTitle: () => <HeaderTitle />,
-          headerTransparent: false,
-          headerStyle: { backgroundColor: "rgba(44,44,46,0.95)" },
-          headerTintColor: "#FFFFFF",
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="settings" color={color} focused={focused} />
           ),
