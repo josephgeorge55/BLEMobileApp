@@ -4,7 +4,8 @@ import jwt from "jsonwebtoken";
 
 const APNS_HOST_PRODUCTION = "api.push.apple.com";
 const APNS_HOST_SANDBOX = "api.sandbox.push.apple.com";
-const TOKEN_EXPIRY_MS = 50 * 60 * 1000;
+const TOKEN_REFRESH_INTERVAL_MS = 50 * 60 * 1000;
+const APNS_EXPIRATION_SECONDS = 3600;
 
 let cachedJwt: { token: string; createdAt: number } | null = null;
 
@@ -29,118 +30,83 @@ function getAuthMethod(): "jwt" | "cert" | null {
   return null;
 }
 
+function formatP8Key(rawKey: string): string {
+  let cleaned = rawKey.replace(/\\n/g, "\n").trim();
+
+  const base64Content = cleaned
+    .replace(/-----BEGIN[^-]*-----/g, "")
+    .replace(/-----END[^-]*-----/g, "")
+    .replace(/\s+/g, "");
+
+  const lines: string[] = [];
+  for (let i = 0; i < base64Content.length; i += 64) {
+    lines.push(base64Content.substring(i, i + 64));
+  }
+  return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
+}
+
 function createApnsJwt(): string | null {
-  let keyPem = process.env.APPLE_APNS_KEY_P8;
+  const keyPem = process.env.APPLE_APNS_KEY_P8;
   const keyId = process.env.APPLE_APNS_KEY_ID;
   const teamId = process.env.APPLE_TEAM_IDENTIFIER;
 
   if (!keyPem || !keyId || !teamId) {
-    console.error("[APNs] Missing JWT credentials");
+    console.error("[APNs] Missing JWT credentials: APPLE_APNS_KEY_P8, APPLE_APNS_KEY_ID, or APPLE_TEAM_IDENTIFIER");
     return null;
   }
 
-  if (cachedJwt && Date.now() - cachedJwt.createdAt < TOKEN_EXPIRY_MS) {
+  if (cachedJwt && Date.now() - cachedJwt.createdAt < TOKEN_REFRESH_INTERVAL_MS) {
     return cachedJwt.token;
   }
 
   try {
-    keyPem = keyPem.replace(/\\n/g, "\n").trim();
+    const formattedPem = formatP8Key(keyPem);
 
-    const base64Content = keyPem
-      .replace(/-----BEGIN[^-]*-----/g, "")
-      .replace(/-----END[^-]*-----/g, "")
-      .replace(/\s+/g, "");
-
-    console.log(`[APNs] Raw base64 key length: ${base64Content.length} chars`);
-    console.log(`[APNs] Base64 starts with: ${base64Content.substring(0, 20)}...`);
-
-    const lines: string[] = [];
-    for (let i = 0; i < base64Content.length; i += 64) {
-      lines.push(base64Content.substring(i, i + 64));
-    }
-    const formattedPem = `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
-
-    console.log(`[APNs] Reformatted PEM length: ${formattedPem.length} chars, ${lines.length} lines`);
-
-    let privateKey: crypto.KeyObject;
+    let signingKey: string;
     try {
-      privateKey = crypto.createPrivateKey({
+      const privateKey = crypto.createPrivateKey({
         key: formattedPem,
         format: "pem",
       });
+      signingKey = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
     } catch (pemError: any) {
-      console.log("[APNs] PEM parse failed, trying DER...");
+      const base64Content = formattedPem
+        .replace(/-----BEGIN[^-]*-----/g, "")
+        .replace(/-----END[^-]*-----/g, "")
+        .replace(/\s+/g, "");
       const derBuffer = Buffer.from(base64Content, "base64");
-      privateKey = crypto.createPrivateKey({
+      const privateKey = crypto.createPrivateKey({
         key: derBuffer,
         format: "der",
         type: "pkcs8",
       });
+      signingKey = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
     }
 
-    const keyExport = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
+    const now = Math.floor(Date.now() / 1000);
 
-    const token = jwt.sign({}, keyExport, {
-      algorithm: "ES256",
-      header: {
-        alg: "ES256",
-        kid: keyId,
+    const token = jwt.sign(
+      {
+        iss: teamId,
+        iat: now,
       },
-      issuer: teamId,
-      expiresIn: "55m",
-    });
+      signingKey,
+      {
+        algorithm: "ES256",
+        header: {
+          alg: "ES256",
+          kid: keyId,
+        },
+      },
+    );
 
     cachedJwt = { token, createdAt: Date.now() };
-    console.log("[APNs] JWT token generated successfully");
+    console.log("[APNs] JWT token generated successfully (ES256, no exp claim per Apple spec)");
     return token;
   } catch (error: any) {
     console.error("[APNs] Failed to generate JWT:", error.message);
-    console.error("[APNs] Stack:", error.stack?.substring(0, 500));
-
-    try {
-      console.log("[APNs] Attempting manual JWT signing as final fallback...");
-      const rawKeyPem = keyPem!.replace(/\\n/g, "\n").trim();
-      const b64 = rawKeyPem
-        .replace(/-----BEGIN[^-]*-----/g, "")
-        .replace(/-----END[^-]*-----/g, "")
-        .replace(/\s+/g, "");
-      const fmtLines: string[] = [];
-      for (let i = 0; i < b64.length; i += 64) fmtLines.push(b64.substring(i, i + 64));
-      const fmtPem = `-----BEGIN PRIVATE KEY-----\n${fmtLines.join("\n")}\n-----END PRIVATE KEY-----\n`;
-
-      const headerB64 = Buffer.from(JSON.stringify({ alg: "ES256", kid: keyId })).toString("base64url");
-      const now = Math.floor(Date.now() / 1000);
-      const claimsB64 = Buffer.from(JSON.stringify({ iss: teamId, iat: now })).toString("base64url");
-      const signingInput = `${headerB64}.${claimsB64}`;
-
-      const sign = crypto.createSign("SHA256");
-      sign.update(signingInput);
-      const derSignature = sign.sign(fmtPem);
-
-      let offset = 2;
-      if (derSignature[1]! & 0x80) offset += (derSignature[1]! & 0x7f);
-      const rLen = derSignature[offset + 1]!;
-      let rStart = offset + 2;
-      let r = derSignature.subarray(rStart, rStart + rLen);
-      if (r.length === 33 && r[0] === 0) r = r.subarray(1);
-      const sOff = rStart + rLen;
-      const sLen = derSignature[sOff + 1]!;
-      let sStart = sOff + 2;
-      let s = derSignature.subarray(sStart, sStart + sLen);
-      if (s.length === 33 && s[0] === 0) s = s.subarray(1);
-      const rPad = Buffer.alloc(32); r.copy(rPad, 32 - r.length);
-      const sPad = Buffer.alloc(32); s.copy(sPad, 32 - s.length);
-      const rawSig = Buffer.concat([rPad, sPad]);
-
-      const signature = rawSig.toString("base64url");
-      const manualJwt = `${signingInput}.${signature}`;
-      cachedJwt = { token: manualJwt, createdAt: Date.now() };
-      console.log("[APNs] Manual JWT signing succeeded as fallback");
-      return manualJwt;
-    } catch (fallbackError: any) {
-      console.error("[APNs] Manual JWT fallback also failed:", fallbackError.message);
-      return null;
-    }
+    cachedJwt = null;
+    return null;
   }
 }
 
@@ -154,6 +120,8 @@ interface ApnsPayload {
     badge?: number;
     "mutable-content"?: number;
     "content-available"?: number;
+    category?: string;
+    "thread-id"?: string;
   };
   [key: string]: unknown;
 }
@@ -189,13 +157,23 @@ function connectHttp2(
 
     client.on("connect", () => {
       clearTimeout(connectTimeout);
-      console.log(`[APNs] HTTP/2 session established to ${host}`);
       resolve(client);
     });
 
     client.on("error", (err) => {
       clearTimeout(connectTimeout);
       reject(new Error(`HTTP/2 connection error: ${err.message}`));
+    });
+
+    client.on("goaway", (errorCode, lastStreamID, opaqueData) => {
+      let reason = "unknown";
+      if (opaqueData && opaqueData.length > 0) {
+        try {
+          const parsed = JSON.parse(opaqueData.toString());
+          reason = parsed.reason || reason;
+        } catch {}
+      }
+      console.warn(`[APNs] GOAWAY received: errorCode=${errorCode}, lastStreamID=${lastStreamID}, reason=${reason}`);
     });
   });
 }
@@ -214,9 +192,7 @@ function sendSinglePush(
       "apns-topic": bundleId,
       "apns-push-type": "alert",
       "apns-priority": "10",
-      "apns-expiration": "0",
-      "content-type": "application/json",
-      "content-length": Buffer.byteLength(payload),
+      "apns-expiration": String(Math.floor(Date.now() / 1000) + APNS_EXPIRATION_SECONDS),
     };
 
     if (authMethod === "jwt") {
@@ -289,7 +265,7 @@ function sendSinglePush(
       safeResolve({
         success: false,
         token: deviceToken,
-        reason: `Request error: ${error.message}`,
+        reason: `Stream error: ${error.message}`,
       });
     });
 
@@ -300,21 +276,22 @@ function sendSinglePush(
 
 function logApnsErrorDetails(reason: string, bundleId: string) {
   const hints: Record<string, string> = {
-    BadDeviceToken: "Token may be from wrong environment (sandbox vs production), invalid, or expired",
-    TopicDisallowed: `Bundle ID "${bundleId}" does not match APNs certificate/key`,
-    InvalidProviderToken: "JWT signing key (.p8) may be wrong, expired, or revoked",
-    Unregistered: "Device uninstalled the app or token is no longer valid",
-    DeviceTokenNotForTopic: `Token was generated for a different bundle ID than "${bundleId}"`,
-    MissingTopic: `The apns-topic header is missing. Bundle ID: "${bundleId}"`,
-    BadCertificate: `Certificate is invalid or does not match bundle ID "${bundleId}"`,
-    BadCertificateEnvironment: "Certificate environment (sandbox/production) does not match APNs endpoint",
-    ExpiredProviderToken: "JWT token has expired - cached token issue",
-    Forbidden: "The specified action is not allowed - check certificate/key permissions",
-    TooManyRequests: "Too many requests for this device token - rate limited by Apple",
+    BadDeviceToken: "Token may be from wrong environment (sandbox vs production), or is invalid/expired. Tokens from Xcode debug builds use sandbox; TestFlight/App Store builds use production.",
+    TopicDisallowed: `Bundle ID "${bundleId}" is not allowed for this signing key. Verify the key covers this bundle ID in Apple Developer Portal.`,
+    InvalidProviderToken: "JWT signing key (.p8) may be wrong, revoked, or created for a different environment (sandbox vs production). Team-scoped keys are environment-specific.",
+    Unregistered: "Device has uninstalled the app or token is no longer valid. Remove this token from your database.",
+    DeviceTokenNotForTopic: `Device token was generated for a different app/bundle ID than "${bundleId}". The token and bundle ID must match.`,
+    MissingTopic: `The apns-topic header is missing or empty. Should be "${bundleId}".`,
+    BadCertificate: `Certificate is invalid or does not match bundle ID "${bundleId}".`,
+    BadCertificateEnvironment: "Certificate environment (sandbox/production) does not match the APNs host being used.",
+    ExpiredProviderToken: "JWT token iat timestamp is older than 1 hour. Token cache may be stale.",
+    Forbidden: "The specified action is not allowed. Check that the signing key has APNs permission enabled.",
+    TooManyRequests: "Rate limited by Apple. Reduce push frequency to this device token.",
+    TooManyProviderTokenUpdates: "JWT is being refreshed too frequently. Must wait at least 20 minutes between token refreshes on the same connection.",
   };
 
   if (hints[reason]) {
-    console.error(`[APNs] ${reason}: ${hints[reason]}`);
+    console.error(`[APNs] HINT for "${reason}": ${hints[reason]}`);
   }
 }
 
@@ -335,16 +312,11 @@ export async function sendApnsPushNotifications(
   const authMethod = getAuthMethod();
 
   console.log(`[APNs] === Push Notification Send ===`);
-  console.log(`[APNs] Auth method: ${authMethod || "NONE"}`);
-  console.log(`[APNs] Endpoint: ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
-  console.log(`[APNs] Bundle ID: ${bundleId}`);
-  console.log(`[APNs] Token count: ${deviceTokens.length}`);
-  console.log(`[APNs] Title: "${title}"`);
+  console.log(`[APNs] Auth: ${authMethod || "NONE"} | Host: ${host} | Bundle: ${bundleId} | Tokens: ${deviceTokens.length}`);
 
   if (!authMethod) {
     console.error("[APNs] No authentication method configured!");
-    console.error("[APNs] Need either: APPLE_APNS_KEY_P8 + APPLE_APNS_KEY_ID + APPLE_TEAM_IDENTIFIER (JWT)");
-    console.error("[APNs] Or: APPLE_APNS_CERTIFICATE_PEM + APPLE_APNS_PRIVATE_KEY_PEM (Certificate)");
+    console.error("[APNs] Required: APPLE_APNS_KEY_P8 + APPLE_APNS_KEY_ID + APPLE_TEAM_IDENTIFIER (JWT auth)");
     return { sent: 0, failed: deviceTokens.length };
   }
 
@@ -357,18 +329,18 @@ export async function sendApnsPushNotifications(
     ...(data || {}),
   };
   const payloadStr = JSON.stringify(payload);
-  console.log(`[APNs] Payload: ${payloadStr}`);
+
+  const payloadBytes = Buffer.byteLength(payloadStr);
+  if (payloadBytes > 4096) {
+    console.error(`[APNs] Payload exceeds 4KB limit: ${payloadBytes} bytes`);
+    return { sent: 0, failed: deviceTokens.length };
+  }
 
   let client: http2.ClientHttp2Session;
   try {
-    console.log(`[APNs] Connecting HTTP/2 to ${host}...`);
     client = await connectHttp2(host, authMethod);
   } catch (error: any) {
-    console.error(`[APNs] Failed to establish HTTP/2 connection: ${error.message}`);
-    if (authMethod === "cert") {
-      console.error("[APNs] Certificate auth connection failed. Check APPLE_APNS_CERTIFICATE_PEM and APPLE_APNS_PRIVATE_KEY_PEM format.");
-      console.error("[APNs] Hint: Certificates must be PEM-encoded (.pem format, not .p12).");
-    }
+    console.error(`[APNs] HTTP/2 connection failed: ${error.message}`);
     return { sent: 0, failed: deviceTokens.length };
   }
 
@@ -377,44 +349,77 @@ export async function sendApnsPushNotifications(
   let failed = 0;
 
   try {
-    const BATCH_SIZE = 50;
-    for (let i = 0; i < deviceTokens.length; i += BATCH_SIZE) {
-      const batch = deviceTokens.slice(i, i + BATCH_SIZE);
-      const results = await Promise.all(
-        batch.map((token) => {
-          const cleanToken = token.replace(/[^a-fA-F0-9]/g, "");
-          if (cleanToken.length !== 64) {
-            console.warn(`[APNs] Skipping invalid token (length ${cleanToken.length}, expected 64): ${token.substring(0, 16)}...`);
-            return Promise.resolve({
-              success: false,
-              token,
-              reason: `Invalid token length: ${cleanToken.length} (expected 64 hex chars)`,
-            } as ApnsSendResult);
-          }
-          return sendSinglePush(client, cleanToken, payloadStr, bundleId, authMethod);
-        }),
-      );
+    const validTokens: string[] = [];
+    for (const token of deviceTokens) {
+      const cleanToken = token.replace(/[^a-fA-F0-9]/g, "");
+      if (cleanToken.length !== 64) {
+        console.warn(`[APNs] Invalid token length ${cleanToken.length} (expected 64): ${token.substring(0, 16)}...`);
+        allResults.push({
+          success: false,
+          token,
+          reason: `Invalid token length: ${cleanToken.length} (expected 64 hex chars)`,
+        });
+        failed++;
+      } else {
+        validTokens.push(cleanToken);
+      }
+    }
 
-      for (const result of results) {
-        allResults.push(result);
-        if (result.success) {
-          sent++;
-          console.log(`[APNs] SUCCESS: ${result.token.substring(0, 12)}... (apns-id: ${result.apnsId})`);
-        } else {
-          failed++;
-          console.error(`[APNs] FAILED: ${result.token.substring(0, 12)}... - ${result.reason} (HTTP ${result.statusCode || "N/A"})`);
-          if (result.reason) {
-            logApnsErrorDetails(result.reason, bundleId);
+    if (validTokens.length > 0) {
+      const firstResult = await sendSinglePush(client, validTokens[0]!, payloadStr, bundleId, authMethod);
+      allResults.push(firstResult);
+      if (firstResult.success) {
+        sent++;
+        console.log(`[APNs] First push OK (apns-id: ${firstResult.apnsId})`);
+      } else {
+        failed++;
+        console.error(`[APNs] First push FAILED: ${firstResult.reason} (HTTP ${firstResult.statusCode || "N/A"})`);
+        if (firstResult.reason) logApnsErrorDetails(firstResult.reason, bundleId);
+
+        if (firstResult.statusCode === 403 && (firstResult.reason === "InvalidProviderToken" || firstResult.reason === "ExpiredProviderToken")) {
+          console.error("[APNs] Auth token rejected by Apple. Aborting batch — all remaining tokens would fail with the same error.");
+          for (let i = 1; i < validTokens.length; i++) {
+            allResults.push({ success: false, token: validTokens[i]!, statusCode: 403, reason: firstResult.reason });
+            failed++;
+          }
+          return { sent, failed, details: allResults };
+        }
+      }
+
+      if (validTokens.length > 1) {
+        const BATCH_SIZE = 50;
+        const remaining = validTokens.slice(1);
+
+        for (let i = 0; i < remaining.length; i += BATCH_SIZE) {
+          const batch = remaining.slice(i, i + BATCH_SIZE);
+          const batchResults = await Promise.all(
+            batch.map((token) => sendSinglePush(client, token, payloadStr, bundleId, authMethod)),
+          );
+
+          for (const result of batchResults) {
+            allResults.push(result);
+            if (result.success) {
+              sent++;
+            } else {
+              failed++;
+              if (result.reason) logApnsErrorDetails(result.reason, bundleId);
+            }
           }
         }
       }
     }
   } finally {
     client.close();
-    console.log("[APNs] HTTP/2 session closed");
   }
 
-  console.log(`[APNs] Result: Sent: ${sent}, Failed: ${failed}`);
+  console.log(`[APNs] Result: ${sent} sent, ${failed} failed out of ${deviceTokens.length} total`);
+
+  for (const r of allResults) {
+    if (!r.success) {
+      console.log(`[APNs]   FAILED ${r.token.substring(0, 12)}... => ${r.reason} (HTTP ${r.statusCode || "N/A"})`);
+    }
+  }
+
   return { sent, failed, details: allResults };
 }
 
@@ -425,8 +430,11 @@ export async function testApnsConnection(): Promise<{
   host: string;
   connectionOk: boolean;
   jwtOk?: boolean;
+  jwtClaims?: { iss: string; iat: number; hasExp: boolean };
   certConfigured: boolean;
   jwtConfigured: boolean;
+  keyIdLength?: number;
+  teamIdLength?: number;
   error?: string;
 }> {
   const authMethod = getAuthMethod();
@@ -434,7 +442,7 @@ export async function testApnsConnection(): Promise<{
   const useSandbox = process.env.APNS_ENVIRONMENT === "sandbox";
   const host = useSandbox ? APNS_HOST_SANDBOX : APNS_HOST_PRODUCTION;
 
-  const result = {
+  const result: any = {
     authMethod,
     bundleId,
     environment: useSandbox ? "sandbox" : "production",
@@ -442,18 +450,31 @@ export async function testApnsConnection(): Promise<{
     connectionOk: false,
     certConfigured: isCertAuthConfigured(),
     jwtConfigured: isJwtAuthConfigured(),
-  } as any;
+    keyIdLength: process.env.APPLE_APNS_KEY_ID?.length || 0,
+    teamIdLength: process.env.APPLE_TEAM_IDENTIFIER?.length || 0,
+  };
 
   if (!authMethod) {
-    result.error = "No auth method configured";
+    result.error = "No auth method configured. Need APPLE_APNS_KEY_P8 + APPLE_APNS_KEY_ID + APPLE_TEAM_IDENTIFIER";
     return result;
   }
 
   if (authMethod === "jwt") {
+    cachedJwt = null;
     const token = createApnsJwt();
     result.jwtOk = !!token;
-    if (!token) {
-      result.error = "JWT generation failed";
+    if (token) {
+      try {
+        const parts = token.split(".");
+        const claims = JSON.parse(Buffer.from(parts[1]!, "base64url").toString());
+        result.jwtClaims = {
+          iss: claims.iss,
+          iat: claims.iat,
+          hasExp: "exp" in claims,
+        };
+      } catch {}
+    } else {
+      result.error = "JWT generation failed — check .p8 key format";
       return result;
     }
   }
@@ -463,7 +484,7 @@ export async function testApnsConnection(): Promise<{
     result.connectionOk = true;
     client.close();
   } catch (error: any) {
-    result.error = `Connection failed: ${error.message}`;
+    result.error = `HTTP/2 connection to ${host} failed: ${error.message}`;
   }
 
   return result;
