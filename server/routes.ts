@@ -1062,14 +1062,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/passport/wallet/apple", async (req, res) => {
     try {
       const passportData = req.body;
+      console.log("[Apple Wallet] POST /api/passport/wallet/apple - serial:", passportData?.serialNumber, "owner:", passportData?.ownerEmail);
+
       if (!passportData || !passportData.ownerEmail) {
         return res.status(400).json({ error: "Passport data is required" });
       }
 
-      const { generateAppleWalletPass } = await import("./walletPassGenerator");
+      const { generateAppleWalletPass, getWalletDebugLog } = await import("./walletPassGenerator");
       const result = await generateAppleWalletPass(passportData);
 
       if ("error" in result) {
+        console.log("[Apple Wallet] Pass generation failed, falling back to PDF:", result.error);
         const pdfBuffer = await generatePassportPDFBuffer(passportData);
         const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`;
         const downloadId = randomUUID();
@@ -1085,26 +1088,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: result.error,
           downloadPath: `/api/passport/download/${downloadId}`,
           filename,
+          passSize: pdfBuffer.length,
+          serverDebug: getWalletDebugLog().slice(-20),
         });
       }
 
       const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pkpass`;
       const downloadId = randomUUID();
+      console.log("[Apple Wallet] Pass generated successfully:", result.buffer.length, "bytes, downloadId:", downloadId);
+
       pendingDownloads.set(downloadId, {
         buffer: result.buffer,
         mimeType: "application/vnd.apple.pkpass",
         filename,
-        expiresAt: Date.now() + 5 * 60 * 1000,
+        expiresAt: Date.now() + 10 * 60 * 1000,
       });
       res.json({
         success: true,
         type: "pkpass",
         downloadPath: `/api/passport/download/${downloadId}`,
         filename,
+        passSize: result.buffer.length,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Apple Wallet] Error:", error);
-      res.status(500).json({ error: "Failed to generate wallet pass" });
+      res.status(500).json({ error: `Failed to generate wallet pass: ${error.message}` });
     }
   });
 
@@ -1142,11 +1150,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/passport/download/:id", (req, res) => {
-    const entry = pendingDownloads.get(req.params.id);
-    if (!entry || entry.expiresAt < Date.now()) {
-      if (entry) pendingDownloads.delete(req.params.id);
-      return res.status(404).json({ error: "Download expired or not found" });
+    const downloadId = req.params.id;
+    console.log(`[Download] GET /api/passport/download/${downloadId}`);
+    console.log(`[Download] Pending downloads count: ${pendingDownloads.size}`);
+
+    const entry = pendingDownloads.get(downloadId);
+    if (!entry) {
+      console.log(`[Download] ID ${downloadId} not found in pending downloads`);
+      return res.status(404).json({ error: "Download not found" });
     }
+    if (entry.expiresAt < Date.now()) {
+      console.log(`[Download] ID ${downloadId} expired (expired ${Math.round((Date.now() - entry.expiresAt) / 1000)}s ago)`);
+      pendingDownloads.delete(downloadId);
+      return res.status(404).json({ error: "Download expired" });
+    }
+
+    console.log(`[Download] Serving ${entry.filename} (${entry.buffer.length} bytes, ${entry.mimeType})`);
 
     res.removeHeader("X-Powered-By");
     res.setHeader("Content-Type", entry.mimeType);
@@ -1163,8 +1182,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     res.end(entry.buffer);
+    console.log(`[Download] Sent ${entry.buffer.length} bytes for ${downloadId}`);
 
-    setTimeout(() => pendingDownloads.delete(req.params.id), 30000);
+    setTimeout(() => {
+      pendingDownloads.delete(downloadId);
+      console.log(`[Download] Cleaned up ${downloadId}`);
+    }, 60000);
   });
 
   const httpServer = createServer(app);

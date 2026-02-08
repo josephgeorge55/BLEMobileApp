@@ -33,7 +33,7 @@ import {
 } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
-import BladeWalletPassModule, { isNativeWalletAvailable } from "../../modules/blade-wallet-pass";
+import BladeWalletPassModule, { isNativeWalletAvailable, getWalletModuleLoadError } from "../../modules/blade-wallet-pass";
 
 const bladePassportLogo = require("../../assets/images/blade-passport-logo.png");
 const ukcaLogo = require("../../assets/images/ukca-logo.png");
@@ -158,11 +158,27 @@ export default function PassportScreen() {
   const handleAddToAppleWallet = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setAddingToWallet(true);
+
+    console.log("[Passport] ========== Apple Wallet Flow Start ==========");
+    console.log("[Passport] Platform:", Platform.OS);
+    console.log("[Passport] Native module available:", isNativeWalletAvailable());
+    console.log("[Passport] Module load error:", getWalletModuleLoadError() || "none");
+
+    if (BladeWalletPassModule && isNativeWalletAvailable()) {
+      try {
+        const debugInfo = BladeWalletPassModule.getDebugInfo();
+        console.log("[Passport] Native debug info:", JSON.stringify(debugInfo));
+      } catch (e: any) {
+        console.log("[Passport] getDebugInfo not available:", e.message);
+      }
+    }
+
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/passport/wallet/apple", baseUrl);
-      console.log("[Passport] Apple Wallet - Requesting pass generation...");
+      console.log("[Passport] API URL:", url.toString());
       const passportData = getPassportData();
+      console.log("[Passport] Passport data serial:", passportData.serialNumber);
 
       const response = await fetch(url.toString(), {
         method: "POST",
@@ -170,52 +186,81 @@ export default function PassportScreen() {
         body: JSON.stringify(passportData),
       });
 
+      console.log("[Passport] Server response status:", response.status);
+      console.log("[Passport] Server content-type:", response.headers.get("content-type"));
+
       if (!response.ok) {
         const errorText = await response.text().catch(() => "Unknown error");
+        console.error("[Passport] Server error body:", errorText.substring(0, 500));
         throw new Error(`Server ${response.status}: ${errorText.substring(0, 200)}`);
       }
 
       const data = await response.json();
-      console.log("[Passport] Apple Wallet - Response type:", data.type);
-      console.log("[Passport] Apple Wallet - Download path:", data.downloadPath);
+      console.log("[Passport] Response type:", data.type);
+      console.log("[Passport] Download path:", data.downloadPath);
+      console.log("[Passport] Filename:", data.filename);
+      console.log("[Passport] Pass size:", data.passSize);
 
       if (!data.downloadPath) {
         throw new Error("No download path received from server");
       }
 
       const downloadUrl = baseUrl + data.downloadPath;
+      console.log("[Passport] Full download URL:", downloadUrl);
 
       if (data.type === "pkpass" && Platform.OS === "ios") {
         if (isNativeWalletAvailable() && BladeWalletPassModule) {
-          console.log("[Passport] Apple Wallet - Using native PKAddPassesViewController");
+          console.log("[Passport] >>> Using NATIVE PKAddPassesViewController path");
           const canAdd = BladeWalletPassModule.canAddPasses();
+          console.log("[Passport] canAddPasses:", canAdd);
           if (!canAdd) {
             throw new Error("This device cannot add passes to Apple Wallet");
           }
+
+          console.log("[Passport] Calling addPassFromUrl...");
           const result = await BladeWalletPassModule.addPassFromUrl(downloadUrl);
-          console.log("[Passport] Apple Wallet - PKAddPassesViewController result:", JSON.stringify(result));
+          console.log("[Passport] Native result:", JSON.stringify(result, null, 2));
+
           if (result.alreadyInWallet) {
             Alert.alert("Apple Wallet", "This pass is already in your Wallet.");
           } else if (result.added) {
+            console.log("[Passport] Pass added successfully!");
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Success", "Pass added to Apple Wallet!");
+          } else {
+            console.log("[Passport] User cancelled or dismissed pass preview");
           }
         } else {
-          console.log("[Passport] Apple Wallet - Native module unavailable, falling back to share sheet");
+          console.log("[Passport] >>> Using FALLBACK share sheet path (native module not available)");
+          console.log("[Passport] Module load error:", getWalletModuleLoadError());
+
           const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pkpass");
+          console.log("[Passport] Downloading to:", localPath);
+
           const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+          console.log("[Passport] Download status:", downloadResult.status);
+          console.log("[Passport] Downloaded to:", downloadResult.uri);
+
           if (downloadResult.status !== 200) {
             throw new Error(`Download failed with status ${downloadResult.status}`);
           }
+
+          const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+          console.log("[Passport] File exists:", fileInfo.exists, "size:", fileInfo.exists ? (fileInfo as any).size : 0);
+
+          console.log("[Passport] Opening share sheet with UTI com.apple.pkpass...");
           await Sharing.shareAsync(downloadResult.uri, {
             mimeType: "application/vnd.apple.pkpass",
             UTI: "com.apple.pkpass",
             dialogTitle: "Add to Apple Wallet",
           });
+          console.log("[Passport] Share sheet completed");
         }
       } else if (data.type === "pkpass" && Platform.OS === "android") {
-        console.log("[Passport] Apple Wallet - Android: downloading and sharing .pkpass");
+        console.log("[Passport] >>> Android path: downloading and sharing .pkpass");
         const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pkpass");
         const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+        console.log("[Passport] Download status:", downloadResult.status);
         if (downloadResult.status !== 200) {
           throw new Error(`Download failed with status ${downloadResult.status}`);
         }
@@ -223,6 +268,7 @@ export default function PassportScreen() {
           mimeType: "application/vnd.apple.pkpass",
         });
       } else if (data.type === "pdf_fallback") {
+        console.log("[Passport] >>> PDF fallback path");
         if (Platform.OS !== "web") {
           const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pdf");
           const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
@@ -236,12 +282,16 @@ export default function PassportScreen() {
         if (data.message) {
           Alert.alert("Apple Wallet", data.message);
         }
+      } else {
+        console.log("[Passport] Unknown response type:", data.type, "platform:", Platform.OS);
       }
     } catch (error: any) {
-      console.error("[Passport] Apple Wallet error:", error.message);
+      console.error("[Passport] !! Apple Wallet error:", error.message);
+      console.error("[Passport] !! Stack:", error.stack);
       Alert.alert("Apple Wallet Error", `${error.message || "Unknown error"}`);
     } finally {
       setAddingToWallet(false);
+      console.log("[Passport] ========== Apple Wallet Flow End ==========");
     }
   };
 
