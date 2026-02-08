@@ -228,7 +228,7 @@ export function OpenStreetMap({
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(99, 99, 102, 0.3) 0%, rgba(99, 99, 102, 0.1) 100%);
+      background: linear-gradient(135deg, rgba(141, 198, 63, 0.3) 0%, rgba(141, 198, 63, 0.1) 100%);
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
     .marker-outer-ring.live {
@@ -239,12 +239,12 @@ export function OpenStreetMap({
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      background: linear-gradient(145deg, #636366 0%, #48484A 100%);
+      background: linear-gradient(145deg, ${BladeColors.accent} 0%, #5a9a30 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 
-        0 4px 20px rgba(99, 99, 102, 0.5),
+        0 4px 20px rgba(141, 198, 63, 0.5),
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 2px 4px rgba(255, 255, 255, 0.2),
         inset 0 -2px 4px rgba(0, 0, 0, 0.2);
@@ -269,7 +269,7 @@ export function OpenStreetMap({
       width: 72px;
       height: 72px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(99, 99, 102, 0.4) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(141, 198, 63, 0.4) 0%, transparent 70%);
       opacity: 0;
     }
     .marker-glow.live {

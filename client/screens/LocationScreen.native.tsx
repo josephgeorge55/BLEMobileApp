@@ -230,7 +230,7 @@ export default function LocationScreen() {
                 longitude: currentLocation.longitude,
               },
               title: displayName,
-              color: currentLocation.isLive ? BladeColors.success : "#8E8E93",
+              color: currentLocation.isLive ? BladeColors.success : BladeColors.accent,
               isLive: currentLocation.isLive,
             },
           ] : []}
