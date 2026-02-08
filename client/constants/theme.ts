@@ -297,9 +297,9 @@ export const Gradients = {
   marineSubtle: ["#00B8A920", "#00B8A905"],
   dark: ["#1E293B", "#0B1120"],
   card: ["rgba(255,255,255,0.95)", "rgba(255,255,255,0.85)"],
-  cardDark: ["#1A2530", "#141C24"],
-  cardPremium: ["#1E2832", "#151B23"],
+  cardDark: ["rgba(44,44,46,0.92)", "rgba(28,28,30,0.95)"],
+  cardPremium: ["rgba(58,58,60,0.88)", "rgba(44,44,46,0.92)"],
   cardHeader: ["#0A4D6E", "#063549"],
-  surface: ["#181F27", "#12181F"],
+  surface: ["rgba(44,44,46,0.90)", "rgba(36,36,38,0.92)"],
   overlay: ["rgba(0,0,0,0)", "rgba(0,0,0,0.6)"],
 };
