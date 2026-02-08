@@ -17,6 +17,7 @@ import { UserProvider } from "@/context/UserContext";
 import { TripProvider } from "@/context/TripContext";
 import { ToastProvider } from "@/context/ToastContext";
 import LiveActivityManager from "@/components/LiveActivityManager";
+import WatchConnectivityBridge from "@/components/WatchConnectivityBridge";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
                 <MotorProvider>
                   <TripProvider>
                     <LiveActivityManager />
+                    <WatchConnectivityBridge />
                     <SettingsProvider>
                       <ToastProvider>
                         <NavigationContainer>
