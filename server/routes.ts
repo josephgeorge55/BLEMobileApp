@@ -776,61 +776,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Passport data is required" });
       }
 
-      const wantDownloadUrl = req.headers["x-download-mode"] === "native";
       const { generateAppleWalletPass } = await import("./walletPassGenerator");
       const result = await generateAppleWalletPass(passportData);
 
       if ("error" in result) {
         const pdfBuffer = await generatePassportPDFBuffer(passportData);
         const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pdf`;
-        if (wantDownloadUrl) {
-          const downloadId = randomUUID();
-          pendingDownloads.set(downloadId, {
-            buffer: pdfBuffer,
-            mimeType: "application/pdf",
-            filename,
-            expiresAt: Date.now() + 5 * 60 * 1000,
-          });
-          return res.json({
-            success: true,
-            type: "pdf_fallback",
-            message: result.error,
-            downloadPath: `/api/passport/download/${downloadId}`,
-            filename,
-          });
-        }
-        const base64 = pdfBuffer.toString('base64');
-        return res.json({
-          success: true,
-          type: 'pdf_fallback',
-          message: result.error,
-          data: base64,
-          filename,
-        });
-      }
-
-      const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pkpass`;
-      if (wantDownloadUrl) {
         const downloadId = randomUUID();
         pendingDownloads.set(downloadId, {
-          buffer: result.buffer,
-          mimeType: "application/vnd.apple.pkpass",
+          buffer: pdfBuffer,
+          mimeType: "application/pdf",
           filename,
           expiresAt: Date.now() + 5 * 60 * 1000,
         });
         return res.json({
           success: true,
-          type: "pkpass",
+          type: "pdf_fallback",
+          message: result.error,
           downloadPath: `/api/passport/download/${downloadId}`,
           filename,
         });
       }
 
-      const base64 = result.buffer.toString('base64');
+      const filename = `blade-passport-${passportData.serialNumber || 'unknown'}.pkpass`;
+      const downloadId = randomUUID();
+      pendingDownloads.set(downloadId, {
+        buffer: result.buffer,
+        mimeType: "application/vnd.apple.pkpass",
+        filename,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
       res.json({
         success: true,
-        type: 'pkpass',
-        data: base64,
+        type: "pkpass",
+        downloadPath: `/api/passport/download/${downloadId}`,
         filename,
       });
     } catch (error) {
