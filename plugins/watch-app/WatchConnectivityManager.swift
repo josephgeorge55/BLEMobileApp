@@ -4,7 +4,7 @@ import WatchConnectivity
 class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var isConnected: Bool = false
     @Published var serialNumber: String = "--"
-    @Published var motorName: String = "Blade Halo"
+    @Published var motorName: String = "Blade Halo Series"
     @Published var speedKnots: Double = 0.0
     @Published var batteryPercent: Int = 0
     @Published var wattage: Double = 0.0

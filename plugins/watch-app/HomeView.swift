@@ -16,11 +16,12 @@ struct HomeView: View {
             
             Spacer().frame(height: 4)
             
-            Image(systemName: "bolt.fill")
-                .font(.system(size: 28))
-                .foregroundColor(Color(red: 10/255, green: 77/255, blue: 110/255))
+            Image("BladeIcon")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 36, height: 36)
             
-            Text("Blade")
+            Text("Blade Outboards")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.white)
             
