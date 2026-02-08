@@ -73,12 +73,12 @@ export default function UpdatesScreen() {
 
   if (!motor) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <View style={[styles.container, { backgroundColor: "#F2F2F7" }]}>
         <View
           style={[
             styles.emptyContainer,
             {
-              paddingTop: headerHeight + Spacing.xl,
+              paddingTop: Spacing.xl,
               paddingBottom: tabBarHeight + Spacing.xl,
             },
           ]}
@@ -98,9 +98,9 @@ export default function UpdatesScreen() {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+      style={[styles.container, { backgroundColor: "#F2F2F7" }]}
       contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.xl,
+        paddingTop: Spacing.xl,
         paddingBottom: tabBarHeight + Spacing["3xl"],
         paddingHorizontal: Spacing.lg,
       }}
@@ -116,7 +116,7 @@ export default function UpdatesScreen() {
       <Animated.View entering={FadeIn.duration(300)}>
         <ThemedText
           type="caption"
-          style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+          style={{ color: "#8E8E93", marginBottom: Spacing.sm }}
         >
           CURRENT VERSION
         </ThemedText>
@@ -131,7 +131,7 @@ export default function UpdatesScreen() {
         <View style={styles.loadingSection}>
           <ThemedText
             type="caption"
-            style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+            style={{ color: "#8E8E93", marginBottom: Spacing.sm }}
           >
             CHECKING FOR UPDATES...
           </ThemedText>
@@ -144,7 +144,7 @@ export default function UpdatesScreen() {
         >
           <ThemedText
             type="caption"
-            style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+            style={{ color: "#8E8E93", marginBottom: Spacing.sm }}
           >
             AVAILABLE UPDATES
           </ThemedText>
@@ -178,7 +178,7 @@ export default function UpdatesScreen() {
           </ThemedText>
           <ThemedText
             type="body"
-            style={[styles.upToDateText, { color: theme.textSecondary }]}
+            style={[styles.upToDateText, { color: "#8E8E93" }]}
           >
             Your Blade outboard is running the latest firmware version.
           </ThemedText>

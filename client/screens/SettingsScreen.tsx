@@ -290,9 +290,9 @@ export default function SettingsScreen() {
   return (
     <>
     <ScrollView
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+      style={[styles.container, { backgroundColor: "#F2F2F7" }]}
       contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
+        paddingTop: Spacing.lg,
         paddingBottom: tabBarHeight + Spacing["4xl"],
         paddingHorizontal: Spacing.screenPadding,
       }}
@@ -330,7 +330,7 @@ export default function SettingsScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowBoatModal(true);
             }}
-            iconColor={boatData ? BladeColors.marine : theme.textSecondary}
+            iconColor={boatData ? BladeColors.marine : "rgba(255,255,255,0.5)"}
           />
         </SettingsSection>
       ) : null}
@@ -354,8 +354,8 @@ export default function SettingsScreen() {
         <SettingsSection title="Registered Outboards">
           {loadingMotors ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.primary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+              <ActivityIndicator size="small" color={BladeColors.accent} />
+              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.5)", marginLeft: Spacing.sm }}>
                 Loading...
               </ThemedText>
             </View>
@@ -372,11 +372,11 @@ export default function SettingsScreen() {
             ))
           ) : (
             <View style={styles.emptyRegisteredContainer}>
-              <Feather name="shield-off" size={32} color={theme.textTertiary} />
-              <ThemedText type="small" style={{ color: theme.textTertiary, marginTop: Spacing.sm, textAlign: 'center' }}>
+              <Feather name="shield-off" size={32} color={"rgba(255,255,255,0.35)"} />
+              <ThemedText type="small" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.sm, textAlign: 'center' }}>
                 No outboards registered for anti-theft protection
               </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textTertiary, marginTop: Spacing.xs, textAlign: 'center' }}>
+              <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.xs, textAlign: 'center' }}>
                 Connect an outboard via Bluetooth to enable protection
               </ThemedText>
             </View>
@@ -386,7 +386,7 @@ export default function SettingsScreen() {
 
       {motor?.isConnected ? (
         <SettingsSection title="Connected Outboard">
-          <View style={[styles.motorCard, { backgroundColor: theme.surfaceElevated }]}>
+          <View style={[styles.motorCard, { backgroundColor: "transparent" }]}>
             <View style={styles.motorImageContainer}>
               <Image
                 source={require("../../assets/images/halo-outboard.png")}
@@ -400,12 +400,12 @@ export default function SettingsScreen() {
               ) : null}
             </View>
             <View style={styles.motorInfo}>
-              <ThemedText type="h3">Blade Halo</ThemedText>
+              <ThemedText type="h3" style={{ color: "#FFFFFF" }}>Blade Halo</ThemedText>
               <View style={styles.serialRow}>
                 {isConnectedMotorRegistered ? (
                   <Feather name="lock" size={12} color={BladeColors.success} style={{ marginRight: 4 }} />
                 ) : null}
-                <ThemedText type="mono" style={{ color: isConnectedMotorRegistered ? BladeColors.success : theme.textSecondary }}>
+                <ThemedText type="mono" style={{ color: isConnectedMotorRegistered ? BladeColors.success : "rgba(255,255,255,0.5)" }}>
                   S/N: {telemetry?.tillerSerialNumber || motor.serialNumber}
                 </ThemedText>
               </View>
@@ -416,8 +416,8 @@ export default function SettingsScreen() {
                     Connected
                   </ThemedText>
                 </View>
-                <View style={[styles.badge, { backgroundColor: theme.primary + "20" }]}>
-                  <ThemedText type="caption" style={{ color: theme.primary }}>
+                <View style={[styles.badge, { backgroundColor: BladeColors.accent + "20" }]}>
+                  <ThemedText type="caption" style={{ color: BladeColors.accent }}>
                     v{telemetry?.tillerFirmwareVersion || motor.firmwareVersion || "1.0.0"}
                   </ThemedText>
                 </View>
@@ -445,7 +445,7 @@ export default function SettingsScreen() {
               title="Anti-Theft Protection"
               subtitle="Sign in to enable anti-theft protection"
               showChevron={false}
-              iconColor={theme.textTertiary}
+              iconColor={"rgba(255,255,255,0.35)"}
             />
           ) : isConnectedMotorRegistered ? (
             <SettingsRow
@@ -453,7 +453,7 @@ export default function SettingsScreen() {
               title="Unlink from Account"
               subtitle="Remove anti-theft protection"
               onPress={handleUnlinkConnectedMotor}
-              iconColor={theme.textSecondary}
+              iconColor={"rgba(255,255,255,0.5)"}
             />
           ) : (
             <SettingsRow
@@ -475,24 +475,24 @@ export default function SettingsScreen() {
             }}
             iconColor={BladeColors.accent}
           />
-          <View style={[styles.throttleContainer, { backgroundColor: theme.surfaceElevated }]}>
+          <View style={[styles.throttleContainer, { backgroundColor: "transparent" }]}>
             <View style={styles.throttleHeader}>
               <View
                 style={[
                   styles.throttleIconContainer,
-                  { backgroundColor: isDark ? theme.backgroundSecondary : theme.backgroundTertiary },
+                  { backgroundColor: "rgba(255,255,255,0.08)" },
                 ]}
               >
-                <Feather name="sliders" size={18} color={BladeColors.primary} />
+                <Feather name="sliders" size={18} color={BladeColors.accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <ThemedText type="body">Max Throttle Limit</ThemedText>
-                <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 2 }}>
+                <ThemedText type="body" style={{ color: "#FFFFFF" }}>Max Throttle Limit</ThemedText>
+                <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
                   Limit maximum motor power output. 100% means no limit applied.
                 </ThemedText>
               </View>
             </View>
-            <ThemedText type="h1" style={[styles.throttleValue, { color: theme.text }]}>
+            <ThemedText type="h1" style={[styles.throttleValue, { color: "#FFFFFF" }]}>
               {Math.round(maxThrottle)}%
             </ThemedText>
             <View style={styles.throttleSliderRow}>
@@ -503,13 +503,13 @@ export default function SettingsScreen() {
                 value={maxThrottle}
                 onValueChange={setMaxThrottle}
                 minimumTrackTintColor={BladeColors.accent}
-                maximumTrackTintColor={theme.backgroundTertiary}
-                thumbTintColor={BladeColors.primary}
+                maximumTrackTintColor={"rgba(255,255,255,0.15)"}
+                thumbTintColor={BladeColors.accent}
                 style={{ width: "100%", height: 40 }}
               />
               <View style={styles.throttleLabels}>
-                <ThemedText type="caption" style={{ color: theme.textTertiary }}>10%</ThemedText>
-                <ThemedText type="caption" style={{ color: theme.textTertiary }}>100%</ThemedText>
+                <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)" }}>10%</ThemedText>
+                <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)" }}>100%</ThemedText>
               </View>
             </View>
             <Pressable
@@ -517,8 +517,8 @@ export default function SettingsScreen() {
                 styles.throttleSendButton,
                 {
                   backgroundColor: throttleCooldown > 0 || isSendingThrottle
-                    ? theme.backgroundTertiary
-                    : BladeColors.primary,
+                    ? "rgba(255,255,255,0.15)"
+                    : BladeColors.accent,
                 },
               ]}
               onPress={handleSendThrottle}
@@ -550,7 +550,7 @@ export default function SettingsScreen() {
       ) : (
         <SettingsSection title="Outboard">
           <Pressable 
-            style={[styles.emptyMotorCard, { backgroundColor: theme.surfaceElevated }]}
+            style={[styles.emptyMotorCard, { backgroundColor: "transparent" }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               startScan();
@@ -562,8 +562,8 @@ export default function SettingsScreen() {
               style={styles.emptyMotorImage}
               resizeMode="contain"
             />
-            <ThemedText type="h4" style={styles.emptyTitle}>No Outboard Paired</ThemedText>
-            <ThemedText type="small" style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+            <ThemedText type="h4" style={[styles.emptyTitle, { color: "#FFFFFF" }]}>No Outboard Paired</ThemedText>
+            <ThemedText type="small" style={[styles.emptySubtitle, { color: "rgba(255,255,255,0.5)" }]}>
               Tap to scan for nearby Blade outboards
             </ThemedText>
           </Pressable>
@@ -607,7 +607,7 @@ export default function SettingsScreen() {
           onToggle={handleDataSharingToggle}
         />
         <View style={styles.privacyNote}>
-          <ThemedText type="caption" style={{ color: theme.textTertiary }}>
+          <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)" }}>
             Data is used to improve product performance, enhance features, and provide better support.
           </ThemedText>
         </View>
@@ -691,40 +691,40 @@ export default function SettingsScreen() {
       </SettingsSection>
 
       <View style={styles.footer}>
-        <View style={[styles.oemBadge, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-          <Feather name="anchor" size={16} color={theme.textTertiary} />
+        <View style={[styles.oemBadge, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}>
+          <Feather name="anchor" size={16} color={"rgba(255,255,255,0.35)"} />
           <View style={styles.oemBadgeText}>
-            <ThemedText type="caption" style={[styles.oemTitle, { color: theme.textSecondary }]}>
+            <ThemedText type="caption" style={[styles.oemTitle, { color: "rgba(255,255,255,0.5)" }]}>
               BLADE MARINE TECHNOLOGIES LTD
             </ThemedText>
-            <ThemedText type="caption" style={[styles.oemSubtitle, { color: theme.textTertiary }]}>
+            <ThemedText type="caption" style={[styles.oemSubtitle, { color: "rgba(255,255,255,0.35)" }]}>
               Electric Propulsion Systems
             </ThemedText>
           </View>
         </View>
         <View style={styles.certifications}>
-          <View style={[styles.certBadge, { borderColor: theme.border }]}>
-            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+          <View style={[styles.certBadge, { borderColor: "rgba(255,255,255,0.08)" }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: "rgba(255,255,255,0.35)" }]}>
               CE
             </ThemedText>
           </View>
-          <View style={[styles.certBadge, { borderColor: theme.border }]}>
-            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+          <View style={[styles.certBadge, { borderColor: "rgba(255,255,255,0.08)" }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: "rgba(255,255,255,0.35)" }]}>
               FCC
             </ThemedText>
           </View>
-          <View style={[styles.certBadge, { borderColor: theme.border }]}>
-            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+          <View style={[styles.certBadge, { borderColor: "rgba(255,255,255,0.08)" }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: "rgba(255,255,255,0.35)" }]}>
               IP67
             </ThemedText>
           </View>
-          <View style={[styles.certBadge, { borderColor: theme.border }]}>
-            <ThemedText type="caption" style={[styles.certText, { color: theme.textTertiary }]}>
+          <View style={[styles.certBadge, { borderColor: "rgba(255,255,255,0.08)" }]}>
+            <ThemedText type="caption" style={[styles.certText, { color: "rgba(255,255,255,0.35)" }]}>
               ISO 9001
             </ThemedText>
           </View>
         </View>
-        <ThemedText type="caption" style={[styles.copyright, { color: theme.textTertiary }]}>
+        <ThemedText type="caption" style={[styles.copyright, { color: "rgba(255,255,255,0.35)" }]}>
           {"\u00A9"} 2026 Blade Marine Technologies Ltd. All rights reserved.
         </ThemedText>
       </View>
