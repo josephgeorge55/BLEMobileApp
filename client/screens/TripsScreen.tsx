@@ -15,7 +15,6 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Animated, { FadeInUp, FadeIn, FadeInDown } from "react-native-reanimated";
 import { useUser } from "@/context/UserContext";
 import { useTrip } from "@/context/TripContext";
 import { BladeColors, Spacing, BorderRadius } from "@/constants/theme";
@@ -55,7 +54,7 @@ function TripControlTile({
   const canPress = !disabled && !isLoading;
 
   return (
-    <Animated.View entering={FadeInUp.duration(400).springify()} style={styles.tripControlTile}>
+    <View style={styles.tripControlTile}>
       <View style={styles.tripControlHeader}>
         <View style={styles.tripControlIconCircle}>
           <Feather name="sliders" size={18} color={ACCENT} />
@@ -100,7 +99,7 @@ function TripControlTile({
           ))}
         </View>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -208,124 +207,120 @@ export default function TripsScreen() {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
-  const renderTrip = ({ item, index }: { item: Trip; index: number }) => (
-    <Animated.View entering={FadeInUp.delay(index * 40).duration(350).springify()}>
-      <Pressable
-        onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}
-        style={({ pressed }) => [
-          styles.tripCard,
-          item.isActive ? styles.tripCardActive : null,
-          { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
-        ]}
-        testID={`card-trip-${item.id}`}
-      >
-        <View style={styles.tripCardHeader}>
-          <View style={[styles.tripCardIcon, item.isActive ? { backgroundColor: "rgba(10,77,110,0.10)" } : null]}>
-            <Feather 
-              name={item.isActive ? "navigation" : "anchor"} 
-              size={15} 
-              color={item.isActive ? BladeColors.success : ACCENT} 
-            />
-          </View>
-          <View style={styles.tripCardTitleBlock}>
-            <Text style={styles.tripCardTitle}>
-              {item.name || `Trip ${new Date(item.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
-            </Text>
-            <Text style={styles.tripCardDate}>
-              {new Date(item.startTime).toLocaleDateString(undefined, { 
-                weekday: "short", month: "short", day: "numeric",
-                hour: "2-digit", minute: "2-digit",
-              })}
-            </Text>
-          </View>
-          {item.isActive ? (
-            <View style={styles.liveBadge}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveBadgeText}>LIVE</Text>
-            </View>
-          ) : (
-            <Feather name="chevron-right" size={16} color={TEXT_MUTED} />
-          )}
+  const renderTrip = useCallback(({ item }: { item: Trip }) => (
+    <Pressable
+      onPress={() => navigation.navigate("TripDetail", { tripId: item.id })}
+      style={({ pressed }) => [
+        styles.tripCard,
+        item.isActive ? styles.tripCardActive : null,
+        { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+      ]}
+      testID={`card-trip-${item.id}`}
+    >
+      <View style={styles.tripCardHeader}>
+        <View style={[styles.tripCardIcon, item.isActive ? { backgroundColor: "rgba(10,77,110,0.10)" } : null]}>
+          <Feather 
+            name={item.isActive ? "navigation" : "anchor"} 
+            size={15} 
+            color={item.isActive ? BladeColors.success : ACCENT} 
+          />
         </View>
-        <View style={styles.tripStatsRow}>
-          <StatCell value={(item.totalDistanceKm || 0).toFixed(1)} label="km" />
-          <View style={styles.tripStatDivider} />
-          <StatCell value={formatDuration(item.startTime, item.endTime)} label="duration" />
-          <View style={styles.tripStatDivider} />
-          <StatCell value={(item.maxSpeedKmh || 0).toFixed(1)} label="max km/h" />
-          <View style={styles.tripStatDivider} />
-          <StatCell value={(item.totalEnergyWh || 0).toFixed(0)} label="Wh" />
+        <View style={styles.tripCardTitleBlock}>
+          <Text style={styles.tripCardTitle}>
+            {item.name || `Trip ${new Date(item.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
+          </Text>
+          <Text style={styles.tripCardDate}>
+            {new Date(item.startTime).toLocaleDateString(undefined, { 
+              weekday: "short", month: "short", day: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            })}
+          </Text>
         </View>
-      </Pressable>
-    </Animated.View>
-  );
+        {item.isActive ? (
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveBadgeText}>LIVE</Text>
+          </View>
+        ) : (
+          <Feather name="chevron-right" size={16} color={TEXT_MUTED} />
+        )}
+      </View>
+      <View style={styles.tripStatsRow}>
+        <StatCell value={(item.totalDistanceKm || 0).toFixed(1)} label="km" />
+        <View style={styles.tripStatDivider} />
+        <StatCell value={formatDuration(item.startTime, item.endTime)} label="duration" />
+        <View style={styles.tripStatDivider} />
+        <StatCell value={(item.maxSpeedKmh || 0).toFixed(1)} label="max km/h" />
+        <View style={styles.tripStatDivider} />
+        <StatCell value={(item.totalEnergyWh || 0).toFixed(0)} label="Wh" />
+      </View>
+    </Pressable>
+  ), [navigation]);
 
-  const ListHeader = () => (
+  const ListHeader = useCallback(() => (
     <View style={styles.headerSection}>
-      <Animated.View entering={FadeInUp.duration(400).springify()}>
-        <View style={styles.introTile}>
-          <View style={styles.introHeader}>
-            <View style={styles.introIconCircle}>
-              <Feather name="navigation" size={20} color={ACCENT} />
-            </View>
-            <View style={styles.introTitleBlock}>
-              <Text style={styles.introTitle}>Trip Recorder</Text>
-              <Text style={styles.introSubtitle}>Track speed, distance & energy</Text>
-            </View>
+      <View style={styles.introTile}>
+        <View style={styles.introHeader}>
+          <View style={styles.introIconCircle}>
+            <Feather name="navigation" size={20} color={ACCENT} />
           </View>
-          <View style={styles.introChipsRow}>
-            <ChipItem icon="clock" text="60s min" />
-            <ChipItem icon="clock" text="8h max" />
-            <ChipItem icon="zap" text="4s intervals" />
-            <ChipItem icon="file-text" text="PDF reports" />
+          <View style={styles.introTitleBlock}>
+            <Text style={styles.introTitle}>Trip Recorder</Text>
+            <Text style={styles.introSubtitle}>Track speed, distance & energy</Text>
           </View>
         </View>
+        <View style={styles.introChipsRow}>
+          <ChipItem icon="clock" text="60s min" />
+          <ChipItem icon="clock" text="8h max" />
+          <ChipItem icon="zap" text="4s intervals" />
+          <ChipItem icon="file-text" text="PDF reports" />
+        </View>
+      </View>
 
-        {isRecording ? (
-          <View style={styles.recordingTile}>
-            <View style={styles.recordingHeader}>
-              <View style={styles.recordingIndicator}>
-                <View style={styles.recordingDot} />
-                <Text style={styles.recordingLabel}>RECORDING</Text>
-              </View>
+      {isRecording ? (
+        <View style={styles.recordingTile}>
+          <View style={styles.recordingHeader}>
+            <View style={styles.recordingIndicator}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingLabel}>RECORDING</Text>
             </View>
-            <Text style={styles.timerText}>
-              {formatTime(tripDuration)}
-            </Text>
-            <View style={styles.liveStatsRow}>
-              <LiveStatCell value={tripStats.totalDistanceKm.toFixed(2)} label="km" icon="map-pin" />
-              <LiveStatCell value={tripStats.maxSpeedKmh.toFixed(1)} label="max km/h" icon="navigation" />
-              <LiveStatCell value={tripStats.totalEnergyWh.toFixed(0)} label="Wh" icon="zap" />
-            </View>
-            <Text style={styles.recordingHint}>
-              Min 60s to save  |  Auto-stop at 8h
-            </Text>
           </View>
-        ) : null}
+          <Text style={styles.timerText}>
+            {formatTime(tripDuration)}
+          </Text>
+          <View style={styles.liveStatsRow}>
+            <LiveStatCell value={tripStats.totalDistanceKm.toFixed(2)} label="km" icon="map-pin" />
+            <LiveStatCell value={tripStats.maxSpeedKmh.toFixed(1)} label="max km/h" icon="navigation" />
+            <LiveStatCell value={tripStats.totalEnergyWh.toFixed(0)} label="Wh" icon="zap" />
+          </View>
+          <Text style={styles.recordingHint}>
+            Min 60s to save  |  Auto-stop at 8h
+          </Text>
+        </View>
+      ) : null}
 
-        <TripControlTile
-          onStart={handleStartTrip}
-          onEnd={handleEndTrip}
-          isLoading={buttonLoading || isLoading}
-          isRecording={isRecording}
-          disabled={!user?.id}
-          disabledReasons={!user?.id ? ["Sign in required to record trips"] : []}
-        />
-      </Animated.View>
-      
+      <TripControlTile
+        onStart={handleStartTrip}
+        onEnd={handleEndTrip}
+        isLoading={buttonLoading || isLoading}
+        isRecording={isRecording}
+        disabled={!user?.id}
+        disabledReasons={!user?.id ? ["Sign in required to record trips"] : []}
+      />
+
       {trips.length > 0 ? (
-        <Animated.View entering={FadeIn.delay(200).duration(300)} style={styles.sectionHeader}>
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>HISTORY</Text>
           <View style={styles.sectionCountBadge}>
             <Text style={styles.sectionCount}>{trips.length}</Text>
           </View>
-        </Animated.View>
+        </View>
       ) : null}
     </View>
-  );
+  ), [isRecording, tripDuration, tripStats, buttonLoading, isLoading, user?.id, trips.length]);
 
-  const EmptyState = () => (
-    <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.emptyContainer}>
+  const EmptyState = useCallback(() => (
+    <View style={styles.emptyContainer}>
       <View style={styles.emptyIconCircle}>
         <Feather name="anchor" size={28} color={ACCENT} />
       </View>
@@ -333,8 +328,8 @@ export default function TripsScreen() {
       <Text style={styles.emptySubtitle}>
         Connect your Blade outboard and start recording to track your journeys.
       </Text>
-    </Animated.View>
-  );
+    </View>
+  ), []);
 
   return (
     <View style={styles.container}>
