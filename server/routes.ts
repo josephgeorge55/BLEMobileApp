@@ -275,6 +275,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/notifications/send", async (req, res) => {
     try {
+      const apiKey = req.headers["x-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+      const expectedKey = process.env.PUSH_ADMIN_API_KEY;
+
+      if (!expectedKey || apiKey !== expectedKey) {
+        return res.status(401).json({ error: "Unauthorized. Valid API key required." });
+      }
+
       const body = sendNotificationSchema.parse(req.body);
 
       let tokens: { token: string }[] = [];
