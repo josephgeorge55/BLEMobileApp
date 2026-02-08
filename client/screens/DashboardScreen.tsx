@@ -1363,6 +1363,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: Spacing.xs,
     paddingTop: 4,
+    minHeight: 38,
+    paddingHorizontal: 4,
   },
   heroSubtitle: {
     color: "#8E8E93",
@@ -1492,6 +1494,8 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     letterSpacing: 2,
     includeFontPadding: false,
+    minHeight: 42,
+    paddingHorizontal: 2,
   },
   tripActionRow: {
     flexDirection: "row",
