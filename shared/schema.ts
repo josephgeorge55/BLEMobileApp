@@ -79,8 +79,12 @@ export const pushTokens = pgTable("push_tokens", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   token: text("token").notNull().unique(),
+  userId: varchar("user_id", { length: 255 }),
   motorSerialNumber: varchar("motor_serial_number", { length: 50 }),
   platform: varchar("platform", { length: 20 }),
+  notifNews: boolean("notif_news").default(false),
+  notifService: boolean("notif_service").default(true),
+  notifMotor: boolean("notif_motor").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   lastUsedAt: timestamp("last_used_at"),
 });
@@ -230,8 +234,12 @@ export const sendNotificationSchema = z.object({
 
 export const registerTokenSchema = z.object({
   token: z.string().min(1),
+  userId: z.string().optional(),
   motorSerialNumber: z.string().optional(),
   platform: z.enum(["ios", "android", "web"]).optional(),
+  notifNews: z.boolean().optional(),
+  notifService: z.boolean().optional(),
+  notifMotor: z.boolean().optional(),
 });
 
 export const telemetryReportSchema = z.object({
