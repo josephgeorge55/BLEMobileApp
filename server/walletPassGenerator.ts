@@ -147,6 +147,30 @@ function sha1Hash(data: Buffer): string {
   return crypto.createHash("sha1").update(data).digest("hex");
 }
 
+function convertKeyToPKCS1(keyBuffer: Buffer): Buffer {
+  const keyStr = keyBuffer.toString("utf-8").trim();
+  if (keyStr.startsWith("-----BEGIN RSA PRIVATE KEY-----")) {
+    debugLog("Key already in PKCS#1 (RSA) format");
+    return keyBuffer;
+  }
+  debugLog("Converting key from PKCS#8 to PKCS#1 (RSA) format");
+  const tempIn = path.join("/tmp", `pkcs8_key_${Date.now()}.pem`);
+  const tempOut = path.join("/tmp", `rsa_key_${Date.now()}.pem`);
+  try {
+    fs.writeFileSync(tempIn, keyBuffer);
+    execSync(`openssl rsa -in "${tempIn}" -out "${tempOut}" -traditional 2>/dev/null`);
+    const rsaKey = fs.readFileSync(tempOut);
+    debugLog(`Key converted: ${rsaKey.length} bytes, starts with: ${rsaKey.toString("utf-8").substring(0, 35)}`);
+    return rsaKey;
+  } catch (e: any) {
+    debugLog(`Key conversion failed, using original: ${e.message}`);
+    return keyBuffer;
+  } finally {
+    try { fs.unlinkSync(tempIn); } catch {}
+    try { fs.unlinkSync(tempOut); } catch {}
+  }
+}
+
 function signManifest(manifestData: Buffer, certBuffer: Buffer, keyBuffer: Buffer, wwdrBuffer: Buffer): Buffer {
   const ts = Date.now();
   const manifestPath = path.join("/tmp", `manifest_${ts}.json`);
@@ -155,15 +179,17 @@ function signManifest(manifestData: Buffer, certBuffer: Buffer, keyBuffer: Buffe
   const keyPath = path.join("/tmp", `signer_key_${ts}.pem`);
   const wwdrPath = path.join("/tmp", `wwdr_${ts}.pem`);
 
+  const rsaKey = convertKeyToPKCS1(keyBuffer);
+
   try {
     fs.writeFileSync(manifestPath, manifestData);
     fs.writeFileSync(certPath, certBuffer);
-    fs.writeFileSync(keyPath, keyBuffer);
+    fs.writeFileSync(keyPath, rsaKey);
     fs.writeFileSync(wwdrPath, wwdrBuffer);
 
-    debugLog(`Temp files written: manifest(${manifestData.length}b), cert(${certBuffer.length}b), key(${keyBuffer.length}b), wwdr(${wwdrBuffer.length}b)`);
+    debugLog(`Temp files written: manifest(${manifestData.length}b), cert(${certBuffer.length}b), key(${rsaKey.length}b), wwdr(${wwdrBuffer.length}b)`);
 
-    const cmd = `openssl smime -sign -binary -in "${manifestPath}" -signer "${certPath}" -inkey "${keyPath}" -certfile "${wwdrPath}" -outform DER -out "${signaturePath}"`;
+    const cmd = `openssl smime -sign -binary -md sha1 -nosmimecap -noattr -in "${manifestPath}" -signer "${certPath}" -inkey "${keyPath}" -certfile "${wwdrPath}" -outform DER -out "${signaturePath}"`;
     debugLog(`OpenSSL command: ${cmd}`);
 
     const result = execSync(cmd, { stdio: ["pipe", "pipe", "pipe"] });
@@ -175,6 +201,18 @@ function signManifest(manifestData: Buffer, certBuffer: Buffer, keyBuffer: Buffe
 
     const signature = fs.readFileSync(signaturePath);
     debugLog(`Signature generated: ${signature.length} bytes`);
+
+    debugLog("Verifying signature...");
+    try {
+      const verifyResult = execSync(
+        `openssl smime -verify -binary -inform DER -in "${signaturePath}" -content "${manifestPath}" -noverify 2>&1`,
+        { stdio: ["pipe", "pipe", "pipe"] }
+      ).toString();
+      debugLog(`Signature verify: ${verifyResult.includes("Verification successful") ? "PASSED" : verifyResult.substring(0, 100)}`);
+    } catch (ve: any) {
+      debugLog(`Signature verify warning: ${ve.stderr?.toString().substring(0, 200) || ve.message}`);
+    }
+
     return signature;
   } finally {
     for (const f of [manifestPath, signaturePath, certPath, keyPath, wwdrPath]) {
@@ -185,11 +223,29 @@ function signManifest(manifestData: Buffer, certBuffer: Buffer, keyBuffer: Buffe
 }
 
 function buildPkpassZip(files: Record<string, Buffer>): Buffer {
-  const entries = Object.entries(files).map(([p, data]) => ({ path: p, data }));
-  debugLog(`Building ZIP with ${entries.length} entries: ${entries.map(e => `${e.path}(${e.data.length}b)`).join(", ")}`);
-  const buf = zipToBuffer(entries);
-  debugLog(`ZIP created: ${buf.length} bytes`);
-  return buf;
+  const ts = Date.now();
+  const tmpDir = path.join("/tmp", `pkpass_${ts}`);
+  const zipPath = path.join("/tmp", `pass_${ts}.pkpass`);
+
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    for (const [filename, data] of Object.entries(files)) {
+      fs.writeFileSync(path.join(tmpDir, filename), data);
+    }
+
+    const fileList = Object.keys(files).join(" ");
+    debugLog(`Building ZIP with system zip command: ${Object.keys(files).length} files`);
+    execSync(`cd "${tmpDir}" && zip -0 -X "${zipPath}" ${fileList}`, { stdio: ["pipe", "pipe", "pipe"] });
+
+    const zipBuffer = fs.readFileSync(zipPath);
+    debugLog(`ZIP created: ${zipBuffer.length} bytes`);
+    return zipBuffer;
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try { fs.unlinkSync(zipPath); } catch {}
+    debugLog("ZIP temp files cleaned up");
+  }
 }
 
 export function getWalletPassDiagnostics(): Record<string, any> {
