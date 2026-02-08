@@ -41,18 +41,18 @@ async function prepareWalletImages(): Promise<Record<string, Buffer>> {
 
   const iconSourcePath = path.join(process.cwd(), "server", "wallet-assets", "icon-source.png");
   const logoSourcePath = path.join(process.cwd(), "server", "wallet-assets", "logo-source.png");
+  const ukcaLogoPath = path.join(process.cwd(), "assets", "images", "ukca-logo.png");
 
   debugLog(`Icon source path: ${iconSourcePath}, exists: ${fs.existsSync(iconSourcePath)}`);
   debugLog(`Logo source path: ${logoSourcePath}, exists: ${fs.existsSync(logoSourcePath)}`);
+  debugLog(`UKCA logo path: ${ukcaLogoPath}, exists: ${fs.existsSync(ukcaLogoPath)}`);
 
   try {
     if (fs.existsSync(iconSourcePath)) {
       images["icon.png"] = await sharp(iconSourcePath).resize(29, 29, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
       images["icon@2x.png"] = await sharp(iconSourcePath).resize(58, 58, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
       images["icon@3x.png"] = await sharp(iconSourcePath).resize(87, 87, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
-      images["thumbnail.png"] = await sharp(iconSourcePath).resize(90, 90, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
-      images["thumbnail@2x.png"] = await sharp(iconSourcePath).resize(180, 180, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
-      debugLog(`Prepared icon images: ${Object.keys(images).filter(k => k.startsWith("icon") || k.startsWith("thumb")).map(k => `${k}(${images[k].length}b)`).join(", ")}`);
+      debugLog(`Prepared icon images: ${Object.keys(images).filter(k => k.startsWith("icon")).map(k => `${k}(${images[k].length}b)`).join(", ")}`);
     } else {
       debugLog("WARN: icon-source.png not found");
     }
@@ -70,6 +70,22 @@ async function prepareWalletImages(): Promise<Record<string, Buffer>> {
     }
   } catch (e: any) {
     debugLog(`ERROR preparing logo images: ${e.message}`);
+  }
+
+  try {
+    if (fs.existsSync(ukcaLogoPath)) {
+      images["thumbnail.png"] = await sharp(ukcaLogoPath).resize(90, 90, { fit: "contain", background: { r: 20, g: 40, b: 65, alpha: 1 } }).png().toBuffer();
+      images["thumbnail@2x.png"] = await sharp(ukcaLogoPath).resize(180, 180, { fit: "contain", background: { r: 20, g: 40, b: 65, alpha: 1 } }).png().toBuffer();
+      debugLog(`Prepared UKCA thumbnail images: thumbnail.png(${images["thumbnail.png"].length}b), thumbnail@2x.png(${images["thumbnail@2x.png"].length}b)`);
+    } else {
+      debugLog("WARN: ukca-logo.png not found, using icon as thumbnail fallback");
+      if (fs.existsSync(iconSourcePath)) {
+        images["thumbnail.png"] = await sharp(iconSourcePath).resize(90, 90, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+        images["thumbnail@2x.png"] = await sharp(iconSourcePath).resize(180, 180, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+      }
+    }
+  } catch (e: any) {
+    debugLog(`ERROR preparing thumbnail images: ${e.message}`);
   }
 
   debugLog(`Total images prepared: ${Object.keys(images).length} [${Object.keys(images).join(", ")}]`);
@@ -206,14 +222,14 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
       {
         formatVersion: 1,
         serialNumber: `blade-${passportData.serialNumber}-${passportData.ownerId}`.substring(0, 64),
-        description: "Blade Outboard Motor Passport",
+        description: "Blade Outboard Digital Passport",
         organizationName: "Blade Marine Technologies",
         passTypeIdentifier: passTypeId,
         teamIdentifier: teamId,
         foregroundColor: "rgb(255, 255, 255)",
-        backgroundColor: "rgb(20, 40, 65)",
-        labelColor: "rgb(180, 200, 220)",
-        logoText: "Blade Outboards",
+        backgroundColor: "rgb(10, 22, 40)",
+        labelColor: "rgb(164, 208, 139)",
+        logoText: "DIGITAL PASSPORT",
       }
     );
 
@@ -223,107 +239,114 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
       format: "PKBarcodeFormatQR",
       message: qrUrl,
       messageEncoding: "iso-8859-1",
-      altText: passportData.serialNumber,
+      altText: `S/N: ${passportData.serialNumber}`,
     });
 
     pass.headerFields.push({
-      key: "warranty",
-      label: "WARRANTY",
-      value: passportData.warrantyExpires,
+      key: "serial",
+      label: "S/N",
+      value: passportData.serialNumber,
     });
 
     pass.primaryFields.push({
       key: "product",
-      label: "OUTBOARD",
+      label: "OUTBOARD MOTOR",
       value: passportData.productName || "Blade Halo 6",
     });
 
     pass.secondaryFields.push(
       {
-        key: "serial",
-        label: "SERIAL NUMBER",
-        value: passportData.serialNumber,
+        key: "purchased",
+        label: "DATE OF PURCHASE",
+        value: passportData.purchaseDate,
       },
       {
-        key: "owner",
-        label: "OWNER",
-        value: passportData.ownerEmail,
+        key: "warranty",
+        label: "WARRANTY EXPIRY",
+        value: passportData.warrantyExpires,
       }
     );
 
     pass.auxiliaryFields.push(
       {
-        key: "power",
-        label: "POWER",
-        value: passportData.maxPower || "3000W",
+        key: "owner",
+        label: "REGISTERED OWNER",
+        value: passportData.ownerEmail,
       },
       {
-        key: "battery",
-        label: "BATTERY",
-        value: passportData.batteryCapacity || "1700Wh",
-      },
-      {
-        key: "purchased",
-        label: "PURCHASED",
-        value: passportData.purchaseDate,
+        key: "vessel",
+        label: "VESSEL",
+        value: passportData.vesselName && passportData.vesselName !== "Not available"
+          ? `${passportData.vesselName} (${passportData.vesselType || "N/A"})`
+          : "Not Registered",
       }
     );
 
     pass.backFields.push(
       {
-        key: "ownerEmail",
-        label: "Owner Email",
-        value: passportData.ownerEmail,
+        key: "title",
+        label: "BLADE OUTBOARD DIGITAL PASSPORT",
+        value: "Official Certificate of Ownership & Registration",
       },
       {
-        key: "ownerId",
-        label: "Account ID",
-        value: passportData.ownerId,
+        key: "divider1",
+        label: " ",
+        value: "________________________________________",
       },
       {
-        key: "serialBack",
-        label: "Motor Serial Number",
-        value: passportData.serialNumber,
+        key: "ownerSection",
+        label: "OWNER DETAILS",
+        value: `${passportData.ownerEmail}\nAccount: ${passportData.ownerId}`,
       },
       {
-        key: "productBack",
-        label: "Product",
-        value: `${passportData.productName || "Blade Halo 6"} - ${passportData.maxPower || "3000W"} / ${passportData.batteryCapacity || "1700Wh"}`,
+        key: "motorSection",
+        label: "MOTOR SPECIFICATIONS",
+        value: `${passportData.productName || "Blade Halo 6"}\nSerial: ${passportData.serialNumber}\nContinuous Power: ${passportData.maxPower || "3000W"}\nBattery: ${passportData.batteryCapacity || "1700Wh"}`,
       },
       {
-        key: "warrantyBack",
-        label: "Warranty Period",
-        value: `${passportData.purchaseDate} to ${passportData.warrantyExpires}`,
+        key: "warrantySection",
+        label: "WARRANTY COVERAGE",
+        value: `Purchase Date: ${passportData.purchaseDate}\nExpiry Date: ${passportData.warrantyExpires}`,
       },
       {
-        key: "vesselName",
-        label: "Vessel Name",
-        value: passportData.vesselName || "Not Registered",
+        key: "divider2",
+        label: " ",
+        value: "________________________________________",
       },
       {
-        key: "vesselType",
-        label: "Vessel Type",
-        value: passportData.vesselType || "Not Specified",
+        key: "vesselSection",
+        label: "REGISTERED VESSEL",
+        value: `Name: ${passportData.vesselName || "Not Registered"}\nType: ${passportData.vesselType || "Not Specified"}\nLength: ${passportData.vesselLength || "Not Specified"}\nHIN: ${passportData.vesselHin || "Not Registered"}`,
       },
       {
-        key: "vesselLength",
-        label: "Vessel Length",
-        value: passportData.vesselLength || "Not Specified",
+        key: "divider3",
+        label: " ",
+        value: "________________________________________",
       },
       {
-        key: "vesselHin",
-        label: "Hull Identification Number",
-        value: passportData.vesselHin || "Not Registered",
+        key: "compliance",
+        label: "REGULATORY COMPLIANCE",
+        value: "CE Marked | UKCA Certified | RoHS Compliant\nConforms to ISO 16315 & IEC 60335-2-56",
       },
       {
         key: "qrInfo",
-        label: "QR Code",
-        value: "Scan the QR code on the front of this pass at authorized Blade service centers worldwide for warranty verification, service history, and promotional prize eligibility at international boat shows and tradeshows.",
+        label: "QR CODE VERIFICATION",
+        value: "Present this pass at any authorized Blade service center worldwide for warranty verification, service history, and eligibility for promotional prizes at international boat shows and tradeshows.",
       },
       {
-        key: "company",
-        label: "Company",
-        value: "Blade Marine Technologies Ltd\nbladeoutboards.com",
+        key: "divider4",
+        label: " ",
+        value: "________________________________________",
+      },
+      {
+        key: "issuer",
+        label: "ISSUED BY",
+        value: "Blade Marine Technologies Limited\nbladeoutboards.com",
+      },
+      {
+        key: "trademark",
+        label: "LEGAL",
+        value: "Blade Outboards\u2122 2026. All rights reserved.\nThis digital passport is non-transferable and remains the property of Blade Marine Technologies Limited.",
       }
     );
 
