@@ -7,7 +7,6 @@ import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as Device from "expo-device";
@@ -403,7 +402,7 @@ export default function DashboardScreen() {
       >
         <Animated.View entering={FadeIn.duration(600)}>
           <View style={styles.heroSection}>
-            <LinearGradient colors={["#2C2C2E", "#1C1C1E"]} style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
+            <View style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
               <Image
                 source={require("../../assets/images/halo-outboard.png")}
                 style={styles.heroImage}
@@ -411,7 +410,7 @@ export default function DashboardScreen() {
               />
               <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
               <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
-            </LinearGradient>
+            </View>
           </View>
         </Animated.View>
 
@@ -1041,7 +1040,7 @@ export default function DashboardScreen() {
     >
       <Animated.View entering={FadeIn.duration(600)}>
         <View style={styles.heroSection}>
-          <LinearGradient colors={["#2C2C2E", "#1C1C1E"]} style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
+          <View style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
             <Image
               source={require("../../assets/images/halo-outboard.png")}
               style={styles.heroImage}
@@ -1049,7 +1048,7 @@ export default function DashboardScreen() {
             />
             <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
             <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
-          </LinearGradient>
+          </View>
         </View>
       </Animated.View>
 
@@ -1099,49 +1098,51 @@ export default function DashboardScreen() {
 
         <Animated.View entering={FadeInUp.duration(500).delay(100).springify()} style={styles.quickActionsGrid}>
           <Pressable
-            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
+            style={({ pressed }) => [styles.quickActionTileFull, pressed ? { opacity: 0.8 } : null]}
             onPress={scrollToTelemetry}
           >
-            <View style={styles.quickActionIconWrap}>
-              <Feather name="activity" size={22} color="#FFFFFF" />
+            <View style={styles.quickActionRow}>
+              <View style={styles.quickActionIconWrap}>
+                <Feather name="activity" size={20} color="#FFFFFF" />
+              </View>
+              <ThemedText style={styles.quickActionLabel}>Live Telemetry</ThemedText>
             </View>
-            <ThemedText style={styles.quickActionLabel}>Live Telemetry</ThemedText>
+            <View style={styles.quickActionChips}>
+              <Pressable
+                style={({ pressed }) => [styles.quickActionChip, pressed ? { opacity: 0.7 } : null]}
+                onPress={() => navigation.navigate("LocationTab" as any)}
+              >
+                <Feather name="shield" size={14} color="rgba(255,255,255,0.7)" />
+                <ThemedText style={styles.quickActionChipText}>Map</ThemedText>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.quickActionChip, pressed ? { opacity: 0.7 } : null]}
+                onPress={() => navigation.navigate("TripsTab" as any)}
+              >
+                <Feather name="navigation" size={14} color="rgba(255,255,255,0.7)" />
+                <ThemedText style={styles.quickActionChipText}>Trips</ThemedText>
+              </Pressable>
+            </View>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
-            onPress={() => navigation.navigate("LocationTab" as any)}
-          >
-            <View style={styles.quickActionIconWrap}>
-              <Feather name="shield" size={22} color="#FFFFFF" />
-            </View>
-            <ThemedText style={styles.quickActionLabel}>Map / Anti-Theft</ThemedText>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
-            onPress={() => navigation.navigate("TripsTab" as any)}
-          >
-            <View style={styles.quickActionIconWrap}>
-              <Feather name="navigation" size={22} color="#FFFFFF" />
-            </View>
-            <ThemedText style={styles.quickActionLabel}>Start / End Trip</ThemedText>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
+            style={({ pressed }) => [styles.quickActionTileFull, pressed ? { opacity: 0.8 } : null]}
             onPress={() => navigation.navigate("UpdatesTab" as any)}
           >
-            <View style={styles.quickActionIconWrap}>
-              <Feather name="download-cloud" size={22} color="#FFFFFF" />
+            <View style={styles.quickActionRow}>
+              <View style={styles.quickActionIconWrap}>
+                <Feather name="download-cloud" size={20} color="#FFFFFF" />
+              </View>
+              <ThemedText style={styles.quickActionLabel}>OTA Updates</ThemedText>
             </View>
-            <ThemedText style={styles.quickActionLabel}>OTA Updates</ThemedText>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.quickActionTile, pressed ? { opacity: 0.8 } : null]}
-            onPress={() => navigation.navigate("SettingsTab" as any)}
-          >
-            <View style={styles.quickActionIconWrap}>
-              <Feather name="more-horizontal" size={22} color="#FFFFFF" />
+            <View style={styles.quickActionChips}>
+              <Pressable
+                style={({ pressed }) => [styles.quickActionChip, pressed ? { opacity: 0.7 } : null]}
+                onPress={() => navigation.navigate("SettingsTab" as any)}
+              >
+                <Feather name="settings" size={14} color="rgba(255,255,255,0.7)" />
+                <ThemedText style={styles.quickActionChipText}>Settings</ThemedText>
+              </Pressable>
             </View>
-            <ThemedText style={styles.quickActionLabel}>More</ThemedText>
           </Pressable>
         </Animated.View>
 
@@ -1289,31 +1290,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screenPadding,
   },
   heroSection: {
-    overflow: "hidden",
+    overflow: "visible",
     borderBottomLeftRadius: BorderRadius.xl,
     borderBottomRightRadius: BorderRadius.xl,
-    marginBottom: Spacing.lg,
+    marginBottom: 60,
+    backgroundColor: "rgba(255,255,255,0.85)",
   },
   heroGradient: {
     alignItems: "center",
-    paddingBottom: Spacing["3xl"],
+    paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.screenPadding,
   },
   heroImage: {
-    width: 220,
-    height: 260,
-    marginBottom: Spacing.lg,
+    width: 240,
+    height: 300,
+    marginBottom: -40,
   },
   heroTitle: {
-    color: "#FFFFFF",
+    color: "#1C1C1E",
     fontSize: 28,
     fontWeight: "700",
     letterSpacing: -0.5,
     textAlign: "center",
+    marginTop: 48,
     marginBottom: Spacing.xs,
   },
   heroSubtitle: {
-    color: "rgba(255,255,255,0.55)",
+    color: "#8E8E93",
     fontSize: 15,
     fontWeight: "400",
     textAlign: "center",
@@ -1346,38 +1349,55 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   quickActionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.lg,
   },
-  quickActionTile: {
+  quickActionTileFull: {
     backgroundColor: "rgba(44,44,46,0.92)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  quickActionRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    flexBasis: "46%",
-    flexGrow: 1,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   quickActionIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.xs,
   },
   quickActionLabel: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
-    textAlign: "center",
+    flex: 1,
+  },
+  quickActionChips: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    marginLeft: 52,
+  },
+  quickActionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  quickActionChipText: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 12,
+    fontWeight: "500",
   },
   telemetrySectionHeader: {
     flexDirection: "row",
