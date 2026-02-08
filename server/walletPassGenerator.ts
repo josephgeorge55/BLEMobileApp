@@ -1,10 +1,11 @@
-import { PKPass } from "passkit-generator";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import { execSync } from "child_process";
 import sharp from "sharp";
 import jwt from "jsonwebtoken";
+// @ts-ignore
+import { toBuffer as zipToBuffer } from "do-not-zip";
 
 interface WalletPassportData {
   ownerEmail: string;
@@ -21,12 +22,31 @@ interface WalletPassportData {
   vesselHin?: string;
 }
 
+const walletDebugLog: string[] = [];
+const MAX_DEBUG_LOG = 200;
+
+function debugLog(message: string): void {
+  const entry = `[${new Date().toISOString()}] ${message}`;
+  walletDebugLog.push(entry);
+  if (walletDebugLog.length > MAX_DEBUG_LOG) {
+    walletDebugLog.splice(0, walletDebugLog.length - MAX_DEBUG_LOG);
+  }
+  console.log(`[Wallet] ${message}`);
+}
+
+export function getWalletDebugLog(): string[] {
+  return walletDebugLog.slice(-MAX_DEBUG_LOG);
+}
+
 async function prepareWalletImages(): Promise<Record<string, Buffer>> {
   const images: Record<string, Buffer> = {};
-  
+
   const iconSourcePath = path.join(process.cwd(), "server", "wallet-assets", "icon-source.png");
   const logoSourcePath = path.join(process.cwd(), "server", "wallet-assets", "logo-source.png");
-  
+
+  debugLog(`Icon source path: ${iconSourcePath}, exists: ${fs.existsSync(iconSourcePath)}`);
+  debugLog(`Logo source path: ${logoSourcePath}, exists: ${fs.existsSync(logoSourcePath)}`);
+
   try {
     if (fs.existsSync(iconSourcePath)) {
       images["icon.png"] = await sharp(iconSourcePath).resize(29, 29, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
@@ -34,41 +54,45 @@ async function prepareWalletImages(): Promise<Record<string, Buffer>> {
       images["icon@3x.png"] = await sharp(iconSourcePath).resize(87, 87, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
       images["thumbnail.png"] = await sharp(iconSourcePath).resize(90, 90, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
       images["thumbnail@2x.png"] = await sharp(iconSourcePath).resize(180, 180, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+      debugLog(`Prepared icon images: ${Object.keys(images).filter(k => k.startsWith("icon") || k.startsWith("thumb")).map(k => `${k}(${images[k].length}b)`).join(", ")}`);
     } else {
-      console.warn("[Wallet] icon-source.png not found at", iconSourcePath);
+      debugLog("WARN: icon-source.png not found");
     }
-  } catch (e) {
-    console.error("[Wallet] Error preparing icon images:", e);
+  } catch (e: any) {
+    debugLog(`ERROR preparing icon images: ${e.message}`);
   }
 
   try {
     if (fs.existsSync(logoSourcePath)) {
       images["logo.png"] = await sharp(logoSourcePath).resize(160, 50, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
       images["logo@2x.png"] = await sharp(logoSourcePath).resize(320, 100, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+      debugLog(`Prepared logo images: ${Object.keys(images).filter(k => k.startsWith("logo")).map(k => `${k}(${images[k].length}b)`).join(", ")}`);
     } else {
-      console.warn("[Wallet] logo-source.png not found at", logoSourcePath);
+      debugLog("WARN: logo-source.png not found");
     }
-  } catch (e) {
-    console.error("[Wallet] Error preparing logo images:", e);
+  } catch (e: any) {
+    debugLog(`ERROR preparing logo images: ${e.message}`);
   }
 
+  debugLog(`Total images prepared: ${Object.keys(images).length} [${Object.keys(images).join(", ")}]`);
   return images;
 }
 
 function loadCertFromFileOrEnv(filePath: string, envVar: string): Buffer | null {
   if (fs.existsSync(filePath)) {
-    console.log(`[Wallet] Loading cert from file: ${filePath}`);
+    debugLog(`Loading cert from file: ${filePath}`);
     return fs.readFileSync(filePath);
   }
   const envValue = process.env[envVar];
   if (envValue) {
-    console.log(`[Wallet] Loading cert from env: ${envVar} (${envValue.length} chars)`);
+    debugLog(`Loading cert from env: ${envVar} (${envValue.length} chars)`);
     let pemString = envValue;
     if (!pemString.includes("-----BEGIN")) {
       pemString = pemString.replace(/\\n/g, "\n");
     }
     return Buffer.from(pemString, "utf-8");
   }
+  debugLog(`WARN: cert not found at file ${filePath} or env ${envVar}`);
   return null;
 }
 
@@ -89,11 +113,11 @@ function extractCertInfo(certBuffer: Buffer): { teamId?: string; passTypeId?: st
     const uidMatch = subject.match(/UID\s*=\s*(pass\.[^\s,/]+)/);
     if (uidMatch) passTypeId = uidMatch[1];
 
-    console.log(`[Wallet] Cert subject: ${subject}`);
-    console.log(`[Wallet] Extracted teamId: ${teamId}, passTypeId: ${passTypeId}`);
+    debugLog(`Cert subject: ${subject}`);
+    debugLog(`Extracted teamId: ${teamId}, passTypeId: ${passTypeId}`);
     return { teamId, passTypeId };
-  } catch (e) {
-    console.error("[Wallet] Failed to extract cert info:", e);
+  } catch (e: any) {
+    debugLog(`ERROR extracting cert info: ${e.message}`);
     return {};
   }
 }
@@ -111,12 +135,61 @@ function verifyCertKeyMatch(certBuffer: Buffer, keyBuffer: Buffer): boolean {
     fs.unlinkSync(certTemp);
     fs.unlinkSync(keyTemp);
     const match = certMod === keyMod;
-    console.log(`[Wallet] Cert/key match: ${match} (cert: ${certMod}, key: ${keyMod})`);
+    debugLog(`Cert/key match: ${match} (cert: ${certMod}, key: ${keyMod})`);
     return match;
-  } catch (e) {
-    console.error("[Wallet] Cert/key verification failed:", e);
+  } catch (e: any) {
+    debugLog(`ERROR verifying cert/key match: ${e.message}`);
     return false;
   }
+}
+
+function sha1Hash(data: Buffer): string {
+  return crypto.createHash("sha1").update(data).digest("hex");
+}
+
+function signManifest(manifestData: Buffer, certBuffer: Buffer, keyBuffer: Buffer, wwdrBuffer: Buffer): Buffer {
+  const ts = Date.now();
+  const manifestPath = path.join("/tmp", `manifest_${ts}.json`);
+  const signaturePath = path.join("/tmp", `signature_${ts}.der`);
+  const certPath = path.join("/tmp", `signer_cert_${ts}.pem`);
+  const keyPath = path.join("/tmp", `signer_key_${ts}.pem`);
+  const wwdrPath = path.join("/tmp", `wwdr_${ts}.pem`);
+
+  try {
+    fs.writeFileSync(manifestPath, manifestData);
+    fs.writeFileSync(certPath, certBuffer);
+    fs.writeFileSync(keyPath, keyBuffer);
+    fs.writeFileSync(wwdrPath, wwdrBuffer);
+
+    debugLog(`Temp files written: manifest(${manifestData.length}b), cert(${certBuffer.length}b), key(${keyBuffer.length}b), wwdr(${wwdrBuffer.length}b)`);
+
+    const cmd = `openssl smime -sign -binary -in "${manifestPath}" -signer "${certPath}" -inkey "${keyPath}" -certfile "${wwdrPath}" -outform DER -out "${signaturePath}"`;
+    debugLog(`OpenSSL command: ${cmd}`);
+
+    const result = execSync(cmd, { stdio: ["pipe", "pipe", "pipe"] });
+    debugLog(`OpenSSL sign completed, stdout: ${result.toString()}`);
+
+    if (!fs.existsSync(signaturePath)) {
+      throw new Error("Signature file was not created by openssl");
+    }
+
+    const signature = fs.readFileSync(signaturePath);
+    debugLog(`Signature generated: ${signature.length} bytes`);
+    return signature;
+  } finally {
+    for (const f of [manifestPath, signaturePath, certPath, keyPath, wwdrPath]) {
+      try { fs.unlinkSync(f); } catch {}
+    }
+    debugLog("Temp files cleaned up");
+  }
+}
+
+function buildPkpassZip(files: Record<string, Buffer>): Buffer {
+  const entries = Object.entries(files).map(([p, data]) => ({ path: p, data }));
+  debugLog(`Building ZIP with ${entries.length} entries: ${entries.map(e => `${e.path}(${e.data.length}b)`).join(", ")}`);
+  const buf = zipToBuffer(entries);
+  debugLog(`ZIP created: ${buf.length} bytes`);
+  return buf;
 }
 
 export function getWalletPassDiagnostics(): Record<string, any> {
@@ -190,6 +263,9 @@ export function getWalletPassDiagnostics(): Record<string, any> {
 }
 
 export async function generateAppleWalletPass(passportData: WalletPassportData): Promise<{ buffer: Buffer } | { error: string }> {
+  debugLog("=== Starting Apple Wallet pass generation ===");
+  debugLog(`Passport data: serial=${passportData.serialNumber}, owner=${passportData.ownerEmail}, product=${passportData.productName}`);
+
   const wwdrPath = path.join(process.cwd(), "server", "wwdr.pem");
   const certPath = path.join(process.cwd(), "server", "apple_pass_certificate.pem");
   const keyPath = path.join(process.cwd(), "server", "apple_pass_key.pem");
@@ -203,14 +279,13 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
     if (!wwdr) missing.push("WWDR certificate (wwdr.pem or APPLE_WWDR_CERTIFICATE_PEM)");
     if (!signerCert) missing.push("Pass certificate (apple_pass_certificate.pem or APPLE_PASS_CERTIFICATE_PEM)");
     if (!signerKey) missing.push("Pass key (apple_pass_key.pem or APPLE_PASS_KEY_PEM)");
-    
-    console.error(`[Apple Wallet] Missing config: ${missing.join(", ")}`);
+    debugLog(`Missing config: ${missing.join(", ")}`);
     return { error: `Apple Wallet certificates not configured. Missing: ${missing.join(", ")}` };
   }
 
   const certKeyMatch = verifyCertKeyMatch(signerCert, signerKey);
   if (!certKeyMatch) {
-    console.error("[Apple Wallet] Certificate and key do not match!");
+    debugLog("ERROR: Certificate and key do not match");
     return { error: "Pass signing certificate and key do not match. Please ensure the key matches the certificate." };
   }
 
@@ -219,23 +294,20 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
   const teamId = certInfo.teamId || process.env.APPLE_TEAM_IDENTIFIER;
 
   if (!passTypeId || !teamId) {
+    debugLog(`ERROR: Missing identifiers - passTypeId=${passTypeId}, teamId=${teamId}`);
     return { error: `Could not determine passTypeIdentifier or teamIdentifier from certificate. passTypeId=${passTypeId}, teamId=${teamId}` };
   }
 
-  console.log(`[Apple Wallet] Using passTypeIdentifier: ${passTypeId}, teamIdentifier: ${teamId} (from cert)`);
+  debugLog(`Using passTypeIdentifier: ${passTypeId}, teamIdentifier: ${teamId}`);
 
   try {
     const images = await prepareWalletImages();
-    console.log(`[Apple Wallet] Prepared ${Object.keys(images).length} images: ${Object.keys(images).join(", ")}`);
 
     const domain = process.env.EXPO_PUBLIC_DOMAIN || "bladephoneapp.replit.app";
     const qrUrl = `https://${domain}/passport?serial=${encodeURIComponent(passportData.serialNumber)}&owner=${encodeURIComponent(passportData.ownerId)}`;
+    debugLog(`QR URL: ${qrUrl}`);
 
-    const pass = new PKPass(images, {
-      wwdr: wwdr,
-      signerCert: signerCert,
-      signerKey: signerKey,
-    }, {
+    const passJson: Record<string, any> = {
       formatVersion: 1,
       serialNumber: `blade-${passportData.serialNumber}-${passportData.ownerId}`.substring(0, 64),
       description: "Blade Outboard Motor Passport",
@@ -246,125 +318,185 @@ export async function generateAppleWalletPass(passportData: WalletPassportData):
       backgroundColor: "rgb(20, 40, 65)",
       labelColor: "rgb(180, 200, 220)",
       logoText: "Blade Outboards",
-    });
+      barcodes: [
+        {
+          format: "PKBarcodeFormatQR",
+          message: qrUrl,
+          messageEncoding: "iso-8859-1",
+          altText: passportData.serialNumber,
+        },
+      ],
+      barcode: {
+        format: "PKBarcodeFormatQR",
+        message: qrUrl,
+        messageEncoding: "iso-8859-1",
+        altText: passportData.serialNumber,
+      },
+      generic: {
+        headerFields: [
+          {
+            key: "warranty",
+            label: "WARRANTY",
+            value: passportData.warrantyExpires,
+          },
+        ],
+        primaryFields: [
+          {
+            key: "product",
+            label: "OUTBOARD",
+            value: passportData.productName || "Blade Halo 6",
+          },
+        ],
+        secondaryFields: [
+          {
+            key: "serial",
+            label: "SERIAL NUMBER",
+            value: passportData.serialNumber,
+          },
+          {
+            key: "owner",
+            label: "OWNER",
+            value: passportData.ownerEmail,
+          },
+        ],
+        auxiliaryFields: [
+          {
+            key: "power",
+            label: "POWER",
+            value: passportData.maxPower || "3000W",
+          },
+          {
+            key: "battery",
+            label: "BATTERY",
+            value: passportData.batteryCapacity || "1700Wh",
+          },
+          {
+            key: "purchased",
+            label: "PURCHASED",
+            value: passportData.purchaseDate,
+          },
+        ],
+        backFields: [
+          {
+            key: "ownerEmail",
+            label: "Owner Email",
+            value: passportData.ownerEmail,
+          },
+          {
+            key: "ownerId",
+            label: "Account ID",
+            value: passportData.ownerId,
+          },
+          {
+            key: "serialBack",
+            label: "Motor Serial Number",
+            value: passportData.serialNumber,
+          },
+          {
+            key: "productBack",
+            label: "Product",
+            value: `${passportData.productName || "Blade Halo 6"} - ${passportData.maxPower || "3000W"} / ${passportData.batteryCapacity || "1700Wh"}`,
+          },
+          {
+            key: "warrantyBack",
+            label: "Warranty Period",
+            value: `${passportData.purchaseDate} to ${passportData.warrantyExpires}`,
+          },
+          {
+            key: "vesselName",
+            label: "Vessel Name",
+            value: passportData.vesselName || "Not Registered",
+          },
+          {
+            key: "vesselType",
+            label: "Vessel Type",
+            value: passportData.vesselType || "Not Specified",
+          },
+          {
+            key: "vesselLength",
+            label: "Vessel Length",
+            value: passportData.vesselLength || "Not Specified",
+          },
+          {
+            key: "vesselHin",
+            label: "Hull Identification Number",
+            value: passportData.vesselHin || "Not Registered",
+          },
+          {
+            key: "qrInfo",
+            label: "QR Code",
+            value: "Scan the QR code on the front of this pass at authorized Blade service centers worldwide for warranty verification, service history, and promotional prize eligibility at international boat shows and tradeshows.",
+          },
+          {
+            key: "company",
+            label: "Company",
+            value: "Blade Marine Technologies Ltd\nbladeoutboards.com",
+          },
+        ],
+      },
+    };
 
-    pass.type = "generic";
+    const passJsonBuffer = Buffer.from(JSON.stringify(passJson), "utf-8");
+    debugLog(`pass.json built: ${passJsonBuffer.length} bytes`);
+    debugLog(`pass.json content: ${JSON.stringify(passJson).substring(0, 500)}...`);
 
-    pass.setBarcodes({
-      format: "PKBarcodeFormatQR",
-      message: qrUrl,
-      messageEncoding: "iso-8859-1",
-      altText: passportData.serialNumber,
-    });
+    const allFiles: Record<string, Buffer> = {
+      "pass.json": passJsonBuffer,
+      ...images,
+    };
 
-    pass.headerFields.push({
-      key: "warranty",
-      label: "WARRANTY",
-      value: passportData.warrantyExpires,
-    });
+    const manifest: Record<string, string> = {};
+    for (const [filename, data] of Object.entries(allFiles)) {
+      manifest[filename] = sha1Hash(data);
+      debugLog(`Manifest hash: ${filename} -> ${manifest[filename]} (${data.length} bytes)`);
+    }
 
-    pass.primaryFields.push({
-      key: "product",
-      label: "OUTBOARD",
-      value: passportData.productName || "Blade Halo 6",
-    });
+    const manifestBuffer = Buffer.from(JSON.stringify(manifest), "utf-8");
+    debugLog(`manifest.json built: ${manifestBuffer.length} bytes`);
 
-    pass.secondaryFields.push(
-      {
-        key: "serial",
-        label: "SERIAL NUMBER",
-        value: passportData.serialNumber,
-      },
-      {
-        key: "owner",
-        label: "OWNER",
-        value: passportData.ownerEmail,
-      }
-    );
+    debugLog("Signing manifest with openssl...");
+    const signatureBuffer = signManifest(manifestBuffer, signerCert, signerKey, wwdr);
 
-    pass.auxiliaryFields.push(
-      {
-        key: "power",
-        label: "POWER",
-        value: passportData.maxPower || "3000W",
-      },
-      {
-        key: "battery",
-        label: "BATTERY",
-        value: passportData.batteryCapacity || "1700Wh",
-      },
-      {
-        key: "purchased",
-        label: "PURCHASED",
-        value: passportData.purchaseDate,
-      }
-    );
+    const pkpassFiles: Record<string, Buffer> = {
+      ...allFiles,
+      "manifest.json": manifestBuffer,
+      "signature": signatureBuffer,
+    };
 
-    pass.backFields.push(
-      {
-        key: "ownerEmail",
-        label: "Owner Email",
-        value: passportData.ownerEmail,
-      },
-      {
-        key: "ownerId",
-        label: "Account ID",
-        value: passportData.ownerId,
-      },
-      {
-        key: "serialBack",
-        label: "Motor Serial Number",
-        value: passportData.serialNumber,
-      },
-      {
-        key: "productBack",
-        label: "Product",
-        value: `${passportData.productName || "Blade Halo 6"} - ${passportData.maxPower || "3000W"} / ${passportData.batteryCapacity || "1700Wh"}`,
-      },
-      {
-        key: "warrantyBack",
-        label: "Warranty Period",
-        value: `${passportData.purchaseDate} to ${passportData.warrantyExpires}`,
-      },
-      {
-        key: "vesselName",
-        label: "Vessel Name",
-        value: passportData.vesselName || "Not Registered",
-      },
-      {
-        key: "vesselType",
-        label: "Vessel Type",
-        value: passportData.vesselType || "Not Specified",
-      },
-      {
-        key: "vesselLength",
-        label: "Vessel Length",
-        value: passportData.vesselLength || "Not Specified",
-      },
-      {
-        key: "vesselHin",
-        label: "Hull Identification Number",
-        value: passportData.vesselHin || "Not Registered",
-      },
-      {
-        key: "qrInfo",
-        label: "QR Code",
-        value: "Scan the QR code on the front of this pass at authorized Blade service centers worldwide for warranty verification, service history, and promotional prize eligibility at international boat shows and tradeshows.",
-      },
-      {
-        key: "company",
-        label: "Company",
-        value: "Blade Marine Technologies Ltd\nbladeoutboards.com",
-      }
-    );
-
-    const buffer = pass.getAsBuffer();
-    console.log(`[Apple Wallet] Pass generated successfully: ${buffer.length} bytes`);
-    return { buffer };
+    const zipBuffer = buildPkpassZip(pkpassFiles);
+    debugLog(`=== Pass generated successfully: ${zipBuffer.length} bytes ===`);
+    return { buffer: zipBuffer };
   } catch (e: any) {
-    console.error("[Apple Wallet] Generation error:", e);
+    debugLog(`ERROR generating pass: ${e.message}\n${e.stack}`);
     return { error: `Failed to generate Apple Wallet pass: ${e.message}` };
   }
+}
+
+export async function generateTestPassDirect(): Promise<{ buffer: Buffer; debugLog: string[] } | { error: string; debugLog: string[] }> {
+  debugLog("=== generateTestPassDirect called ===");
+
+  const testData: WalletPassportData = {
+    ownerEmail: "test@bladeoutboards.com",
+    ownerId: "test-user-001",
+    serialNumber: "BLD-TEST-001",
+    purchaseDate: "2025-01-01",
+    warrantyExpires: "2027-01-01",
+    productName: "Blade Halo 6",
+    maxPower: "3000W",
+    batteryCapacity: "1700Wh",
+    vesselName: "Test Vessel",
+    vesselType: "RIB",
+    vesselLength: "5m",
+    vesselHin: "TEST-HIN-001",
+  };
+
+  const result = await generateAppleWalletPass(testData);
+
+  if ("error" in result) {
+    return { error: result.error, debugLog: getWalletDebugLog() };
+  }
+
+  return { buffer: result.buffer, debugLog: getWalletDebugLog() };
 }
 
 export async function generateGoogleWalletUrl(passportData: WalletPassportData): Promise<{ url: string } | { error: string }> {
