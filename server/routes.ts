@@ -856,6 +856,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/passport/wallet/diagnostics", async (req, res) => {
+    try {
+      const apiKey = req.headers["x-api-key"];
+      if (!apiKey || apiKey !== process.env.PUSH_ADMIN_API_KEY) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { getWalletPassDiagnostics } = await import("./walletPassGenerator");
+      const diagnostics = getWalletPassDiagnostics();
+      res.json({ diagnostics });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/passport/wallet/test", async (req, res) => {
+    try {
+      const apiKey = req.headers["x-api-key"];
+      if (!apiKey || apiKey !== process.env.PUSH_ADMIN_API_KEY) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { generateAppleWalletPass } = await import("./walletPassGenerator");
+      const testData = {
+        ownerEmail: "test@bladeoutboards.com",
+        ownerId: "test-user-001",
+        serialNumber: "BLD-TEST-001",
+        purchaseDate: "2025-01-15",
+        warrantyExpires: "2027-01-15",
+        productName: "Blade Halo 6",
+        maxPower: "3000W",
+        batteryCapacity: "1700Wh",
+      };
+      const result = await generateAppleWalletPass(testData);
+      if ("error" in result) {
+        return res.json({ success: false, error: result.error });
+      }
+      res.json({
+        success: true,
+        passSize: result.buffer.length,
+        message: "Pass generated successfully",
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/passport/wallet/apple", async (req, res) => {
     try {
       const passportData = req.body;
