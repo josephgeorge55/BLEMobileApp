@@ -136,10 +136,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: "blade-outboards",
-      });
-      const token = tokenData.data;
+      let token: string;
+      let tokenType: "apns" | "expo";
+
+      if (Platform.OS === "ios") {
+        const deviceTokenData = await Notifications.getDevicePushTokenAsync();
+        token = deviceTokenData.data as string;
+        tokenType = "apns";
+        console.log("[Push] iOS device token (APNs) obtained");
+      } else {
+        const expoTokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: "blade-outboards",
+        });
+        token = expoTokenData.data;
+        tokenType = "expo";
+        console.log("[Push] Android Expo push token obtained");
+      }
 
       setPushTokenState(token);
       saveSettings({ pushToken: token });
@@ -147,6 +159,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       try {
         await apiRequest("POST", "/api/push-tokens/register", {
           token,
+          tokenType,
           userId,
           motorSerialNumber,
           platform: Platform.OS,
@@ -154,7 +167,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           notifService: notificationSettings.maintenance,
           notifMotor: notificationSettings.firmware,
         });
-        console.log("[Push] Token registered with server");
+        console.log(`[Push] Token registered with server (type: ${tokenType})`);
       } catch (error) {
         console.error("[Push] Failed to register token with server:", error);
       }
