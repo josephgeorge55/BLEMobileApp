@@ -109,5 +109,17 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - **Web Path**: Client receives PDF as ArrayBuffer, converts to base64, writes via `expo-file-system`.
 - **Native Path**: Passport/wallet files use `downloadAsync` with UUID-based temporary server URLs; trip reports use the ArrayBuffer → base64 → `writeAsStringAsync` approach.
 
+### Push Notification System
+- **Architecture**: Backend-driven push notifications using Expo Push Notification API (`https://exp.host/--/api/v2/push/send`).
+- **Token Registration**: Client registers Expo push tokens via `POST /api/push-tokens/register` with userId, platform, motorSerialNumber, and notification preferences.
+- **Preference Syncing**: Client syncs notification toggle changes to server via `PUT /api/push-tokens/preferences`. Preferences stored per-token in `push_tokens` table.
+- **Three Categories**:
+  1. **News/Promotions** (`notif_news`): Sent to all opted-in users. Mapped from client `announcements` setting. Type: `"announcement"` or `"news"`.
+  2. **Service/Warranty** (`notif_service`): Time-based reminders from backend. Mapped from client `maintenance` setting. Type: `"service"` or `"maintenance"`.
+  3. **Motor-Specific** (`notif_motor`): Targeted by serial number for firmware/recalls. Mapped from client `firmware` setting. Uses `targetSerialNumber` field.
+- **Service**: `server/pushNotificationService.ts` handles batched sending (100 per batch) with error tracking.
+- **Client Integration**: `SettingsContext.tsx` handles Expo Notifications permission request, token retrieval, server registration, and preference syncing on toggle changes.
+- **NOT for real-time**: Push is NOT used for BLE disconnect, sensor faults, low battery, or overheating (those use local haptics/alerts).
+
 ### Third-Party APIs
 - **OpenStreetMap-based Leaflet.js**: Map visualization.
