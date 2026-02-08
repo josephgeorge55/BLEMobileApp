@@ -1353,7 +1353,7 @@ const styles = StyleSheet.create({
   heroImage: {
     width: 240,
     height: 300,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   heroTitle: {
     color: "#1C1C1E",
@@ -1362,6 +1362,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     textAlign: "center",
     marginBottom: Spacing.xs,
+    marginTop: 4,
     paddingVertical: 6,
     paddingHorizontal: 8,
     minHeight: 46,
