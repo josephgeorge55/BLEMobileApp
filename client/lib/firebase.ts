@@ -1,6 +1,9 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { 
-  getAuth, 
+  getAuth,
+  initializeAuth,
+  // @ts-ignore: getReactNativePersistence exists in the RN bundle but not in web type definitions
+  getReactNativePersistence,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -25,8 +28,9 @@ import {
   getDocs,
   type Firestore
 } from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
-// Firebase configuration - values from google-services.json and Firebase Console
 const firebaseConfig = {
   apiKey: "AIzaSyAOS_qrKCWdXAENEdrvO3cJ2V8nLmE3v1A",
   authDomain: "bladeobapp.firebaseapp.com",
@@ -41,21 +45,37 @@ let auth: Auth | null = null;
 let db: Firestore | null = null;
 let initializationError: Error | null = null;
 
-// Initialize Firebase
 function initializeFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore } | null {
   if (app && auth && db) {
     return { app, auth, db };
   }
   
   try {
-    // Try to get existing app or create new one
     if (getApps().length === 0) {
       app = initializeApp(firebaseConfig);
     } else {
       app = getApp();
     }
     
-    auth = getAuth(app);
+    if (Platform.OS !== "web") {
+      try {
+        auth = initializeAuth(app, {
+          persistence: getReactNativePersistence(AsyncStorage),
+        });
+        console.log("[Firebase] Initialized auth with AsyncStorage persistence (native)");
+      } catch (initAuthError: any) {
+        if (initAuthError?.code === "auth/already-initialized") {
+          auth = getAuth(app);
+          console.log("[Firebase] Auth already initialized, using existing instance");
+        } else {
+          throw initAuthError;
+        }
+      }
+    } else {
+      auth = getAuth(app);
+      console.log("[Firebase] Initialized auth with default web persistence");
+    }
+    
     db = getFirestore(app);
     initializationError = null;
     console.log("[Firebase] Initialized successfully with Firestore");
@@ -67,7 +87,6 @@ function initializeFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore } |
   }
 }
 
-// Initialize on module load
 const firebase = initializeFirebase();
 if (firebase) {
   app = firebase.app;
