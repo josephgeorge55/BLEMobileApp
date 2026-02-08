@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import * as https from "https";
+import * as tls from "tls";
 
 const APNS_HOST_PRODUCTION = "api.push.apple.com";
 const APNS_HOST_SANDBOX = "api.sandbox.push.apple.com";
@@ -7,39 +8,25 @@ const TOKEN_EXPIRY_MS = 50 * 60 * 1000;
 
 let cachedJwt: { token: string; createdAt: number } | null = null;
 
-function getApnsJwt(): string | null {
-  const keyPem = process.env.APPLE_APNS_KEY_P8;
-  const keyId = process.env.APPLE_APNS_KEY_ID;
-  const teamId = process.env.APPLE_TEAM_IDENTIFIER;
+function isCertAuthConfigured(): boolean {
+  return !!(
+    process.env.APPLE_APNS_CERTIFICATE_PEM &&
+    process.env.APPLE_APNS_PRIVATE_KEY_PEM
+  );
+}
 
-  if (!keyPem || !keyId || !teamId) {
-    console.error("[APNs] Missing credentials: APPLE_APNS_KEY_P8, APPLE_APNS_KEY_ID, or APPLE_TEAM_IDENTIFIER");
-    return null;
-  }
+function isJwtAuthConfigured(): boolean {
+  return !!(
+    process.env.APPLE_APNS_KEY_P8 &&
+    process.env.APPLE_APNS_KEY_ID &&
+    process.env.APPLE_TEAM_IDENTIFIER
+  );
+}
 
-  if (cachedJwt && Date.now() - cachedJwt.createdAt < TOKEN_EXPIRY_MS) {
-    return cachedJwt.token;
-  }
-
-  const header = Buffer.from(JSON.stringify({ alg: "ES256", kid: keyId })).toString("base64url");
-  const now = Math.floor(Date.now() / 1000);
-  const claims = Buffer.from(JSON.stringify({ iss: teamId, iat: now })).toString("base64url");
-  const signingInput = `${header}.${claims}`;
-
-  const key = keyPem.replace(/\\n/g, "\n");
-  const sign = crypto.createSign("SHA256");
-  sign.update(signingInput);
-  const derSignature = sign.sign(key);
-
-  const r = derSignature.subarray(4, 4 + 32);
-  const sOffset = 4 + 32 + 2;
-  const s = derSignature.subarray(sOffset, sOffset + 32);
-  const rawSig = Buffer.concat([r, s]);
-  const signature = rawSig.toString("base64url");
-
-  const jwt = `${signingInput}.${signature}`;
-  cachedJwt = { token: jwt, createdAt: Date.now() };
-  return jwt;
+function getAuthMethod(): "cert" | "jwt" | null {
+  if (isCertAuthConfigured()) return "cert";
+  if (isJwtAuthConfigured()) return "jwt";
+  return null;
 }
 
 function convertDerToRaw(derSignature: Buffer): Buffer {
@@ -77,7 +64,7 @@ function createApnsJwt(): string | null {
   const teamId = process.env.APPLE_TEAM_IDENTIFIER;
 
   if (!keyPem || !keyId || !teamId) {
-    console.error("[APNs] Missing credentials: APPLE_APNS_KEY_P8, APPLE_APNS_KEY_ID, or APPLE_TEAM_IDENTIFIER");
+    console.error("[APNs] Missing JWT credentials: APPLE_APNS_KEY_P8, APPLE_APNS_KEY_ID, or APPLE_TEAM_IDENTIFIER");
     return null;
   }
 
@@ -123,7 +110,73 @@ interface ApnsPayload {
   [key: string]: unknown;
 }
 
-function sendApnsRequest(
+function sendApnsRequestCert(
+  deviceToken: string,
+  payload: ApnsPayload,
+  bundleId: string,
+  useSandbox: boolean = false,
+): Promise<{ success: boolean; statusCode?: number; reason?: string }> {
+  return new Promise((resolve) => {
+    const certPem = process.env.APPLE_APNS_CERTIFICATE_PEM!.replace(/\\n/g, "\n");
+    const keyPem = process.env.APPLE_APNS_PRIVATE_KEY_PEM!.replace(/\\n/g, "\n");
+
+    const host = useSandbox ? APNS_HOST_SANDBOX : APNS_HOST_PRODUCTION;
+    const payloadStr = JSON.stringify(payload);
+
+    console.log(`[APNs-CERT] Sending to ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
+    console.log(`[APNs-CERT] Device token: ${deviceToken.substring(0, 12)}...${deviceToken.substring(deviceToken.length - 6)}`);
+    console.log(`[APNs-CERT] Bundle ID (apns-topic): ${bundleId}`);
+    console.log(`[APNs-CERT] Payload size: ${Buffer.byteLength(payloadStr)} bytes`);
+
+    const options: https.RequestOptions = {
+      hostname: host,
+      port: 443,
+      path: `/3/device/${deviceToken}`,
+      method: "POST",
+      cert: certPem,
+      key: keyPem,
+      headers: {
+        "apns-topic": bundleId,
+        "apns-push-type": "alert",
+        "apns-priority": "10",
+        "apns-expiration": "0",
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(payloadStr),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        const statusCode = res.statusCode || 500;
+        if (statusCode === 200) {
+          console.log(`[APNs-CERT] SUCCESS: Push delivered to ${deviceToken.substring(0, 12)}... (HTTP 200)`);
+          resolve({ success: true, statusCode });
+        } else {
+          let reason = "Unknown error";
+          try {
+            const parsed = JSON.parse(data);
+            reason = parsed.reason || reason;
+          } catch {}
+          console.error(`[APNs-CERT] FAILED for ${deviceToken.substring(0, 12)}...: HTTP ${statusCode} - ${reason}`);
+          logApnsErrorDetails(reason, bundleId);
+          resolve({ success: false, statusCode, reason });
+        }
+      });
+    });
+
+    req.on("error", (error) => {
+      console.error(`[APNs-CERT] Network/TLS error for ${deviceToken.substring(0, 12)}...:`, error.message);
+      resolve({ success: false, reason: error.message });
+    });
+
+    req.write(payloadStr);
+    req.end();
+  });
+}
+
+function sendApnsRequestJwt(
   deviceToken: string,
   payload: ApnsPayload,
   bundleId: string,
@@ -132,7 +185,7 @@ function sendApnsRequest(
   return new Promise((resolve) => {
     const jwt = createApnsJwt();
     if (!jwt) {
-      console.error("[APNs] JWT generation failed - cannot send push");
+      console.error("[APNs-JWT] JWT generation failed - cannot send push");
       resolve({ success: false, reason: "Failed to generate APNs JWT" });
       return;
     }
@@ -140,10 +193,10 @@ function sendApnsRequest(
     const host = useSandbox ? APNS_HOST_SANDBOX : APNS_HOST_PRODUCTION;
     const payloadStr = JSON.stringify(payload);
 
-    console.log(`[APNs] Sending to ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
-    console.log(`[APNs] Device token: ${deviceToken.substring(0, 12)}...${deviceToken.substring(deviceToken.length - 6)}`);
-    console.log(`[APNs] Bundle ID (apns-topic): ${bundleId}`);
-    console.log(`[APNs] Payload size: ${Buffer.byteLength(payloadStr)} bytes`);
+    console.log(`[APNs-JWT] Sending to ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
+    console.log(`[APNs-JWT] Device token: ${deviceToken.substring(0, 12)}...${deviceToken.substring(deviceToken.length - 6)}`);
+    console.log(`[APNs-JWT] Bundle ID (apns-topic): ${bundleId}`);
+    console.log(`[APNs-JWT] Payload size: ${Buffer.byteLength(payloadStr)} bytes`);
 
     const options: https.RequestOptions = {
       hostname: host,
@@ -167,7 +220,7 @@ function sendApnsRequest(
       res.on("end", () => {
         const statusCode = res.statusCode || 500;
         if (statusCode === 200) {
-          console.log(`[APNs] SUCCESS: Push delivered to ${deviceToken.substring(0, 12)}... (HTTP 200)`);
+          console.log(`[APNs-JWT] SUCCESS: Push delivered to ${deviceToken.substring(0, 12)}... (HTTP 200)`);
           resolve({ success: true, statusCode });
         } else {
           let reason = "Unknown error";
@@ -175,27 +228,55 @@ function sendApnsRequest(
             const parsed = JSON.parse(data);
             reason = parsed.reason || reason;
           } catch {}
-          console.error(`[APNs] FAILED for ${deviceToken.substring(0, 12)}...: HTTP ${statusCode} - ${reason}`);
-          if (reason === "BadDeviceToken") {
-            console.error(`[APNs] BadDeviceToken: Token may be from wrong environment (sandbox vs production) or is invalid`);
-          } else if (reason === "TopicDisallowed") {
-            console.error(`[APNs] TopicDisallowed: Bundle ID "${bundleId}" does not match APNs certificate`);
-          } else if (reason === "InvalidProviderToken") {
-            console.error(`[APNs] InvalidProviderToken: JWT signing key may be wrong or expired`);
-          }
+          console.error(`[APNs-JWT] FAILED for ${deviceToken.substring(0, 12)}...: HTTP ${statusCode} - ${reason}`);
+          logApnsErrorDetails(reason, bundleId);
           resolve({ success: false, statusCode, reason });
         }
       });
     });
 
     req.on("error", (error) => {
-      console.error(`[APNs] Network error for ${deviceToken.substring(0, 12)}...:`, error.message);
+      console.error(`[APNs-JWT] Network error for ${deviceToken.substring(0, 12)}...:`, error.message);
       resolve({ success: false, reason: error.message });
     });
 
     req.write(payloadStr);
     req.end();
   });
+}
+
+function logApnsErrorDetails(reason: string, bundleId: string) {
+  if (reason === "BadDeviceToken") {
+    console.error(`[APNs] BadDeviceToken: Token may be from wrong environment (sandbox vs production) or is invalid/expired`);
+  } else if (reason === "TopicDisallowed") {
+    console.error(`[APNs] TopicDisallowed: Bundle ID "${bundleId}" does not match APNs certificate`);
+  } else if (reason === "InvalidProviderToken") {
+    console.error(`[APNs] InvalidProviderToken: JWT signing key may be wrong or expired`);
+  } else if (reason === "Unregistered") {
+    console.error(`[APNs] Unregistered: Device token is no longer active - device may have uninstalled the app`);
+  } else if (reason === "DeviceTokenNotForTopic") {
+    console.error(`[APNs] DeviceTokenNotForTopic: Token was generated for a different bundle ID than "${bundleId}"`);
+  }
+}
+
+function sendApnsRequest(
+  deviceToken: string,
+  payload: ApnsPayload,
+  bundleId: string,
+  useSandbox: boolean = false,
+): Promise<{ success: boolean; statusCode?: number; reason?: string }> {
+  const authMethod = getAuthMethod();
+
+  if (authMethod === "cert") {
+    console.log(`[APNs] Using CERTIFICATE-based authentication`);
+    return sendApnsRequestCert(deviceToken, payload, bundleId, useSandbox);
+  } else if (authMethod === "jwt") {
+    console.log(`[APNs] Using JWT/token-based authentication`);
+    return sendApnsRequestJwt(deviceToken, payload, bundleId, useSandbox);
+  } else {
+    console.error("[APNs] No authentication method configured!");
+    return Promise.resolve({ success: false, reason: "No APNs auth configured" });
+  }
 }
 
 export async function sendApnsPushNotifications(
@@ -212,8 +293,10 @@ export async function sendApnsPushNotifications(
   const bundleId = process.env.APPLE_BUNDLE_ID || "app.replit.bladeoutboards";
   const envSetting = process.env.APNS_ENVIRONMENT || "not set (defaulting to production)";
   const useSandbox = process.env.APNS_ENVIRONMENT === "sandbox";
+  const authMethod = getAuthMethod();
 
   console.log(`[APNs] === Push Notification Send ===`);
+  console.log(`[APNs] Auth method: ${authMethod || "NONE"}`);
   console.log(`[APNs] Title: "${title}"`);
   console.log(`[APNs] Body: "${body}"`);
   console.log(`[APNs] Token count: ${deviceTokens.length}`);
@@ -253,9 +336,5 @@ export async function sendApnsPushNotifications(
 }
 
 export function isApnsConfigured(): boolean {
-  return !!(
-    process.env.APPLE_APNS_KEY_P8 &&
-    process.env.APPLE_APNS_KEY_ID &&
-    process.env.APPLE_TEAM_IDENTIFIER
-  );
+  return isCertAuthConfigured() || isJwtAuthConfigured();
 }
