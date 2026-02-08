@@ -127,7 +127,7 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={Gradients.dark as [string, string]}
+        colors={["#2C2C2E", "#1C1C1E"] as [string, string]}
         style={StyleSheet.absoluteFill}
       />
       
@@ -184,7 +184,7 @@ export default function AuthScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="you@example.com"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
@@ -204,7 +204,7 @@ export default function AuthScreen() {
                       <TextInput
                         style={[styles.input, styles.passwordInput]}
                         placeholder="Enter password"
-                        placeholderTextColor="#64748B"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
                         value={password}
                         onChangeText={setPassword}
                         secureTextEntry={!showPassword}
@@ -218,7 +218,7 @@ export default function AuthScreen() {
                         <Feather 
                           name={showPassword ? "eye-off" : "eye"} 
                           size={20} 
-                          color="#64748B" 
+                          color="rgba(255,255,255,0.35)" 
                         />
                       </Pressable>
                     </View>
@@ -232,7 +232,7 @@ export default function AuthScreen() {
                       <TextInput
                         style={styles.input}
                         placeholder="Confirm password"
-                        placeholderTextColor="#64748B"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
                         secureTextEntry={!showPassword}
@@ -286,7 +286,7 @@ export default function AuthScreen() {
                   </View>
 
                   <Pressable onPress={loginAsGuest} style={styles.guestButton} testID="guest-button">
-                    <Feather name="user" size={18} color="#94A3B8" />
+                    <Feather name="user" size={18} color="rgba(255,255,255,0.45)" />
                     <ThemedText type="body" style={styles.guestButtonText}>
                       Continue as Guest
                     </ThemedText>
@@ -298,7 +298,7 @@ export default function AuthScreen() {
 
           <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
             <Pressable onPress={handleOpenSupport} style={styles.supportLink}>
-              <Feather name="life-buoy" size={14} color="#64748B" />
+              <Feather name="life-buoy" size={14} color="rgba(255,255,255,0.35)" />
               <ThemedText type="caption" style={styles.supportText}>
                 Support Center
               </ThemedText>
@@ -332,7 +332,7 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "#1C1C1E",
   },
   keyboardView: {
     flex: 1,
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   tagline: {
-    color: "#94A3B8",
+    color: "rgba(255,255,255,0.45)",
     letterSpacing: 2,
     textTransform: "uppercase",
     fontSize: 11,
@@ -365,19 +365,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screenPadding,
   },
   formCard: {
-    backgroundColor: "rgba(30, 41, 59, 0.8)",
+    backgroundColor: "rgba(44,44,46,0.92)",
     borderRadius: BorderRadius.xl,
     padding: Spacing["2xl"],
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
   formTitle: {
-    color: "#F8FAFC",
+    color: "#FFFFFF",
     textAlign: "center",
     marginBottom: Spacing.xs,
   },
   formSubtitle: {
-    color: "#94A3B8",
+    color: "rgba(255,255,255,0.55)",
     textAlign: "center",
     marginBottom: Spacing.xl,
   },
@@ -395,19 +395,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   inputLabel: {
-    color: "#94A3B8",
+    color: "rgba(255,255,255,0.45)",
     marginBottom: Spacing.xs,
     letterSpacing: 1,
   },
   input: {
-    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backgroundColor: "rgba(28,28,30,0.8)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     fontSize: 16,
-    color: "#F8FAFC",
+    color: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255,255,255,0.1)",
   },
   passwordContainer: {
     position: "relative",
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   toggleText: {
-    color: "#94A3B8",
+    color: "rgba(255,255,255,0.45)",
   },
   toggleLink: {
     color: BladeColors.accent,
@@ -452,10 +452,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   dividerText: {
-    color: "#64748B",
+    color: "rgba(255,255,255,0.3)",
     marginHorizontal: Spacing.md,
   },
   guestButton: {
@@ -465,13 +465,13 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
-    backgroundColor: "rgba(100, 116, 139, 0.15)",
+    backgroundColor: "rgba(58,58,60,0.6)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(100, 116, 139, 0.3)",
+    borderColor: "rgba(255,255,255,0.1)",
   },
   guestButtonText: {
-    color: "#94A3B8",
+    color: "rgba(255,255,255,0.55)",
     fontWeight: "500",
   },
   footer: {
@@ -484,13 +484,13 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: "rgba(100, 116, 139, 0.1)",
+    backgroundColor: "rgba(58,58,60,0.4)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(100, 116, 139, 0.2)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
   supportText: {
-    color: "#64748B",
+    color: "rgba(255,255,255,0.35)",
     fontWeight: "500",
   },
   oemInfo: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   oemText: {
-    color: "#334155",
+    color: "rgba(255,255,255,0.25)",
     letterSpacing: 2,
     fontWeight: "600",
     fontSize: 10,
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   versionLabel: {
-    color: "#475569",
+    color: "rgba(255,255,255,0.2)",
     fontSize: 10,
     fontVariant: ["tabular-nums"],
   },
@@ -518,6 +518,6 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: "#475569",
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
 });
