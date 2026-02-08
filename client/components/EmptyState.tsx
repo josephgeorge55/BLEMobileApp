@@ -27,20 +27,20 @@ export function EmptyState({
 
   return (
     <Animated.View entering={FadeIn.duration(500)} style={styles.container}>
-      <View style={[styles.imageContainer, { backgroundColor: theme.backgroundSecondary }]}>
+      <View style={[styles.imageContainer, { backgroundColor: "rgba(120,120,128,0.08)" }]}>
         <Image
           source={image || require("../../assets/images/halo-outboard.png")}
           style={styles.image}
           resizeMode="contain"
         />
       </View>
-      <ThemedText type="h2" style={styles.title}>
+      <ThemedText type="h2" style={[styles.title, { color: "#1C1C1E" }]}>
         {title}
       </ThemedText>
       {description ? (
         <ThemedText
           type="body"
-          style={[styles.description, { color: theme.textSecondary }]}
+          style={[styles.description, { color: "#8E8E93" }]}
         >
           {description}
         </ThemedText>

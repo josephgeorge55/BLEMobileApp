@@ -1351,8 +1351,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   heroImage: {
-    width: 260,
-    height: 340,
+    width: 240,
+    height: 300,
     marginBottom: Spacing.md,
   },
   heroTitle: {
