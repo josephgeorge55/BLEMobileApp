@@ -466,7 +466,12 @@ export async function testApnsConnection(): Promise<{
     if (token) {
       try {
         const parts = token.split(".");
+        const header = JSON.parse(Buffer.from(parts[0]!, "base64url").toString());
         const claims = JSON.parse(Buffer.from(parts[1]!, "base64url").toString());
+        result.jwtHeader = {
+          alg: header.alg,
+          kid: header.kid,
+        };
         result.jwtClaims = {
           iss: claims.iss,
           iat: claims.iat,
@@ -482,6 +487,21 @@ export async function testApnsConnection(): Promise<{
   try {
     const client = await connectHttp2(host, authMethod);
     result.connectionOk = true;
+
+    if (authMethod === "jwt") {
+      const dummyToken = "0".repeat(64);
+      const testPayload = JSON.stringify({ aps: { alert: { title: "test", body: "test" } } });
+      const testResult = await sendSinglePush(client, dummyToken, testPayload, bundleId, authMethod);
+      result.liveAuthTest = {
+        statusCode: testResult.statusCode,
+        reason: testResult.reason,
+        authAccepted: testResult.statusCode !== 403,
+      };
+      if (testResult.statusCode === 403) {
+        result.liveAuthTest.hint = "Apple rejected the JWT. Check that the .p8 key ID matches APPLE_APNS_KEY_ID, the key has APNs permission in Apple Developer Portal, and the team ID is correct.";
+      }
+    }
+
     client.close();
   } catch (error: any) {
     result.error = `HTTP/2 connection to ${host} failed: ${error.message}`;
