@@ -426,7 +426,7 @@ export default function DashboardScreen() {
               </ThemedText>
             </View>
             <Pressable
-              style={styles.connectButton}
+              style={[styles.connectButton, { marginTop: 0 }]}
               onPress={handleConnect}
             >
               <Feather name="bluetooth" size={14} color="#FFFFFF" />
@@ -1067,7 +1067,7 @@ export default function DashboardScreen() {
                 </ThemedText>
               </View>
               <Pressable
-                style={styles.connectButton}
+                style={[styles.connectButton, { marginTop: 0 }]}
                 onPress={handleConnect}
               >
                 <Feather name="bluetooth" size={14} color="#FFFFFF" />
