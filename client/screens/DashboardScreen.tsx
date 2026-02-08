@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { WeatherCard } from "@/components/WeatherCard";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
+import { useTrip } from "@/context/TripContext";
 import { useDashboardLayout, DashboardSectionId } from "@/hooks/useDashboardLayout";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 
@@ -91,6 +92,14 @@ export default function DashboardScreen() {
   const { theme, isDark } = useTheme();
   const { motor, telemetry, isConnecting, startScan, setLocation } =
     useMotor();
+  const { isRecording: tripRecording, tripDuration } = useTrip();
+
+  const formatTripDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
   
   const scrollViewRef = useRef<ScrollView>(null);
   const telemetrySectionY = useRef(0);
@@ -400,46 +409,28 @@ export default function DashboardScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeIn.duration(600)}>
-          <View style={styles.heroSection}>
-            <View style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
-              <Image
-                source={require("../../assets/images/halo-outboard.png")}
-                style={styles.heroImage}
-                resizeMode="contain"
-              />
-              <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
-              <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
-            </View>
+        <Animated.View entering={FadeIn.duration(600)} style={[styles.heroArea, { paddingTop: insets.top + Spacing.md }]}>
+          <Image
+            source={require("../../assets/images/halo-outboard.png")}
+            style={styles.heroImage}
+            resizeMode="contain"
+          />
+          <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
+          <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
+          <View style={styles.heroDeviceRow}>
+            <Pressable
+              style={styles.connectButton}
+              onPress={handleConnect}
+            >
+              <Feather name="bluetooth" size={14} color="#FFFFFF" />
+              <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
+                Scan for Motors
+              </ThemedText>
+            </Pressable>
           </View>
         </Animated.View>
 
         <View style={{ paddingHorizontal: Spacing.screenPadding }}>
-          <View style={styles.currentDeviceCard}>
-            <View style={styles.currentDeviceContent}>
-              <View style={styles.currentDeviceInfo}>
-                <View style={styles.currentDeviceHeader}>
-                  <ThemedText type="h4" style={{ color: "#FFFFFF" }}>Current Device</ThemedText>
-                  <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
-                    <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
-                    <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
-                      Offline
-                    </ThemedText>
-                  </View>
-                </View>
-                <Pressable
-                  style={styles.connectButton}
-                  onPress={handleConnect}
-                >
-                  <Feather name="bluetooth" size={14} color="#FFFFFF" />
-                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
-                    Scan for Motors
-                  </ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-
           <View style={styles.descriptionTile}>
             <Feather name="activity" size={16} color="rgba(255,255,255,0.55)" />
             <ThemedText type="small" style={styles.descriptionTileText}>
@@ -1038,112 +1029,124 @@ export default function DashboardScreen() {
         />
       }
     >
-      <Animated.View entering={FadeIn.duration(600)}>
-        <View style={styles.heroSection}>
-          <View style={[styles.heroGradient, { paddingTop: insets.top + Spacing.lg }]}>
-            <Image
-              source={require("../../assets/images/halo-outboard.png")}
-              style={styles.heroImage}
-              resizeMode="contain"
-            />
-            <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
-            <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
-          </View>
+      <Animated.View entering={FadeIn.duration(600)} style={[styles.heroArea, { paddingTop: insets.top + Spacing.md }]}>
+        <Image
+          source={require("../../assets/images/halo-outboard.png")}
+          style={styles.heroImage}
+          resizeMode="contain"
+        />
+        <ThemedText style={styles.heroTitle}>Blade Halo Series</ThemedText>
+        <ThemedText style={styles.heroSubtitle}>1-6kW Electric Outboard Motors</ThemedText>
+        <View style={styles.heroDeviceRow}>
+          {isConnected ? (
+            <>
+              <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
+                <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
+                <ThemedText type="caption" style={{ color: BladeColors.accent, fontWeight: "600" }}>
+                  Live
+                </ThemedText>
+              </View>
+              <ThemedText type="mono" style={styles.heroSerial}>
+                {telemetry?.tillerSerialNumber || motor?.serialNumber || "--"}
+              </ThemedText>
+            </>
+          ) : (
+            <Pressable
+              style={styles.connectButton}
+              onPress={handleConnect}
+            >
+              <Feather name="bluetooth" size={14} color="#FFFFFF" />
+              <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
+                Scan for Motors
+              </ThemedText>
+            </Pressable>
+          )}
         </View>
       </Animated.View>
 
       <View style={{ paddingHorizontal: Spacing.screenPadding }}>
-        <Animated.View
-          entering={FadeInUp.duration(400).springify()}
-          style={styles.currentDeviceCard}
-        >
-          <View style={styles.currentDeviceContent}>
-            <View style={styles.currentDeviceInfo}>
-              <View style={styles.currentDeviceHeader}>
-                <ThemedText type="h4" style={{ color: "#FFFFFF" }}>Current Device</ThemedText>
-                {isConnected ? (
-                  <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
-                    <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
-                    <ThemedText type="caption" style={{ color: BladeColors.accent, fontWeight: "600" }}>
-                      Live
-                    </ThemedText>
-                  </View>
-                ) : (
-                  <View style={[styles.statusPill, { backgroundColor: BladeColors.offline + "25" }]}>
-                    <View style={[styles.statusDot, { backgroundColor: BladeColors.offline }]} />
-                    <ThemedText type="caption" style={{ color: BladeColors.offline, fontWeight: "600" }}>
-                      Offline
-                    </ThemedText>
-                  </View>
-                )}
-              </View>
-              {isConnected ? (
-                <ThemedText type="mono" style={styles.currentDeviceSerial}>
-                  S/N: {telemetry?.tillerSerialNumber || motor?.serialNumber || "--"}
-                </ThemedText>
-              ) : (
-                <Pressable
-                  style={styles.connectButton}
-                  onPress={handleConnect}
-                >
-                  <Feather name="bluetooth" size={14} color="#FFFFFF" />
-                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600", marginLeft: Spacing.xs }}>
-                    Scan for Motors
-                  </ThemedText>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </Animated.View>
-
         <Animated.View entering={FadeInUp.duration(500).delay(100).springify()} style={styles.quickActionsGrid}>
           <Pressable
             style={({ pressed }) => [styles.quickActionTileFull, pressed ? { opacity: 0.8 } : null]}
-            onPress={scrollToTelemetry}
+            onPress={() => navigation.navigate("LocationTab" as any)}
           >
-            <View style={styles.quickActionRow}>
-              <View style={styles.quickActionIconWrap}>
-                <Feather name="activity" size={20} color="#FFFFFF" />
+            <View style={styles.mapPreview}>
+              <View style={styles.mapPreviewGrid}>
+                <View style={styles.mapGridLineH} />
+                <View style={[styles.mapGridLineH, { top: "50%" }]} />
+                <View style={[styles.mapGridLineH, { top: "75%" }]} />
+                <View style={styles.mapGridLineV} />
+                <View style={[styles.mapGridLineV, { left: "50%" }]} />
+                <View style={[styles.mapGridLineV, { left: "75%" }]} />
               </View>
-              <ThemedText style={styles.quickActionLabel}>Live Telemetry</ThemedText>
+              <View style={styles.mapPreviewPin}>
+                <Feather name="map-pin" size={24} color={BladeColors.accent} />
+              </View>
             </View>
-            <View style={styles.quickActionChips}>
-              <Pressable
-                style={({ pressed }) => [styles.quickActionChip, pressed ? { opacity: 0.7 } : null]}
-                onPress={() => navigation.navigate("LocationTab" as any)}
-              >
-                <Feather name="shield" size={14} color="rgba(255,255,255,0.7)" />
-                <ThemedText style={styles.quickActionChipText}>Map</ThemedText>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.quickActionChip, pressed ? { opacity: 0.7 } : null]}
-                onPress={() => navigation.navigate("TripsTab" as any)}
-              >
-                <Feather name="navigation" size={14} color="rgba(255,255,255,0.7)" />
-                <ThemedText style={styles.quickActionChipText}>Trips</ThemedText>
-              </Pressable>
+            <View style={styles.quickActionRow}>
+              <View style={[styles.quickActionIconWrap, { backgroundColor: BladeColors.accent + "20" }]}>
+                <Feather name="shield" size={18} color={BladeColors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.quickActionLabel}>Maps / Anti-Theft</ThemedText>
+                <ThemedText style={styles.quickActionSublabel}>Track motor location</ThemedText>
+              </View>
+              <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.3)" />
             </View>
           </Pressable>
+
           <Pressable
             style={({ pressed }) => [styles.quickActionTileFull, pressed ? { opacity: 0.8 } : null]}
-            onPress={() => navigation.navigate("UpdatesTab" as any)}
+            onPress={() => navigation.navigate("TripsTab" as any)}
           >
-            <View style={styles.quickActionRow}>
-              <View style={styles.quickActionIconWrap}>
-                <Feather name="download-cloud" size={20} color="#FFFFFF" />
+            <View style={styles.tripPreview}>
+              <View style={styles.tripTimerDisplay}>
+                <Feather name="play-circle" size={28} color={BladeColors.accent} />
+                <ThemedText style={styles.tripTimerText}>
+                  {tripRecording ? formatTripDuration(tripDuration) : "00:00:00"}
+                </ThemedText>
               </View>
-              <ThemedText style={styles.quickActionLabel}>OTA Updates</ThemedText>
+              {tripRecording ? (
+                <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
+                  <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
+                  <ThemedText type="caption" style={{ color: BladeColors.accent, fontWeight: "600" }}>Recording</ThemedText>
+                </View>
+              ) : null}
             </View>
-            <View style={styles.quickActionChips}>
-              <Pressable
-                style={({ pressed }) => [styles.quickActionChip, pressed ? { opacity: 0.7 } : null]}
-                onPress={() => navigation.navigate("SettingsTab" as any)}
-              >
-                <Feather name="settings" size={14} color="rgba(255,255,255,0.7)" />
-                <ThemedText style={styles.quickActionChipText}>Settings</ThemedText>
-              </Pressable>
+            <View style={styles.quickActionRow}>
+              <View style={[styles.quickActionIconWrap, { backgroundColor: "#007AFF20" }]}>
+                <Feather name="navigation" size={18} color="#007AFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.quickActionLabel}>Trips</ThemedText>
+                <ThemedText style={styles.quickActionSublabel}>Record and review trips</ThemedText>
+              </View>
+              <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.3)" />
             </View>
           </Pressable>
+
+          <View style={styles.quickActionSplitRow}>
+            <Pressable
+              style={({ pressed }) => [styles.quickActionTileHalf, pressed ? { opacity: 0.8 } : null]}
+              onPress={() => navigation.navigate("UpdatesTab" as any)}
+            >
+              <View style={[styles.quickActionIconWrap, { backgroundColor: "#FF950020" }]}>
+                <Feather name="download-cloud" size={18} color="#FF9500" />
+              </View>
+              <ThemedText style={styles.quickActionLabel}>OTA Updates</ThemedText>
+              <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.quickActionTileHalf, pressed ? { opacity: 0.8 } : null]}
+              onPress={() => navigation.navigate("SettingsTab" as any)}
+            >
+              <View style={[styles.quickActionIconWrap, { backgroundColor: "#8E8E9320" }]}>
+                <Feather name="settings" size={18} color="#8E8E93" />
+              </View>
+              <ThemedText style={styles.quickActionLabel}>Settings</ThemedText>
+              <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+          </View>
         </Animated.View>
 
         {errorCode ? (
@@ -1289,22 +1292,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.screenPadding,
   },
-  heroSection: {
-    overflow: "visible",
-    borderBottomLeftRadius: BorderRadius.xl,
-    borderBottomRightRadius: BorderRadius.xl,
-    marginBottom: 60,
-    backgroundColor: "rgba(255,255,255,0.85)",
-  },
-  heroGradient: {
+  heroArea: {
     alignItems: "center",
-    paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.screenPadding,
+    marginBottom: Spacing.lg,
   },
   heroImage: {
-    width: 240,
-    height: 300,
-    marginBottom: -40,
+    width: 260,
+    height: 340,
+    marginBottom: Spacing.md,
   },
   heroTitle: {
     color: "#1C1C1E",
@@ -1312,7 +1308,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -0.5,
     textAlign: "center",
-    marginTop: 48,
     marginBottom: Spacing.xs,
   },
   heroSubtitle: {
@@ -1321,32 +1316,15 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     textAlign: "center",
   },
-  currentDeviceCard: {
-    backgroundColor: "rgba(44,44,46,0.92)",
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    marginBottom: Spacing.lg,
-    overflow: "hidden",
-  },
-  currentDeviceContent: {
+  heroDeviceRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.lg,
+    gap: Spacing.md,
+    marginTop: Spacing.md,
   },
-  currentDeviceInfo: {
-    flex: 1,
-  },
-  currentDeviceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Spacing.xs,
-  },
-  currentDeviceSerial: {
-    color: "rgba(255,255,255,0.55)",
+  heroSerial: {
+    color: "#8E8E93",
     fontSize: 12,
-    marginTop: Spacing.xs,
   },
   quickActionsGrid: {
     gap: Spacing.sm,
@@ -1357,13 +1335,14 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
+    overflow: "hidden",
   },
   quickActionRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
   },
   quickActionIconWrap: {
     width: 36,
@@ -1377,27 +1356,89 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "600",
-    flex: 1,
   },
-  quickActionChips: {
+  quickActionSublabel: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  quickActionSplitRow: {
     flexDirection: "row",
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
-    marginLeft: 52,
   },
-  quickActionChip: {
+  quickActionTileHalf: {
+    flex: 1,
+    backgroundColor: "rgba(44,44,46,0.92)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    paddingVertical: 6,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
   },
-  quickActionChipText: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 12,
-    fontWeight: "500",
+  mapPreview: {
+    height: 100,
+    backgroundColor: "rgba(30,30,32,0.95)",
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
+  },
+  mapPreviewGrid: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  mapGridLineH: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    top: "25%",
+  },
+  mapGridLineV: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    left: "25%",
+  },
+  mapPreviewPin: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: BladeColors.accent + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tripPreview: {
+    height: 100,
+    backgroundColor: "rgba(30,30,32,0.95)",
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  tripTimerDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  tripTimerText: {
+    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: "300",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 2,
   },
   telemetrySectionHeader: {
     flexDirection: "row",
