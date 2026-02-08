@@ -413,8 +413,9 @@ export default function DashboardScreen() {
           <View style={styles.headerAccentLine} />
         </Animated.View>
         
-        <View style={styles.dashboardDescription}>
-          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: 'center' }}>
+        <View style={styles.descriptionTile}>
+          <Feather name="activity" size={16} color="rgba(255,255,255,0.55)" />
+          <ThemedText type="small" style={styles.descriptionTileText}>
             Live telemetry, weather, and system information for your outboard.
           </ThemedText>
         </View>
@@ -616,8 +617,9 @@ export default function DashboardScreen() {
       ) : null}
 
       <Animated.View entering={FadeInUp.delay(25).duration(400).springify()}>
-        <View style={styles.dashboardDescription}>
-          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: 'center' }}>
+        <View style={styles.descriptionTile}>
+          <Feather name="activity" size={16} color="rgba(255,255,255,0.55)" />
+          <ThemedText type="small" style={styles.descriptionTileText}>
             Live telemetry, weather, and system information for your outboard.
           </ThemedText>
         </View>
@@ -1144,6 +1146,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     marginBottom: Spacing.sm,
+  },
+  descriptionTile: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(44,44,46,0.92)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  descriptionTileText: {
+    color: "rgba(255,255,255,0.55)",
+    flex: 1,
   },
   infoModalOverlay: {
     flex: 1,
