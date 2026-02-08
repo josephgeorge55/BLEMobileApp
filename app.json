@@ -87,6 +87,7 @@
           "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor."
         }
       ],
+      "./plugins/withPushNotifications",
       "./plugins/withLiveActivity",
       "./plugins/withAndroidForegroundService",
       "./plugins/withAppleWatch"
