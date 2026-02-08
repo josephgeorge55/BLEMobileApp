@@ -1100,6 +1100,7 @@ export default function DashboardScreen() {
             <View style={styles.mapPreview}>
               <OpenStreetMap
                 style={styles.mapPreviewMap}
+                minimal
                 initialRegion={{
                   latitude: mapPreviewLocation.latitude,
                   longitude: mapPreviewLocation.longitude,
@@ -1116,8 +1117,6 @@ export default function DashboardScreen() {
                   isLive: isConnected,
                 }] : []}
               />
-              <View style={styles.mapPreviewTouchBlock} pointerEvents="auto" />
-              <View style={styles.mapPreviewBottomFade} />
               <View style={styles.mapPreviewPin}>
                 <Feather name="map-pin" size={24} color={BladeColors.accent} />
               </View>
@@ -1454,24 +1453,6 @@ const styles = StyleSheet.create({
   },
   mapPreviewMap: {
     flex: 1,
-  },
-  mapPreviewTouchBlock: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "transparent",
-    zIndex: 1,
-  },
-  mapPreviewBottomFade: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 28,
-    backgroundColor: "rgba(30,30,32,0.95)",
-    zIndex: 2,
   },
   mapPreviewPin: {
     position: "absolute",

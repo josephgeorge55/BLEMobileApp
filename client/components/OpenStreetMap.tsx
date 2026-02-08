@@ -36,6 +36,7 @@ interface Props {
   showUserLocation?: boolean;
   style?: any;
   onMapReady?: () => void;
+  minimal?: boolean;
 }
 
 export function OpenStreetMap({
@@ -46,6 +47,7 @@ export function OpenStreetMap({
   showUserLocation = false,
   style,
   onMapReady,
+  minimal = false,
 }: Props) {
   const { isDark } = useTheme();
   const webViewRef = useRef<WebView>(null);
@@ -98,7 +100,11 @@ export function OpenStreetMap({
       -webkit-backdrop-filter: blur(10px);
     }
     .leaflet-control-attribution a { color: rgba(255,255,255,0.7) !important; }
-    
+    ${minimal ? `
+    .leaflet-control-attribution { display: none !important; }
+    .premium-controls { display: none !important; }
+    .scale-bar { display: none !important; }
+    ` : ''}
     /* Premium floating controls container */
     .premium-controls {
       position: absolute;
@@ -361,12 +367,21 @@ export function OpenStreetMap({
   <script>
     const map = L.map('map', {
       zoomControl: false,
-      attributionControl: true,
+      attributionControl: ${minimal ? 'false' : 'true'},
       zoomAnimation: true,
       fadeAnimation: true,
       markerZoomAnimation: true,
       zoomSnap: 0.5,
-      wheelPxPerZoomLevel: 120
+      wheelPxPerZoomLevel: 120,
+      ${minimal ? `
+      dragging: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      scrollWheelZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      tap: false,
+      ` : ''}
     }).setView([${defaultRegion.latitude}, ${defaultRegion.longitude}], 15);
 
     // CartoDB Dark Matter tiles - free, no API key required, high-res support
