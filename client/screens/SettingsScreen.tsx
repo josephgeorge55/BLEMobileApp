@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Pressable } from "react-native";
+import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -40,7 +41,7 @@ export default function SettingsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
-  const { motor, telemetry, disconnectMotor, startScan, debugLogs } = useMotor();
+  const { motor, telemetry, disconnectMotor, startScan, debugLogs, sendCommand } = useMotor();
   const { user, logout } = useUser();
   const {
     anonymousDataSharing,
@@ -58,6 +59,11 @@ export default function SettingsScreen() {
   const [showBoatModal, setShowBoatModal] = useState(false);
   const [boatData, setBoatData] = useState<BoatData | null>(null);
   const { isGuestMode } = useUser();
+
+  const [maxThrottle, setMaxThrottle] = useState(100);
+  const [throttleCooldown, setThrottleCooldown] = useState(0);
+  const [isSendingThrottle, setIsSendingThrottle] = useState(false);
+  const lastThrottleSentRef = useRef(0);
 
   // Check if currently connected motor is registered
   const isConnectedMotorRegistered = motor?.isConnected && registeredMotors.some(
@@ -97,6 +103,44 @@ export default function SettingsScreen() {
       console.error("Failed to load registered motors:", error);
     } finally {
       setLoadingMotors(false);
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastThrottleSentRef.current) / 1000);
+      const remaining = Math.max(0, 60 - elapsed);
+      setThrottleCooldown(remaining);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSendThrottle = async () => {
+    const now = Date.now();
+    const elapsed = Math.floor((now - lastThrottleSentRef.current) / 1000);
+    if (elapsed < 60) {
+      return;
+    }
+
+    const percent = Math.round(Math.min(100, Math.max(10, maxThrottle)));
+    const command = `$APP_CONFIG,MAX_THROTTLE,${percent}`;
+
+    setIsSendingThrottle(true);
+    try {
+      const success = await sendCommand(command);
+      if (success) {
+        lastThrottleSentRef.current = Date.now();
+        setThrottleCooldown(60);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Send Failed", "Failed to send throttle command to motor.");
+      }
+    } catch (error: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", error.message || "An error occurred while sending the command.");
+    } finally {
+      setIsSendingThrottle(false);
     }
   };
 
@@ -431,6 +475,69 @@ export default function SettingsScreen() {
             }}
             iconColor={BladeColors.accent}
           />
+          <View style={[styles.throttleContainer, { backgroundColor: theme.surfaceElevated }]}>
+            <View style={styles.throttleHeader}>
+              <View
+                style={[
+                  styles.throttleIconContainer,
+                  { backgroundColor: isDark ? theme.backgroundSecondary : theme.backgroundTertiary },
+                ]}
+              >
+                <Feather name="sliders" size={18} color={BladeColors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="body">Max Throttle Limit</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 2 }}>
+                  Limit maximum motor power output. 100% means no limit applied.
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText type="h1" style={[styles.throttleValue, { color: theme.text }]}>
+              {Math.round(maxThrottle)}%
+            </ThemedText>
+            <View style={styles.throttleSliderRow}>
+              <Slider
+                minimumValue={10}
+                maximumValue={100}
+                step={1}
+                value={maxThrottle}
+                onValueChange={setMaxThrottle}
+                minimumTrackTintColor={BladeColors.accent}
+                maximumTrackTintColor={theme.backgroundTertiary}
+                thumbTintColor={BladeColors.primary}
+                style={{ width: "100%", height: 40 }}
+              />
+              <View style={styles.throttleLabels}>
+                <ThemedText type="caption" style={{ color: theme.textTertiary }}>10%</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textTertiary }}>100%</ThemedText>
+              </View>
+            </View>
+            <Pressable
+              style={[
+                styles.throttleSendButton,
+                {
+                  backgroundColor: throttleCooldown > 0 || isSendingThrottle
+                    ? theme.backgroundTertiary
+                    : BladeColors.primary,
+                },
+              ]}
+              onPress={handleSendThrottle}
+              disabled={throttleCooldown > 0 || isSendingThrottle}
+            >
+              {isSendingThrottle ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <ThemedText type="button" style={{ color: "#FFFFFF" }}>
+                  {throttleCooldown > 0
+                    ? `Wait ${throttleCooldown}s`
+                    : "Send to Motor"}
+                </ThemedText>
+              )}
+            </Pressable>
+            <ThemedText type="caption" style={[styles.throttleNote, { color: BladeColors.warning }]}>
+              If unsure of current setting, reset to 100% first.
+            </ThemedText>
+          </View>
           <SettingsRow
             icon="power"
             title={isDisconnecting ? "Disconnecting..." : "Disconnect Motor"}
@@ -784,5 +891,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: 4,
+  },
+  throttleContainer: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  throttleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  throttleIconContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  throttleValue: {
+    fontSize: 36,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  throttleSliderRow: {
+    paddingHorizontal: Spacing.xs,
+  },
+  throttleLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: Spacing.xs,
+  },
+  throttleSendButton: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  throttleNote: {
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: Spacing.md,
   },
 });
