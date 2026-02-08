@@ -41,7 +41,7 @@ interface Props {
   onClose: () => void;
 }
 
-type TabType = "bluetooth" | "antitheft" | "location" | "trips" | "pdf" | "liveactivity";
+type TabType = "bluetooth" | "throttle" | "antitheft" | "location" | "trips" | "pdf" | "liveactivity";
 
 interface DebugLogEntry {
   timestamp: string;
@@ -67,6 +67,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const [lastLocationResult, setLastLocationResult] = useState<any>(null);
   const [pdfLogs, setPdfLogs] = useState<DebugLogEntry[]>([]);
   const [liveActivityLogs, setLiveActivityLogs] = useState<DebugLogEntry[]>([]);
+  const [throttleLogs, setThrottleLogs] = useState<DebugLogEntry[]>([]);
 
   const addAntiTheftLog = useCallback((level: string, message: string) => {
     setAntiTheftLogs(prev => [...prev.slice(-99), {
@@ -102,6 +103,14 @@ export function DebugLogModal({ visible, onClose }: Props) {
 
   const addLiveActivityLog = useCallback((level: string, message: string) => {
     setLiveActivityLogs(prev => [...prev.slice(-99), {
+      timestamp: new Date().toISOString(),
+      level,
+      message
+    }]);
+  }, []);
+
+  const addThrottleLog = useCallback((level: string, message: string) => {
+    setThrottleLogs(prev => [...prev.slice(-99), {
       timestamp: new Date().toISOString(),
       level,
       message
@@ -422,6 +431,54 @@ export function DebugLogModal({ visible, onClose }: Props) {
     }
   };
 
+  const testThrottleCommand = async () => {
+    addThrottleLog("INFO", "=== Throttle Command Diagnostics ===");
+    
+    addThrottleLog("INFO", `Platform: ${Platform.OS}`);
+    addThrottleLog("INFO", `Motor object exists: ${!!motor}`);
+    addThrottleLog("INFO", `Motor connected: ${motor?.isConnected || false}`);
+    addThrottleLog("INFO", `Motor serial: ${motor?.serialNumber || 'null'}`);
+    addThrottleLog("INFO", `Motor name: ${motor?.name || 'null'}`);
+    addThrottleLog("INFO", `Connection type: ${(motor as any)?.connectionType || 'unknown'}`);
+    addThrottleLog("INFO", `Tiller serial: ${telemetry?.tillerSerialNumber || 'null'}`);
+    addThrottleLog("INFO", `Is real connection: ${isRealConnection}`);
+    
+    if (!motor?.isConnected) {
+      addThrottleLog("ERROR", "Motor NOT connected - throttle commands will fail");
+      addThrottleLog("WARN", "Connect to motor via Bluetooth first, then use throttle slider in Settings");
+      return;
+    }
+    
+    if (telemetry) {
+      addThrottleLog("INFO", "--- Current VESC/Throttle State ---");
+      addThrottleLog("DATA", `Current throttle: ${telemetry.vesc?.throttle ?? 'N/A'}%`);
+      addThrottleLog("DATA", `VESC wattage: ${telemetry.vesc?.wattage ?? 'N/A'}W`);
+      addThrottleLog("DATA", `VESC voltage: ${telemetry.vesc?.voltage ?? 'N/A'}V`);
+      addThrottleLog("DATA", `VESC current: ${telemetry.vesc?.current ?? 'N/A'}A`);
+      addThrottleLog("DATA", `VESC temp: ${telemetry.vesc?.temperature ?? 'N/A'}C`);
+      addThrottleLog("DATA", `Drive mode: ${telemetry.driverMode || 'N/A'}`);
+      addThrottleLog("DATA", `Error code: ${telemetry.errorCode || 'none'}`);
+      if (telemetry.errorCode) {
+        addThrottleLog("ERROR", `Motor error active: ${telemetry.errorDescription || telemetry.errorCode}`);
+      }
+    } else {
+      addThrottleLog("WARN", "No telemetry data available - motor may not be streaming data");
+    }
+    
+    addThrottleLog("INFO", "--- Bluetooth Debug Logs (THROTTLE entries) ---");
+    const throttleRelated = debugLogs.filter(l => 
+      l.message.includes("THROTTLE") || l.message.includes("Throttle") || l.message.includes("throttle") || l.level === "THROTTLE"
+    );
+    if (throttleRelated.length > 0) {
+      throttleRelated.forEach(l => {
+        addThrottleLog(l.level === "THROTTLE" ? "THROTTLE" : l.level, `[BT] ${l.message}`);
+      });
+    } else {
+      addThrottleLog("INFO", "No throttle-related entries in Bluetooth log yet");
+      addThrottleLog("INFO", "Use the throttle slider in Settings to send a command, then check here");
+    }
+  };
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     if (activeTab === "antitheft") {
@@ -450,6 +507,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
       case "STATE": return "#9B59B6";
       case "ERROR": return BladeColors.error;
       case "WARN": return BladeColors.warning;
+      case "THROTTLE": return "#FF9500";
       default: return theme.textSecondary;
     }
   };
@@ -518,6 +576,8 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const handleClearLogs = () => {
     if (activeTab === "bluetooth") {
       clearDebugLogs();
+    } else if (activeTab === "throttle") {
+      setThrottleLogs([]);
     } else if (activeTab === "antitheft") {
       setAntiTheftLogs([]);
     } else if (activeTab === "location") {
@@ -575,6 +635,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const getCurrentLogs = (): DebugLogEntry[] => {
     switch (activeTab) {
       case "bluetooth": return debugLogs;
+      case "throttle": return throttleLogs;
       case "antitheft": return antiTheftLogs;
       case "location": return locationLogs;
       case "trips": return tripLogs;
@@ -585,6 +646,13 @@ export function DebugLogModal({ visible, onClose }: Props) {
   };
 
   const renderTestButton = () => {
+    if (activeTab === "throttle") {
+      return (
+        <Button variant="accent" onPress={testThrottleCommand} style={{ marginBottom: Spacing.sm }}>
+          Run Throttle Diagnostics
+        </Button>
+      );
+    }
     if (activeTab === "antitheft") {
       return (
         <Button variant="outline" onPress={testAntiTheftRegistration} style={{ marginBottom: Spacing.sm }}>
@@ -652,6 +720,7 @@ export function DebugLogModal({ visible, onClose }: Props) {
           contentContainerStyle={styles.tabBar}
         >
           {renderTab("bluetooth", "Bluetooth", "bluetooth")}
+          {renderTab("throttle", "Throttle", "sliders")}
           {renderTab("antitheft", "Anti-Theft", "shield")}
           {renderTab("location", "Location", "map-pin")}
           {renderTab("trips", "Trips", "navigation")}

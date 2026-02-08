@@ -51,7 +51,7 @@ interface LocationData {
 
 interface DebugLogEntry {
   timestamp: string;
-  level: "INFO" | "DATA" | "PARSE" | "STATE" | "ERROR";
+  level: "INFO" | "DATA" | "PARSE" | "STATE" | "ERROR" | "THROTTLE";
   message: string;
 }
 
@@ -386,40 +386,63 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendCommand = useCallback(async (command: string): Promise<boolean> => {
+    const isThrottle = command.includes("THROTTLE");
+    const logPrefix = isThrottle ? "[Throttle]" : "[Command]";
+    
+    console.log(`${logPrefix} sendCommand called: "${command}"`);
+    console.log(`${logPrefix} motor connected: ${motor?.isConnected}, serialNumber: ${motor?.serialNumber || 'null'}`);
+    console.log(`${logPrefix} Platform: ${Platform.OS}`);
+    
     if (!motor?.isConnected) {
-      addDebugLog("ERROR", `sendCommand failed: no motor connected`);
+      const msg = `sendCommand failed: no motor connected (motor=${motor ? 'exists' : 'null'}, isConnected=${motor?.isConnected})`;
+      console.error(`${logPrefix} ${msg}`);
+      addDebugLog("ERROR", `${logPrefix} ${msg}`);
       return false;
     }
 
-    addDebugLog("INFO", `sendCommand: "${command}"`);
+    addDebugLog(isThrottle ? "THROTTLE" : "INFO", `${logPrefix} Sending: "${command}"`);
 
     try {
       if (Platform.OS === "web") {
-        addDebugLog("INFO", "sendCommand: Web platform - simulating success");
+        console.log(`${logPrefix} Web platform - simulating success`);
+        addDebugLog("INFO", `${logPrefix} Web platform - simulating success`);
         return true;
       }
 
-      if (isClassicConnected()) {
-        addDebugLog("INFO", "sendCommand: Using Bluetooth Classic");
+      const classicConn = isClassicConnected();
+      const bleConn = isBleConnected();
+      console.log(`${logPrefix} Classic connected: ${classicConn}, BLE connected: ${bleConn}`);
+      addDebugLog(isThrottle ? "THROTTLE" : "INFO", `${logPrefix} Classic: ${classicConn}, BLE: ${bleConn}`);
+
+      if (classicConn) {
+        console.log(`${logPrefix} Using Bluetooth Classic to send command...`);
+        addDebugLog(isThrottle ? "THROTTLE" : "INFO", `${logPrefix} Using Bluetooth Classic`);
         const success = await writeClassicData(command);
-        addDebugLog(success ? "INFO" : "ERROR", `sendCommand Classic result: ${success}`);
+        console.log(`${logPrefix} Classic write result: ${success}`);
+        addDebugLog(success ? (isThrottle ? "THROTTLE" : "INFO") : "ERROR", `${logPrefix} Classic result: ${success}`);
         return success;
       }
 
-      if (isBleConnected()) {
-        addDebugLog("INFO", "sendCommand: Using BLE");
+      if (bleConn) {
+        console.log(`${logPrefix} Using BLE to send command...`);
+        addDebugLog(isThrottle ? "THROTTLE" : "INFO", `${logPrefix} Using BLE`);
         const success = await writeBleCommand(command);
-        addDebugLog(success ? "INFO" : "ERROR", `sendCommand BLE result: ${success}`);
+        console.log(`${logPrefix} BLE write result: ${success}`);
+        addDebugLog(success ? (isThrottle ? "THROTTLE" : "INFO") : "ERROR", `${logPrefix} BLE result: ${success}`);
         return success;
       }
 
-      addDebugLog("ERROR", "sendCommand: No active BLE or Classic connection found");
+      const msg = "No active BLE or Classic connection found";
+      console.error(`${logPrefix} ${msg}`);
+      addDebugLog("ERROR", `${logPrefix} ${msg}`);
       return false;
     } catch (error: any) {
-      addDebugLog("ERROR", `sendCommand error: ${error.message || error}`);
+      const msg = `Error: ${error.message || error}`;
+      console.error(`${logPrefix} ${msg}`);
+      addDebugLog("ERROR", `${logPrefix} ${msg}`);
       return false;
     }
-  }, [motor?.isConnected, addDebugLog]);
+  }, [motor?.isConnected, motor?.serialNumber, addDebugLog]);
 
   return (
     <MotorContext.Provider

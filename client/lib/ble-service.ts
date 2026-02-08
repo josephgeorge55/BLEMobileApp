@@ -695,32 +695,54 @@ export function getConnectedDevice(): BleDevice | null {
 }
 
 export async function writeCommand(command: string): Promise<boolean> {
+  console.log(`[BLE-Write] writeCommand called with: "${command}"`);
+  console.log(`[BLE-Write] connectedDevice: ${connectedDevice ? `${connectedDevice.id} (${connectedDevice.name})` : 'null'}`);
+  
   if (!connectedDevice) {
-    console.error("No device connected");
+    console.error("[BLE-Write] FAIL: No device connected");
     return false;
   }
 
   try {
     const base64Command = Buffer.from(command + "\n").toString("base64");
+    console.log(`[BLE-Write] Encoded command length: ${base64Command.length} base64 chars`);
 
     const wChar = writeCharacteristic || targetCharacteristic;
+    console.log(`[BLE-Write] writeCharacteristic: ${writeCharacteristic ? writeCharacteristic.uuid : 'null'}`);
+    console.log(`[BLE-Write] targetCharacteristic: ${targetCharacteristic ? targetCharacteristic.uuid : 'null'}`);
+    console.log(`[BLE-Write] Using characteristic: ${wChar ? wChar.uuid : 'null'}`);
+    
+    if (wChar) {
+      console.log(`[BLE-Write] isWritableWithResponse: ${wChar.isWritableWithResponse}`);
+      console.log(`[BLE-Write] isWritableWithoutResponse: ${wChar.isWritableWithoutResponse}`);
+    }
 
     if (wChar && wChar.isWritableWithResponse) {
+      console.log("[BLE-Write] Writing WITH response...");
       await wChar.writeWithResponse(base64Command);
+      console.log("[BLE-Write] SUCCESS: writeWithResponse completed");
     } else if (wChar && wChar.isWritableWithoutResponse) {
+      console.log("[BLE-Write] Writing WITHOUT response...");
       await wChar.writeWithoutResponse(base64Command);
+      console.log("[BLE-Write] SUCCESS: writeWithoutResponse completed");
     } else {
+      console.log("[BLE-Write] Fallback: writing via device service method...");
       const writeServiceUUID = writeCharacteristic ? targetServiceUUID : targetServiceUUID;
       const writeCharUUID = writeCharacteristic ? writeCharacteristic.uuid : targetCharUUID;
+      console.log(`[BLE-Write] Service UUID: ${writeServiceUUID}`);
+      console.log(`[BLE-Write] Characteristic UUID: ${writeCharUUID}`);
       await connectedDevice.writeCharacteristicWithResponseForService(
         writeServiceUUID,
         writeCharUUID,
         base64Command
       );
+      console.log("[BLE-Write] SUCCESS: writeCharacteristicWithResponseForService completed");
     }
     return true;
-  } catch (error) {
-    console.error("Error writing command:", error);
+  } catch (error: any) {
+    console.error(`[BLE-Write] ERROR: ${error.message || error}`);
+    console.error(`[BLE-Write] Error name: ${error.name || 'unknown'}`);
+    console.error(`[BLE-Write] Error code: ${error.errorCode || error.code || 'unknown'}`);
     return false;
   }
 }

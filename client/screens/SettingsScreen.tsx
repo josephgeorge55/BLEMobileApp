@@ -119,28 +119,41 @@ export default function SettingsScreen() {
   }, []);
 
   const handleSendThrottle = async () => {
+    console.log("[Throttle] handleSendThrottle called");
+    console.log(`[Throttle] maxThrottle slider value: ${maxThrottle}`);
+    console.log(`[Throttle] Motor connected: ${motor?.isConnected}`);
+    console.log(`[Throttle] Motor serial: ${motor?.serialNumber || 'null'}`);
+    
     const now = Date.now();
     const elapsed = Math.floor((now - lastThrottleSentRef.current) / 1000);
+    console.log(`[Throttle] Cooldown elapsed: ${elapsed}s (need 60s)`);
+    
     if (elapsed < 60) {
+      console.log(`[Throttle] Blocked by cooldown: ${60 - elapsed}s remaining`);
       return;
     }
 
     const percent = Math.round(Math.min(100, Math.max(10, maxThrottle)));
     const command = `$APP_CONFIG,MAX_THROTTLE,${percent}`;
+    console.log(`[Throttle] Sending command: "${command}"`);
 
     setIsSendingThrottle(true);
     try {
       const success = await sendCommand(command);
+      console.log(`[Throttle] sendCommand returned: ${success}`);
       if (success) {
         lastThrottleSentRef.current = Date.now();
         setThrottleCooldown(60);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showSuccess(`Throttle limit set to ${percent}%`);
+        console.log(`[Throttle] SUCCESS: Throttle set to ${percent}%`);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         showError("Failed to send throttle command to motor.");
+        console.error(`[Throttle] FAILED: sendCommand returned false`);
       }
     } catch (error: any) {
+      console.error(`[Throttle] Exception: ${error.message || error}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showError(error.message || "An error occurred while sending the command.");
     } finally {

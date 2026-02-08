@@ -348,16 +348,22 @@ export function getConnectedClassicDevice(): ClassicDevice | null {
 }
 
 export async function writeClassicData(data: string): Promise<boolean> {
+  console.log(`[BT-Classic-Write] writeClassicData called with: "${data}"`);
+  console.log(`[BT-Classic-Write] connectedDevice: ${connectedDevice ? `${(connectedDevice as any).address || (connectedDevice as any).id || 'unknown'} (${(connectedDevice as any).name || 'unnamed'})` : 'null'}`);
+  
   if (!connectedDevice) {
-    console.error("No Classic device connected");
+    console.error("[BT-Classic-Write] FAIL: No Classic device connected");
     return false;
   }
 
   try {
+    console.log(`[BT-Classic-Write] Writing "${data}\\n" to device...`);
     await connectedDevice.write(data + "\n");
+    console.log("[BT-Classic-Write] SUCCESS: Write completed");
     return true;
-  } catch (error) {
-    console.error("Error writing to Classic device:", error);
+  } catch (error: any) {
+    console.error(`[BT-Classic-Write] ERROR: ${error.message || error}`);
+    console.error(`[BT-Classic-Write] Error name: ${error.name || 'unknown'}`);
     return false;
   }
 }
