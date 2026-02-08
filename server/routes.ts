@@ -322,12 +322,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (apnsTokens.length > 0 && isApnsConfigured()) {
         console.log(`[Push] Sending ${apnsTokens.length} via APNs...`);
-        apnsResult = await sendApnsPushNotifications(
+        const apnsFullResult = await sendApnsPushNotifications(
           apnsTokens,
           body.title,
           body.body,
           body.data as Record<string, unknown> | undefined,
         );
+        apnsResult = { sent: apnsFullResult.sent, failed: apnsFullResult.failed };
+        if (apnsFullResult.details) {
+          apnsFullResult.details.forEach((d) => {
+            if (!d.success) {
+              console.error(`[Push] APNs detail: token=${d.token.substring(0, 12)}... status=${d.statusCode} reason=${d.reason}`);
+            }
+          });
+        }
         console.log(`[Push] APNs result: sent=${apnsResult.sent}, failed=${apnsResult.failed}`);
       } else if (apnsTokens.length > 0) {
         console.warn(`[Push] ${apnsTokens.length} APNs tokens found but APNs NOT configured!`);
