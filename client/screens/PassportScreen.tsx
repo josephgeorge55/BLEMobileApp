@@ -193,7 +193,12 @@ export default function PassportScreen() {
             throw new Error("This device cannot add passes to Apple Wallet");
           }
           const result = await BladeWalletPassModule.addPassFromUrl(downloadUrl);
-          console.log("[Passport] Apple Wallet - PKAddPassesViewController result:", result);
+          console.log("[Passport] Apple Wallet - PKAddPassesViewController result:", JSON.stringify(result));
+          if (result.alreadyInWallet) {
+            Alert.alert("Apple Wallet", "This pass is already in your Wallet.");
+          } else if (result.added) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
         } else {
           console.log("[Passport] Apple Wallet - Native module unavailable, falling back to share sheet");
           const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pkpass");
