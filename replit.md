@@ -108,7 +108,7 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - **Buffered Response**: Trip report PDFs are generated using PDFKit, buffered entirely in memory, then sent with explicit `Content-Type: application/pdf` and `Content-Length` headers. This prevents Replit's proxy from overwriting the Content-Type to `text/html` (which happens with streamed/piped responses).
 - **Web Path**: Client receives PDF as ArrayBuffer, converts to base64, writes via `expo-file-system`.
 - **Native Path**: Trip reports use the ArrayBuffer → base64 → `writeAsStringAsync` approach.
-- **Apple Wallet Native Module**: `modules/blade-wallet-pass/` wraps iOS `PKAddPassesViewController` via ExpoModulesCore. Client receives base64 pkpass data from server, passes to native module which presents the native "Add to Apple Wallet" dialog. Falls back to share sheet (`expo-sharing` with UTI `com.apple.pkpass`) in Expo Go or on error. Android stub returns false.
+- **Apple Wallet Pass Flow**: Server generates .pkpass, stores raw binary buffer with UUID, returns JSON with `downloadPath`. Client opens `Linking.openURL(downloadUrl)` on iOS — the direct HTTPS URL serves `Content-Type: application/vnd.apple.pkpass` which triggers Apple's native "Add to Wallet" sheet. No base64, no JSON wrapper, no native module needed. Android falls back to share sheet. PDF fallback if wallet certs not configured.
 
 ### Push Notification System
 - **Dual-Transport Architecture**: iOS uses direct APNs (HTTP/2 + JWT auth) for Xcode builds; Android uses Expo Push API for EAS builds.
