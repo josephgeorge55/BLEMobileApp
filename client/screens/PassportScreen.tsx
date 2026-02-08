@@ -33,7 +33,7 @@ import {
 } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
-import BladeWalletPassModule, { isNativeWalletAvailable } from "blade-wallet-pass";
+import BladeWalletPassModule, { isNativeWalletAvailable } from "../../modules/blade-wallet-pass";
 
 const bladePassportLogo = require("../../assets/images/blade-passport-logo.png");
 const ukcaLogo = require("../../assets/images/ukca-logo.png");

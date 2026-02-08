@@ -1,5 +1,5 @@
 import * as crypto from "crypto";
-import * as https from "https";
+import * as http2 from "http2";
 import * as tls from "tls";
 
 const APNS_HOST_PRODUCTION = "api.push.apple.com";
@@ -110,135 +110,113 @@ interface ApnsPayload {
   [key: string]: unknown;
 }
 
-function sendApnsRequestCert(
+function sendApnsHttp2(
   deviceToken: string,
   payload: ApnsPayload,
   bundleId: string,
-  useSandbox: boolean = false,
+  useSandbox: boolean,
+  authMethod: "cert" | "jwt",
 ): Promise<{ success: boolean; statusCode?: number; reason?: string }> {
   return new Promise((resolve) => {
-    const certPem = process.env.APPLE_APNS_CERTIFICATE_PEM!.replace(/\\n/g, "\n");
-    const keyPem = process.env.APPLE_APNS_PRIVATE_KEY_PEM!.replace(/\\n/g, "\n");
-
     const host = useSandbox ? APNS_HOST_SANDBOX : APNS_HOST_PRODUCTION;
     const payloadStr = JSON.stringify(payload);
+    const authLabel = authMethod.toUpperCase();
 
-    console.log(`[APNs-CERT] Sending to ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
-    console.log(`[APNs-CERT] Device token: ${deviceToken.substring(0, 12)}...${deviceToken.substring(deviceToken.length - 6)}`);
-    console.log(`[APNs-CERT] Bundle ID (apns-topic): ${bundleId}`);
-    console.log(`[APNs-CERT] Payload size: ${Buffer.byteLength(payloadStr)} bytes`);
+    console.log(`[APNs-${authLabel}] Sending via HTTP/2 to ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
+    console.log(`[APNs-${authLabel}] Device token: ${deviceToken.substring(0, 12)}...${deviceToken.substring(deviceToken.length - 6)}`);
+    console.log(`[APNs-${authLabel}] Bundle ID (apns-topic): ${bundleId}`);
+    console.log(`[APNs-${authLabel}] Payload size: ${Buffer.byteLength(payloadStr)} bytes`);
 
-    const options: https.RequestOptions = {
-      hostname: host,
-      port: 443,
-      path: `/3/device/${deviceToken}`,
-      method: "POST",
-      cert: certPem,
-      key: keyPem,
-      headers: {
-        "apns-topic": bundleId,
-        "apns-push-type": "alert",
-        "apns-priority": "10",
-        "apns-expiration": "0",
-        "content-type": "application/json",
-        "content-length": Buffer.byteLength(payloadStr),
-      },
-    };
+    const connectOptions: http2.SecureClientSessionOptions = {};
 
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => { data += chunk; });
-      res.on("end", () => {
-        const statusCode = res.statusCode || 500;
-        if (statusCode === 200) {
-          console.log(`[APNs-CERT] SUCCESS: Push delivered to ${deviceToken.substring(0, 12)}... (HTTP 200)`);
-          resolve({ success: true, statusCode });
-        } else {
-          let reason = "Unknown error";
-          try {
-            const parsed = JSON.parse(data);
-            reason = parsed.reason || reason;
-          } catch {}
-          console.error(`[APNs-CERT] FAILED for ${deviceToken.substring(0, 12)}...: HTTP ${statusCode} - ${reason}`);
-          logApnsErrorDetails(reason, bundleId);
-          resolve({ success: false, statusCode, reason });
-        }
-      });
-    });
+    if (authMethod === "cert") {
+      connectOptions.cert = process.env.APPLE_APNS_CERTIFICATE_PEM!.replace(/\\n/g, "\n");
+      connectOptions.key = process.env.APPLE_APNS_PRIVATE_KEY_PEM!.replace(/\\n/g, "\n");
+    }
 
-    req.on("error", (error) => {
-      console.error(`[APNs-CERT] Network/TLS error for ${deviceToken.substring(0, 12)}...:`, error.message);
-      resolve({ success: false, reason: error.message });
-    });
-
-    req.write(payloadStr);
-    req.end();
-  });
-}
-
-function sendApnsRequestJwt(
-  deviceToken: string,
-  payload: ApnsPayload,
-  bundleId: string,
-  useSandbox: boolean = false,
-): Promise<{ success: boolean; statusCode?: number; reason?: string }> {
-  return new Promise((resolve) => {
-    const jwt = createApnsJwt();
-    if (!jwt) {
-      console.error("[APNs-JWT] JWT generation failed - cannot send push");
-      resolve({ success: false, reason: "Failed to generate APNs JWT" });
+    let client: http2.ClientHttp2Session;
+    try {
+      client = http2.connect(`https://${host}`, connectOptions);
+    } catch (error: any) {
+      console.error(`[APNs-${authLabel}] HTTP/2 connect error:`, error.message);
+      resolve({ success: false, reason: `HTTP/2 connect error: ${error.message}` });
       return;
     }
 
-    const host = useSandbox ? APNS_HOST_SANDBOX : APNS_HOST_PRODUCTION;
-    const payloadStr = JSON.stringify(payload);
+    client.on("error", (error) => {
+      console.error(`[APNs-${authLabel}] HTTP/2 session error:`, error.message);
+      resolve({ success: false, reason: `HTTP/2 session error: ${error.message}` });
+      client.close();
+    });
 
-    console.log(`[APNs-JWT] Sending to ${host} (${useSandbox ? "SANDBOX" : "PRODUCTION"})`);
-    console.log(`[APNs-JWT] Device token: ${deviceToken.substring(0, 12)}...${deviceToken.substring(deviceToken.length - 6)}`);
-    console.log(`[APNs-JWT] Bundle ID (apns-topic): ${bundleId}`);
-    console.log(`[APNs-JWT] Payload size: ${Buffer.byteLength(payloadStr)} bytes`);
-
-    const options: https.RequestOptions = {
-      hostname: host,
-      port: 443,
-      path: `/3/device/${deviceToken}`,
-      method: "POST",
-      headers: {
-        "authorization": `bearer ${jwt}`,
-        "apns-topic": bundleId,
-        "apns-push-type": "alert",
-        "apns-priority": "10",
-        "apns-expiration": "0",
-        "content-type": "application/json",
-        "content-length": Buffer.byteLength(payloadStr),
-      },
+    const headers: http2.OutgoingHttpHeaders = {
+      ":method": "POST",
+      ":path": `/3/device/${deviceToken}`,
+      "apns-topic": bundleId,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "apns-expiration": "0",
+      "content-type": "application/json",
+      "content-length": Buffer.byteLength(payloadStr),
     };
 
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => { data += chunk; });
-      res.on("end", () => {
-        const statusCode = res.statusCode || 500;
-        if (statusCode === 200) {
-          console.log(`[APNs-JWT] SUCCESS: Push delivered to ${deviceToken.substring(0, 12)}... (HTTP 200)`);
-          resolve({ success: true, statusCode });
-        } else {
-          let reason = "Unknown error";
-          try {
-            const parsed = JSON.parse(data);
-            reason = parsed.reason || reason;
-          } catch {}
-          console.error(`[APNs-JWT] FAILED for ${deviceToken.substring(0, 12)}...: HTTP ${statusCode} - ${reason}`);
-          logApnsErrorDetails(reason, bundleId);
-          resolve({ success: false, statusCode, reason });
-        }
-      });
+    if (authMethod === "jwt") {
+      const jwt = createApnsJwt();
+      if (!jwt) {
+        console.error(`[APNs-JWT] JWT generation failed - cannot send push`);
+        resolve({ success: false, reason: "Failed to generate APNs JWT" });
+        client.close();
+        return;
+      }
+      headers["authorization"] = `bearer ${jwt}`;
+    }
+
+    const req = client.request(headers);
+
+    let responseData = "";
+    let responseStatus = 0;
+
+    req.on("response", (responseHeaders) => {
+      responseStatus = responseHeaders[":status"] as number || 500;
+    });
+
+    req.on("data", (chunk: Buffer) => {
+      responseData += chunk.toString();
+    });
+
+    req.on("end", () => {
+      client.close();
+
+      if (responseStatus === 200) {
+        console.log(`[APNs-${authLabel}] SUCCESS: Push delivered to ${deviceToken.substring(0, 12)}... (HTTP ${responseStatus})`);
+        resolve({ success: true, statusCode: responseStatus });
+      } else {
+        let reason = "Unknown error";
+        try {
+          const parsed = JSON.parse(responseData);
+          reason = parsed.reason || reason;
+        } catch {}
+        console.error(`[APNs-${authLabel}] FAILED for ${deviceToken.substring(0, 12)}...: HTTP ${responseStatus} - ${reason}`);
+        console.error(`[APNs-${authLabel}] Full response body: ${responseData}`);
+        logApnsErrorDetails(reason, bundleId);
+        resolve({ success: false, statusCode: responseStatus, reason });
+      }
     });
 
     req.on("error", (error) => {
-      console.error(`[APNs-JWT] Network error for ${deviceToken.substring(0, 12)}...:`, error.message);
+      console.error(`[APNs-${authLabel}] Request error for ${deviceToken.substring(0, 12)}...:`, error.message);
+      client.close();
       resolve({ success: false, reason: error.message });
     });
+
+    const timeout = setTimeout(() => {
+      console.error(`[APNs-${authLabel}] Request timeout for ${deviceToken.substring(0, 12)}...`);
+      req.close();
+      client.close();
+      resolve({ success: false, reason: "Request timeout (15s)" });
+    }, 15000);
+
+    req.on("end", () => clearTimeout(timeout));
 
     req.write(payloadStr);
     req.end();
@@ -256,26 +234,12 @@ function logApnsErrorDetails(reason: string, bundleId: string) {
     console.error(`[APNs] Unregistered: Device token is no longer active - device may have uninstalled the app`);
   } else if (reason === "DeviceTokenNotForTopic") {
     console.error(`[APNs] DeviceTokenNotForTopic: Token was generated for a different bundle ID than "${bundleId}"`);
-  }
-}
-
-function sendApnsRequest(
-  deviceToken: string,
-  payload: ApnsPayload,
-  bundleId: string,
-  useSandbox: boolean = false,
-): Promise<{ success: boolean; statusCode?: number; reason?: string }> {
-  const authMethod = getAuthMethod();
-
-  if (authMethod === "cert") {
-    console.log(`[APNs] Using CERTIFICATE-based authentication`);
-    return sendApnsRequestCert(deviceToken, payload, bundleId, useSandbox);
-  } else if (authMethod === "jwt") {
-    console.log(`[APNs] Using JWT/token-based authentication`);
-    return sendApnsRequestJwt(deviceToken, payload, bundleId, useSandbox);
-  } else {
-    console.error("[APNs] No authentication method configured!");
-    return Promise.resolve({ success: false, reason: "No APNs auth configured" });
+  } else if (reason === "MissingTopic") {
+    console.error(`[APNs] MissingTopic: The apns-topic header is missing. Bundle ID: "${bundleId}"`);
+  } else if (reason === "BadCertificate") {
+    console.error(`[APNs] BadCertificate: The certificate is invalid or does not match the bundle ID "${bundleId}"`);
+  } else if (reason === "BadCertificateEnvironment") {
+    console.error(`[APNs] BadCertificateEnvironment: Certificate environment (sandbox/production) does not match the APNs endpoint`);
   }
 }
 
@@ -295,7 +259,7 @@ export async function sendApnsPushNotifications(
   const useSandbox = process.env.APNS_ENVIRONMENT === "sandbox";
   const authMethod = getAuthMethod();
 
-  console.log(`[APNs] === Push Notification Send ===`);
+  console.log(`[APNs] === Push Notification Send (HTTP/2) ===`);
   console.log(`[APNs] Auth method: ${authMethod || "NONE"}`);
   console.log(`[APNs] Title: "${title}"`);
   console.log(`[APNs] Body: "${body}"`);
@@ -303,6 +267,11 @@ export async function sendApnsPushNotifications(
   console.log(`[APNs] Bundle ID: ${bundleId}`);
   console.log(`[APNs] APNS_ENVIRONMENT: ${envSetting}`);
   console.log(`[APNs] Using endpoint: ${useSandbox ? "SANDBOX" : "PRODUCTION"}`);
+
+  if (!authMethod) {
+    console.error("[APNs] No authentication method configured!");
+    return { sent: 0, failed: deviceTokens.length };
+  }
 
   const payload: ApnsPayload = {
     aps: {
@@ -320,7 +289,7 @@ export async function sendApnsPushNotifications(
   for (let i = 0; i < deviceTokens.length; i += BATCH_SIZE) {
     const batch = deviceTokens.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(
-      batch.map((token) => sendApnsRequest(token, payload, bundleId, useSandbox)),
+      batch.map((token) => sendApnsHttp2(token, payload, bundleId, useSandbox, authMethod)),
     );
     for (const result of results) {
       if (result.success) {
@@ -331,7 +300,7 @@ export async function sendApnsPushNotifications(
     }
   }
 
-  console.log(`[APNs] Sent: ${sent}, Failed: ${failed}`);
+  console.log(`[APNs] Result: Sent: ${sent}, Failed: ${failed}`);
   return { sent, failed };
 }
 
