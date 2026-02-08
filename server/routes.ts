@@ -857,15 +857,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (entry) pendingDownloads.delete(req.params.id);
       return res.status(404).json({ error: "Download expired or not found" });
     }
+
+    pendingDownloads.delete(req.params.id);
+
+    res.removeHeader("X-Powered-By");
     res.setHeader("Content-Type", entry.mimeType);
     res.setHeader("Content-Length", entry.buffer.length.toString());
+    res.setHeader("Content-Disposition", `attachment; filename="${entry.filename}"`);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     if (entry.mimeType === "application/vnd.apple.pkpass") {
-      res.setHeader("Content-Disposition", `attachment; filename="${entry.filename}"`);
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    } else {
-      res.setHeader("Content-Disposition", `attachment; filename="${entry.filename}"`);
+      res.setHeader("Content-Transfer-Encoding", "binary");
     }
-    res.send(entry.buffer);
+
+    res.end(entry.buffer);
   });
 
   const httpServer = createServer(app);
