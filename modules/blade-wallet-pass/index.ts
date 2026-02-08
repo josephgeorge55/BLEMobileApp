@@ -2,13 +2,17 @@ import { Platform } from "react-native";
 
 let moduleLoadError: string | null = null;
 
+interface WalletPassResult {
+  presented: boolean;
+  added: boolean;
+  alreadyInWallet: boolean;
+}
+
 let BladeWalletPassModule: {
   canAddPasses(): boolean;
-  addPassFromBase64(base64Data: string): Promise<boolean>;
-  addPassFromUrl(url: string): Promise<boolean>;
+  addPassFromUrl(url: string): Promise<WalletPassResult>;
+  addPassFromData(base64Data: string): Promise<WalletPassResult>;
 } | null = null;
-
-console.log("[WalletPass] Module loading on platform:", Platform.OS);
 
 if (Platform.OS === "ios") {
   try {
@@ -24,7 +28,6 @@ if (Platform.OS === "ios") {
   }
 } else {
   moduleLoadError = `${Platform.OS} platform - Apple Wallet not available`;
-  console.log("[WalletPass] Skipping native module load on", Platform.OS);
 }
 
 export function getWalletModuleLoadError(): string | null {
@@ -35,4 +38,5 @@ export function isNativeWalletAvailable(): boolean {
   return BladeWalletPassModule !== null;
 }
 
+export type { WalletPassResult };
 export default BladeWalletPassModule;
