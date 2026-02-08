@@ -332,7 +332,7 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: "#F2F2F7",
   },
   keyboardView: {
     flex: 1,

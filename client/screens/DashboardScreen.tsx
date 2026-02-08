@@ -387,7 +387,7 @@ export default function DashboardScreen() {
   if (!motor) {
     return (
       <ScrollView
-        style={[styles.container, { backgroundColor: "#FFFFFF" }]}
+        style={[styles.container, { backgroundColor: "#F2F2F7" }]}
         contentContainerStyle={{
           paddingTop: insets.top + Spacing.lg,
           paddingBottom: tabBarHeight + Spacing.xl,
@@ -492,7 +492,7 @@ export default function DashboardScreen() {
   return (
     <>
     <ScrollView
-      style={[styles.container, { backgroundColor: "#FFFFFF" }]}
+      style={[styles.container, { backgroundColor: "#F2F2F7" }]}
       contentContainerStyle={{
         paddingTop: insets.top + Spacing.lg,
         paddingBottom: tabBarHeight + Spacing["4xl"],
@@ -528,7 +528,7 @@ export default function DashboardScreen() {
 
       <Animated.View
         entering={FadeInUp.duration(400).springify()}
-        style={[styles.connectedCard, { backgroundColor: "#181F27" }]}
+        style={[styles.connectedCard, { backgroundColor: "rgba(255,255,255,0.85)" }]}
       >
         <View style={styles.connectedCardGlow} />
         <View style={styles.connectedCardContent}>
@@ -539,7 +539,7 @@ export default function DashboardScreen() {
           />
           <View style={styles.connectedMotorInfo}>
             <View style={styles.connectedMotorHeader}>
-              <ThemedText type="h3" style={{ color: "#EBEFF3" }}>Blade Halo</ThemedText>
+              <ThemedText type="h3" style={{ color: "#1C1C1E" }}>Blade Halo</ThemedText>
               {isConnected ? (
                 <View style={[styles.statusPill, { backgroundColor: BladeColors.accent + "25" }]}>
                   <View style={[styles.statusDot, { backgroundColor: BladeColors.accent }]} />
@@ -563,13 +563,13 @@ export default function DashboardScreen() {
                 </ThemedText>
                 <View style={styles.connectedMetaRow}>
                   <View style={styles.connectedMetaItem}>
-                    <Feather name="cpu" size={12} color="#596F7C" />
+                    <Feather name="cpu" size={12} color="#8E8E93" />
                     <ThemedText type="caption" style={styles.connectedMetaText}>
                       v{firmware}
                     </ThemedText>
                   </View>
                   <View style={styles.connectedMetaItem}>
-                    <Feather name="clock" size={12} color="#596F7C" />
+                    <Feather name="clock" size={12} color="#8E8E93" />
                     <ThemedText type="caption" style={styles.connectedMetaText}>
                       {odometer != null ? `${odometer.toFixed(0)} hrs` : "-- hrs"}
                     </ThemedText>
@@ -578,7 +578,7 @@ export default function DashboardScreen() {
               </>
             ) : (
               <>
-                <ThemedText type="small" style={{ color: "#596F7C", marginTop: Spacing.xs }}>
+                <ThemedText type="small" style={{ color: "#8E8E93", marginTop: Spacing.xs }}>
                   Connect an outboard to begin
                 </ThemedText>
                 <Pressable 
@@ -756,8 +756,8 @@ export default function DashboardScreen() {
               style={[
                 styles.statusCard,
                 {
-                  backgroundColor: "#181F27",
-                  borderColor: "transparent",
+                  backgroundColor: "rgba(255,255,255,0.85)",
+                  borderColor: "rgba(60,60,67,0.12)",
                 },
               ]}
             >
@@ -766,43 +766,43 @@ export default function DashboardScreen() {
                   <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "25" }]}>
                     <Feather name="zap" size={14} color={BladeColors.accent} />
                   </View>
-                  <ThemedText type="small" style={{ color: "#596F7C" }}>
+                  <ThemedText type="small" style={{ color: "#8E8E93" }}>
                     Voltage
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
                   {bms?.voltage.toFixed(1) ?? "--"} V
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+              <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
                   <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
                     <Feather name="activity" size={14} color={BladeColors.marine} />
                   </View>
-                  <ThemedText type="small" style={{ color: "#596F7C" }}>
+                  <ThemedText type="small" style={{ color: "#8E8E93" }}>
                     Current
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
                   {bms?.current.toFixed(1) ?? "--"} A
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+              <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
                   <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(bms?.temperature ?? 0) + "25" }]}>
                     <Feather name="thermometer" size={14} color={getTemperatureColor(bms?.temperature ?? 0)} />
                   </View>
-                  <ThemedText type="small" style={{ color: "#596F7C" }}>
+                  <ThemedText type="small" style={{ color: "#8E8E93" }}>
                     Temperature
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
                   {bms?.temperature ?? "--"}°C
                 </ThemedText>
               </View>
@@ -823,8 +823,8 @@ export default function DashboardScreen() {
               style={[
                 styles.statusCard,
                 {
-                  backgroundColor: "#181F27",
-                  borderColor: "transparent",
+                  backgroundColor: "rgba(255,255,255,0.85)",
+                  borderColor: "rgba(60,60,67,0.12)",
                 },
               ]}
             >
@@ -833,43 +833,43 @@ export default function DashboardScreen() {
                   <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
                     <Feather name="rotate-cw" size={14} color={BladeColors.marine} />
                   </View>
-                  <ThemedText type="small" style={{ color: "#596F7C" }}>
+                  <ThemedText type="small" style={{ color: "#8E8E93" }}>
                     RPM
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
                   {motorData?.motorRPM ?? "--"}
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+              <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
                   <View style={[styles.statusIcon, { backgroundColor: BladeColors.accent + "25" }]}>
                     <Feather name="activity" size={14} color={BladeColors.accent} />
                   </View>
-                  <ThemedText type="small" style={{ color: "#596F7C" }}>
+                  <ThemedText type="small" style={{ color: "#8E8E93" }}>
                     Phase Current
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
                   {motorData?.phaseCurrent.toFixed(1) ?? "--"} A
                 </ThemedText>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+              <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
               <View style={styles.statusRow}>
                 <View style={styles.statusLabel}>
                   <View style={[styles.statusIcon, { backgroundColor: getTemperatureColor(motorData?.temperature ?? 0) + "25" }]}>
                     <Feather name="thermometer" size={14} color={getTemperatureColor(motorData?.temperature ?? 0)} />
                   </View>
-                  <ThemedText type="small" style={{ color: "#596F7C" }}>
+                  <ThemedText type="small" style={{ color: "#8E8E93" }}>
                     Temperature
                   </ThemedText>
                 </View>
-                <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+                <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
                   {motorData?.temperature ?? "--"}°C
                 </ThemedText>
               </View>
@@ -895,8 +895,8 @@ export default function DashboardScreen() {
           style={[
             styles.statusCard,
             {
-              backgroundColor: "#181F27",
-              borderColor: "transparent",
+              backgroundColor: "rgba(255,255,255,0.85)",
+              borderColor: "rgba(60,60,67,0.12)",
             },
           ]}
         >
@@ -905,48 +905,48 @@ export default function DashboardScreen() {
               <View style={[styles.statusIcon, { backgroundColor: theme.primary + "25" }]}>
                 <Feather name="hash" size={14} color={theme.primary} />
               </View>
-              <ThemedText type="small" style={{ color: "#596F7C" }}>
+              <ThemedText type="small" style={{ color: "#8E8E93" }}>
                 Serial Number
               </ThemedText>
             </View>
-            <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+            <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
               {motor.serialNumber}
             </ThemedText>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+          <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
               <View style={[styles.statusIcon, { backgroundColor: BladeColors.marine + "25" }]}>
                 <Feather name="clock" size={14} color={BladeColors.marine} />
               </View>
-              <ThemedText type="small" style={{ color: "#596F7C" }}>
+              <ThemedText type="small" style={{ color: "#8E8E93" }}>
                 Odometer
               </ThemedText>
             </View>
-            <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+            <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
               {odometer != null ? `${odometer.toFixed(1)} hrs` : "--"}
             </ThemedText>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+          <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
               <View style={[styles.statusIcon, { backgroundColor: theme.primary + "25" }]}>
                 <Feather name="cpu" size={14} color={theme.primary} />
               </View>
-              <ThemedText type="small" style={{ color: "#596F7C" }}>
+              <ThemedText type="small" style={{ color: "#8E8E93" }}>
                 Firmware
               </ThemedText>
             </View>
-            <ThemedText type="mono" style={[styles.statusValue, { color: "#EBEFF3" }]}>
+            <ThemedText type="mono" style={[styles.statusValue, { color: "#1C1C1E" }]}>
               v{firmware}
             </ThemedText>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+          <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
@@ -962,7 +962,7 @@ export default function DashboardScreen() {
                   color={isConnected ? BladeColors.success : BladeColors.offline}
                 />
               </View>
-              <ThemedText type="small" style={{ color: "#596F7C" }}>
+              <ThemedText type="small" style={{ color: "#8E8E93" }}>
                 Connection
               </ThemedText>
             </View>
@@ -977,24 +977,24 @@ export default function DashboardScreen() {
                   },
                 ]}
               />
-              <ThemedText type="small" style={{ fontWeight: "500", color: "#EBEFF3" }}>
+              <ThemedText type="small" style={{ fontWeight: "500", color: "#1C1C1E" }}>
                 {isConnected ? "Connected" : "Disconnected"}
               </ThemedText>
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+          <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
 
           <View style={styles.statusRow}>
             <View style={styles.statusLabel}>
-              <View style={[styles.statusIcon, { backgroundColor: "#596F7C" + "25" }]}>
-                <Feather name="clock" size={14} color="#596F7C" />
+              <View style={[styles.statusIcon, { backgroundColor: "#8E8E93" + "25" }]}>
+                <Feather name="clock" size={14} color="#8E8E93" />
               </View>
-              <ThemedText type="small" style={{ color: "#596F7C" }}>
+              <ThemedText type="small" style={{ color: "#8E8E93" }}>
                 Last Updated
               </ThemedText>
             </View>
-            <ThemedText type="small" style={{ fontWeight: "500", color: "#EBEFF3" }}>
+            <ThemedText type="small" style={{ fontWeight: "500", color: "#1C1C1E" }}>
               {telemetry?.timestamp
                 ? new Date(telemetry.timestamp).toLocaleTimeString([], {
                     hour: "2-digit",
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     position: "relative",
-    backgroundColor: "#181F27",
+    backgroundColor: "rgba(255,255,255,0.85)",
   },
   headerGradient: {
     position: "absolute",
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: "#1C1C1E",
     fontSize: 16,
     fontWeight: "400",
     letterSpacing: 1.2,
@@ -1134,7 +1134,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   headerSubtitle: {
-    color: "#596F7C",
+    color: "#8E8E93",
     fontSize: 11,
     letterSpacing: 2,
     textTransform: "uppercase",
@@ -1196,13 +1196,13 @@ const styles = StyleSheet.create({
   disclaimerText: {
     fontSize: 10,
     lineHeight: 14,
-    color: "#596F7C",
+    color: "#8E8E93",
     textAlign: "center",
     opacity: 0.7,
   },
   headerAccentLine: {
     height: 2,
-    backgroundColor: BladeColors.accent,
+    backgroundColor: "#34C759",
     opacity: 0.6,
   },
   metricsGrid: {
@@ -1286,7 +1286,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: BladeColors.accent,
+    backgroundColor: "#34C759",
     opacity: 0.6,
   },
   connectedCardContent: {
@@ -1317,7 +1317,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   connectedSerial: {
-    color: "#596F7C",
+    color: "#8E8E93",
     fontSize: 12,
     marginBottom: Spacing.sm,
   },
@@ -1331,7 +1331,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   connectedMetaText: {
-    color: "#596F7C",
+    color: "#8E8E93",
     fontSize: 11,
   },
   connectButton: {

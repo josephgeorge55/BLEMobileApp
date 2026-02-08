@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: Spacing.md,
-    color: "#596F7C",
+    color: "#8E8E93",
   },
   mapContainer: {
     flex: 1,

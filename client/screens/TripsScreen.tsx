@@ -24,18 +24,18 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 const LOCAL_TRIPS_KEY = "@blade_local_trips";
 
-const BG = "#F5F7FA";
-const CARD_BG = "rgba(255,255,255,0.72)";
-const CARD_BORDER = "rgba(0,0,0,0.06)";
-const TEXT_PRIMARY = "#1A1F2E";
-const TEXT_SECONDARY = "#5A6478";
-const TEXT_MUTED = "#8E95A5";
+const BG = "#F2F2F7";
+const CARD_BG = "rgba(255,255,255,0.85)";
+const CARD_BORDER = "rgba(60,60,67,0.12)";
+const TEXT_PRIMARY = "#1C1C1E";
+const TEXT_SECONDARY = "#3C3C43";
+const TEXT_MUTED = "#8E8E93";
 const ACCENT = "#0A4D6E";
 const ACCENT_LIGHT = "rgba(10,77,110,0.08)";
-const RECORDING_RED = "#DC2626";
-const SUCCESS_GREEN = "#0A4D6E";
-const STAT_BG = "rgba(0,0,0,0.03)";
-const DIVIDER = "rgba(0,0,0,0.06)";
+const RECORDING_RED = "#FF3B30";
+const SUCCESS_GREEN = "#34C759";
+const STAT_BG = "rgba(120,120,128,0.08)";
+const DIVIDER = "rgba(60,60,67,0.12)";
 
 function TripButton({ 
   onPress, 
@@ -249,8 +249,6 @@ export default function TripsScreen() {
 
   const ListHeader = () => (
     <View style={styles.headerSection}>
-      <Text style={styles.screenTitle}>Trips</Text>
-
       {isRecording ? (
         <Animated.View entering={FadeInUp.duration(400).springify()}>
           <View style={styles.recordingTile}>
@@ -395,13 +393,6 @@ const styles = StyleSheet.create({
   headerSection: { 
     marginBottom: Spacing.sm,
   },
-  screenTitle: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: TEXT_PRIMARY,
-    letterSpacing: -0.5,
-    marginBottom: Spacing.xl,
-  },
   
   tripButton: {
     flexDirection: "row",
@@ -464,9 +455,10 @@ const styles = StyleSheet.create({
   },
   introTitle: {
     color: TEXT_PRIMARY,
-    fontSize: 19,
+    fontSize: 22,
     fontWeight: "700",
     letterSpacing: -0.3,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   introSubtitle: {
     color: TEXT_SECONDARY,
@@ -520,6 +512,7 @@ const styles = StyleSheet.create({
     fontSize: 11, 
     fontWeight: "700", 
     letterSpacing: 2,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   timerText: { 
     color: TEXT_PRIMARY,
@@ -528,6 +521,7 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     letterSpacing: 2,
     marginBottom: Spacing.lg,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   liveStatsRow: { 
     flexDirection: "row", 

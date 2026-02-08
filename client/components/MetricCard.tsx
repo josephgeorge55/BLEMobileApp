@@ -174,9 +174,9 @@ export function MetricCard({
   const trendIcon = getTrendIcon();
   const effectiveIconColor = iconColor || theme.primary;
 
-  const darkCardBg = "#181F27";
-  const lightText = "#EBEFF3";
-  const grayText = "#596F7C";
+  const darkCardBg = "rgba(255,255,255,0.85)";
+  const lightText = "#1C1C1E";
+  const grayText = "#8E8E93";
 
   return (
     <GestureDetector gesture={composed}>

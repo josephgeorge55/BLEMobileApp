@@ -5,7 +5,7 @@ Blade Outboards is a cross-platform mobile application (iOS, Android, Web) for m
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
-Design aesthetic: Premium DJI-style with high-contrast design optimized for outdoor marine environments.
+Design aesthetic: iOS-style light gray theme with translucent white cards, green accents (#34C759), and high-contrast text optimized for outdoor marine environments. Moved away from previous dark blue navy theme.
 
 ## System Architecture
 
@@ -14,7 +14,7 @@ Design aesthetic: Premium DJI-style with high-contrast design optimized for outd
 - **Navigation**: React Navigation
 - **State Management**: React Context (local), TanStack React Query (server)
 - **Styling**: Custom theming with light/dark mode, Reanimated for animations, Expo Linear Gradient
-- **UI/UX Decisions**: High-contrast interface, deep ocean blue palette, optimized for outdoor visibility.
+- **UI/UX Decisions**: iOS-style light gray interface (#F2F2F7 backgrounds, rgba(255,255,255,0.85) translucent cards, rgba(60,60,67,0.12) borders), iOS system colors (#1C1C1E text, #8E8E93 secondary, #34C759 green accent), optimized for outdoor visibility.
 - **Key Features**: Authentication, real-time dashboard, GPS tracking, trip recording and export, OTA firmware updates, device settings, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for real-time telemetry, Digital Outboard Passport (ownership certificate with QR code, PDF export, Apple/Google Wallet integration), and Apple Watch companion app.
 
 ### Backend

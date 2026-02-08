@@ -38,12 +38,12 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: "#181F27" }]}>
+    <View style={[styles.container, { backgroundColor: "rgba(255,255,255,0.85)", borderWidth: 1, borderColor: "rgba(60,60,67,0.12)" }]}>
       <View style={styles.header}>
         <View style={[styles.iconContainer, { backgroundColor: BladeColors.marine + "25" }]}>
           <Feather name="navigation" size={18} color={BladeColors.marine} />
         </View>
-        <ThemedText type="caption" style={[styles.label, { color: "#596F7C" }]}>
+        <ThemedText type="caption" style={[styles.label, { color: "#8E8E93" }]}>
           SPEED
         </ThemedText>
       </View>
@@ -52,7 +52,7 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
         <View style={styles.speedRow}>
           <View style={styles.speedLabelRow}>
             <Feather name="radio" size={12} color={BladeColors.marine} />
-            <ThemedText type="caption" style={[styles.speedLabel, { color: "#596F7C" }]}>
+            <ThemedText type="caption" style={[styles.speedLabel, { color: "#8E8E93" }]}>
               Motor GPS
             </ThemedText>
           </View>
@@ -61,23 +61,23 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
               type="h1" 
               style={[
                 styles.speedValue, 
-                { color: isConnected ? getSpeedColor(safeMotorSpeed) : "#596F7C" }
+                { color: isConnected ? getSpeedColor(safeMotorSpeed) : "#8E8E93" }
               ]}
             >
               {isConnected ? displayMotorSpeed : "--"}
             </ThemedText>
-            <ThemedText type="small" style={[styles.unit, { color: "#596F7C" }]}>
+            <ThemedText type="small" style={[styles.unit, { color: "#8E8E93" }]}>
               km/h
             </ThemedText>
           </View>
         </View>
         
-        <View style={[styles.divider, { backgroundColor: "#2A3440" }]} />
+        <View style={[styles.divider, { backgroundColor: "rgba(60,60,67,0.12)" }]} />
         
         <View style={styles.speedRow}>
           <View style={styles.speedLabelRow}>
             <Feather name="smartphone" size={12} color={BladeColors.accent} />
-            <ThemedText type="caption" style={[styles.speedLabel, { color: "#596F7C" }]}>
+            <ThemedText type="caption" style={[styles.speedLabel, { color: "#8E8E93" }]}>
               Phone GPS{phoneSpeed.speedSource === "calculated" ? " (calc)" : phoneSpeed.speedSource === "gps" ? " (native)" : ""}
             </ThemedText>
             {phoneSpeed.isTracking ? (
@@ -89,20 +89,20 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
               type="h2" 
               style={[
                 styles.phoneSpeedValue, 
-                { color: phoneSpeed.speed !== null ? getSpeedColor(phoneSpeed.speed) : "#596F7C" }
+                { color: phoneSpeed.speed !== null ? getSpeedColor(phoneSpeed.speed) : "#8E8E93" }
               ]}
             >
               {displayPhoneSpeed}
             </ThemedText>
-            <ThemedText type="small" style={[styles.unit, { color: "#596F7C" }]}>
+            <ThemedText type="small" style={[styles.unit, { color: "#8E8E93" }]}>
               km/h
             </ThemedText>
           </View>
         </View>
       </View>
       
-      <View style={[styles.noteContainer, { backgroundColor: "#1E2832" }]}>
-        <Feather name="info" size={12} color="#596F7C" />
+      <View style={[styles.noteContainer, { backgroundColor: "rgba(120,120,128,0.08)" }]}>
+        <Feather name="info" size={12} color="#8E8E93" />
         <ThemedText type="caption" style={styles.noteText}>
           Phone GPS is more accurate than motor GPS for speed measurement
         </ThemedText>
@@ -111,7 +111,7 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
       {phoneSpeed.accuracy !== null || phoneSpeed.error ? (
         <View style={styles.accuracyRow}>
           {phoneSpeed.accuracy !== null ? (
-            <ThemedText type="caption" style={{ color: phoneSpeed.accuracy < 10 ? BladeColors.success : phoneSpeed.accuracy < 30 ? BladeColors.warning : "#596F7C" }}>
+            <ThemedText type="caption" style={{ color: phoneSpeed.accuracy < 10 ? BladeColors.success : phoneSpeed.accuracy < 30 ? BladeColors.warning : "#8E8E93" }}>
               GPS accuracy: {phoneSpeed.accuracy.toFixed(0)}m
             </ThemedText>
           ) : null}
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   noteText: {
-    color: "#596F7C",
+    color: "#8E8E93",
     fontSize: 10,
     flex: 1,
   },
