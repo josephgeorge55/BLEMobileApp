@@ -878,11 +878,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (entry) pendingDownloads.delete(req.params.id);
       return res.status(404).json({ error: "Download expired or not found" });
     }
-    pendingDownloads.delete(req.params.id);
     res.setHeader("Content-Type", entry.mimeType);
-    const disposition = entry.mimeType === "application/vnd.apple.pkpass" ? "inline" : "attachment";
-    res.setHeader("Content-Disposition", `${disposition}; filename="${entry.filename}"`);
     res.setHeader("Content-Length", entry.buffer.length.toString());
+    if (entry.mimeType === "application/vnd.apple.pkpass") {
+      res.setHeader("Content-Disposition", `attachment; filename="${entry.filename}"`);
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    } else {
+      res.setHeader("Content-Disposition", `attachment; filename="${entry.filename}"`);
+    }
     res.send(entry.buffer);
   });
 
