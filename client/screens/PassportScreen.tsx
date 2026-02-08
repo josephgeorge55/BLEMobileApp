@@ -185,15 +185,23 @@ export default function PassportScreen() {
 
       const downloadUrl = baseUrl + data.downloadPath;
 
-      if (data.type === "pkpass" && Platform.OS === "ios") {
-        console.log("[Passport] Apple Wallet - Opening raw .pkpass URL for native Wallet prompt");
-        await Linking.openURL(downloadUrl);
-      } else if (data.type === "pkpass" && Platform.OS !== "web") {
+      if (data.type === "pkpass" && Platform.OS !== "web") {
+        console.log("[Passport] Apple Wallet - Downloading .pkpass locally for native share sheet");
         const localPath = FileSystem.cacheDirectory + (data.filename || "blade-passport.pkpass");
         const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+        console.log("[Passport] Apple Wallet - Downloaded to:", downloadResult.uri, "status:", downloadResult.status);
+        if (downloadResult.status !== 200) {
+          throw new Error(`Download failed with status ${downloadResult.status}`);
+        }
+        const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+        console.log("[Passport] Apple Wallet - File size:", (fileInfo as any).size, "bytes");
+        if (!(fileInfo as any).size || (fileInfo as any).size < 100) {
+          throw new Error("Downloaded pass file appears empty or corrupt");
+        }
         await Sharing.shareAsync(downloadResult.uri, {
           mimeType: "application/vnd.apple.pkpass",
           UTI: "com.apple.pkpass",
+          dialogTitle: "Add to Apple Wallet",
         });
       } else if (data.type === "pdf_fallback") {
         if (Platform.OS !== "web") {
