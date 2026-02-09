@@ -29,15 +29,28 @@ export async function apiRequest(
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
-  await throwIfResNotOk(res);
-  return res;
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -61,6 +74,23 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+const retryDelay = (attemptIndex: number) =>
+  Math.min(1000 * 2 ** attemptIndex, 10000);
+
+const shouldRetry = (failureCount: number, error: unknown) => {
+  if (error instanceof Error && error.message.match(/^(4\d{2})/)) {
+    return false;
+  }
+  return failureCount < 2;
+};
+
+const shouldRetryMutation = (failureCount: number, error: unknown) => {
+  if (error instanceof Error && error.message.match(/^(4\d{2})/)) {
+    return false;
+  }
+  return failureCount < 1;
+};
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -68,10 +98,13 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
-      retry: false,
+      retry: shouldRetry,
+      retryDelay,
+      networkMode: 'online',
     },
     mutations: {
-      retry: false,
+      retry: shouldRetryMutation,
+      retryDelay,
     },
   },
 });
