@@ -1,0 +1,2 @@
+-keep class com.bladetcg.wearos.** { *; }
+-keepclassmembers class * implements com.google.android.gms.wearable.** { *; }

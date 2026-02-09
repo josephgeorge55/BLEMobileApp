@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="blade_bg_dark">#FF0A1628</color>
+    <color name="blade_marine">#FF0A4D6E</color>
+    <color name="blade_accent">#FFA4D08B</color>
+    <color name="blade_white">#FFFFFFFF</color>
+    <color name="blade_gray">#FF8E8E93</color>
+    <color name="blade_success">#FF34C759</color>
+    <color name="blade_warning">#FFFF9500</color>
+    <color name="blade_error">#FFFF3B30</color>
+</resources>
