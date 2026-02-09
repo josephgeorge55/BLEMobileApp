@@ -21,6 +21,8 @@ import {
   arrayUnion,
   arrayRemove,
   collectionGroup,
+  collection,
+  addDoc,
   query,
   where,
   orderBy,
@@ -28,6 +30,7 @@ import {
   getDocs,
   type Firestore
 } from "firebase/firestore";
+import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
@@ -510,6 +513,130 @@ export async function deleteBoatData(userId: string): Promise<{ success: boolean
   } catch (error: any) {
     console.error("[Firebase] Error deleting boat data:", error);
     return { success: false, error: error.message || "Failed to delete boat data." };
+  }
+}
+
+export async function uploadTripDataToFirestore(
+  userId: string,
+  tripData: any,
+  dataPoints: any[]
+): Promise<{ success: boolean; error?: string }> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    console.log("[DataShare] Firestore not initialized");
+    return { success: false, error: "Database service unavailable." };
+  }
+
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    console.log("[DataShare] User not authenticated");
+    return { success: false, error: "You need to sign in first." };
+  }
+
+  try {
+    let appVersion = "unknown";
+    try {
+      appVersion = Constants.expoConfig?.version || (Constants as any).manifest?.version || "unknown";
+    } catch {}
+
+    const sanitizedDataPoints = (dataPoints || []).map((dp: any) => ({
+      latitude: dp.latitude ?? null,
+      longitude: dp.longitude ?? null,
+      speedKmh: dp.speedKmh ?? null,
+      batteryPercent: dp.batteryPercent ?? null,
+      batteryVoltage: dp.batteryVoltage ?? null,
+      motorRpm: dp.motorRpm ?? null,
+      motorTemp: dp.motorTemp ?? null,
+      vescWattage: dp.vescWattage ?? null,
+      throttlePercent: dp.throttlePercent ?? null,
+      timestamp: dp.timestamp ?? null,
+    }));
+
+    const docData = {
+      userId: currentUser.uid,
+      motorSerialNumber: tripData.motorSerialNumber ?? null,
+      startTime: tripData.startTime ?? null,
+      endTime: tripData.endTime ?? null,
+      totalDistanceKm: tripData.totalDistanceKm ?? null,
+      maxSpeedKmh: tripData.maxSpeedKmh ?? null,
+      avgSpeedKmh: tripData.avgSpeedKmh ?? null,
+      totalEnergyWh: tripData.totalEnergyWh ?? null,
+      startBatteryPercent: tripData.startBatteryPercent ?? null,
+      endBatteryPercent: tripData.endBatteryPercent ?? null,
+      maxAmperageDraw: tripData.maxAmperageDraw ?? null,
+      maxConsumptionKW: tripData.maxConsumptionKW ?? null,
+      avgConsumptionKW: tripData.avgConsumptionKW ?? null,
+      rpmMax: tripData.rpmMax ?? null,
+      rpmAvg: tripData.rpmAvg ?? null,
+      odometerStartKm: tripData.odometerStartKm ?? null,
+      odometerEndKm: tripData.odometerEndKm ?? null,
+      dataPointsCount: sanitizedDataPoints.length,
+      dataPoints: sanitizedDataPoints,
+      phoneGPSStart: tripData.phoneGPSStart ?? null,
+      phoneGPSEnd: tripData.phoneGPSEnd ?? null,
+      outboardGPSStart: tripData.outboardGPSStart ?? null,
+      outboardGPSEnd: tripData.outboardGPSEnd ?? null,
+      startLocationAddress: tripData.startLocationAddress ?? null,
+      endLocationAddress: tripData.endLocationAddress ?? null,
+      uploadedAt: new Date(),
+      appVersion,
+    };
+
+    await addDoc(collection(firestore, "shared_trips"), docData);
+    console.log("[DataShare] Trip data uploaded successfully");
+    return { success: true };
+  } catch (error: any) {
+    console.log("[DataShare] Error uploading trip data:", error);
+    return { success: false, error: error.message || "Failed to upload trip data." };
+  }
+}
+
+export async function uploadDeviceConnectionToFirestore(
+  userId: string,
+  motorInfo: any,
+  telemetrySnapshot?: any
+): Promise<{ success: boolean; error?: string }> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    console.log("[DataShare] Firestore not initialized");
+    return { success: false, error: "Database service unavailable." };
+  }
+
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    console.log("[DataShare] User not authenticated");
+    return { success: false, error: "You need to sign in first." };
+  }
+
+  try {
+    let appVersion = "unknown";
+    try {
+      appVersion = Constants.expoConfig?.version || (Constants as any).manifest?.version || "unknown";
+    } catch {}
+
+    const docData: Record<string, any> = {
+      userId: currentUser.uid,
+      motorSerialNumber: motorInfo?.serialNumber ?? null,
+      motorName: motorInfo?.name ?? null,
+      firmwareVersion: motorInfo?.firmwareVersion ?? null,
+      connectedAt: new Date(),
+      platform: Platform.OS,
+      appVersion,
+    };
+
+    if (telemetrySnapshot) {
+      docData.batteryPercent = telemetrySnapshot.batteryPercent ?? null;
+      docData.speed = telemetrySnapshot.speed ?? null;
+      docData.latitude = telemetrySnapshot.latitude ?? null;
+      docData.longitude = telemetrySnapshot.longitude ?? null;
+    }
+
+    await addDoc(collection(firestore, "shared_connections"), docData);
+    console.log("[DataShare] Device connection uploaded successfully");
+    return { success: true };
+  } catch (error: any) {
+    console.log("[DataShare] Error uploading device connection:", error);
+    return { success: false, error: error.message || "Failed to upload device connection." };
   }
 }
 
