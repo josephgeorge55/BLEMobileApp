@@ -6,6 +6,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, NavigationProp, useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
+import * as MailComposer from "expo-mail-composer";
 import Constants from "expo-constants";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInUp } from "react-native-reanimated";
@@ -298,12 +299,19 @@ export default function SettingsScreen() {
   };
 
   const handleReportBug = async () => {
-    const subject = encodeURIComponent("Bug Report - Blade App v" + APP_VERSION);
-    const body = encodeURIComponent("Please describe the issue:\n\n\nSteps to reproduce:\n1. \n2. \n3. \n\nDevice: " + Platform.OS + "\nApp Version: " + APP_VERSION + "\nBuild: " + BUILD_NUMBER);
-    const mailtoUrl = "mailto:IT@bladetcg.com?subject=" + subject + "&body=" + body;
+    const subject = "Bug Report - Blade App v" + APP_VERSION;
+    const body = "Please describe the issue:\n\n\nSteps to reproduce:\n1. \n2. \n3. \n\nDevice: " + Platform.OS + "\nApp Version: " + APP_VERSION + "\nBuild: " + BUILD_NUMBER;
     try {
-      const { Linking } = await import("react-native");
-      await Linking.openURL(mailtoUrl);
+      const isAvailable = await MailComposer.isAvailableAsync();
+      if (!isAvailable) {
+        showError("No email app is set up on this device");
+        return;
+      }
+      await MailComposer.composeAsync({
+        recipients: ["IT@bladetcg.com"],
+        subject,
+        body,
+      });
     } catch (error) {
       showError("Could not open email app");
     }
