@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Pressable } from "react-native";
+import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Pressable, Platform } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -173,8 +173,9 @@ export default function SettingsScreen() {
             if (success) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               loadRegisteredMotors();
+              showSuccess("Motor unlinked successfully");
             } else {
-              Alert.alert("Error", "Failed to unlink motor.");
+              showError("Failed to unlink motor");
             }
           },
         },
@@ -240,15 +241,15 @@ export default function SettingsScreen() {
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         loadRegisteredMotors();
-        Alert.alert("Success", `Anti-theft protection enabled for motor ${serialNumber}.`);
+        showSuccess("Anti-theft protection enabled");
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Registration Failed", result.error || "Failed to enable anti-theft protection.");
+        showError(result.error || "Failed to enable anti-theft protection");
       }
     } catch (error: any) {
       console.error("[SettingsScreen] Error linking motor:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", error.message || "An error occurred while linking the motor.");
+      showError("Failed to link motor. Please try again.");
     } finally {
       setIsLinkingMotor(false);
     }
@@ -271,12 +272,13 @@ export default function SettingsScreen() {
     setIsDisconnecting(false);
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Disconnected", "Your outboard motor has been disconnected successfully.");
+    showSuccess("Motor disconnected");
   };
 
   const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await logout();
+    showSuccess("Signed out");
   };
 
   const handleOpenWebsite = async () => {
@@ -293,6 +295,18 @@ export default function SettingsScreen() {
 
   const handleOpenSupport = async () => {
     await WebBrowser.openBrowserAsync("https://support.bladeoutboards.com");
+  };
+
+  const handleReportBug = async () => {
+    const subject = encodeURIComponent("Bug Report - Blade App v" + APP_VERSION);
+    const body = encodeURIComponent("Please describe the issue:\n\n\nSteps to reproduce:\n1. \n2. \n3. \n\nDevice: " + Platform.OS + "\nApp Version: " + APP_VERSION + "\nBuild: " + BUILD_NUMBER);
+    const mailtoUrl = "mailto:IT@bladetcg.com?subject=" + subject + "&body=" + body;
+    try {
+      const { Linking } = await import("react-native");
+      await Linking.openURL(mailtoUrl);
+    } catch (error) {
+      showError("Could not open email app");
+    }
   };
 
   const handleDataSharingToggle = (value: boolean) => {
@@ -699,6 +713,13 @@ export default function SettingsScreen() {
           title="Contact Engineering"
           subtitle="Technical support for OEM customers"
           onPress={handleOpenSupport}
+        />
+        <SettingsRow
+          icon="alert-triangle"
+          title="Report a Bug"
+          subtitle="Email IT@bladetcg.com"
+          onPress={handleReportBug}
+          iconColor={BladeColors.warning}
         />
       </SettingsSection>
       </Animated.View>

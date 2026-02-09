@@ -21,6 +21,7 @@ import { AntiTheftLinkModal } from "@/components/AntiTheftLinkModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
 import { useUser } from "@/context/UserContext";
+import { useToast } from "@/context/ToastContext";
 import { registerMotorForUser, isMotorRegisteredToUser } from "@/lib/firebase";
 import { Spacing, BorderRadius, BladeColors } from "@/constants/theme";
 import {
@@ -67,6 +68,7 @@ export default function BleScannerModal() {
   const { theme } = useTheme();
   const { motor, connectToMotor, isConnecting, stopScan, processParsedData, disconnectMotor, addDebugLog } = useMotor();
   const { user, isGuestMode, isFirebaseReady } = useUser();
+  const { showSuccess, showError } = useToast();
 
   const [isScanning, setIsScanning] = useState(true);
   const [devices, setDevices] = useState<ScanDevice[]>([]);
@@ -310,6 +312,7 @@ export default function BleScannerModal() {
         await connectToMotor(device.serialNumber);
         setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showSuccess("Connected to motor");
       } else if (device.type === "classic") {
         addDebugLog("INFO", `Connecting to Classic device: ${device.name} (${device.id})`);
         const success = await connectToClassicDevice(device.id, {
@@ -343,6 +346,7 @@ export default function BleScannerModal() {
         }
         setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showSuccess("Connected via Bluetooth Classic");
       } else {
         addDebugLog("INFO", `Connecting to BLE device: ${device.name} (${device.id}) on ${Platform.OS}`);
         const success = await connectToBleDevice(device.id, {
@@ -373,6 +377,7 @@ export default function BleScannerModal() {
         }
         setShowConnectingModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showSuccess("Connected via Bluetooth");
       }
       
       // Always navigate back to Dashboard after successful connection
@@ -459,6 +464,7 @@ export default function BleScannerModal() {
     } catch (error) {
       setShowConnectingModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showError("Failed to connect. Please try again.");
       setSelectedDevice(null);
     }
   };

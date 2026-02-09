@@ -22,6 +22,7 @@ import Animated, { FadeInUp, FadeIn, FadeInDown } from "react-native-reanimated"
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useUser } from "@/context/UserContext";
+import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius, Gradients } from "@/constants/theme";
 
 const APP_VERSION = Constants.expoConfig?.version || "1.0.0";
@@ -31,6 +32,7 @@ const FIRMWARE_PROTOCOL = "BLE 5.0";
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { login, register, loginAsGuest, resetPassword } = useUser();
+  const { showSuccess, showError } = useToast();
   
   const [mode, setMode] = useState<"login" | "register" | "reset">("login");
   const [email, setEmail] = useState("");
@@ -95,9 +97,12 @@ export default function AuthScreen() {
 
       if (!result.success) {
         setError(result.error || "Something went wrong");
+      } else {
+        showSuccess(mode === "register" ? "Account created" : "Welcome back");
       }
     } catch (e: any) {
       setError(e.message || "Network error");
+      showError("Connection issue. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +128,11 @@ export default function AuthScreen() {
     setError(null);
     setPassword("");
     setConfirmPassword("");
+  };
+
+  const handleGuestLogin = () => {
+    loginAsGuest();
+    showSuccess("Signed in as guest");
   };
 
   return (
@@ -291,7 +301,7 @@ export default function AuthScreen() {
                     <View style={styles.dividerLine} />
                   </View>
 
-                  <Pressable onPress={loginAsGuest} style={styles.guestButton} testID="guest-button">
+                  <Pressable onPress={handleGuestLogin} style={styles.guestButton} testID="guest-button">
                     <Feather name="user" size={18} color="rgba(255,255,255,0.45)" />
                     <ThemedText type="body" style={styles.guestButtonText}>
                       Continue as Guest
