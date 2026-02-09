@@ -15,7 +15,19 @@ Design aesthetic: iOS-style light gray theme with translucent white cards, green
 - **State Management**: React Context for local state, TanStack React Query for server state.
 - **Styling**: Custom theming with light/dark mode, Reanimated for animations, and Expo Linear Gradient for visual effects.
 - **UI/UX Decisions**: iOS-style light gray interface with specific color codes for backgrounds, translucent cards, borders, and text, optimized for outdoor visibility in marine environments.
-- **Key Features**: User authentication, real-time data dashboard, GPS tracking with trip recording and export, OTA firmware updates, device settings management, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for telemetry, Digital Outboard Passport (ownership certificate with QR code, PDF export, Wallet integration), and an Apple Watch companion app.
+- **Key Features**: User authentication, real-time data dashboard, GPS tracking with trip recording and export, OTA firmware updates, device settings management, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for telemetry, Digital Outboard Passport (ownership certificate with QR code, PDF export, Wallet integration), Apple Watch companion app, and Android Wear OS companion app.
+
+### Android Wear OS Companion App (Added Feb 2026)
+- **Location**: `android-wear-app/` — standalone project, built separately in Android Studio (NOT bundled with Expo).
+- **Language/Framework**: Kotlin + Jetpack Compose for Wear OS.
+- **Min SDK**: Wear OS 3.0+ (API 30), compileSdk 34.
+- **Architecture**: MotorState singleton (StateFlow) for shared reactive state between DataLayerListenerService and UI.
+- **Communication**: Google Wearable Data Layer API for phone-watch data sync. DataLayerListenerService extends WearableListenerService.
+- **Data Paths**: `/blade/telemetry` (speed, battery, power), `/blade/motor-status` (connection, serial, name), `/blade/trip-status` (active, elapsed, start time), `/blade/trip-command` (start/stop commands sent to phone).
+- **Screens**: 3 swipeable pages via HorizontalPager — HomeScreen (connection status, logo, motor name, serial), TelemetryScreen (speed knots, battery %, power kW), TripScreen (timer HH:MM:SS, recording indicator, start/stop button).
+- **Theme**: BladeWearTheme with BladeColors matching iOS dark navy (#0A1628) background, marine (#0A4D6E) accents, sage green (#A4D08B) highlights.
+- **Build**: Open `android-wear-app/` in Android Studio, sync Gradle, build/deploy to Wear OS device or emulator.
+- **EAS Exclusion**: `.easignore` excludes `android-wear-app/` from Expo EAS builds.
 
 ### Backend
 - **Framework**: Express.js with TypeScript.
