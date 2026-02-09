@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun WearApp() {
     val pagerState = rememberPagerState(pageCount = { 3 })
