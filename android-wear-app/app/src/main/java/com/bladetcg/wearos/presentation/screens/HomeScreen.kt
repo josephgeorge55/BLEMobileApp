@@ -16,7 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.Text
 import com.bladetcg.wearos.R
 import com.bladetcg.wearos.data.MotorState
@@ -53,11 +52,10 @@ fun HomeScreen() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Icon(
-            painter = painterResource(id = R.drawable.ic_blade_icon),
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = R.drawable.blade_logo),
             contentDescription = "Blade Icon",
-            modifier = Modifier.size(36.dp),
-            tint = BladeColors.Accent
+            modifier = Modifier.size(40.dp)
         )
 
         Spacer(modifier = Modifier.height(4.dp))
