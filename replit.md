@@ -51,6 +51,18 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - **Dual-Transport Architecture**: iOS uses direct APNs for Xcode builds; Android uses Expo Push API for EAS builds.
 - **Categories**: Supports news/promotions, service/warranty reminders, and motor-specific notifications.
 
+### Security & Rate Limiting (Added Feb 2026)
+- **Rate Limiting Middleware** (`server/rateLimiter.ts`): In-memory Map-based rate limiting with automatic cleanup.
+  - Login: 5 failures per 15 min per IP (15-min block), 10 failures per hour (30-min block). Brute force protection per email (10 failures = 30-min lock).
+  - Registration: 3 attempts per 10 min per IP.
+  - Motor linking: 1 request per 10 seconds per userId.
+  - General API: 100 requests per minute per IP.
+- **Client-Side Rate Limiting**: Boat data saves throttled to 1 per 30 seconds (`client/lib/firebase.ts`).
+- **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy.
+- **CORS**: Explicitly lists allowed headers including Authorization, x-api-key, expo-platform.
+- **Body Size Limits**: JSON reduced to 10mb, URL-encoded to 1mb (from 50mb).
+- **Auth Logging**: PINs are no longer logged in auth.log (only email and success/failure).
+
 ## External Dependencies
 
 ### Database
