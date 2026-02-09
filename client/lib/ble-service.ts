@@ -137,7 +137,7 @@ export function startScan(callbacks: Pick<BleServiceCallbacks, "onDeviceFound" |
         callbacks.onDeviceFound({
           id: device.id,
           name: displayName,
-          rssi: device.rssi || -100,
+          rssi: device.rssi ?? -100,
           serialNumber,
         });
       }

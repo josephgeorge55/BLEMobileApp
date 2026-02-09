@@ -51,7 +51,7 @@ interface ScanDevice {
   id: string;
   name: string;
   serialNumber: string;
-  rssi: number;
+  rssi: number | null;
   type: "ble" | "classic";
 }
 
@@ -233,7 +233,7 @@ export default function BleScannerModal() {
               id: device.address,
               name: device.name,
               serialNumber: device.address,
-              rssi: device.rssi || -50,
+              rssi: device.rssi ?? null,
               type: "classic",
             };
             foundDevices.set(`classic-${device.address}`, scanDevice);
@@ -247,7 +247,7 @@ export default function BleScannerModal() {
                 id: device.address,
                 name: device.name,
                 serialNumber: device.address,
-                rssi: device.rssi || -70,
+                rssi: device.rssi ?? null,
                 type: "classic",
               };
               foundDevices.set(`classic-${device.address}`, scanDevice);
@@ -261,7 +261,7 @@ export default function BleScannerModal() {
       }
 
       function updateDeviceList(devices: Map<string, ScanDevice>) {
-        const deviceList = Array.from(devices.values()).sort((a, b) => b.rssi - a.rssi);
+        const deviceList = Array.from(devices.values()).sort((a, b) => (b.rssi ?? -999) - (a.rssi ?? -999));
         setDevices(deviceList);
         const bleCount = deviceList.filter(d => d.type === "ble").length;
         const classicCount = deviceList.filter(d => d.type === "classic").length;
@@ -540,14 +540,16 @@ export default function BleScannerModal() {
     }
   };
 
-  const getSignalStrength = (rssi: number) => {
+  const getSignalStrength = (rssi: number | null) => {
+    if (rssi === null) return "Unknown";
     if (rssi > -50) return "Excellent";
     if (rssi > -65) return "Good";
     if (rssi > -75) return "Fair";
     return "Weak";
   };
 
-  const getSignalColor = (rssi: number) => {
+  const getSignalColor = (rssi: number | null) => {
+    if (rssi === null) return BladeColors.lightGray;
     if (rssi > -50) return BladeColors.success;
     if (rssi > -65) return BladeColors.accent;
     if (rssi > -75) return BladeColors.warning;

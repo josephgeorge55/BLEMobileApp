@@ -7,7 +7,7 @@ export interface ClassicDevice {
   address: string;
   bonded: boolean;
   deviceClass?: string;
-  rssi?: number;
+  rssi?: number | null;
 }
 
 export interface ClassicServiceCallbacks {
@@ -94,7 +94,7 @@ export async function getBondedDevices(): Promise<ClassicDevice[]> {
       address: device.address,
       bonded: true,
       deviceClass: device.deviceClass,
-      rssi: device.rssi || -50,
+      rssi: device.rssi ?? null,
     }));
   } catch (error) {
     console.error("Error getting bonded devices:", error);
@@ -127,7 +127,7 @@ export async function startDiscovery(
               address: device.address,
               bonded: false,
               deviceClass: device.deviceClass,
-              rssi: device.rssi || -70,
+              rssi: device.rssi ?? null,
             });
           });
         }
