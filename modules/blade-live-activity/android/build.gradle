@@ -1,13 +1,15 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
-apply plugin: 'expo-module'
+
+group = 'expo.modules.bladeliveactivity'
 
 android {
-    compileSdkVersion 34
+    namespace "expo.modules.bladeliveactivity"
+    compileSdkVersion safeExtGet("compileSdkVersion", 35)
 
     defaultConfig {
-        minSdkVersion 24
-        targetSdkVersion 34
+        minSdkVersion safeExtGet("minSdkVersion", 24)
+        targetSdkVersion safeExtGet("targetSdkVersion", 35)
     }
 
     compileOptions {
@@ -22,4 +24,8 @@ android {
 
 dependencies {
     implementation project(':expo-modules-core')
+}
+
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
 }
