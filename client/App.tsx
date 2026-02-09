@@ -19,10 +19,12 @@ import { ToastProvider } from "@/context/ToastContext";
 import LiveActivityManager from "@/components/LiveActivityManager";
 import WatchConnectivityBridge from "@/components/WatchConnectivityBridge";
 import { setupGlobalErrorHandlers } from "@/lib/error-handler";
+import { logAppLaunch } from "@/lib/remote-logger";
 
 export default function App() {
   useEffect(() => {
     setupGlobalErrorHandlers();
+    logAppLaunch();
   }, []);
 
   return (

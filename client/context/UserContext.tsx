@@ -12,6 +12,7 @@ import {
   isFirebaseInitialized,
   type User as FirebaseUser
 } from "@/lib/firebase";
+import { logLoginSuccess, logLoginFailure, logLogout } from "@/lib/remote-logger";
 
 interface UserData {
   id: string;
@@ -214,10 +215,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
       setUser(userData);
       setIsGuestMode(false);
+      logLoginSuccess(firebaseUser.uid, firebaseUser.email || email);
       
       return { success: true };
     } catch (error: any) {
       console.error("Firebase registration error:", error);
+      logLoginFailure(email, error.code || "registration_failed");
       
       let errorMessage = "Registration failed";
       switch (error.code) {
@@ -261,10 +264,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
       setUser(userData);
       setIsGuestMode(false);
+      logLoginSuccess(firebaseUser.uid, firebaseUser.email || email);
       
       return { success: true };
     } catch (error: any) {
       console.error("Firebase login error:", error);
+      logLoginFailure(email, error.code || "login_failed");
       
       let errorMessage = "Login failed";
       switch (error.code) {
@@ -306,6 +311,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    const userId = user?.id;
     try {
       const currentAuth = getFirebaseAuth();
       if (!isGuestMode && currentAuth?.currentUser) {
@@ -315,6 +321,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       console.error("Firebase sign out error:", error);
     }
     
+    logLogout(userId || undefined);
     await AsyncStorage.removeItem(USER_STORAGE_KEY);
     await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
     setUser(null);

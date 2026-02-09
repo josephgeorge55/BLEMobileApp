@@ -9,6 +9,7 @@ import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
 import { fetchWeather, getWindDirection } from "@/services/weatherService";
 import { uploadTripDataToFirestore } from "@/lib/firebase";
+import { logTripStarted, logTripEnded } from "@/lib/remote-logger";
 import type { WeatherData } from "@/services/weatherService";
 import type { Trip } from "@shared/schema";
 import type { TripDataPoint, TripEndReason, WeatherSnapshot } from "@/types/TripReport";
@@ -682,6 +683,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       console.log("=== [Trip] TRIP STARTED SUCCESSFULLY ===");
       console.log("[Trip] Recording is now ACTIVE for trip:", tripId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      logTripStarted(tripId, serial);
       return true;
     } catch (err) {
       console.error("[Trip] START FAILED with error:", err);
@@ -855,6 +857,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
       console.log("=== [Trip] TRIP ENDED SUCCESSFULLY ===");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      logTripEnded(trip.id, trip.motorSerialNumber, tripDurationSec, reason);
       return true;
     } catch (err) {
       console.error("[Trip] END FAILED:", err);
