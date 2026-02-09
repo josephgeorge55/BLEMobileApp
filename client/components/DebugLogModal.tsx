@@ -71,6 +71,22 @@ export function DebugLogModal({ visible, onClose }: Props) {
   const [liveActivityLogs, setLiveActivityLogs] = useState<DebugLogEntry[]>([]);
   const [throttleLogs, setThrottleLogs] = useState<DebugLogEntry[]>([]);
   const [walletLogs, setWalletLogs] = useState<DebugLogEntry[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passcodeInput, setPasscodeInput] = useState("");
+  const [passcodeError, setPasscodeError] = useState(false);
+
+  const DEV_PASSCODE = "Blade8888!";
+
+  const handlePasscodeSubmit = () => {
+    if (passcodeInput === DEV_PASSCODE) {
+      setIsAuthenticated(true);
+      setPasscodeError(false);
+      setPasscodeInput("");
+    } else {
+      setPasscodeError(true);
+      setPasscodeInput("");
+    }
+  };
 
   const addAntiTheftLog = useCallback((level: string, message: string) => {
     setAntiTheftLogs(prev => [...prev.slice(-99), {
@@ -127,6 +143,14 @@ export function DebugLogModal({ visible, onClose }: Props) {
       message
     }]);
   }, []);
+
+  useEffect(() => {
+    if (!visible) {
+      setIsAuthenticated(false);
+      setPasscodeInput("");
+      setPasscodeError(false);
+    }
+  }, [visible]);
 
   useEffect(() => {
     setPdfLogCallback(addPdfLog);
@@ -933,99 +957,164 @@ export function DebugLogModal({ visible, onClose }: Props) {
       onRequestClose={onClose}
     >
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-          <View style={styles.headerLeft}>
-            <ThemedText type="h2">Debug Console</ThemedText>
-            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-              {getCurrentLogs().length} entries
-            </ThemedText>
-          </View>
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <Feather name="x" size={24} color={theme.text} />
-          </Pressable>
-        </View>
-
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabBar}
-        >
-          {renderTab("bluetooth", "Bluetooth", "bluetooth")}
-          {renderTab("throttle", "Throttle", "sliders")}
-          {renderTab("antitheft", "Anti-Theft", "shield")}
-          {renderTab("location", "Location", "map-pin")}
-          {renderTab("trips", "Trips", "navigation")}
-          {renderTab("pdf", "PDF", "file-text")}
-          {renderTab("liveactivity", "Live Activity", "activity")}
-          {renderTab("wallet", "Wallet", "credit-card")}
-        </ScrollView>
-
-        <View style={[styles.statusBar, { backgroundColor: theme.surface }]}>
-          <View style={styles.statusItem}>
-            <Feather 
-              name={motor?.isConnected ? "check-circle" : "x-circle"} 
-              size={14} 
-              color={motor?.isConnected ? BladeColors.success : BladeColors.error} 
-            />
-            <ThemedText type="caption" style={{ marginLeft: 4 }}>
-              {motor?.isConnected ? "Connected" : "Disconnected"}
-            </ThemedText>
-          </View>
-          <View style={styles.statusItem}>
-            <Feather 
-              name="bluetooth" 
-              size={14} 
-              color={BladeColors.primary} 
-            />
-            <ThemedText type="caption" style={{ marginLeft: 4 }}>
-              {isRealConnection ? "Connected" : "Disconnected"}
-            </ThemedText>
-          </View>
-          <View style={styles.statusItem}>
-            <ThemedText type="caption">
-              {user?.id === "guest" ? "Guest" : user?.email?.split("@")[0] || "No User"}
-            </ThemedText>
-          </View>
-        </View>
-
-        <View style={styles.testButtonContainer}>
-          {renderTestButton()}
-        </View>
-
-        <FlatList
-          data={[...getCurrentLogs()].reverse()}
-          renderItem={renderLogItem}
-          keyExtractor={(item, index) => `${item.timestamp}-${index}`}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Feather name="file-text" size={48} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
-                No logs yet.{"\n"}Tap the test button above to run diagnostics.
-              </ThemedText>
+        {!isAuthenticated ? (
+          <View style={styles.passcodeContainer}>
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
+              <View style={styles.headerLeft}>
+                <ThemedText type="h2">Developer Mode</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                  Enter passcode to continue
+                </ThemedText>
+              </View>
+              <Pressable onPress={onClose} style={styles.closeButton}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
             </View>
-          }
-        />
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md, backgroundColor: theme.backgroundRoot }]}>
-          <Button 
-            variant="outline" 
-            onPress={handleClearLogs}
-            style={{ flex: 1, marginRight: Spacing.sm }}
-          >
-            Clear Logs
-          </Button>
-          <Button 
-            onPress={handleExport}
-            disabled={isExporting}
-            style={{ flex: 1 }}
-          >
-            {isExporting ? "Exporting..." : "Download Log"}
-          </Button>
-        </View>
+            <View style={styles.passcodeContent}>
+              <View style={styles.passcodeIconContainer}>
+                <Feather name="lock" size={48} color={BladeColors.accent} />
+              </View>
+              <ThemedText type="h3" style={{ textAlign: "center", marginBottom: Spacing.sm }}>
+                Maintenance Access
+              </ThemedText>
+              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing["2xl"] }}>
+                This area is restricted to authorized personnel only.
+              </ThemedText>
+              <TextInput
+                value={passcodeInput}
+                onChangeText={(text) => {
+                  setPasscodeInput(text);
+                  setPasscodeError(false);
+                }}
+                placeholder="Enter passcode"
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handlePasscodeSubmit}
+                returnKeyType="go"
+                style={[
+                  styles.passcodeInput,
+                  { 
+                    backgroundColor: theme.surface,
+                    color: theme.text,
+                    borderColor: passcodeError ? BladeColors.error : theme.border,
+                  },
+                ]}
+              />
+              {passcodeError ? (
+                <ThemedText type="caption" style={{ color: BladeColors.error, marginTop: Spacing.sm, textAlign: "center" }}>
+                  Incorrect passcode. Please try again.
+                </ThemedText>
+              ) : null}
+              <Pressable
+                onPress={handlePasscodeSubmit}
+                style={[styles.passcodeButton, { backgroundColor: BladeColors.accent }]}
+              >
+                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                  Unlock
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <>
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
+              <View style={styles.headerLeft}>
+                <ThemedText type="h2">Developer Console</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                  {getCurrentLogs().length} entries
+                </ThemedText>
+              </View>
+              <Pressable onPress={onClose} style={styles.closeButton}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabBar}
+            >
+              {renderTab("bluetooth", "Bluetooth", "bluetooth")}
+              {renderTab("throttle", "Throttle", "sliders")}
+              {renderTab("antitheft", "Anti-Theft", "shield")}
+              {renderTab("location", "Location", "map-pin")}
+              {renderTab("trips", "Trips", "navigation")}
+              {renderTab("pdf", "PDF", "file-text")}
+              {renderTab("liveactivity", "Live Activity", "activity")}
+              {renderTab("wallet", "Wallet", "credit-card")}
+            </ScrollView>
+
+            <View style={[styles.statusBar, { backgroundColor: theme.surface }]}>
+              <View style={styles.statusItem}>
+                <Feather 
+                  name={motor?.isConnected ? "check-circle" : "x-circle"} 
+                  size={14} 
+                  color={motor?.isConnected ? BladeColors.success : BladeColors.error} 
+                />
+                <ThemedText type="caption" style={{ marginLeft: 4 }}>
+                  {motor?.isConnected ? "Connected" : "Disconnected"}
+                </ThemedText>
+              </View>
+              <View style={styles.statusItem}>
+                <Feather 
+                  name="bluetooth" 
+                  size={14} 
+                  color={BladeColors.primary} 
+                />
+                <ThemedText type="caption" style={{ marginLeft: 4 }}>
+                  {isRealConnection ? "Connected" : "Disconnected"}
+                </ThemedText>
+              </View>
+              <View style={styles.statusItem}>
+                <ThemedText type="caption">
+                  {user?.id === "guest" ? "Guest" : user?.email?.split("@")[0] || "No User"}
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.testButtonContainer}>
+              {renderTestButton()}
+            </View>
+
+            <FlatList
+              data={[...getCurrentLogs()].reverse()}
+              renderItem={renderLogItem}
+              keyExtractor={(item, index) => `${item.timestamp}-${index}`}
+              contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+              refreshControl={
+                <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Feather name="file-text" size={48} color={theme.textSecondary} />
+                  <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
+                    No logs yet.{"\n"}Tap the test button above to run diagnostics.
+                  </ThemedText>
+                </View>
+              }
+            />
+
+            <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md, backgroundColor: theme.backgroundRoot }]}>
+              <Button 
+                variant="outline" 
+                onPress={handleClearLogs}
+                style={{ flex: 1, marginRight: Spacing.sm }}
+              >
+                Clear Logs
+              </Button>
+              <Button 
+                onPress={handleExport}
+                disabled={isExporting}
+                style={{ flex: 1 }}
+              >
+                {isExporting ? "Exporting..." : "Download Log"}
+              </Button>
+            </View>
+          </>
+        )}
       </View>
     </Modal>
   );
@@ -1115,5 +1204,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
+  },
+  passcodeContainer: {
+    flex: 1,
+  },
+  passcodeContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing["2xl"],
+  },
+  passcodeIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(164,208,139,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  passcodeInput: {
+    width: "100%",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  passcodeButton: {
+    width: "100%",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginTop: Spacing.lg,
   },
 });

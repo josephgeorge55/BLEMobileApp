@@ -725,11 +725,11 @@ export default function SettingsScreen() {
       </Animated.View>
 
       <Animated.View entering={FadeInUp.delay(400).duration(350).springify()}>
-      <SettingsSection title="Developer">
+      <SettingsSection title="Maintenance">
         <SettingsRow
-          icon="terminal"
-          title="Debug Log"
-          subtitle={`${debugLogs.length} entries`}
+          icon="tool"
+          title="Developer Mode"
+          subtitle="Passcode-protected diagnostics console"
           onPress={() => setShowDebugModal(true)}
           iconColor={BladeColors.marine}
         />
