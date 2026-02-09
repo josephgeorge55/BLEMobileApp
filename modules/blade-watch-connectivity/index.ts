@@ -16,7 +16,7 @@ let BladeWatchConnectivityModule: {
   isWatchReachable(): Promise<boolean>;
 } | null = null;
 
-if (Platform.OS === "ios") {
+if (Platform.OS === "ios" || Platform.OS === "android") {
   try {
     const { requireNativeModule } = require("expo-modules-core");
     BladeWatchConnectivityModule = requireNativeModule("BladeWatchConnectivity");

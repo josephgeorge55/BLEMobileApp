@@ -13,7 +13,7 @@ export default function WatchConnectivityBridge() {
   const connected = motor?.isConnected === true;
 
   useEffect(() => {
-    if (Platform.OS !== "ios" || !BladeWatchConnectivityModule) return;
+    if (Platform.OS === "web" || !BladeWatchConnectivityModule) return;
 
     const activate = async () => {
       try {
@@ -28,7 +28,7 @@ export default function WatchConnectivityBridge() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== "ios" || !BladeWatchConnectivityModule) return;
+    if (Platform.OS === "web" || !BladeWatchConnectivityModule) return;
 
     try {
       const { EventEmitter } = require("expo-modules-core");
@@ -61,7 +61,7 @@ export default function WatchConnectivityBridge() {
   }, [startTrip, endTrip]);
 
   useEffect(() => {
-    if (Platform.OS !== "ios" || !BladeWatchConnectivityModule) return;
+    if (Platform.OS === "web" || !BladeWatchConnectivityModule) return;
 
     const serialNumber =
       telemetry?.tillerSerialNumber ||
