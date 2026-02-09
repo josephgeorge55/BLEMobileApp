@@ -135,19 +135,33 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     loadStoredData();
   }, []);
 
-  // Handle AppState changes for graceful BLE handling during background/foreground
   useEffect(() => {
     const appStateRef = { current: AppState.currentState };
     
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       console.log("[Motor] AppState changed:", appStateRef.current, "->", nextAppState);
       
       if (appStateRef.current.match(/inactive|background/) && nextAppState === "active") {
-        // App returning to foreground - check BLE connection status
         console.log("[Motor] App returning to foreground, checking connection state...");
-        // Note: BLE reconnection is handled by ble-service.ts and bluetooth-classic-service.ts
-        // The onDisconnected callbacks will update motor state if disconnected
-        // We just need to ensure telemetry continues flowing if still connected
+        const currentMotor = motorRef.current;
+        if (currentMotor?.isConnected && Platform.OS !== 'web') {
+          const bleStillConnected = isBleConnected();
+          const classicStillConnected = isClassicConnected();
+          if (!bleStillConnected && !classicStillConnected) {
+            console.log("[Motor] Foreground check: BLE/Classic both disconnected, updating motor state");
+            addDebugLog("INFO", "Foreground check: motor disconnected while in background");
+            setMotorState(prev => prev ? { ...prev, isConnected: false } : null);
+            setTelemetryState(null);
+            gnssRef.current = null;
+            bmsRef.current = null;
+            motorDataRef.current = null;
+            vescRef.current = null;
+            inforG1Ref.current = null;
+            inforG2Ref.current = null;
+          } else {
+            addDebugLog("INFO", `Foreground check: still connected (BLE=${bleStillConnected}, Classic=${classicStillConnected})`);
+          }
+        }
       }
       
       appStateRef.current = nextAppState;
@@ -158,7 +172,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [addDebugLog]);
 
   const loadStoredData = async () => {
     try {

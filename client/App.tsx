@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -18,8 +18,13 @@ import { TripProvider } from "@/context/TripContext";
 import { ToastProvider } from "@/context/ToastContext";
 import LiveActivityManager from "@/components/LiveActivityManager";
 import WatchConnectivityBridge from "@/components/WatchConnectivityBridge";
+import { setupGlobalErrorHandlers } from "@/lib/error-handler";
 
 export default function App() {
+  useEffect(() => {
+    setupGlobalErrorHandlers();
+  }, []);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

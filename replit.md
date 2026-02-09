@@ -51,6 +51,14 @@ Manages motor identification from initial Bluetooth MAC address to actual serial
 - **Dual-Transport Architecture**: iOS uses direct APNs for Xcode builds; Android uses Expo Push API for EAS builds.
 - **Categories**: Supports news/promotions, service/warranty reminders, and motor-specific notifications.
 
+### Resilience & Error Handling (Added Feb 2026)
+- **Global Error Handler** (`client/lib/error-handler.ts`): Catches unhandled JS errors via `ErrorUtils.setGlobalHandler` (native) and `window.addEventListener('unhandledrejection')` (web). Non-fatal errors are logged without crashing.
+- **Error Message Sanitization**: `sanitizeErrorMessage()` maps internal errors to user-friendly messages (network, auth, BLE, HTTP status codes).
+- **Network Retry Logic** (`client/lib/query-client.ts`): Exponential backoff retry (1s → 2s → 4s, max 10s). Queries retry up to 2x, mutations 1x. 4xx client errors are never retried. 30-second AbortController timeout on all API requests. `networkMode: 'online'` prevents offline queries.
+- **BLE Auto-Reconnect** (`client/lib/ble-service.ts`): On unexpected disconnect, auto-reconnects up to 3 attempts with delays of 3s, 6s, 12s. Manual disconnects skip reconnection. `cancelAutoReconnect()` exported for external control.
+- **Auth State Sync** (`client/context/UserContext.tsx`): When app returns to foreground, validates Firebase auth. If Firebase reports no user but a stale stored session exists, clears it to prevent phantom auth state.
+- **Motor Foreground Check** (`client/context/MotorContext.tsx`): On app foreground return, checks actual BLE/Classic connection state. If both disconnected, updates motor state and clears telemetry to prevent stale UI.
+
 ### Security & Rate Limiting (Added Feb 2026)
 - **Rate Limiting Middleware** (`server/rateLimiter.ts`): In-memory Map-based rate limiting with automatic cleanup.
   - Login: 5 failures per 15 min per IP (15-min block), 10 failures per hour (30-min block). Brute force protection per email (10 failures = 30-min lock).

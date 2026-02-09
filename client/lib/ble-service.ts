@@ -39,6 +39,13 @@ let targetServiceUUID: string = BLADE_SERVICE_UUID;
 let targetCharUUID: string = BLADE_CHARACTERISTIC_UUID;
 let negotiatedMTU: number = 23;
 
+let lastConnectedDeviceId: string | null = null;
+let lastCallbacks: BleServiceCallbacks | null = null;
+let reconnectAttempts = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_DELAYS = [3000, 6000, 12000];
+
 function bleLog(tag: string, msg: string) {
   console.log(`[BLE-Service][${tag}] ${msg}`);
 }
@@ -249,6 +256,10 @@ export async function connectToDevice(
 
     connectedDevice = device;
 
+    lastConnectedDeviceId = device.id;
+    lastCallbacks = callbacks;
+    reconnectAttempts = 0;
+
     device.onDisconnected((error: any, disconnectedDevice: any) => {
       bleLog("DISCONNECT", `Device disconnected: ${disconnectedDevice?.id}, error: ${error?.message || 'none'}`);
       if (notificationSubscription) {
@@ -258,7 +269,13 @@ export async function connectToDevice(
       targetCharacteristic = null;
       writeCharacteristic = null;
       connectedDevice = null;
-      callbacks.onDisconnected(disconnectedDevice.id);
+
+      if (error && lastConnectedDeviceId && lastCallbacks) {
+        bleLog("RECONNECT", `Unexpected disconnect, will attempt auto-reconnect (up to ${MAX_RECONNECT_ATTEMPTS} tries)`);
+        attemptAutoReconnect(lastConnectedDeviceId, lastCallbacks);
+      } else {
+        callbacks.onDisconnected(disconnectedDevice.id);
+      }
     });
 
     await discoverAndLogServices(device);
@@ -661,7 +678,56 @@ function processIncomingData(data: string, callbacks: BleServiceCallbacks): void
   dataBuffer = lines[lines.length - 1];
 }
 
+async function attemptAutoReconnect(deviceId: string, callbacks: BleServiceCallbacks): Promise<void> {
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    bleLog("RECONNECT", `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, giving up`);
+    reconnectAttempts = 0;
+    lastConnectedDeviceId = null;
+    lastCallbacks = null;
+    callbacks.onDisconnected(deviceId);
+    return;
+  }
+
+  const delay = RECONNECT_DELAYS[reconnectAttempts] || 12000;
+  reconnectAttempts++;
+  bleLog("RECONNECT", `Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay / 1000}s...`);
+
+  reconnectTimer = setTimeout(async () => {
+    if (!bleManager || !isInitialized) {
+      bleLog("RECONNECT", "BLE manager not available, aborting reconnect");
+      callbacks.onDisconnected(deviceId);
+      return;
+    }
+
+    try {
+      bleLog("RECONNECT", `Connecting to ${deviceId}...`);
+      const success = await connectToDevice(deviceId, callbacks);
+      if (success) {
+        bleLog("RECONNECT", "Auto-reconnect successful!");
+        reconnectAttempts = 0;
+      } else {
+        bleLog("RECONNECT", "Reconnect returned false, retrying...");
+        attemptAutoReconnect(deviceId, callbacks);
+      }
+    } catch (err: any) {
+      bleLog("RECONNECT", `Reconnect error: ${err.message}`);
+      attemptAutoReconnect(deviceId, callbacks);
+    }
+  }, delay);
+}
+
+export function cancelAutoReconnect(): void {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  reconnectAttempts = 0;
+  lastConnectedDeviceId = null;
+  lastCallbacks = null;
+}
+
 export async function disconnect(): Promise<void> {
+  cancelAutoReconnect();
   if (notificationSubscription) {
     try { notificationSubscription.remove(); } catch (e) {}
     notificationSubscription = null;
@@ -752,6 +818,7 @@ export function isBleAvailable(): boolean {
 }
 
 export function destroyBle(): void {
+  cancelAutoReconnect();
   if (notificationSubscription) {
     try { notificationSubscription.remove(); } catch (e) {}
     notificationSubscription = null;

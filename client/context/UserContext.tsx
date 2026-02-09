@@ -144,8 +144,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           setUser(userData);
           setIsFirebaseReady(true);
           console.log("[Auth] Foreground check: Firebase user confirmed:", firebaseUser.uid);
-        } else {
-          console.log("[Auth] Foreground check: Firebase has no user - keeping local state for now");
+        } else if (!isGuestMode) {
+          const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+          if (storedUser) {
+            console.log("[Auth] Foreground check: Firebase has no user but stored session exists - clearing stale session");
+            await AsyncStorage.removeItem(USER_STORAGE_KEY);
+            setUser(null);
+          } else {
+            console.log("[Auth] Foreground check: No Firebase user and no stored session");
+          }
         }
       }
     });
