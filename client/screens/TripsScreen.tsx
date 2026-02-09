@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
+import { ThemedText } from "@/components/ThemedText";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useUser } from "@/context/UserContext";
@@ -265,8 +266,8 @@ export default function TripsScreen() {
             <Feather name="navigation" size={20} color={ACCENT} />
           </View>
           <View style={styles.introTitleBlock}>
-            <Text style={styles.introTitle}>Trip Recorder</Text>
-            <Text style={styles.introSubtitle}>Track speed, distance & energy</Text>
+            <ThemedText type="h2" style={styles.introTitle}>Trip Recorder</ThemedText>
+            <ThemedText type="small" style={styles.introSubtitle}>Track speed, distance & energy</ThemedText>
           </View>
         </View>
         <View style={styles.introChipsRow}>
@@ -486,13 +487,12 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 22,
     fontWeight: "700",
-    letterSpacing: -0.3,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   introSubtitle: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 13,
+    color: "rgba(255,255,255,0.45)",
     marginTop: 2,
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
   introChipsRow: {
     flexDirection: "row",
