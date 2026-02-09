@@ -14,6 +14,9 @@ import {
 } from "@/lib/ble-parser";
 import { writeCommand as writeBleCommand, isConnected as isBleConnected } from "@/lib/ble-service";
 import { writeClassicData, isClassicConnected } from "@/lib/bluetooth-classic-service";
+import { uploadDeviceConnectionToFirestore } from "@/lib/firebase";
+
+const SETTINGS_STORAGE_KEY = "@blade_settings";
 
 interface MotorInfo {
   serialNumber: string;
@@ -361,6 +364,36 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     setIsConnecting(false);
     setIsRealConnection(true);
     addDebugLog("INFO", "Motor connected: isRealConnection=true");
+
+    try {
+      const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
+      const sharingEnabled = stored ? JSON.parse(stored).anonymousDataSharing === true : false;
+      if (sharingEnabled) {
+        console.log("[DataShare] Uploading device connection to Firestore...");
+        const currentGnss = gnssRef.current;
+        const currentBms = bmsRef.current;
+        uploadDeviceConnectionToFirestore("auto", {
+          serialNumber: newMotor.serialNumber,
+          name: newMotor.name,
+          firmwareVersion: newMotor.firmwareVersion,
+        }, (currentGnss || currentBms) ? {
+          batteryPercent: currentBms?.capacity ?? null,
+          speed: currentGnss?.speed ?? null,
+          latitude: currentGnss?.latitude ?? null,
+          longitude: currentGnss?.longitude ?? null,
+        } : null).then(result => {
+          if (result.success) {
+            console.log("[DataShare] Device connection uploaded successfully");
+          } else {
+            console.log("[DataShare] Device connection upload failed:", result.error);
+          }
+        }).catch(err => {
+          console.log("[DataShare] Device connection upload error:", err);
+        });
+      }
+    } catch (err) {
+      console.log("[DataShare] Error checking data sharing setting:", err);
+    }
   };
 
   const disconnectMotor = () => {

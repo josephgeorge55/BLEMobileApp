@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
 import { fetchWeather, getWindDirection } from "@/services/weatherService";
+import { uploadTripDataToFirestore } from "@/lib/firebase";
 import type { WeatherData } from "@/services/weatherService";
 import type { Trip } from "@shared/schema";
 import type { TripDataPoint, TripEndReason, WeatherSnapshot } from "@/types/TripReport";
@@ -17,6 +18,20 @@ const ACTIVE_TRIP_KEY = "@blade_active_trip";
 const TRIP_DATA_POINTS_KEY = "@blade_trip_data_points";
 const TRIP_WEATHER_KEY = "@blade_trip_weather";
 const TRIP_RECORDING_STATE_KEY = "@blade_trip_recording_state";
+const SETTINGS_STORAGE_KEY = "@blade_settings";
+
+async function isDataSharingEnabled(): Promise<boolean> {
+  try {
+    const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (stored) {
+      const settings = JSON.parse(stored);
+      return settings.anonymousDataSharing === true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 const DATA_RECORDING_INTERVAL = 4000;
 const WEATHER_RECORDING_INTERVAL = 60 * 60 * 1000;
 const MAX_TRIP_DURATION = 8 * 60 * 60;
@@ -790,6 +805,46 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       
       await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
       
+      if (tripDurationSec >= MIN_TRIP_DURATION) {
+        const sharingEnabled = await isDataSharingEnabled();
+        if (sharingEnabled && user) {
+          console.log("[DataShare] Uploading trip data to Firestore...");
+          const savedDataPoints = [...dataPointsRef.current];
+          uploadTripDataToFirestore(user.id, {
+            motorSerialNumber: trip.motorSerialNumber,
+            startTime: trip.startTime,
+            endTime: new Date(),
+            totalDistanceKm: stats.totalDistanceKm,
+            maxSpeedKmh: stats.maxSpeedKmh,
+            avgSpeedKmh: stats.avgSpeedKmh,
+            totalEnergyWh: stats.totalEnergyWh,
+            startBatteryPercent: trip.startBatteryPercent,
+            endBatteryPercent: telem?.bms?.capacity ?? null,
+            maxAmperageDraw: stats.maxAmperageDraw,
+            maxConsumptionKW: stats.maxConsumptionKW,
+            avgConsumptionKW: stats.avgConsumptionKW,
+            rpmMax: stats.rpmMax,
+            rpmAvg: stats.rpmAvg,
+            odometerStartKm: trip.odometerStartKm,
+            odometerEndKm: telem?.odometer ?? trip.odometerStartKm ?? 0,
+            phoneGPSStart: trip.phoneGPSStart,
+            phoneGPSEnd: phoneGPSEnd,
+            outboardGPSStart: trip.outboardGPSStart,
+            outboardGPSEnd: outboardGPSEnd,
+            startLocationAddress: trip.startLocationAddress,
+            endLocationAddress,
+          }, savedDataPoints).then(result => {
+            if (result.success) {
+              console.log("[DataShare] Trip data uploaded successfully");
+            } else {
+              console.log("[DataShare] Trip upload failed:", result.error);
+            }
+          }).catch(err => {
+            console.log("[DataShare] Trip upload error:", err);
+          });
+        }
+      }
+
       // Reset refs
       dataPointsRef.current = [];
       hourlyWeatherRef.current = [];
