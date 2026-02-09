@@ -90,7 +90,8 @@
       "./plugins/withPushNotifications",
       "./plugins/withLiveActivity",
       "./plugins/withAndroidForegroundService",
-      "./plugins/withAppleWatch"
+      "./plugins/withAppleWatch",
+      "./plugins/withBluetoothClassic"
     ],
     "experiments": {
       "reactCompiler": true
