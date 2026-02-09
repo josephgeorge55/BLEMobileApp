@@ -416,10 +416,19 @@ export async function fetchLatestGPSFromFirestore(
 }
 
 // Save boat data for a user
+let lastBoatSaveTime = 0;
+const BOAT_SAVE_COOLDOWN_MS = 30000;
+
 export async function saveBoatData(
   userId: string,
   boatData: { boatType: string; lengthMeters: number; weightKg: number; vesselName?: string; vin?: string }
 ): Promise<{ success: boolean; error?: string }> {
+  const now = Date.now();
+  if (now - lastBoatSaveTime < BOAT_SAVE_COOLDOWN_MS) {
+    const waitSeconds = Math.ceil((BOAT_SAVE_COOLDOWN_MS - (now - lastBoatSaveTime)) / 1000);
+    return { success: false, error: `Please wait ${waitSeconds} seconds before updating boat information.` };
+  }
+
   const firestore = getFirestoreDb();
   if (!firestore) {
     return { success: false, error: "Database service unavailable." };
@@ -430,6 +439,7 @@ export async function saveBoatData(
     return { success: false, error: "You need to sign in first." };
   }
 
+  lastBoatSaveTime = now;
   const effectiveUserId = currentUser.uid;
 
   try {

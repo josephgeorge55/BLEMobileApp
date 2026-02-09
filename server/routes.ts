@@ -24,6 +24,13 @@ import { generatePassportPDF, generatePassportPDFBuffer } from "./passportPdfGen
 import { randomUUID } from "node:crypto";
 import { sendExpoPushNotifications } from "./pushNotificationService";
 import { sendApnsPushNotifications, isApnsConfigured, testApnsConnection } from "./apnsPushService";
+import {
+  loginRateLimiter,
+  bruteForceProtection,
+  registerRateLimiter,
+  motorLinkRateLimiter,
+  generalApiRateLimiter,
+} from "./rateLimiter";
 
 const LOG_DIR = join(process.cwd(), "logs");
 const AUTH_LOG_FILE = join(LOG_DIR, "auth.log");
@@ -47,10 +54,10 @@ function ensureLogDirectory() {
   }
 }
 
-function logAuthEvent(event: string, email: string, pin: string, success: boolean) {
+function logAuthEvent(event: string, email: string, success: boolean) {
   ensureLogDirectory();
   const timestamp = new Date().toISOString();
-  const logEntry = `[${timestamp}] ${event} | Email: ${email} | PIN: ${pin} | Success: ${success}\n`;
+  const logEntry = `[${timestamp}] ${event} | Email: ${email} | Success: ${success}\n`;
   appendFileSync(AUTH_LOG_FILE, logEntry);
 }
 
@@ -74,13 +81,13 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", registerRateLimiter, async (req, res) => {
     try {
       const body = createAccountSchema.parse(req.body);
 
       const existingUser = await storage.getUserByEmail(body.email);
       if (existingUser) {
-        logAuthEvent("REGISTER_FAILED", body.email, body.pin, false);
+        logAuthEvent("REGISTER_FAILED", body.email, false);
         return res.status(400).json({ error: "Email already registered" });
       }
 
@@ -89,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pin: body.pin,
       });
 
-      logAuthEvent("REGISTER_SUCCESS", body.email, body.pin, true);
+      logAuthEvent("REGISTER_SUCCESS", body.email, true);
 
       res.json({
         success: true,
@@ -106,18 +113,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", loginRateLimiter, bruteForceProtection, async (req, res) => {
     try {
       const body = loginSchema.parse(req.body);
 
       const user = await storage.getUserByEmail(body.email);
       if (!user || user.pin !== body.pin) {
-        logAuthEvent("LOGIN_FAILED", body.email, body.pin, false);
+        logAuthEvent("LOGIN_FAILED", body.email, false);
         return res.status(401).json({ error: "Invalid email or PIN" });
       }
 
       await storage.updateUserLastLogin(user.id);
-      logAuthEvent("LOGIN_SUCCESS", body.email, body.pin, true);
+      logAuthEvent("LOGIN_SUCCESS", body.email, true);
 
       res.json({
         success: true,
@@ -134,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/motors/link", async (req, res) => {
+  app.post("/api/motors/link", motorLinkRateLimiter, async (req, res) => {
     try {
       const body = linkMotorSchema.parse(req.body);
 
