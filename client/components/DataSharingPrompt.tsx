@@ -59,10 +59,10 @@ export function DataSharingPrompt({
           <Text style={styles.title}>Help Us Improve</Text>
 
           <Text style={styles.body}>
-            Share anonymous usage data with Blade to help us improve our
-            products and your experience on the water. This includes trip
-            statistics and basic device info. You can change this anytime in
-            Settings.
+            Share your usage data with Blade to help us improve our products
+            and your experience on the water. This includes trip statistics,
+            device info, and motor serial number. You can change this anytime
+            in Settings.
           </Text>
 
           <View style={styles.buttonContainer}>
