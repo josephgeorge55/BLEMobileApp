@@ -335,7 +335,7 @@ export default function DashboardScreen() {
     setLoading(true);
     addDebugLog("INFO", t("checkingMQTT"), 8);
 
-    const found = await checkMQTTData(newSerialNumber);
+    const found = await checkMQTTData(newSerialNumber, addDebugLog);
 
     if (found) {
       setStepStatus(8, true);
