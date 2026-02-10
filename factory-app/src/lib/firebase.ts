@@ -1,15 +1,12 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import {
   getFirestore,
   collectionGroup,
-  collection,
   query,
   where,
   getDocs,
   limit,
-  doc,
-  getDoc,
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -20,6 +17,9 @@ const firebaseConfig = {
   messagingSenderId: "416634217131",
   appId: "1:416634217131:web:c45427f52f10285e3d0dee",
 };
+
+const FACTORY_EMAIL = "factorybladeob@gmail.com";
+const FACTORY_PASSWORD = "Blade001!";
 
 type Logger = (level: string, message: string, step?: number) => void;
 
@@ -48,16 +48,21 @@ async function ensureAuth(log?: Logger): Promise<boolean> {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     const auth = getAuth(app);
     if (!auth.currentUser) {
-      log?.("INFO", "Signing in anonymously...", 8);
-      await signInAnonymously(auth);
-      log?.("INFO", "Anonymous auth successful", 8);
+      log?.("INFO", "Signing in with factory account...", 8);
+      await signInWithEmailAndPassword(auth, FACTORY_EMAIL, FACTORY_PASSWORD);
+      log?.("INFO", "Factory account auth successful", 8);
     } else {
-      log?.("INFO", `Already authenticated as: ${auth.currentUser.uid}`, 8);
+      log?.("INFO", `Already authenticated as: ${auth.currentUser.email}`, 8);
     }
     authInitialized = true;
     return true;
   } catch (error: any) {
     log?.("ERROR", `Auth failed: ${error.code} - ${error.message}`, 8);
+    if (error.code === "auth/user-not-found") {
+      log?.("ERROR", "Factory account not found in Firebase. Create it in Firebase Console > Authentication > Users.", 8);
+    } else if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+      log?.("ERROR", "Factory account password incorrect. Check Firebase Console.", 8);
+    }
     return false;
   }
 }
@@ -89,7 +94,7 @@ export async function checkMQTTData(
     log?.("INFO", "Authenticating with Firebase...", 8);
     const authed = await withTimeout(ensureAuth(log), 15000, "Auth");
     if (!authed) {
-      log?.("ERROR", "Authentication failed - check Firebase console has Anonymous auth enabled", 8);
+      log?.("ERROR", "Authentication failed - check factory account exists in Firebase Console", 8);
       return false;
     }
   } catch (error: any) {
