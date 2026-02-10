@@ -117,6 +117,10 @@ const translations: Record<Language, Record<string, string>> = {
     downloadPDF: "Download PDF",
     allTestsPassed: "All Tests Passed!",
     overriddenSteps: "Overridden Steps",
+    introTitle: "Factory Initialization Sequence",
+    introText: "This application is used for the Blade Factory initialization sequence. It configures the smart features and communications of Blade Outboards, including serial number programming, device naming, telemetry verification, GPS calibration, throttle configuration, firmware validation, odometer reset, and cloud connectivity checks.",
+    haloSeriesOnly: "Halo Series Outboards Only",
+    readManualFirst: "Please read the training manual before starting commissioning",
   },
   zh: {
     appTitle: "Blade \u5DE5\u5382",
@@ -234,6 +238,10 @@ const translations: Record<Language, Record<string, string>> = {
     downloadPDF: "\u4E0B\u8F7DPDF",
     allTestsPassed: "\u6240\u6709\u6D4B\u8BD5\u901A\u8FC7\uFF01",
     overriddenSteps: "\u8986\u76D6\u7684\u6B65\u9AA4",
+    introTitle: "\u5DE5\u5382\u521D\u59CB\u5316\u5E8F\u5217",
+    introText: "\u6B64\u5E94\u7528\u7A0B\u5E8F\u7528\u4E8EBlade\u5DE5\u5382\u521D\u59CB\u5316\u5E8F\u5217\u3002\u5B83\u914D\u7F6EBlade\u8239\u5916\u673A\u7684\u667A\u80FD\u529F\u80FD\u548C\u901A\u4FE1\uFF0C\u5305\u62EC\u5E8F\u5217\u53F7\u7F16\u7A0B\u3001\u8BBE\u5907\u547D\u540D\u3001\u9065\u6D4B\u9A8C\u8BC1\u3001GPS\u6821\u51C6\u3001\u6CB9\u95E8\u914D\u7F6E\u3001\u56FA\u4EF6\u9A8C\u8BC1\u3001\u91CC\u7A0B\u8868\u91CD\u7F6E\u548C\u4E91\u8FDE\u63A5\u68C0\u67E5\u3002",
+    haloSeriesOnly: "\u4EC5\u9002\u7528\u4E8EHalo\u7CFB\u5217\u8239\u5916\u673A",
+    readManualFirst: "\u8BF7\u5728\u5F00\u59CB\u8C03\u8BD5\u524D\u9605\u8BFB\u57F9\u8BAD\u624B\u518C",
   },
   vi: {
     appTitle: "Blade Nh\u00E0 m\u00E1y",
@@ -351,6 +359,10 @@ const translations: Record<Language, Record<string, string>> = {
     downloadPDF: "T\u1EA3i PDF",
     allTestsPassed: "T\u1EA5t c\u1EA3 ki\u1EC3m tra \u0111\u1EA1t!",
     overriddenSteps: "C\u00E1c b\u01B0\u1EDBc \u0111\u00E3 ghi \u0111\u00E8",
+    introTitle: "Tr\u00ECnh t\u1EF1 kh\u1EDFi t\u1EA1o nh\u00E0 m\u00E1y",
+    introText: "\u1EE8ng d\u1EE5ng n\u00E0y \u0111\u01B0\u1EE3c s\u1EED d\u1EE5ng cho tr\u00ECnh t\u1EF1 kh\u1EDFi t\u1EA1o nh\u00E0 m\u00E1y Blade. N\u00F3 c\u1EA5u h\u00ECnh c\u00E1c t\u00EDnh n\u0103ng th\u00F4ng minh v\u00E0 truy\u1EC1n th\u00F4ng c\u1EE7a \u0111\u1ED9ng c\u01A1 ngo\u00E0i t\u00E0u Blade, bao g\u1ED3m l\u1EADp tr\u00ECnh s\u1ED1 serial, \u0111\u1EB7t t\u00EAn thi\u1EBFt b\u1ECB, x\u00E1c minh \u0111o l\u01B0\u1EDDng t\u1EEB xa, hi\u1EC7u chu\u1EA9n GPS, c\u1EA5u h\u00ECnh ga, x\u00E1c nh\u1EADn firmware, \u0111\u1EB7t l\u1EA1i \u0111\u1ED3ng h\u1ED3 v\u00E0 ki\u1EC3m tra k\u1EBFt n\u1ED1i \u0111\u00E1m m\u00E2y.",
+    haloSeriesOnly: "Ch\u1EC9 d\u00E0nh cho \u0111\u1ED9ng c\u01A1 ngo\u00E0i t\u00E0u Halo Series",
+    readManualFirst: "Vui l\u00F2ng \u0111\u1ECDc s\u00E1ch h\u01B0\u1EDBng d\u1EABn \u0111\u00E0o t\u1EA1o tr\u01B0\u1EDBc khi b\u1EAFt \u0111\u1EA7u v\u1EADn h\u00E0nh",
   },
 };
 

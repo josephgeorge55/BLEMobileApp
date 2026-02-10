@@ -99,7 +99,7 @@ export default function DashboardScreen() {
   const handleResetNextDevice = useCallback(async () => {
     try {
       if (connectionType === "ble") {
-        await BleService.disconnectDevice();
+        await BleService.disconnect();
       } else if (connectionType === "classic") {
         await ClassicService.disconnectClassic();
       }
@@ -405,6 +405,19 @@ export default function DashboardScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.introCard}>
+          <Text style={styles.introTitle}>{t("introTitle")}</Text>
+          <Text style={styles.introText}>{t("introText")}</Text>
+          <View style={styles.introBadge}>
+            <Feather name="info" size={14} color="#007AFF" />
+            <Text style={styles.introBadgeText}>{t("haloSeriesOnly")}</Text>
+          </View>
+          <View style={styles.introWarning}>
+            <Feather name="book-open" size={14} color="#FF9500" />
+            <Text style={styles.introWarningText}>{t("readManualFirst")}</Text>
+          </View>
+        </View>
+
         {[1, 2, 3, 4, 5, 6, 7, 8].map((step) => (
           <ChecklistItem
             key={step}
@@ -817,5 +830,61 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     fontWeight: "500",
+  },
+  introCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: "#007AFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  introTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    marginBottom: 8,
+  },
+  introText: {
+    fontSize: 13,
+    color: "#3C3C43",
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  introBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F0FE",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+    alignSelf: "flex-start",
+    marginBottom: 8,
+  },
+  introBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#007AFF",
+  },
+  introWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF8E1",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+    alignSelf: "flex-start",
+  },
+  introWarningText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FF9500",
   },
 });
