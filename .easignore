@@ -1,2 +1,5 @@
 # Exclude standalone Android Wear OS project from EAS builds
 android-wear-app/
+
+# Exclude standalone Factory Testing App from main app EAS builds
+factory-app/

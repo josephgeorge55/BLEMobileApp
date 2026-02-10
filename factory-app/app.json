@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Blade Factory",
+    "slug": "blade-factory",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "bladefactory",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bladefactory.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Blade Factory uses your location to verify GPS accuracy of outboard motors.",
+        "NSBluetoothAlwaysUsageDescription": "Blade Factory uses Bluetooth to connect to outboard motors for testing.",
+        "NSBluetoothPeripheralUsageDescription": "Blade Factory uses Bluetooth to communicate with outboard motors."
+      }
+    },
+    "android": {
+      "package": "com.bladefactory.app",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN"
+      ]
+    },
+    "plugins": [
+      ["expo-build-properties", { "ios": { "deploymentTarget": "16.0" } }],
+      ["react-native-ble-plx", { "isBackgroundEnabled": false, "modes": ["peripheral", "central"], "bluetoothAlwaysPermission": "Blade Factory uses Bluetooth to connect to outboard motors." }],
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Allow Blade Factory to use your location to verify GPS accuracy." }],
+      "./plugins/withBluetoothClassic"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "PLACEHOLDER"
+      }
+    }
+  }
+}

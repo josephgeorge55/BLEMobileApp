@@ -1,0 +1,6 @@
+# Exclude main app directories from factory app EAS builds
+../client/
+../server/
+../android-wear-app/
+../modules/
+../plugins/
