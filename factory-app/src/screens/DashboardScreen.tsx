@@ -40,7 +40,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const {
     t, connectionType, telemetry, telemetryRef, checklistStatus, setStepStatus, showToast,
-    addDebugLog, newSerialNumber, setNewSerialNumber, setOldSerialNumber,
+    addDebugLog, oldSerialNumber, newSerialNumber, setNewSerialNumber, setOldSerialNumber,
     selectedDeviceName, setSelectedDeviceName, firstName, lastName, resetAll,
   } = useApp();
 
@@ -373,7 +373,7 @@ export default function DashboardScreen() {
       operatorFirstName: firstName,
       operatorLastName: lastName,
       deviceName: selectedDeviceName || "Unknown",
-      oldSerialNumber: "",
+      oldSerialNumber,
       newSerialNumber,
       firmwareVersion: telemetry.inforG1?.firmwareVersion || "Unknown",
       completionDateTime: new Date().toLocaleString(),
