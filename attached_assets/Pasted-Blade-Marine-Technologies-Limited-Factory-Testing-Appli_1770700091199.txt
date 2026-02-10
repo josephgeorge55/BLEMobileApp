@@ -1,0 +1,65 @@
+Blade Marine Technologies Limited
+Factory Testing Application / Feb 10th 2026
+IOS and Android (no watch) functionality
+Scope: 
+Factory Testing App
+I want a factory app that is android and ios versions with expo.dev native builds as a standalone new app in the file directory (to not mess with the current app eas native build ios or android), and it should have all the files necessary to run the app in expo.dev eas build for android and xcode for ios. Do not include any watch or live update functions, should be somewhat basic in nature. It should have features only for the factory, it should not require any log in credentials but should require a first and last name of the operator and should be focused for manufacturing and have the UI of factory/manufacturing seriousness. The UI should be light theme but still have our logo. The app should have similar functionality of the main phone app just with different features. The app should be basic, maybe main page and a settings page. The factory app should have the following on the main dashboard. The app should feature 3 languages and the ability in the settings to change the language, everything should be able to be changed including toasts. The 3 lanugages should be English US (Primary), Chinese (mainland), and Vietnamese, use auto-translate for these.  If any of the tasks fail/don’t work there should be an auto-timeout and ability to retry and unlimited time. Note when I say BLE it can be BLE or classic im just referring to Bluetooth.
+
+Connect/Disconnect, it should show the MAC Address as well as the signal strength and device name. It should show classic and BLE devices and have the debug log.
+
+Then there should be a checklist style for factory preparation for the field. Make sure the app has all these items with green and red lights until its approved, after everything is done then it can go out to the field. It should generate a PDF report with all the check marks, completion date/time of each checkmark, completion date/time and location of the completion, operator first and last name, device type/name, old and new serial number, and the information for our storage of this device. 
+
+The actions of the factory app should be as described, don’t add or subtract any steps and you already have a lot of the information from the main phone app to understand the logic of the parsing/commands.
+
+1)	 Set Serial Number to specified SN
+Setting the serial number to whatever the operator enters, make sure there is no spaces before or after the serial number, but it should be set by the operator and usually starts with JK then numbers usually between 6-10 numbers. The operator should then have a toast to confirm and then it should send the command to update the serial number. 
+So the Bluetooth should send a write command via ble or classic to the device
+$APP_CONFIG,WRITE_SN,JK1234567
+
+Replace the JK00000 with the serial number the user actually typed in
+After, delay 10 seconds and then check if the new serial number is set in the data. If it works to update then it should turn green.
+
+2)	Set Device Name
+We added a new information to the $infor,G1 line which includes what variant halo it is. Halo 3, 6, or 10. The user should be able to set if it is a halo 3, 6 or 10 with a selection then click send, then it should populate in the Bluetooth data correctly, check the Bluetooth data with 10 second delay then turn green if it changes. 
+Bluetooth string is:
+$INFOR,G1,1.0.2,JK8839421,HALO3  $INFOR,G1,FIRMWAREVERSION,SN,DEVICENAME
+The Bluetooth write command is as follows.
+$APP_CONFIG,WRITE_NAME,HALO3
+
+
+3)	Check BLE data and make sure all values are intact
+This one should check and display incoming data, it should check all Bluetooth data is there as described in the parsing logic of the main app, check the following data is there and available and readable and ok (99.99% time will be ok) . Get all the parsing data from the main app.
+•	Serial Number
+•	Firmware Version
+•	Device Name
+•	GPS Coordinates
+•	Speed
+•	Battery SOC
+•	Power (watts)
+•	Throttle %
+•	Drive Mode
+•	RPM
+•	Odometer
+•	Motor Amps
+•	Baterry amps per BMS
+•	Voltage BMS
+
+4)	Check GPS Coordinates
+The 4th item should be GPS coordinates, and it should check the GPS coordinates of the app versus the GPS coordinates of the phone, it should be within 50 meters accuracy of eachother. If it is ok then it should display green. If it takes a while to check then make sure there is a loading screen also with kill function. If it fails it should have a manual override but display on two maps the different locations and the distance in meters.
+
+5)	Set Dethrottle (max throttle) to 100%
+Use the same logic as in the app and make sure dethrottle is written to the device at 100%. Write to the device the following command. Check the Bluetooth with 10s delay and then turn green. 
+$APP_CONFIG,MAX_THROTTLE,100
+
+6)	Display firmware version
+Current firmware version should be displayed. Have a button to upload custom firmware, but don’t build this yet say coming soon, this will be in case the factory would like to update. Make sure the operator confirms this is the correct firmware version and checks yes twice.
+
+7)	Reset Odometer back to 0
+
+Reset the odometer back to 0, write the following command:
+$APP_CONFIG,ODOMETER,0
+
+8)	MQTT/4G Check
+Send an inquiry to firestone to check the new serial number to see if any MQTT messages/data is there with GPS coordinates. Use the API secrets from the main app and make sure they are properly set up so we can check firestone the new serial number and that an MQTT message is there, this can be retried.
+
+In the settings tab there should be a full debug log with a tab for each action, there should be the language swap, there should be a place to enter first and last name, it should also display the device time, ability to disconnect the outboard. Also make sure the same floating Bluetooth button is there. Make sure none of this interferes with the main customer app you’ve already built in IOS IOS watch Android and Android watch. Use the same logic, credentials, and everything else as before and read a lot before starting. Don’t break anything
