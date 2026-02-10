@@ -39,7 +39,7 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): nu
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const {
-    t, connectionType, telemetry, checklistStatus, setStepStatus, showToast,
+    t, connectionType, telemetry, telemetryRef, checklistStatus, setStepStatus, showToast,
     addDebugLog, newSerialNumber, setNewSerialNumber, setOldSerialNumber,
     selectedDeviceName, setSelectedDeviceName, firstName, lastName, resetAll,
   } = useApp();
@@ -140,7 +140,7 @@ export default function DashboardScreen() {
 
     await new Promise((r) => setTimeout(r, 10000));
 
-    if (telemetry.inforG1 && telemetry.inforG1.serialNumber === sn) {
+    if (telemetryRef.current.inforG1 && telemetryRef.current.inforG1.serialNumber === sn) {
       setStepStatus(1, true);
       showToast(t("serialNumberSet"), "success");
     } else {
@@ -149,7 +149,7 @@ export default function DashboardScreen() {
     }
     setLoading(false);
     setActiveStep(null);
-  }, [serialInput, connectionType, telemetry.inforG1, addDebugLog, setStepStatus, showToast, t]);
+  }, [serialInput, connectionType, addDebugLog, setStepStatus, showToast, t]);
 
   const handleStep2 = useCallback(async (deviceName: string) => {
     if (!requireConnection()) return;
@@ -168,7 +168,7 @@ export default function DashboardScreen() {
 
     await new Promise((r) => setTimeout(r, 10000));
 
-    if (telemetry.inforG1 && telemetry.inforG1.deviceName === deviceName) {
+    if (telemetryRef.current.inforG1 && telemetryRef.current.inforG1.deviceName === deviceName) {
       setStepStatus(2, true);
       showToast(t("deviceNameSet"), "success");
     } else {
@@ -177,7 +177,7 @@ export default function DashboardScreen() {
     }
     setLoading(false);
     setActiveStep(null);
-  }, [connectionType, telemetry.inforG1, addDebugLog, setStepStatus, showToast, t]);
+  }, [connectionType, addDebugLog, setStepStatus, showToast, t]);
 
   const handleStep3 = useCallback(() => {
     if (!requireConnection()) return;

@@ -41,6 +41,7 @@ interface AppContextType {
   connectedDeviceId: string | null;
   setConnectedDeviceId: (id: string | null) => void;
   telemetry: TelemetryState;
+  telemetryRef: React.MutableRefObject<TelemetryState>;
   updateTelemetry: (result: ParseResult) => void;
   debugLogs: DebugLogEntry[];
   addDebugLog: (level: string, message: string, step?: number) => void;
@@ -79,6 +80,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [newSerialNumber, setNewSerialNumber] = useState("");
   const [selectedDeviceName, setSelectedDeviceName] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const telemetryRef = useRef<TelemetryState>(telemetry);
 
   const t = useCallback((key: string): string => {
     return translations[language]?.[key] || translations.en[key] || key;
@@ -105,6 +107,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           else if (result.group === "G2") next.inforG2 = result.data as INFORG2Data;
           break;
       }
+      telemetryRef.current = next;
       return next;
     });
   }, []);
@@ -149,7 +152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         connectionType, setConnectionType,
         connectedDeviceName, setConnectedDeviceName,
         connectedDeviceId, setConnectedDeviceId,
-        telemetry, updateTelemetry,
+        telemetry, telemetryRef, updateTelemetry,
         debugLogs, addDebugLog, clearDebugLogs,
         toast, showToast, hideToast,
         checklistStatus, setStepStatus, resetChecklist, resetAll,
