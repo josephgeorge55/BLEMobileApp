@@ -48,9 +48,10 @@ interface AppContextType {
   toast: ToastState;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   hideToast: () => void;
-  checklistStatus: Record<number, { passed: boolean; completedAt: string | null }>;
-  setStepStatus: (step: number, passed: boolean) => void;
+  checklistStatus: Record<number, { passed: boolean; overridden: boolean; completedAt: string | null }>;
+  setStepStatus: (step: number, passed: boolean, overridden?: boolean) => void;
   resetChecklist: () => void;
+  resetAll: () => void;
   oldSerialNumber: string;
   setOldSerialNumber: (sn: string) => void;
   newSerialNumber: string;
@@ -73,7 +74,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [debugLogs, setDebugLogs] = useState<DebugLogEntry[]>([]);
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "", type: "info" });
-  const [checklistStatus, setChecklistStatus] = useState<Record<number, { passed: boolean; completedAt: string | null }>>({});
+  const [checklistStatus, setChecklistStatus] = useState<Record<number, { passed: boolean; overridden: boolean; completedAt: string | null }>>({});
   const [oldSerialNumber, setOldSerialNumber] = useState("");
   const [newSerialNumber, setNewSerialNumber] = useState("");
   const [selectedDeviceName, setSelectedDeviceName] = useState("");
@@ -122,14 +123,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const hideToast = useCallback(() => setToast((prev) => ({ ...prev, visible: false })), []);
 
-  const setStepStatus = useCallback((step: number, passed: boolean) => {
+  const setStepStatus = useCallback((step: number, passed: boolean, overridden?: boolean) => {
     setChecklistStatus((prev) => ({
       ...prev,
-      [step]: { passed, completedAt: new Date().toLocaleString() },
+      [step]: { passed, overridden: overridden || false, completedAt: new Date().toLocaleString() },
     }));
   }, []);
 
   const resetChecklist = useCallback(() => setChecklistStatus({}), []);
+
+  const resetAll = useCallback(() => {
+    setChecklistStatus({});
+    setTelemetry({ gnss: null, bms: null, motor: null, vesc: null, inforG1: null, inforG2: null });
+    setNewSerialNumber("");
+    setOldSerialNumber("");
+    setSelectedDeviceName("");
+    setDebugLogs([]);
+  }, []);
 
   return (
     <AppContext.Provider
@@ -142,7 +152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         telemetry, updateTelemetry,
         debugLogs, addDebugLog, clearDebugLogs,
         toast, showToast, hideToast,
-        checklistStatus, setStepStatus, resetChecklist,
+        checklistStatus, setStepStatus, resetChecklist, resetAll,
         oldSerialNumber, setOldSerialNumber,
         newSerialNumber, setNewSerialNumber,
         selectedDeviceName, setSelectedDeviceName,

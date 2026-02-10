@@ -6,9 +6,10 @@ interface ChecklistItemProps {
   stepNumber: number;
   title: string;
   description: string;
-  status: "pending" | "passed" | "failed" | "in_progress";
+  status: "pending" | "passed" | "failed" | "in_progress" | "overridden";
   onPress: () => void;
   disabled?: boolean;
+  onOverride?: () => void;
 }
 
 export default function ChecklistItem({
@@ -18,6 +19,7 @@ export default function ChecklistItem({
   status,
   onPress,
   disabled,
+  onOverride,
 }: ChecklistItemProps) {
   const statusIcon = () => {
     switch (status) {
@@ -27,6 +29,8 @@ export default function ChecklistItem({
         return <Feather name="x-circle" size={24} color="#FF3B30" />;
       case "in_progress":
         return <Feather name="loader" size={24} color="#FF9500" />;
+      case "overridden":
+        return <Feather name="alert-triangle" size={24} color="#FFCC00" />;
       default:
         return <Feather name="circle" size={24} color="#C7C7CC" />;
     }
@@ -36,7 +40,10 @@ export default function ChecklistItem({
     status === "passed" ? "#34C759" :
     status === "failed" ? "#FF3B30" :
     status === "in_progress" ? "#FF9500" :
+    status === "overridden" ? "#FFCC00" :
     "#E5E5EA";
+
+  const showOverrideBtn = onOverride && status !== "passed" && status !== "overridden" && status !== "in_progress";
 
   return (
     <Pressable
@@ -52,7 +59,18 @@ export default function ChecklistItem({
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.description}>{description}</Text>
       </View>
-      <View style={styles.statusIcon}>{statusIcon()}</View>
+      <View style={styles.statusArea}>
+        <View style={styles.statusIcon}>{statusIcon()}</View>
+        {showOverrideBtn ? (
+          <Pressable
+            onPress={(e) => { e.stopPropagation(); onOverride(); }}
+            style={styles.overrideBtn}
+            testID={`override-btn-${stepNumber}`}
+          >
+            <Text style={styles.overrideBtnText}>Override</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
@@ -100,8 +118,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#8E8E93",
   },
+  statusArea: {
+    alignItems: "center",
+    minWidth: 50,
+  },
   statusIcon: {
     width: 28,
     alignItems: "center",
+  },
+  overrideBtn: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  overrideBtnText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FF9500",
   },
 });

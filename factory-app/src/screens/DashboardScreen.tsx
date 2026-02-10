@@ -41,7 +41,7 @@ export default function DashboardScreen() {
   const {
     t, connectionType, telemetry, checklistStatus, setStepStatus, showToast,
     addDebugLog, newSerialNumber, setNewSerialNumber, setOldSerialNumber,
-    selectedDeviceName, setSelectedDeviceName, firstName, lastName,
+    selectedDeviceName, setSelectedDeviceName, firstName, lastName, resetAll,
   } = useApp();
 
   const [activeStep, setActiveStep] = useState<number | null>(null);
@@ -52,12 +52,15 @@ export default function DashboardScreen() {
   const [step4Data, setStep4Data] = useState<{ distance: number; outboard: { lat: number; lng: number }; phone: { lat: number; lng: number } } | null>(null);
   const [step6Visible, setStep6Visible] = useState(false);
   const [step6Confirm1, setStep6Confirm1] = useState(false);
+  const [overrideStep, setOverrideStep] = useState<number | null>(null);
   const cancelRef = useRef(false);
+  const hasShownSuccessToast = useRef(false);
 
-  const getStepStatus = (step: number): "pending" | "passed" | "failed" | "in_progress" => {
+  const getStepStatus = (step: number): "pending" | "passed" | "failed" | "in_progress" | "overridden" => {
     if (activeStep === step && loading) return "in_progress";
     const s = checklistStatus[step];
     if (!s) return "pending";
+    if (s.overridden) return "overridden";
     return s.passed ? "passed" : "failed";
   };
 
@@ -68,6 +71,51 @@ export default function DashboardScreen() {
     }
     return true;
   };
+
+  const handleOverride = useCallback((step: number) => {
+    setOverrideStep(step);
+  }, []);
+
+  const confirmOverride = useCallback(() => {
+    if (overrideStep != null) {
+      setStepStatus(overrideStep, true, true);
+      setOverrideStep(null);
+      showToast(t("overridden"), "info");
+    }
+  }, [overrideStep, setStepStatus, showToast, t]);
+
+  const allPassed = [1, 2, 3, 4, 5, 6, 7, 8].every((s) => checklistStatus[s]?.passed);
+
+  useEffect(() => {
+    if (allPassed && !hasShownSuccessToast.current) {
+      hasShownSuccessToast.current = true;
+      showToast(t("allTestsPassed"), "success");
+    }
+    if (!allPassed) {
+      hasShownSuccessToast.current = false;
+    }
+  }, [allPassed, showToast, t]);
+
+  const handleResetNextDevice = useCallback(async () => {
+    try {
+      if (connectionType === "ble") {
+        await BleService.disconnectDevice();
+      } else if (connectionType === "classic") {
+        await ClassicService.disconnectClassic();
+      }
+    } catch {}
+    resetAll();
+    setSerialInput("");
+    setActiveStep(null);
+    setLoading(false);
+    setStep3Visible(false);
+    setStep4Visible(false);
+    setStep4Data(null);
+    setStep6Visible(false);
+    setStep6Confirm1(false);
+    setOverrideStep(null);
+    hasShownSuccessToast.current = false;
+  }, [connectionType, resetAll]);
 
   const handleStep1 = useCallback(async () => {
     if (!requireConnection()) return;
@@ -300,18 +348,16 @@ export default function DashboardScreen() {
     setActiveStep(null);
   }, [newSerialNumber, addDebugLog, setStepStatus, showToast, t]);
 
-  const allPassed = [1, 2, 3, 4, 5, 6, 7, 8].every((s) => checklistStatus[s]?.passed);
-
   const handleGenerateReport = useCallback(async () => {
     const steps: ChecklistResult[] = [
-      { stepNumber: 1, title: t("step1Title"), passed: !!checklistStatus[1]?.passed, completedAt: checklistStatus[1]?.completedAt || null },
-      { stepNumber: 2, title: t("step2Title"), passed: !!checklistStatus[2]?.passed, completedAt: checklistStatus[2]?.completedAt || null },
-      { stepNumber: 3, title: t("step3Title"), passed: !!checklistStatus[3]?.passed, completedAt: checklistStatus[3]?.completedAt || null },
-      { stepNumber: 4, title: t("step4Title"), passed: !!checklistStatus[4]?.passed, completedAt: checklistStatus[4]?.completedAt || null },
-      { stepNumber: 5, title: t("step5Title"), passed: !!checklistStatus[5]?.passed, completedAt: checklistStatus[5]?.completedAt || null },
-      { stepNumber: 6, title: t("step6Title"), passed: !!checklistStatus[6]?.passed, completedAt: checklistStatus[6]?.completedAt || null },
-      { stepNumber: 7, title: t("step7Title"), passed: !!checklistStatus[7]?.passed, completedAt: checklistStatus[7]?.completedAt || null },
-      { stepNumber: 8, title: t("step8Title"), passed: !!checklistStatus[8]?.passed, completedAt: checklistStatus[8]?.completedAt || null },
+      { stepNumber: 1, title: t("step1Title"), passed: !!checklistStatus[1]?.passed, overridden: !!checklistStatus[1]?.overridden, completedAt: checklistStatus[1]?.completedAt || null },
+      { stepNumber: 2, title: t("step2Title"), passed: !!checklistStatus[2]?.passed, overridden: !!checklistStatus[2]?.overridden, completedAt: checklistStatus[2]?.completedAt || null },
+      { stepNumber: 3, title: t("step3Title"), passed: !!checklistStatus[3]?.passed, overridden: !!checklistStatus[3]?.overridden, completedAt: checklistStatus[3]?.completedAt || null },
+      { stepNumber: 4, title: t("step4Title"), passed: !!checklistStatus[4]?.passed, overridden: !!checklistStatus[4]?.overridden, completedAt: checklistStatus[4]?.completedAt || null },
+      { stepNumber: 5, title: t("step5Title"), passed: !!checklistStatus[5]?.passed, overridden: !!checklistStatus[5]?.overridden, completedAt: checklistStatus[5]?.completedAt || null },
+      { stepNumber: 6, title: t("step6Title"), passed: !!checklistStatus[6]?.passed, overridden: !!checklistStatus[6]?.overridden, completedAt: checklistStatus[6]?.completedAt || null },
+      { stepNumber: 7, title: t("step7Title"), passed: !!checklistStatus[7]?.passed, overridden: !!checklistStatus[7]?.overridden, completedAt: checklistStatus[7]?.completedAt || null },
+      { stepNumber: 8, title: t("step8Title"), passed: !!checklistStatus[8]?.passed, overridden: !!checklistStatus[8]?.overridden, completedAt: checklistStatus[8]?.completedAt || null },
     ];
 
     let locationStr = "N/A";
@@ -368,16 +414,53 @@ export default function DashboardScreen() {
             status={getStepStatus(step)}
             onPress={stepHandlers[step - 1]}
             disabled={loading && activeStep !== step}
+            onOverride={() => handleOverride(step)}
           />
         ))}
 
         {allPassed ? (
-          <Pressable style={styles.reportBtn} onPress={handleGenerateReport}>
-            <Feather name="file-text" size={20} color="#FFFFFF" />
-            <Text style={styles.reportBtnText}>{t("generateReport")}</Text>
-          </Pressable>
+          <View style={styles.successBanner}>
+            <Feather name="check-circle" size={24} color="#34C759" />
+            <Text style={styles.successBannerText}>{t("allComplete")}</Text>
+          </View>
         ) : null}
+
+        <View style={styles.bottomButtons}>
+          <Pressable
+            style={[styles.reportBtn, allPassed ? styles.reportBtnActive : styles.reportBtnInactive]}
+            onPress={handleGenerateReport}
+          >
+            <Feather name="file-text" size={20} color={allPassed ? "#FFFFFF" : "#8E8E93"} />
+            <Text style={[styles.reportBtnText, allPassed ? null : styles.reportBtnTextInactive]}>{t("downloadPDF")}</Text>
+          </Pressable>
+
+          {allPassed ? (
+            <Pressable style={styles.resetBtn} onPress={handleResetNextDevice}>
+              <Feather name="refresh-cw" size={20} color="#FFFFFF" />
+              <Text style={styles.resetBtnText}>{t("resetNextDevice")}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </ScrollView>
+
+      {/* Override Confirmation Modal */}
+      <Modal visible={overrideStep != null} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Feather name="alert-triangle" size={40} color="#FFCC00" style={{ alignSelf: "center", marginBottom: 12 }} />
+            <Text style={styles.modalTitle}>{t("override")}</Text>
+            <Text style={styles.overrideConfirmText}>{t("overrideConfirm")}</Text>
+            <View style={styles.modalBtnRow}>
+              <Pressable style={styles.cancelBtn} onPress={() => setOverrideStep(null)}>
+                <Text style={styles.cancelBtnText}>{t("cancel")}</Text>
+              </Pressable>
+              <Pressable style={[styles.sendBtn, { backgroundColor: "#FF9500" }]} onPress={confirmOverride}>
+                <Text style={styles.sendBtnText}>{t("override")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Step 1 Modal - Serial Number */}
       <Modal visible={activeStep === 1} transparent animationType="slide">
@@ -451,7 +534,7 @@ export default function DashboardScreen() {
                   />
                   <Text style={styles.dataCheckLabel}>{check.label}</Text>
                   <Text style={styles.dataCheckValue} numberOfLines={1}>
-                    {check.value != null ? String(check.value) : "—"}
+                    {check.value != null ? String(check.value) : "\u2014"}
                   </Text>
                 </View>
               ))}
@@ -528,7 +611,7 @@ export default function DashboardScreen() {
             <Text style={styles.modalTitle}>{t("step6Title")}</Text>
             <View style={styles.firmwareInfo}>
               <Text style={styles.firmwareLabel}>{t("currentFirmware")}:</Text>
-              <Text style={styles.firmwareValue}>{telemetry.inforG1?.firmwareVersion || "—"}</Text>
+              <Text style={styles.firmwareValue}>{telemetry.inforG1?.firmwareVersion || "\u2014"}</Text>
             </View>
             <Pressable style={[styles.deviceTypeBtn, styles.btnDisabled]} disabled>
               <Text style={styles.deviceTypeBtnText}>{t("uploadFirmware")} - {t("comingSoon")}</Text>
@@ -579,17 +662,60 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: "700", color: "#FFFFFF" },
   scrollView: { flex: 1 },
   scrollContent: { padding: 16 },
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#d4edda",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    gap: 10,
+  },
+  successBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#155724",
+  },
+  bottomButtons: {
+    marginTop: 12,
+    gap: 10,
+  },
   reportBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#34C759",
     borderRadius: 12,
     padding: 16,
-    marginTop: 16,
     gap: 8,
   },
+  reportBtnActive: {
+    backgroundColor: "#34C759",
+  },
+  reportBtnInactive: {
+    backgroundColor: "#F2F2F7",
+    borderWidth: 1,
+    borderColor: "#C7C7CC",
+  },
   reportBtnText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  reportBtnTextInactive: { color: "#8E8E93" },
+  resetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#007AFF",
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+  },
+  resetBtnText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  overrideConfirmText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 8,
+    lineHeight: 20,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
