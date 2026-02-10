@@ -29,6 +29,22 @@ Design aesthetic: iOS-style light gray theme with translucent white cards, green
 - **Build**: Open `android-wear-app/` in Android Studio, sync Gradle, build/deploy to Wear OS device or emulator.
 - **EAS Exclusion**: `.easignore` excludes `android-wear-app/` from Expo EAS builds.
 
+### Factory Testing App (Added Feb 2026)
+- **Location**: `factory-app/` — standalone Expo project, completely separate from main customer app.
+- **Bundle Identifier**: `com.bladefactory.app` (iOS and Android).
+- **Purpose**: Manufacturing testing app for Blade outboard motors. 8-step factory checklist with BLE/Bluetooth Classic commands, GPS verification, firmware validation, MQTT/4G connectivity check, and PDF report generation.
+- **Languages**: English (US), Chinese (Simplified), Vietnamese — full i18n translations.
+- **Theme**: Light theme with factory/manufacturing aesthetic. Green (#34C759) pass / Red (#FF3B30) fail indicators.
+- **No Login**: Captures operator first/last name only, no auth required.
+- **No Watch/Live Activities**: Standalone phone-only app.
+- **8 Checklist Steps**: Set Serial Number, Set Device Name (HALO3/6/10), Check BLE Data Integrity, Check GPS Coordinates (50m threshold), Set Dethrottle 100%, Display Firmware Version (double confirm), Reset Odometer, MQTT/4G Firestore Check.
+- **BLE Commands**: `$APP_CONFIG,WRITE_SN,{sn}`, `$APP_CONFIG,WRITE_NAME,{name}`, `$APP_CONFIG,MAX_THROTTLE,100`, `$APP_CONFIG,ODOMETER,0`.
+- **INFOR G1 Extended Format**: `$INFOR,G1,firmwareVersion,serialNumber,deviceName` (deviceName is HALO3/HALO6/HALO10).
+- **PDF Report**: Generated via expo-print with operator info, checklist results, timestamps, location data.
+- **Firebase**: Uses same Firestore config as main app for MQTT telemetry check (collection group query on "telemetry").
+- **EAS Exclusion**: `.easignore` in root excludes `factory-app/` from main app builds. Factory app's own `.easignore` excludes root project directories.
+- **Build**: Open `factory-app/` as separate project in EAS or Xcode. Run `eas init` to set project ID, then `eas build`.
+
 ### Backend
 - **Framework**: Express.js with TypeScript.
 - **Database**: PostgreSQL with Drizzle ORM.
