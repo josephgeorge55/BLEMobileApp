@@ -188,6 +188,12 @@ export default function SettingsScreen() {
             )}
           </View>
         </View>
+        <View style={styles.confidentialCard}>
+          <Feather name="lock" size={18} color="#FF3B30" />
+          <Text style={styles.confidentialTitle}>{t("confidentialTitle")}</Text>
+          <Text style={styles.confidentialText}>{t("confidentialText")}</Text>
+          <Text style={styles.confidentialVersion}>v1.1.0</Text>
+        </View>
       </ScrollView>
 
       <BluetoothFAB />
@@ -280,4 +286,32 @@ const styles = StyleSheet.create({
   logTime: { fontSize: 10, color: "#8E8E93", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
   logLevel: { fontSize: 10, fontWeight: "700", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
   logMsg: { fontSize: 10, color: "#E5E5EA", flex: 1, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
+  confidentialCard: {
+    backgroundColor: "#FFF0F0",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#FF3B30",
+    alignItems: "center",
+    gap: 6,
+  },
+  confidentialTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FF3B30",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  confidentialText: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  confidentialVersion: {
+    fontSize: 11,
+    color: "#8E8E93",
+    marginTop: 4,
+  },
 });

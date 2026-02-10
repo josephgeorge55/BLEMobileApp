@@ -121,6 +121,8 @@ const translations: Record<Language, Record<string, string>> = {
     introText: "This application is used for the Blade Factory initialization sequence. It configures the smart features and communications of Blade Outboards, including serial number programming, device naming, telemetry verification, GPS calibration, throttle configuration, firmware validation, odometer reset, and cloud connectivity checks.",
     haloSeriesOnly: "Halo Series Outboards Only",
     readManualFirst: "Please read the training manual before starting commissioning",
+    confidentialTitle: "Internal Use Only",
+    confidentialText: "CONFIDENTIAL - Do not distribute outside of Blade Marine Technologies Limited. Unauthorized distribution is strictly prohibited.",
   },
   zh: {
     appTitle: "Blade \u5DE5\u5382",
@@ -242,6 +244,8 @@ const translations: Record<Language, Record<string, string>> = {
     introText: "\u6B64\u5E94\u7528\u7A0B\u5E8F\u7528\u4E8EBlade\u5DE5\u5382\u521D\u59CB\u5316\u5E8F\u5217\u3002\u5B83\u914D\u7F6EBlade\u8239\u5916\u673A\u7684\u667A\u80FD\u529F\u80FD\u548C\u901A\u4FE1\uFF0C\u5305\u62EC\u5E8F\u5217\u53F7\u7F16\u7A0B\u3001\u8BBE\u5907\u547D\u540D\u3001\u9065\u6D4B\u9A8C\u8BC1\u3001GPS\u6821\u51C6\u3001\u6CB9\u95E8\u914D\u7F6E\u3001\u56FA\u4EF6\u9A8C\u8BC1\u3001\u91CC\u7A0B\u8868\u91CD\u7F6E\u548C\u4E91\u8FDE\u63A5\u68C0\u67E5\u3002",
     haloSeriesOnly: "\u4EC5\u9002\u7528\u4E8EHalo\u7CFB\u5217\u8239\u5916\u673A",
     readManualFirst: "\u8BF7\u5728\u5F00\u59CB\u8C03\u8BD5\u524D\u9605\u8BFB\u57F9\u8BAD\u624B\u518C",
+    confidentialTitle: "\u4EC5\u9650\u5185\u90E8\u4F7F\u7528",
+    confidentialText: "\u673A\u5BC6 - \u8BF7\u52FF\u5728Blade Marine Technologies Limited\u516C\u53F8\u5916\u90E8\u5206\u53D1\u3002\u672A\u7ECF\u6388\u6743\u7684\u5206\u53D1\u88AB\u4E25\u683C\u7981\u6B62\u3002",
   },
   vi: {
     appTitle: "Blade Nh\u00E0 m\u00E1y",
@@ -363,6 +367,8 @@ const translations: Record<Language, Record<string, string>> = {
     introText: "\u1EE8ng d\u1EE5ng n\u00E0y \u0111\u01B0\u1EE3c s\u1EED d\u1EE5ng cho tr\u00ECnh t\u1EF1 kh\u1EDFi t\u1EA1o nh\u00E0 m\u00E1y Blade. N\u00F3 c\u1EA5u h\u00ECnh c\u00E1c t\u00EDnh n\u0103ng th\u00F4ng minh v\u00E0 truy\u1EC1n th\u00F4ng c\u1EE7a \u0111\u1ED9ng c\u01A1 ngo\u00E0i t\u00E0u Blade, bao g\u1ED3m l\u1EADp tr\u00ECnh s\u1ED1 serial, \u0111\u1EB7t t\u00EAn thi\u1EBFt b\u1ECB, x\u00E1c minh \u0111o l\u01B0\u1EDDng t\u1EEB xa, hi\u1EC7u chu\u1EA9n GPS, c\u1EA5u h\u00ECnh ga, x\u00E1c nh\u1EADn firmware, \u0111\u1EB7t l\u1EA1i \u0111\u1ED3ng h\u1ED3 v\u00E0 ki\u1EC3m tra k\u1EBFt n\u1ED1i \u0111\u00E1m m\u00E2y.",
     haloSeriesOnly: "Ch\u1EC9 d\u00E0nh cho \u0111\u1ED9ng c\u01A1 ngo\u00E0i t\u00E0u Halo Series",
     readManualFirst: "Vui l\u00F2ng \u0111\u1ECDc s\u00E1ch h\u01B0\u1EDBng d\u1EABn \u0111\u00E0o t\u1EA1o tr\u01B0\u1EDBc khi b\u1EAFt \u0111\u1EA7u v\u1EADn h\u00E0nh",
+    confidentialTitle: "Ch\u1EC9 s\u1EED d\u1EE5ng n\u1ED9i b\u1ED9",
+    confidentialText: "B\u1EA3O M\u1EACT - Kh\u00F4ng ph\u00E2n ph\u1ED1i b\u00EAn ngo\u00E0i Blade Marine Technologies Limited. Vi\u1EC7c ph\u00E2n ph\u1ED1i tr\u00E1i ph\u00E9p b\u1ECB nghi\u00EAm c\u1EA5m.",
   },
 };
 
