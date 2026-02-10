@@ -36,11 +36,6 @@
       ["react-native-ble-plx", { "isBackgroundEnabled": false, "modes": ["peripheral", "central"], "bluetoothAlwaysPermission": "Blade Factory uses Bluetooth to connect to outboard motors." }],
       ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Allow Blade Factory to use your location to verify GPS accuracy." }],
       "./plugins/withBluetoothClassic"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "PLACEHOLDER"
-      }
-    }
+    ]
   }
 }
