@@ -5,6 +5,7 @@ import {
   collectionGroup,
   query,
   where,
+  orderBy,
   getDocs,
   limit,
 } from "firebase/firestore";
@@ -108,6 +109,7 @@ export async function checkMQTTData(
     const q = query(
       collectionGroup(firestore, "telemetry"),
       where("serialNumber", "==", upperSN),
+      orderBy("timestamp", "desc"),
       limit(1)
     );
 
