@@ -18,6 +18,17 @@ export interface TelemetryState {
   inforG2: INFORG2Data | null;
 }
 
+export interface StepDetails {
+  step1?: { oldSerial: string; newSerial: string; command: string };
+  step2?: { deviceName: string; command: string };
+  step3?: { bleDataSample: Record<string, string | number | null> };
+  step4?: { phoneGPS: { lat: number; lng: number }; outboardGPS: { lat: number; lng: number }; distanceMeters: number };
+  step5?: { dethrottleValue: number; command: string };
+  step6?: { firmwareVersion: string; confirmed: boolean };
+  step7?: { previousOdometer: string; newOdometer: string; command: string };
+  step8?: { mqttResult: boolean; firestoreCoords?: { lat: number; lng: number } };
+}
+
 export type ConnectionType = "ble" | "classic" | null;
 
 interface ToastState {
@@ -59,6 +70,9 @@ interface AppContextType {
   setNewSerialNumber: (sn: string) => void;
   selectedDeviceName: string;
   setSelectedDeviceName: (name: string) => void;
+  stepDetails: StepDetails;
+  setStepDetails: (details: StepDetails) => void;
+  updateStepDetail: <K extends keyof StepDetails>(step: K, data: StepDetails[K]) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -79,6 +93,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [oldSerialNumber, setOldSerialNumber] = useState("");
   const [newSerialNumber, setNewSerialNumber] = useState("");
   const [selectedDeviceName, setSelectedDeviceName] = useState("");
+  const [stepDetails, setStepDetails] = useState<StepDetails>({});
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const telemetryRef = useRef<TelemetryState>(telemetry);
 
@@ -133,6 +148,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const updateStepDetail = useCallback(<K extends keyof StepDetails>(step: K, data: StepDetails[K]) => {
+    setStepDetails((prev) => ({ ...prev, [step]: data }));
+  }, []);
+
   const resetChecklist = useCallback(() => setChecklistStatus({}), []);
 
   const resetAll = useCallback(() => {
@@ -141,6 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNewSerialNumber("");
     setOldSerialNumber("");
     setSelectedDeviceName("");
+    setStepDetails({});
     setDebugLogs([]);
   }, []);
 
@@ -159,6 +179,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         oldSerialNumber, setOldSerialNumber,
         newSerialNumber, setNewSerialNumber,
         selectedDeviceName, setSelectedDeviceName,
+        stepDetails, setStepDetails, updateStepDetail,
       }}
     >
       {children}
