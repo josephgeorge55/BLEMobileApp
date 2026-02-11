@@ -82,8 +82,9 @@
       [
         "react-native-ble-plx",
         {
-          "isBackgroundEnabled": false,
-          "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor."
+          "isBackgroundEnabled": true,
+          "modes": ["central"],
+          "bluetoothAlwaysPermission": "Blade Outboards uses Bluetooth to connect to your outboard motor for real-time telemetry data while on the water."
         }
       ],
       "./plugins/withPushNotifications",
