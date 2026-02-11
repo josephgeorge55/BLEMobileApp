@@ -19,6 +19,8 @@ export interface ReportData {
   completionDateTime: string;
   completionLocation: string;
   checklist: ChecklistResult[];
+  stepDetails?: Record<string, any>;
+  connectedDeviceName?: string;
 }
 
 function statusBadge(item: ChecklistResult): string {

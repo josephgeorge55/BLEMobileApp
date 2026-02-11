@@ -81,14 +81,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 export async function checkMQTTData(
   serialNumber: string,
   log?: Logger
-): Promise<boolean> {
+): Promise<{ found: boolean; coords?: { lat: number; lng: number } }> {
   const upperSN = serialNumber.toUpperCase();
   log?.("INFO", `MQTT check starting for SN: ${upperSN}`, 8);
 
   const firestore = initFirebase(log);
   if (!firestore) {
     log?.("ERROR", "Firestore not available - cannot proceed", 8);
-    return false;
+    return { found: false };
   }
 
   try {
@@ -96,11 +96,11 @@ export async function checkMQTTData(
     const authed = await withTimeout(ensureAuth(log), 15000, "Auth");
     if (!authed) {
       log?.("ERROR", "Authentication failed - check factory account exists in Firebase Console", 8);
-      return false;
+      return { found: false };
     }
   } catch (error: any) {
     log?.("ERROR", `Auth error: ${error.message}`, 8);
-    return false;
+    return { found: false };
   }
 
   try {
@@ -121,10 +121,13 @@ export async function checkMQTTData(
     if (!snapshot.empty) {
       const docData = snapshot.docs[0].data();
       log?.("DATA", `Found telemetry doc: ${JSON.stringify(Object.keys(docData))}`, 8);
-      return true;
+      const coords = (docData.latitude != null && docData.longitude != null)
+        ? { lat: docData.latitude, lng: docData.longitude }
+        : undefined;
+      return { found: true, coords };
     } else {
       log?.("INFO", `No telemetry documents found for SN: ${upperSN}`, 8);
-      return false;
+      return { found: false };
     }
   } catch (error: any) {
     log?.("ERROR", `Firestore query failed: ${error.code || "unknown"} - ${error.message}`, 8);
@@ -136,6 +139,6 @@ export async function checkMQTTData(
       log?.("ERROR", "Permission denied. Check Firestore security rules allow read for authenticated users.", 8);
     }
 
-    return false;
+    return { found: false };
   }
 }

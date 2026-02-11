@@ -42,6 +42,7 @@ export default function DashboardScreen() {
     t, connectionType, telemetry, telemetryRef, checklistStatus, setStepStatus, showToast,
     addDebugLog, oldSerialNumber, newSerialNumber, setNewSerialNumber, setOldSerialNumber,
     selectedDeviceName, setSelectedDeviceName, firstName, lastName, resetAll,
+    updateStepDetail, stepDetails, connectedDeviceName,
   } = useApp();
 
   const [activeStep, setActiveStep] = useState<number | null>(null);
@@ -137,6 +138,7 @@ export default function DashboardScreen() {
     }
     showToast(t("commandSent"), "info");
     addDebugLog("INFO", t("waiting"), 1);
+    updateStepDetail("step1", { oldSerial: telemetry.inforG1?.serialNumber || "", newSerial: sn, command: `$APP_CONFIG,WRITE_SN,${sn}` });
 
     await new Promise((r) => setTimeout(r, 10000));
 
@@ -165,6 +167,7 @@ export default function DashboardScreen() {
     }
     showToast(t("commandSent"), "info");
     addDebugLog("INFO", t("waiting"), 2);
+    updateStepDetail("step2", { deviceName, command: `$APP_CONFIG,WRITE_NAME,${deviceName}` });
 
     await new Promise((r) => setTimeout(r, 10000));
 
@@ -213,11 +216,14 @@ export default function DashboardScreen() {
 
   const confirmStep3 = useCallback(() => {
     const checks = step3DataChecks();
+    const bleDataSample: Record<string, string | number | null> = {};
+    checks.forEach((c) => { bleDataSample[c.label] = c.value != null ? String(c.value) : null; });
+    updateStepDetail("step3", { bleDataSample });
     const allPresent = checks.every((c) => c.present);
     setStepStatus(3, allPresent);
     setStep3Visible(false);
     showToast(allPresent ? t("allDataPresent") : t("missingData"), allPresent ? "success" : "error");
-  }, [step3DataChecks, setStepStatus, showToast, t]);
+  }, [step3DataChecks, setStepStatus, showToast, t, updateStepDetail]);
 
   const handleStep4 = useCallback(async () => {
     if (!requireConnection()) return;
@@ -260,6 +266,11 @@ export default function DashboardScreen() {
         outboard: { lat: telemetry.gnss.latitude, lng: telemetry.gnss.longitude },
         phone: { lat: phoneLat, lng: phoneLng },
       });
+      updateStepDetail("step4", {
+        phoneGPS: { lat: phoneLat, lng: phoneLng },
+        outboardGPS: { lat: telemetry.gnss.latitude, lng: telemetry.gnss.longitude },
+        distanceMeters: Math.round(dist),
+      });
 
       if (dist <= 50) {
         setStepStatus(4, true);
@@ -289,6 +300,7 @@ export default function DashboardScreen() {
     await new Promise((r) => setTimeout(r, 10000));
 
     setStepStatus(5, true);
+    updateStepDetail("step5", { dethrottleValue: 100, command: "$APP_CONFIG,MAX_THROTTLE,100" });
     showToast(t("throttleSet"), "success");
     setLoading(false);
     setActiveStep(null);
@@ -315,6 +327,7 @@ export default function DashboardScreen() {
     showToast(t("commandSent"), "info");
     await new Promise((r) => setTimeout(r, 10000));
 
+    updateStepDetail("step7", { previousOdometer: telemetry.inforG2?.odometer != null ? `${telemetry.inforG2.odometer}h` : "Unknown", newOdometer: "0h", command: "$APP_CONFIG,ODOMETER,0" });
     if (telemetry.inforG2 && telemetry.inforG2.odometer === 0) {
       setStepStatus(7, true);
       showToast(t("odometerReset"), "success");
@@ -335,9 +348,10 @@ export default function DashboardScreen() {
     setLoading(true);
     addDebugLog("INFO", t("checkingMQTT"), 8);
 
-    const found = await checkMQTTData(newSerialNumber, addDebugLog);
+    const result = await checkMQTTData(newSerialNumber, addDebugLog);
+    updateStepDetail("step8", { mqttResult: result.found, firestoreCoords: result.coords });
 
-    if (found) {
+    if (result.found) {
       setStepStatus(8, true);
       showToast(t("mqttPass"), "success");
     } else {
@@ -379,8 +393,10 @@ export default function DashboardScreen() {
       completionDateTime: new Date().toLocaleString(),
       completionLocation: locationStr,
       checklist: steps,
+      stepDetails,
+      connectedDeviceName: connectedDeviceName || undefined,
     });
-  }, [checklistStatus, firstName, lastName, selectedDeviceName, newSerialNumber, telemetry.inforG1, t]);
+  }, [checklistStatus, firstName, lastName, selectedDeviceName, newSerialNumber, telemetry.inforG1, t, stepDetails, connectedDeviceName]);
 
   const stepHandlers = [
     handleStep1,
@@ -646,7 +662,7 @@ export default function DashboardScreen() {
                   <Pressable style={styles.cancelBtn} onPress={() => { setStep6Confirm1(false); setStep6Visible(false); }}>
                     <Text style={styles.cancelBtnText}>{t("no")}</Text>
                   </Pressable>
-                  <Pressable style={styles.sendBtn} onPress={() => { setStepStatus(6, true); setStep6Visible(false); showToast(t("passed"), "success"); }}>
+                  <Pressable style={styles.sendBtn} onPress={() => { setStepStatus(6, true); updateStepDetail("step6", { firmwareVersion: telemetry.inforG1?.firmwareVersion || "Unknown", confirmed: true }); setStep6Visible(false); showToast(t("passed"), "success"); }}>
                     <Text style={styles.sendBtnText}>{t("yes")}</Text>
                   </Pressable>
                 </View>
