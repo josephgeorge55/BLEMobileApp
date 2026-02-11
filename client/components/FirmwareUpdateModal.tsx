@@ -22,7 +22,7 @@ import {
   FirmwareOTAService,
   OTAProgress,
   OTALogEntry,
-  ChipInfo,
+  prepareFirmwareData,
 } from "@/lib/firmware-ota-service";
 import {
   sendBinaryData,
@@ -41,10 +41,11 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
   const { theme } = useTheme();
   const { motor } = useMotor();
 
-  const [hexFile, setHexFile] = useState<{
+  const [firmwareFile, setFirmwareFile] = useState<{
     name: string;
     content: string;
     size: number;
+    isBinary: boolean;
   } | null>(null);
   const [logs, setLogs] = useState<OTALogEntry[]>([]);
   const [progress, setProgress] = useState<OTAProgress>({
@@ -56,7 +57,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     totalBytes: 0,
     message: "Ready",
   });
-  const [chipInfo, setChipInfo] = useState<ChipInfo | null>(null);
+  const [bootloaderReady, setBootloaderReady] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
   const otaServiceRef = useRef<FirmwareOTAService | null>(null);
@@ -89,21 +90,32 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
       }
 
       const file = result.assets[0];
-      
-      if (!file.name.toLowerCase().endsWith(".hex")) {
-        addLog("error", "Please select a .hex firmware file");
+      const lowerName = file.name.toLowerCase();
+
+      if (!lowerName.endsWith(".hex") && !lowerName.endsWith(".bin")) {
+        addLog("error", "Please select a .hex or .bin firmware file");
         return;
       }
 
-      const content = await FileSystem.readAsStringAsync(file.uri);
+      const isBinary = lowerName.endsWith(".bin");
 
-      setHexFile({
+      let content: string;
+      if (isBinary) {
+        content = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      } else {
+        content = await FileSystem.readAsStringAsync(file.uri);
+      }
+
+      setFirmwareFile({
         name: file.name,
         content,
         size: file.size || content.length,
+        isBinary,
       });
 
-      addLog("success", `Loaded firmware: ${file.name} (${formatSize(file.size || content.length)})`);
+      addLog("success", `Loaded firmware: ${file.name} (${formatSize(file.size || content.length)}) [${isBinary ? 'BIN' : 'HEX'}]`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       addLog("error", `Failed to load file: ${error}`);
@@ -116,10 +128,9 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
       return;
     }
 
-    addLog("info", "=== BOOTLOADER CONNECTION ===");
-    addLog("info", "1. Ensure the Tiller board is in bootloader mode");
-    addLog("info", "   - Use hardware switch OR send software command");
-    addLog("info", "2. Bluetooth SPP settings: 115200 baud, 8N1, Even parity");
+    addLog("info", "=== BOOTLOADER CONNECTION (FOTA v2.0) ===");
+    addLog("info", "1. Sending $APP_CONFIG,UPDATE_FW to enter bootloader mode");
+    addLog("info", "2. Then checking connection with HELLO command");
     
     setOTAMode(true);
     addLog("info", "OTA binary mode enabled");
@@ -132,22 +143,24 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     );
     otaServiceRef.current = service;
 
-    addLog("info", "Attempting to enter bootloader mode...");
-    await service.enterBootloaderMode();
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const entered = await service.enterBootloaderMode();
+    if (!entered) {
+      addLog("error", "Failed to send bootloader entry command");
+      setOTAMode(false);
+      return;
+    }
 
-    const info = await service.initialize();
-    if (info) {
-      setChipInfo(info);
-      addLog("success", `Bootloader connected! Protocol: v${info.protocolVersion}, Chip: ${info.chipId}`);
+    const connected = await service.hello();
+    if (connected) {
+      setBootloaderReady(true);
+      addLog("success", "Bootloader connection established!");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
-      addLog("error", "Failed to initialize bootloader.");
+      addLog("error", "Failed to connect to bootloader.");
       addLog("info", "Troubleshooting:");
-      addLog("info", "  - Check if board is in bootloader mode (hardware switch)");
       addLog("info", "  - Verify Bluetooth is connected and paired");
-      addLog("info", "  - Try power cycling the Tiller board");
+      addLog("info", "  - Try power cycling the mainboard");
+      addLog("info", "  - Ensure the board supports FOTA v2.0 protocol");
       setOTAMode(false);
     }
   };
@@ -164,10 +177,10 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     const success = await otaServiceRef.current.eraseChip();
     
     if (success) {
-      addLog("success", "Chip erased successfully");
+      addLog("success", "Flash memory erased successfully");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
-      addLog("error", "Chip erase failed");
+      addLog("error", "Flash erase failed");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
 
@@ -180,7 +193,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
       return;
     }
 
-    if (!hexFile) {
+    if (!firmwareFile) {
       addLog("error", "Please select a firmware file first");
       return;
     }
@@ -189,19 +202,27 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     addLog("info", "=== STARTING FIRMWARE PROGRAMMING ===");
-    addLog("info", `File: ${hexFile.name} (${formatSize(hexFile.size)})`);
+    addLog("info", `File: ${firmwareFile.name} (${formatSize(firmwareFile.size)}) [${firmwareFile.isBinary ? 'BIN' : 'HEX'}]`);
 
-    const success = await otaServiceRef.current.performFullUpdate(hexFile.content);
+    try {
+      const firmwareData = prepareFirmwareData(firmwareFile.content, firmwareFile.isBinary);
+      addLog("info", `Prepared ${firmwareData.length} bytes of firmware data`);
 
-    if (success) {
-      addLog("success", "=== FIRMWARE UPDATE COMPLETE ===");
-      addLog("info", "The Tiller board should now be running the new firmware.");
-      addLog("info", "You may need to reconnect via Bluetooth Scanner.");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setOTAMode(false);
-    } else {
-      addLog("error", "Firmware update failed");
-      addLog("info", "Check the log above for details.");
+      const success = await otaServiceRef.current.performFullUpdate(firmwareData);
+
+      if (success) {
+        addLog("success", "=== FIRMWARE UPDATE COMPLETE ===");
+        addLog("info", "The mainboard should now be running the new firmware.");
+        addLog("info", "You may need to reconnect via Bluetooth Scanner.");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setOTAMode(false);
+      } else {
+        addLog("error", "Firmware update failed");
+        addLog("info", "Check the log above for details.");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch (error) {
+      addLog("error", `Failed to process firmware file: ${error}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
 
@@ -222,7 +243,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
       return;
     }
     setOTAMode(false);
-    setHexFile(null);
+    setFirmwareFile(null);
     setLogs([]);
     setProgress({
       state: "idle",
@@ -233,7 +254,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
       totalBytes: 0,
       message: "Ready",
     });
-    setChipInfo(null);
+    setBootloaderReady(false);
     otaServiceRef.current = null;
     onClose();
   };
@@ -303,7 +324,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
         <View style={[styles.statusBar, { backgroundColor: theme.surfaceElevated }]}>
           <View style={styles.statusRow}>
             <Feather
-              name={motor?.isConnected ? "bluetooth" : "bluetooth"}
+              name="bluetooth"
               size={16}
               color={motor?.isConnected ? BladeColors.success : theme.textTertiary}
             />
@@ -311,11 +332,11 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
               {motor?.serialNumber || "No motor connected"}
             </ThemedText>
           </View>
-          {chipInfo ? (
+          {bootloaderReady ? (
             <View style={styles.statusRow}>
               <Feather name="cpu" size={16} color={BladeColors.accent} />
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Chip: {chipInfo.chipId} | Protocol: v{chipInfo.protocolVersion}
+                Bootloader connected (FOTA v2.0)
               </ThemedText>
             </View>
           ) : null}
@@ -364,18 +385,18 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
           >
             <Feather name="file" size={20} color={theme.primary} />
             <View style={styles.fileInfo}>
-              {hexFile ? (
+              {firmwareFile ? (
                 <>
                   <ThemedText type="body" numberOfLines={1}>
-                    {hexFile.name}
+                    {firmwareFile.name}
                   </ThemedText>
                   <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                    {formatSize(hexFile.size)}
+                    {formatSize(firmwareFile.size)} ({firmwareFile.isBinary ? 'Binary' : 'Intel HEX'})
                   </ThemedText>
                 </>
               ) : (
                 <ThemedText type="body" style={{ color: theme.textTertiary }}>
-                  Select .hex firmware file
+                  Select .hex or .bin firmware file
                 </ThemedText>
               )}
             </View>
@@ -390,7 +411,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
         >
           {logs.length === 0 ? (
             <ThemedText type="mono" style={[styles.logEntry, { color: "#666" }]}>
-              {"> Firmware update console ready..."}
+              {"> Firmware update console ready (FOTA v2.0)..."}
             </ThemedText>
           ) : null}
           {logs.map((log, index) => (
@@ -427,21 +448,21 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
                 style={[
                   styles.button,
                   { backgroundColor: theme.primary },
-                  chipInfo && styles.buttonSuccess,
+                  bootloaderReady && styles.buttonSuccess,
                 ]}
               >
                 <Feather name="link" size={18} color="#fff" />
                 <ThemedText type="button" style={{ color: "#fff" }}>
-                  {chipInfo ? "Connected" : "Connect"}
+                  {bootloaderReady ? "Connected" : "Connect"}
                 </ThemedText>
               </Pressable>
               <Pressable
                 onPress={handleErase}
-                disabled={!chipInfo}
+                disabled={!bootloaderReady}
                 style={[
                   styles.button,
                   { backgroundColor: BladeColors.warning },
-                  !chipInfo && styles.disabled,
+                  !bootloaderReady && styles.disabled,
                 ]}
               >
                 <Feather name="trash-2" size={18} color="#fff" />
@@ -451,11 +472,11 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
               </Pressable>
               <Pressable
                 onPress={handleProgram}
-                disabled={!chipInfo || !hexFile}
+                disabled={!bootloaderReady || !firmwareFile}
                 style={[
                   styles.button,
                   { backgroundColor: BladeColors.success },
-                  (!chipInfo || !hexFile) && styles.disabled,
+                  (!bootloaderReady || !firmwareFile) && styles.disabled,
                 ]}
               >
                 {progress.state === "programming" ? (

@@ -1,34 +1,44 @@
 /**
  * Firmware OTA Service
- * Implements STM32 bootloader protocol for Tiller Board firmware updates
+ * Implements HALO Outboards FOTA protocol for mainboard firmware updates
  * 
- * Protocol: UART over Bluetooth SPP
- * Settings: 115200 baud, 8 data bits, Even parity, 1 stop bit
+ * Based on Bluetooth FOTA Technical Specification v2.0
  * 
- * Based on Tiller Board FOTA Technical Specification v1.3
+ * Protocol Commands:
+ *   HELLO    (0x79) - Check bootloader connection
+ *   FW_INFO  (0x10) - Send start address + firmware size
+ *   ERASE    (0x43) - Erase application flash area
+ *   WRITE    (0x31) - Write firmware block by block (256 bytes)
+ *   GOTOAPP  (0x21) - Start the new firmware
+ * 
+ * Responses:
+ *   ACK  (0x79) - Success
+ *   NACK (0x1F) - Failure / abort
+ * 
+ * Enter bootloader via software command: $APP_CONFIG,UPDATE_FW
+ * Start address fixed to 0x08004000
  */
 
-import { parseHexFile, ParsedHexFile, formatAddress, calculateChecksum } from './hex-parser';
+import { parseHexFile, formatAddress } from './hex-parser';
 
 const ACK = 0x79;
 const NACK = 0x1F;
-const INIT_BYTE = 0x7F;
 
 const CMD = {
-  GET: [0x00, 0xFF],
-  GET_ID: [0x02, 0xFD],
-  ERASE: [0x43, 0xBC],
-  ERASE_SEQUENCE: [0xFF, 0x00],
-  WRITE: [0x31, 0xCE],
-  GO: [0x21, 0xDE],
-  ENTER_BOOTLOADER: [0x01, 0xFE],
+  HELLO: 0x79,
+  FW_INFO: 0x10,
+  ERASE: 0x43,
+  WRITE: 0x31,
+  GOTOAPP: 0x21,
 };
 
-const DEFAULT_START_ADDRESS = 0x08000000;
-const ERASE_DELAY_MS = 2000;
-const BLOCK_DELAY_MS = 10;
-const TIMEOUT_SHORT = 3000;
-const TIMEOUT_LONG = 10000;
+const FIRMWARE_START_ADDRESS = 0x08004000;
+const BLOCK_SIZE = 256;
+const TIMEOUT_MS = 5000;
+const ERASE_TIMEOUT_MS = 15000;
+const WRITE_BLOCK_TIMEOUT_MS = 5000;
+const BOOTLOADER_ENTRY_DELAY_MS = 1500;
+const MAX_RETRIES = 3;
 
 export type OTAState = 
   | 'idle'
@@ -68,6 +78,31 @@ type SendDataFn = (data: Uint8Array) => Promise<void>;
 type ReceiveDataFn = (timeout: number) => Promise<Uint8Array | null>;
 type LogFn = (level: OTALogEntry['level'], message: string) => void;
 type ProgressFn = (progress: OTAProgress) => void;
+
+export function prepareFirmwareData(content: string, isBinary: boolean): Uint8Array {
+  if (isBinary) {
+    const binaryStr = atob(content);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  const parsed = parseHexFile(content);
+  if (parsed.blocks.length === 0) {
+    throw new Error('No valid data found in HEX file');
+  }
+
+  const totalSize = parsed.blocks.reduce((sum, b) => sum + b.data.length, 0);
+  const firmwareData = new Uint8Array(totalSize);
+  let offset = 0;
+  for (const block of parsed.blocks) {
+    firmwareData.set(block.data, offset);
+    offset += block.data.length;
+  }
+  return firmwareData;
+}
 
 export class FirmwareOTAService {
   private sendData: SendDataFn;
@@ -116,7 +151,7 @@ export class FirmwareOTAService {
     return `[${bytes}${data.length > 16 ? '...' : ''}] (${data.length} bytes)`;
   }
   
-  private async waitForResponse(timeout: number = TIMEOUT_SHORT): Promise<Uint8Array | null> {
+  private async waitForResponse(timeout: number = TIMEOUT_MS): Promise<Uint8Array | null> {
     const response = await this.receiveData(timeout);
     if (response) {
       this.log('debug', `RX: ${this.formatBytes(response)}`);
@@ -126,20 +161,22 @@ export class FirmwareOTAService {
     return response;
   }
   
-  private async waitForAck(timeout: number = TIMEOUT_SHORT): Promise<boolean> {
+  private async waitForAck(timeout: number = TIMEOUT_MS): Promise<boolean> {
     const response = await this.waitForResponse(timeout);
     if (!response || response.length === 0) {
       return false;
     }
     
-    if (response[0] === ACK) {
-      return true;
-    } else if (response[0] === NACK) {
-      this.log('error', 'NACK (0x1F) received from bootloader');
-      return false;
+    for (let i = 0; i < response.length; i++) {
+      if (response[i] === ACK) {
+        return true;
+      } else if (response[i] === NACK) {
+        this.log('error', 'NACK (0x1F) received from bootloader');
+        return false;
+      }
     }
     
-    this.log('warning', `Unexpected response byte: 0x${response[0].toString(16).toUpperCase()}`);
+    this.log('warning', `Unexpected response: ${this.formatBytes(response)}`);
     return false;
   }
   
@@ -164,294 +201,214 @@ export class FirmwareOTAService {
   }
   
   async enterBootloaderMode(): Promise<boolean> {
-    this.log('info', 'Sending command to enter bootloader mode...');
+    this.log('info', 'Sending $APP_CONFIG,UPDATE_FW to enter bootloader mode...');
     this.updateProgress('connecting', 0, 'Entering bootloader mode...');
     
     try {
-      await this.send(CMD.ENTER_BOOTLOADER);
-      await this.delay(500);
-      this.log('success', 'Bootloader mode command sent');
+      const cmd = '$APP_CONFIG,UPDATE_FW\n';
+      const encoder = new TextEncoder();
+      await this.sendData(encoder.encode(cmd));
+      this.log('info', `Waiting ${BOOTLOADER_ENTRY_DELAY_MS}ms for bootloader to initialize...`);
+      await this.delay(BOOTLOADER_ENTRY_DELAY_MS);
+      this.log('success', 'Bootloader entry command sent');
       return true;
     } catch (error) {
-      this.log('warning', 'Could not send bootloader command. Ensure board is in bootloader mode via hardware switch.');
+      this.log('error', `Failed to send bootloader entry command: ${error}`);
       return false;
     }
   }
   
-  async initialize(): Promise<ChipInfo | null> {
+  async hello(): Promise<boolean> {
     this.aborted = false;
-    this.log('info', 'Initializing bootloader connection...');
-    this.updateProgress('initializing', 0, 'Sending init byte (0x7F)...');
+    this.log('info', 'Sending HELLO command (0x79) to check bootloader connection...');
+    this.updateProgress('initializing', 5, 'Checking bootloader connection...');
     
-    await this.send([INIT_BYTE]);
-    
-    if (!await this.waitForAck(TIMEOUT_SHORT)) {
-      this.log('error', 'No ACK received for init byte (0x7F). Is the board in bootloader mode?');
-      this.log('info', 'Tip: Use hardware switch or send software command to enter bootloader mode');
-      this.updateProgress('error', 0, 'Initialization failed - check bootloader mode');
-      return null;
-    }
-    
-    this.log('success', 'Bootloader ACK received (0x79)');
-    this.updateProgress('initializing', 2, 'Sending GET command...');
-    
-    this.log('info', 'Sending GET command (0x00 0xFF)...');
-    await this.send(CMD.GET);
-    
-    const getResponse = await this.waitForResponse(TIMEOUT_SHORT);
-    if (!getResponse || getResponse.length < 13) {
-      this.log('error', `Invalid GET response: expected 13 bytes, got ${getResponse?.length || 0}`);
-      this.updateProgress('error', 0, 'GET command failed');
-      return null;
-    }
-    
-    if (getResponse[0] !== ACK) {
-      this.log('error', `GET command not acknowledged: 0x${getResponse[0].toString(16)}`);
-      this.updateProgress('error', 0, 'GET command not ACK');
-      return null;
-    }
-    
-    const numBytes = getResponse[1];
-    const protocolByte = getResponse[2];
-    const protocolVersion = `${(protocolByte >> 4) & 0x0F}.${protocolByte & 0x0F}`;
-    
-    const supportedCommands: number[] = [];
-    for (let i = 3; i < 3 + numBytes; i++) {
-      if (i < getResponse.length) {
-        supportedCommands.push(getResponse[i]);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      this.log('info', `HELLO attempt ${attempt}/${MAX_RETRIES}...`);
+      await this.send([CMD.HELLO]);
+      
+      if (await this.waitForAck(TIMEOUT_MS)) {
+        this.log('success', 'Bootloader responded with ACK - connection established');
+        this.updateProgress('idle', 10, 'Bootloader ready');
+        return true;
+      }
+      
+      if (attempt < MAX_RETRIES) {
+        this.log('warning', `No ACK for HELLO, retrying in 500ms...`);
+        await this.delay(500);
       }
     }
     
-    this.log('success', `Protocol version: ${protocolVersion}`);
-    this.log('info', `Supported commands: ${supportedCommands.map(c => '0x' + c.toString(16).toUpperCase()).join(', ')}`);
+    this.log('error', 'HELLO command failed after all retries. Is the board in bootloader mode?');
+    this.log('info', 'Ensure $APP_CONFIG,UPDATE_FW was sent to enter bootloader mode');
+    this.updateProgress('error', 0, 'Bootloader connection failed');
+    return false;
+  }
+  
+  async fwInfo(firmwareSize: number): Promise<boolean> {
+    this.checkAbort();
+    this.log('info', `Sending FW_INFO: start=${formatAddress(FIRMWARE_START_ADDRESS)}, size=${firmwareSize} bytes`);
+    this.updateProgress('initializing', 12, 'Sending firmware info...');
     
-    this.updateProgress('initializing', 4, 'Sending GET ID command...');
+    const frame = new Uint8Array(9);
+    frame[0] = CMD.FW_INFO;
+    frame[1] = (FIRMWARE_START_ADDRESS >> 24) & 0xFF;
+    frame[2] = (FIRMWARE_START_ADDRESS >> 16) & 0xFF;
+    frame[3] = (FIRMWARE_START_ADDRESS >> 8) & 0xFF;
+    frame[4] = FIRMWARE_START_ADDRESS & 0xFF;
+    frame[5] = (firmwareSize >> 24) & 0xFF;
+    frame[6] = (firmwareSize >> 16) & 0xFF;
+    frame[7] = (firmwareSize >> 8) & 0xFF;
+    frame[8] = firmwareSize & 0xFF;
     
-    this.log('info', 'Sending GET ID command (0x02 0xFD)...');
-    await this.send(CMD.GET_ID);
+    await this.sendBytes(frame);
     
-    const idResponse = await this.waitForResponse(TIMEOUT_SHORT);
-    if (!idResponse || idResponse.length < 5) {
-      this.log('error', `Invalid GET ID response: expected 5 bytes, got ${idResponse?.length || 0}`);
-      this.updateProgress('error', 0, 'GET ID command failed');
-      return null;
+    if (!await this.waitForAck(TIMEOUT_MS)) {
+      this.log('error', 'FW_INFO command not acknowledged');
+      this.updateProgress('error', 12, 'FW_INFO failed');
+      return false;
     }
     
-    if (idResponse[0] !== ACK) {
-      this.log('error', `GET ID not acknowledged: 0x${idResponse[0].toString(16)}`);
-      this.updateProgress('error', 0, 'GET ID not ACK');
-      return null;
-    }
-    
-    const chipId = ((idResponse[2] << 8) | idResponse[3]).toString(16).toUpperCase().padStart(4, '0');
-    this.log('success', `Chip ID: 0x${chipId}`);
-    
-    this.updateProgress('idle', 5, 'Bootloader ready');
-    
-    return {
-      protocolVersion,
-      chipId: `0x${chipId}`,
-      bootloaderVersion: protocolVersion,
-      supportedCommands,
-    };
+    this.log('success', 'FW_INFO acknowledged by bootloader');
+    return true;
   }
   
   async eraseChip(): Promise<boolean> {
     this.checkAbort();
-    this.log('info', 'Erasing chip memory...');
-    this.updateProgress('erasing', 10, 'Sending erase command (0x43 0xBC)...');
+    this.log('info', 'Sending ERASE command (0x43) to erase application flash...');
+    this.updateProgress('erasing', 15, 'Erasing flash memory...');
     
-    await this.send(CMD.ERASE);
+    await this.send([CMD.ERASE]);
     
-    if (!await this.waitForAck(TIMEOUT_SHORT)) {
-      this.log('error', 'Erase command not acknowledged');
-      this.updateProgress('error', 10, 'Erase command failed');
+    this.log('info', 'Waiting for erase operation to complete (this may take several seconds)...');
+    
+    if (!await this.waitForAck(ERASE_TIMEOUT_MS)) {
+      this.log('error', 'Erase command failed - NACK or timeout');
+      this.updateProgress('error', 15, 'Erase failed');
       return false;
     }
     
-    this.log('info', 'Erase command ACK. Sending mass erase sequence (0xFF 0x00)...');
-    this.updateProgress('erasing', 12, 'Mass erasing...');
-    
-    await this.send(CMD.ERASE_SEQUENCE);
-    
-    if (!await this.waitForAck(TIMEOUT_LONG)) {
-      this.log('error', 'Mass erase failed - no ACK received');
-      this.updateProgress('error', 15, 'Mass erase failed');
-      return false;
-    }
-    
-    this.log('info', `Waiting ${ERASE_DELAY_MS}ms for erase operation to complete...`);
-    await this.delay(ERASE_DELAY_MS);
-    
-    this.log('success', 'Chip erased successfully');
+    this.log('success', 'Flash memory erased successfully');
     this.updateProgress('erasing', 20, 'Erase complete');
     
     return true;
   }
   
-  async programFirmware(hexContent: string): Promise<boolean> {
+  async writeFirmware(firmwareData: Uint8Array): Promise<boolean> {
     this.checkAbort();
     
-    this.log('info', 'Parsing Intel HEX file...');
-    const parsed = parseHexFile(hexContent);
+    const totalBlocks = Math.ceil(firmwareData.length / BLOCK_SIZE);
+    this.log('info', `Starting WRITE: ${firmwareData.length} bytes in ${totalBlocks} blocks of ${BLOCK_SIZE} bytes`);
+    this.updateProgress('programming', 25, 'Sending WRITE command...');
     
-    if (parsed.blocks.length === 0) {
-      this.log('error', 'No valid data found in HEX file');
-      this.updateProgress('error', 20, 'Invalid HEX file');
+    await this.send([CMD.WRITE]);
+    
+    if (!await this.waitForAck(TIMEOUT_MS)) {
+      this.log('error', 'WRITE command (0x31) not acknowledged');
+      this.updateProgress('error', 25, 'WRITE command failed');
       return false;
     }
     
-    this.log('success', `Parsed ${parsed.blocks.length} blocks (${parsed.totalBytes} bytes)`);
-    this.log('info', `Address range: ${formatAddress(parsed.minAddress)} - ${formatAddress(parsed.maxAddress)}`);
-    this.log('info', `Start address: ${formatAddress(parsed.startAddress)}`);
+    this.log('success', 'WRITE command acknowledged - beginning data transfer');
     
-    if (!await this.eraseChip()) {
-      return false;
-    }
-    
-    this.checkAbort();
-    
-    this.log('info', 'Beginning firmware write...');
-    this.updateProgress('programming', 25, 'Writing firmware...');
-    
-    const totalBlocks = parsed.blocks.length;
     let bytesWritten = 0;
     
     for (let i = 0; i < totalBlocks; i++) {
       this.checkAbort();
       
-      const block = parsed.blocks[i];
-      const progress = 25 + ((i / totalBlocks) * 65);
+      const offset = i * BLOCK_SIZE;
+      const remaining = firmwareData.length - offset;
+      const blockLength = Math.min(BLOCK_SIZE, remaining);
       
+      const block = new Uint8Array(BLOCK_SIZE);
+      block.fill(0xFF);
+      block.set(firmwareData.slice(offset, offset + blockLength));
+      
+      const progress = 25 + ((i / totalBlocks) * 65);
       this.updateProgress(
         'programming',
         progress,
-        `Writing block ${i + 1}/${totalBlocks} at ${formatAddress(block.address)}`,
+        `Writing block ${i + 1}/${totalBlocks}`,
         i + 1,
         totalBlocks,
         bytesWritten,
-        parsed.totalBytes
+        firmwareData.length
       );
       
-      if (!await this.writeBlock(block.address, block.data)) {
-        this.log('error', `Failed to write block ${i + 1} at ${formatAddress(block.address)}`);
-        this.updateProgress('error', progress, 'Write failed');
+      await this.sendBytes(block);
+      
+      if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
+        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged - NACK or timeout`);
+        this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }
       
-      bytesWritten += block.data.length;
+      bytesWritten += blockLength;
       
-      await this.delay(BLOCK_DELAY_MS);
+      if ((i + 1) % 50 === 0 || i === totalBlocks - 1) {
+        this.log('info', `Written ${i + 1}/${totalBlocks} blocks (${bytesWritten} bytes)`);
+      }
     }
     
     this.log('success', `Firmware written: ${bytesWritten} bytes in ${totalBlocks} blocks`);
-    this.updateProgress('programming', 90, 'Firmware written');
+    this.updateProgress('programming', 90, 'Firmware write complete');
     
     return true;
   }
   
-  private async writeBlock(address: number, data: Uint8Array): Promise<boolean> {
-    this.log('debug', `Writing ${data.length} bytes to ${formatAddress(address)}`);
-    
-    await this.send(CMD.WRITE);
-    
-    if (!await this.waitForAck(TIMEOUT_SHORT)) {
-      this.log('error', 'Write command (0x31 0xCE) not acknowledged');
-      return false;
-    }
-    
-    const addressBytes = [
-      (address >> 24) & 0xFF,
-      (address >> 16) & 0xFF,
-      (address >> 8) & 0xFF,
-      address & 0xFF,
-    ];
-    const addressChecksum = addressBytes[0] ^ addressBytes[1] ^ addressBytes[2] ^ addressBytes[3];
-    
-    await this.send([...addressBytes, addressChecksum]);
-    
-    if (!await this.waitForAck(TIMEOUT_SHORT)) {
-      this.log('error', `Address ${formatAddress(address)} not acknowledged`);
-      return false;
-    }
-    
-    const length = data.length - 1;
-    let dataChecksum = length;
-    for (let i = 0; i < data.length; i++) {
-      dataChecksum ^= data[i];
-    }
-    
-    const payload = new Uint8Array(data.length + 2);
-    payload[0] = length;
-    payload.set(data, 1);
-    payload[payload.length - 1] = dataChecksum & 0xFF;
-    
-    await this.sendBytes(payload);
-    
-    if (!await this.waitForAck(TIMEOUT_SHORT)) {
-      this.log('error', `Data block at ${formatAddress(address)} not acknowledged`);
-      return false;
-    }
-    
-    return true;
-  }
-  
-  async startFirmware(startAddress: number = DEFAULT_START_ADDRESS): Promise<boolean> {
+  async gotoApp(): Promise<boolean> {
     this.checkAbort();
     
-    this.log('info', `Starting firmware (GO command) at ${formatAddress(startAddress)}...`);
-    this.updateProgress('starting', 95, 'Sending GO command...');
+    this.log('info', 'Sending GOTOAPP command (0x21) to start new firmware...');
+    this.updateProgress('starting', 95, 'Starting firmware...');
     
-    await this.send(CMD.GO);
+    await this.send([CMD.GOTOAPP]);
     
-    if (!await this.waitForAck(TIMEOUT_SHORT)) {
-      this.log('error', 'GO command (0x21 0xDE) not acknowledged');
-      this.updateProgress('error', 95, 'GO command failed');
+    if (!await this.waitForAck(TIMEOUT_MS)) {
+      this.log('error', 'GOTOAPP command not acknowledged');
+      this.updateProgress('error', 95, 'GOTOAPP failed');
       return false;
     }
     
-    const addressBytes = [
-      (startAddress >> 24) & 0xFF,
-      (startAddress >> 16) & 0xFF,
-      (startAddress >> 8) & 0xFF,
-      startAddress & 0xFF,
-    ];
-    const addressChecksum = addressBytes[0] ^ addressBytes[1] ^ addressBytes[2] ^ addressBytes[3];
-    
-    await this.send([...addressBytes, addressChecksum]);
-    
-    if (!await this.waitForAck(TIMEOUT_SHORT)) {
-      this.log('error', 'Start address not acknowledged');
-      this.updateProgress('error', 95, 'Start failed');
-      return false;
-    }
-    
-    this.log('success', 'Firmware started successfully!');
+    this.log('success', 'New firmware started successfully!');
     this.updateProgress('complete', 100, 'Firmware update complete!');
     
     return true;
   }
   
-  async performFullUpdate(hexContent: string): Promise<boolean> {
+  async performFullUpdate(firmwareData: Uint8Array): Promise<boolean> {
     try {
-      this.log('info', '=== STARTING FIRMWARE UPDATE ===');
+      this.log('info', '=== STARTING FIRMWARE UPDATE (FOTA v2.0) ===');
+      this.log('info', `Firmware size: ${firmwareData.length} bytes`);
+      this.log('info', `Target address: ${formatAddress(FIRMWARE_START_ADDRESS)}`);
       
-      const chipInfo = await this.initialize();
-      if (!chipInfo) {
-        this.log('error', 'Bootloader initialization failed');
+      this.log('info', '--- Step 1/5: HELLO ---');
+      if (!await this.hello()) {
+        this.log('error', 'Bootloader connection check failed');
         return false;
       }
       
-      this.log('info', `Connected to STM32 bootloader (Chip: ${chipInfo.chipId})`);
-      
-      if (!await this.programFirmware(hexContent)) {
-        this.log('error', 'Firmware programming failed');
+      this.log('info', '--- Step 2/5: FW_INFO ---');
+      if (!await this.fwInfo(firmwareData.length)) {
+        this.log('error', 'Failed to send firmware info');
         return false;
       }
       
-      const parsed = parseHexFile(hexContent);
-      if (!await this.startFirmware(parsed.startAddress || DEFAULT_START_ADDRESS)) {
-        this.log('error', 'Failed to start firmware');
+      this.log('info', '--- Step 3/5: ERASE ---');
+      if (!await this.eraseChip()) {
+        this.log('error', 'Flash erase failed');
+        return false;
+      }
+      
+      this.log('info', '--- Step 4/5: WRITE ---');
+      if (!await this.writeFirmware(firmwareData)) {
+        this.log('error', 'Firmware write failed');
+        return false;
+      }
+      
+      this.log('info', '--- Step 5/5: GOTOAPP ---');
+      if (!await this.gotoApp()) {
+        this.log('error', 'Failed to start new firmware');
         return false;
       }
       
