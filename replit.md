@@ -37,6 +37,7 @@ Design aesthetic: iOS-style light gray theme with translucent white cards, green
 - **Theme**: Light theme with factory/manufacturing aesthetic. Green (#34C759) pass / Red (#FF3B30) fail indicators.
 - **No Login**: Captures operator first/last name only, no auth required.
 - **No Watch/Live Activities**: Standalone phone-only app.
+- **Firmware Update**: Custom FOTA v2.0 firmware flashing via FirmwareUpdateModal. Supports both BLE and Bluetooth Classic transports. Auto-detects connection type. File picker for .hex and .bin files. Full OTA console log with progress tracking. Files: `factory-app/src/lib/firmware-ota-service.ts`, `factory-app/src/lib/hex-parser.ts`, `factory-app/src/components/FirmwareUpdateModal.tsx`.
 - **8 Checklist Steps**: Set Serial Number, Set Device Name (HALO3/6/10), Check BLE Data Integrity, Check GPS Coordinates (50m threshold), Set Dethrottle 100%, Display Firmware Version (double confirm), Reset Odometer, MQTT/4G Firestore Check.
 - **BLE Commands**: `$APP_CONFIG,WRITE_SN,{sn}`, `$APP_CONFIG,WRITE_NAME,{name}`, `$APP_CONFIG,MAX_THROTTLE,100`, `$APP_CONFIG,ODOMETER,0`.
 - **INFOR G1 Extended Format**: `$INFOR,G1,firmwareVersion,serialNumber,deviceName` (deviceName is HALO3/HALO6/HALO10).
