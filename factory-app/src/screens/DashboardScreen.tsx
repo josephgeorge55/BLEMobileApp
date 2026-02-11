@@ -8,6 +8,7 @@ import * as Location from "expo-location";
 import { useApp } from "../context/AppContext";
 import ChecklistItem from "../components/ChecklistItem";
 import BluetoothFAB from "../components/BluetoothFAB";
+import FirmwareUpdateModal from "../components/FirmwareUpdateModal";
 import * as BleService from "../lib/ble-service";
 import * as ClassicService from "../lib/classic-service";
 import { checkMQTTData } from "../lib/firebase";
@@ -54,6 +55,7 @@ export default function DashboardScreen() {
   const [step6Visible, setStep6Visible] = useState(false);
   const [step6Confirm1, setStep6Confirm1] = useState(false);
   const [overrideStep, setOverrideStep] = useState<number | null>(null);
+  const [firmwareModalVisible, setFirmwareModalVisible] = useState(false);
   const cancelRef = useRef(false);
   const hasShownSuccessToast = useRef(false);
 
@@ -456,6 +458,14 @@ export default function DashboardScreen() {
 
         <View style={styles.bottomButtons}>
           <Pressable
+            style={styles.firmwareBtn}
+            onPress={() => setFirmwareModalVisible(true)}
+          >
+            <Feather name="cpu" size={20} color="#FFFFFF" />
+            <Text style={styles.firmwareBtnText}>Firmware Update</Text>
+          </Pressable>
+
+          <Pressable
             style={[styles.reportBtn, allPassed ? styles.reportBtnActive : styles.reportBtnInactive]}
             onPress={handleGenerateReport}
           >
@@ -672,6 +682,11 @@ export default function DashboardScreen() {
         </View>
       </Modal>
 
+      <FirmwareUpdateModal
+        visible={firmwareModalVisible}
+        onClose={() => setFirmwareModalVisible(false)}
+      />
+
       <BluetoothFAB />
     </View>
   );
@@ -738,6 +753,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   resetBtnText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  firmwareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#5856D6",
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+  },
+  firmwareBtnText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
   overrideConfirmText: {
     fontSize: 14,
     color: "#666",
