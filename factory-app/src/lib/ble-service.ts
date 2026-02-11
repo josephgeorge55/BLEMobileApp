@@ -327,3 +327,121 @@ export function destroyBle(): void {
   }
   dataBuffer = "";
 }
+
+let bleOtaMode = false;
+let blePendingDataBuffer: number[] = [];
+let blePendingDataResolve: ((data: Uint8Array | null) => void) | null = null;
+
+export function setBleOTAMode(enabled: boolean): void {
+  bleOtaMode = enabled;
+  if (enabled) {
+    blePendingDataBuffer = [];
+    console.log("[BLE] OTA mode enabled");
+  } else {
+    blePendingDataBuffer = [];
+    blePendingDataResolve = null;
+    console.log("[BLE] OTA mode disabled");
+  }
+}
+
+export function isBleOTAMode(): boolean {
+  return bleOtaMode;
+}
+
+function arrayBufferToBase64BLE(buffer: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  try {
+    return Buffer.from(buffer).toString("base64");
+  } catch {
+    return global.btoa(binary);
+  }
+}
+
+function base64ToBytesBLE(base64: string): number[] | null {
+  try {
+    if (!/^[A-Za-z0-9+/=]+$/.test(base64)) return null;
+    let binary: string;
+    try {
+      binary = Buffer.from(base64, "base64").toString("binary");
+    } catch {
+      binary = global.atob(base64);
+    }
+    const bytes: number[] = [];
+    for (let i = 0; i < binary.length; i++) {
+      bytes.push(binary.charCodeAt(i) & 0xFF);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+export async function sendBleBinaryData(data: Uint8Array): Promise<void> {
+  if (!connectedDevice) {
+    throw new Error("No BLE device connected");
+  }
+
+  try {
+    const base64 = arrayBufferToBase64BLE(data);
+    const wChar = writeCharacteristic || targetCharacteristic;
+    if (wChar && wChar.isWritableWithResponse) {
+      await wChar.writeWithResponse(base64);
+    } else if (wChar && wChar.isWritableWithoutResponse) {
+      await wChar.writeWithoutResponse(base64);
+    } else {
+      const writeUUID = writeCharacteristic ? writeCharacteristic.uuid : targetCharUUID;
+      await connectedDevice.writeCharacteristicWithResponseForService(targetServiceUUID, writeUUID, base64);
+    }
+    await new Promise(resolve => setTimeout(resolve, 5));
+  } catch (error) {
+    console.error("[BLE-OTA] Error sending binary data:", error);
+    throw error;
+  }
+}
+
+export async function receiveBleBinaryData(timeout: number): Promise<Uint8Array | null> {
+  if (!connectedDevice) return null;
+
+  return new Promise((resolve) => {
+    let receivedData: number[] = [];
+    let resolved = false;
+
+    const timeoutId = setTimeout(() => {
+      if (resolved) return;
+      resolved = true;
+      blePendingDataResolve = null;
+      resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
+    }, timeout);
+
+    const originalHandler = notificationSubscription;
+
+    const tempSubscription = connectedDevice.monitorCharacteristicForService(
+      targetServiceUUID,
+      targetCharUUID,
+      (_error: any, characteristic: any) => {
+        if (resolved) return;
+        if (characteristic && characteristic.value) {
+          const bytes = base64ToBytesBLE(characteristic.value);
+          if (bytes) {
+            receivedData.push(...bytes);
+            if (receivedData.length > 0 && (receivedData[0] === 0x79 || receivedData[0] === 0x1F)) {
+              resolved = true;
+              clearTimeout(timeoutId);
+              try { tempSubscription.remove(); } catch {}
+              resolve(new Uint8Array(receivedData));
+            }
+          }
+        }
+      }
+    );
+
+    setTimeout(() => {
+      if (!resolved) {
+        try { tempSubscription.remove(); } catch {}
+      }
+    }, timeout + 100);
+  });
+}

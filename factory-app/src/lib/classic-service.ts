@@ -177,3 +177,125 @@ export async function disconnectClassic(): Promise<void> {
 export function isClassicConnected(): boolean {
   return connectedDevice !== null;
 }
+
+let classicOtaMode = false;
+
+export function setClassicOTAMode(enabled: boolean): void {
+  classicOtaMode = enabled;
+  if (enabled) {
+    console.log("[Classic] OTA mode enabled");
+  } else {
+    console.log("[Classic] OTA mode disabled");
+  }
+}
+
+export function isClassicOTAMode(): boolean {
+  return classicOtaMode;
+}
+
+function arrayBufferToBase64Classic(buffer: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  try {
+    return Buffer.from(buffer).toString("base64");
+  } catch {
+    return global.btoa(binary);
+  }
+}
+
+function base64ToBytesClassic(base64: string): number[] | null {
+  try {
+    if (!/^[A-Za-z0-9+/=]+$/.test(base64)) return null;
+    let binary: string;
+    try {
+      binary = Buffer.from(base64, "base64").toString("binary");
+    } catch {
+      binary = global.atob(base64);
+    }
+    const bytes: number[] = [];
+    for (let i = 0; i < binary.length; i++) {
+      bytes.push(binary.charCodeAt(i) & 0xFF);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+function stringToBytesClassic(str: string): number[] {
+  const bytes: number[] = [];
+  for (let i = 0; i < str.length; i++) {
+    bytes.push(str.charCodeAt(i) & 0xFF);
+  }
+  return bytes;
+}
+
+export async function sendClassicBinaryData(data: Uint8Array): Promise<void> {
+  if (!connectedDevice) {
+    throw new Error("No Classic device connected");
+  }
+
+  try {
+    const base64 = arrayBufferToBase64Classic(data);
+    await connectedDevice.write(base64, "base64");
+    await new Promise(resolve => setTimeout(resolve, 5));
+  } catch (error) {
+    console.error("[Classic-OTA] Error sending binary data:", error);
+    throw error;
+  }
+}
+
+export async function receiveClassicBinaryData(timeout: number): Promise<Uint8Array | null> {
+  if (!connectedDevice) return null;
+
+  return new Promise((resolve) => {
+    let receivedData: number[] = [];
+    let checkInterval: ReturnType<typeof setInterval> | null = null;
+
+    const cleanup = () => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+        checkInterval = null;
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
+    }, timeout);
+
+    const checkForData = async () => {
+      try {
+        if (!connectedDevice) {
+          cleanup();
+          clearTimeout(timeoutId);
+          resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
+          return;
+        }
+
+        const available = await connectedDevice.available();
+        if (available > 0) {
+          const rawData = await connectedDevice.read();
+          if (rawData) {
+            const bytes = base64ToBytesClassic(rawData) || stringToBytesClassic(rawData);
+            receivedData.push(...bytes);
+
+            if (receivedData.length > 0 && (receivedData[0] === 0x79 || receivedData[0] === 0x1F)) {
+              cleanup();
+              clearTimeout(timeoutId);
+              resolve(new Uint8Array(receivedData));
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[Classic-OTA] Error in receive loop:", error);
+      }
+    };
+
+    checkForData();
+    checkInterval = setInterval(checkForData, 50);
+  });
+}
