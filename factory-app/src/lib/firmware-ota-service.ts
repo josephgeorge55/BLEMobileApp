@@ -44,6 +44,12 @@ const INTER_STEP_DELAY_MS = 300;
 const MAX_HELLO_RETRIES = 5;
 const MAX_CMD_RETRIES = 3;
 
+const BAUD_RATE = 38400;
+const TX_CHUNK_SIZE = 64;
+const BYTES_PER_SEC = BAUD_RATE / 10;
+const TX_CHUNK_DELAY_MS = Math.ceil((TX_CHUNK_SIZE / BYTES_PER_SEC) * 1000) + 5;
+const POST_BLOCK_DELAY_MS = Math.ceil((BLOCK_SIZE / BYTES_PER_SEC) * 1000) + 10;
+
 export type OTAState = 
   | 'idle'
   | 'connecting'
@@ -146,7 +152,18 @@ export class FirmwareOTAService {
   private async sendBytes(data: Uint8Array): Promise<void> {
     const preview = Array.from(data.slice(0, 8)).map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
     this.log('debug', `TX: [${preview}${data.length > 8 ? '...' : ''}] (${data.length} bytes)`);
-    await this.sendData(data);
+
+    if (data.length <= TX_CHUNK_SIZE) {
+      await this.sendData(data);
+    } else {
+      for (let i = 0; i < data.length; i += TX_CHUNK_SIZE) {
+        const chunk = data.slice(i, Math.min(i + TX_CHUNK_SIZE, data.length));
+        await this.sendData(chunk);
+        if (i + TX_CHUNK_SIZE < data.length) {
+          await this.delay(TX_CHUNK_DELAY_MS);
+        }
+      }
+    }
   }
   
   private formatBytes(data: Uint8Array | null): string {
@@ -393,6 +410,7 @@ export class FirmwareOTAService {
       );
       
       await this.sendBytes(block);
+      await this.delay(POST_BLOCK_DELAY_MS);
       
       if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
         this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged - NACK or timeout`);
@@ -440,6 +458,7 @@ export class FirmwareOTAService {
       this.log('info', '=== STARTING FIRMWARE UPDATE (FOTA v2.0) ===');
       this.log('info', `Firmware size: ${firmwareData.length} bytes`);
       this.log('info', `Target address: ${formatAddress(FIRMWARE_START_ADDRESS)}`);
+      this.log('info', `Baud rate: ${BAUD_RATE} | Chunk: ${TX_CHUNK_SIZE}B | Block delay: ${POST_BLOCK_DELAY_MS}ms`);
       
       this.log('info', '--- Step 1/5: HELLO ---');
       if (!await this.hello()) {

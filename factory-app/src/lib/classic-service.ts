@@ -240,7 +240,8 @@ export async function sendClassicBinaryData(data: Uint8Array): Promise<void> {
   try {
     const base64 = arrayBufferToBase64Classic(data);
     await connectedDevice.write(base64, "base64");
-    await new Promise(resolve => setTimeout(resolve, 5));
+    const txDelayMs = Math.ceil((data.length / 3840) * 1000) + 5;
+    await new Promise(resolve => setTimeout(resolve, txDelayMs));
   } catch (error) {
     console.error("[Classic-OTA] Error sending binary data:", error);
     throw error;
