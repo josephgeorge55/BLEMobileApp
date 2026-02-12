@@ -5,7 +5,7 @@
  * Based on Bluetooth FOTA Technical Specification v2.0
  * 
  * Protocol Commands:
- *   HELLO    (0x79) - Check bootloader connection
+ *   HELLO    (0x7F) - Check bootloader connection
  *   FW_INFO  (0x10) - Send start address + firmware size
  *   ERASE    (0x43) - Erase application flash area
  *   WRITE    (0x31) - Write firmware block by block (256 bytes)
@@ -25,7 +25,7 @@ const ACK = 0x79;
 const NACK = 0x1F;
 
 const CMD = {
-  HELLO: 0x79,
+  HELLO: 0x7F,
   FW_INFO: 0x10,
   ERASE: 0x43,
   WRITE: 0x31,
@@ -250,7 +250,7 @@ export class FirmwareOTAService {
   
   async hello(): Promise<boolean> {
     this.aborted = false;
-    this.log('info', 'Sending HELLO command (0x79) to check bootloader connection...');
+    this.log('info', 'Sending HELLO command (0x7F) to check bootloader connection...');
     this.updateProgress('initializing', 5, 'Checking bootloader connection...');
     
     for (let attempt = 1; attempt <= MAX_HELLO_RETRIES; attempt++) {
