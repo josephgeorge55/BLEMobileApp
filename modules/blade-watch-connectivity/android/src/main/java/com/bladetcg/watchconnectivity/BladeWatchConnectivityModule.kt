@@ -3,12 +3,13 @@ package com.bladetcg.watchconnectivity
 import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import expo.modules.kotlin.Promise
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedListener {
     companion object {
@@ -46,30 +47,22 @@ class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedLi
             }
         }
 
-        AsyncFunction("activateSession") { promise: Promise ->
+        AsyncFunction("activateSession") {
             try {
-                val context = appContext.reactContext
-                if (context == null) {
-                    promise.resolve(false)
-                    return@AsyncFunction
-                }
+                val context = appContext.reactContext ?: return@AsyncFunction false
                 messageClient = Wearable.getMessageClient(context)
                 messageClient?.addListener(this@BladeWatchConnectivityModule)
                 Log.d(TAG, "Session activated")
-                promise.resolve(true)
+                return@AsyncFunction true
             } catch (e: Exception) {
                 Log.e(TAG, "activateSession failed: ${e.message}")
-                promise.resolve(false)
+                return@AsyncFunction false
             }
         }
 
-        AsyncFunction("sendTelemetryToWatch") { isConnected: Boolean, serialNumber: String, motorName: String, speedKnots: Double, batteryPercent: Int, wattage: Double, isTripActive: Boolean, tripElapsedSeconds: Int, promise: Promise ->
+        AsyncFunction("sendTelemetryToWatch") { isConnected: Boolean, serialNumber: String, motorName: String, speedKnots: Double, batteryPercent: Int, wattage: Double, isTripActive: Boolean, tripElapsedSeconds: Int ->
             try {
-                val context = appContext.reactContext
-                if (context == null) {
-                    promise.resolve(false)
-                    return@AsyncFunction
-                }
+                val context = appContext.reactContext ?: return@AsyncFunction false
                 val dataClient = Wearable.getDataClient(context)
 
                 val telemetryReq = PutDataMapRequest.create(TELEMETRY_PATH).apply {
@@ -96,50 +89,46 @@ class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedLi
                 }
                 dataClient.putDataItem(tripReq.asPutDataRequest().setUrgent())
 
-                promise.resolve(true)
+                return@AsyncFunction true
             } catch (e: Exception) {
                 Log.e(TAG, "sendTelemetryToWatch failed: ${e.message}")
-                promise.resolve(false)
+                return@AsyncFunction false
             }
         }
 
-        AsyncFunction("isWatchPaired") { promise: Promise ->
+        AsyncFunction("isWatchPaired") {
             try {
-                val context = appContext.reactContext
-                if (context == null) {
-                    promise.resolve(false)
-                    return@AsyncFunction
-                }
+                val context = appContext.reactContext ?: return@AsyncFunction false
                 val nodeClient = Wearable.getNodeClient(context)
-                nodeClient.connectedNodes
-                    .addOnSuccessListener { nodes ->
-                        promise.resolve(nodes.isNotEmpty())
-                    }
-                    .addOnFailureListener {
-                        promise.resolve(false)
-                    }
+                return@AsyncFunction suspendCoroutine<Boolean> { cont ->
+                    nodeClient.connectedNodes
+                        .addOnSuccessListener { nodes ->
+                            cont.resume(nodes.isNotEmpty())
+                        }
+                        .addOnFailureListener {
+                            cont.resume(false)
+                        }
+                }
             } catch (e: Exception) {
-                promise.resolve(false)
+                return@AsyncFunction false
             }
         }
 
-        AsyncFunction("isWatchReachable") { promise: Promise ->
+        AsyncFunction("isWatchReachable") {
             try {
-                val context = appContext.reactContext
-                if (context == null) {
-                    promise.resolve(false)
-                    return@AsyncFunction
-                }
+                val context = appContext.reactContext ?: return@AsyncFunction false
                 val nodeClient = Wearable.getNodeClient(context)
-                nodeClient.connectedNodes
-                    .addOnSuccessListener { nodes ->
-                        promise.resolve(nodes.any { it.isNearby })
-                    }
-                    .addOnFailureListener {
-                        promise.resolve(false)
-                    }
+                return@AsyncFunction suspendCoroutine<Boolean> { cont ->
+                    nodeClient.connectedNodes
+                        .addOnSuccessListener { nodes ->
+                            cont.resume(nodes.any { it.isNearby })
+                        }
+                        .addOnFailureListener {
+                            cont.resume(false)
+                        }
+                }
             } catch (e: Exception) {
-                promise.resolve(false)
+                return@AsyncFunction false
             }
         }
     }
