@@ -3,13 +3,11 @@ package com.bladetcg.watchconnectivity
 import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedListener {
     companion object {
@@ -53,10 +51,10 @@ class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedLi
                 messageClient = Wearable.getMessageClient(context)
                 messageClient?.addListener(this@BladeWatchConnectivityModule)
                 Log.d(TAG, "Session activated")
-                return@AsyncFunction true
+                true
             } catch (e: Exception) {
                 Log.e(TAG, "activateSession failed: ${e.message}")
-                return@AsyncFunction false
+                false
             }
         }
 
@@ -89,10 +87,10 @@ class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedLi
                 }
                 dataClient.putDataItem(tripReq.asPutDataRequest().setUrgent())
 
-                return@AsyncFunction true
+                true
             } catch (e: Exception) {
                 Log.e(TAG, "sendTelemetryToWatch failed: ${e.message}")
-                return@AsyncFunction false
+                false
             }
         }
 
@@ -100,17 +98,11 @@ class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedLi
             try {
                 val context = appContext.reactContext ?: return@AsyncFunction false
                 val nodeClient = Wearable.getNodeClient(context)
-                return@AsyncFunction suspendCoroutine<Boolean> { cont ->
-                    nodeClient.connectedNodes
-                        .addOnSuccessListener { nodes ->
-                            cont.resume(nodes.isNotEmpty())
-                        }
-                        .addOnFailureListener {
-                            cont.resume(false)
-                        }
-                }
+                val nodes = Tasks.await(nodeClient.connectedNodes)
+                nodes.isNotEmpty()
             } catch (e: Exception) {
-                return@AsyncFunction false
+                Log.e(TAG, "isWatchPaired failed: ${e.message}")
+                false
             }
         }
 
@@ -118,17 +110,11 @@ class BladeWatchConnectivityModule : Module(), MessageClient.OnMessageReceivedLi
             try {
                 val context = appContext.reactContext ?: return@AsyncFunction false
                 val nodeClient = Wearable.getNodeClient(context)
-                return@AsyncFunction suspendCoroutine<Boolean> { cont ->
-                    nodeClient.connectedNodes
-                        .addOnSuccessListener { nodes ->
-                            cont.resume(nodes.any { it.isNearby })
-                        }
-                        .addOnFailureListener {
-                            cont.resume(false)
-                        }
-                }
+                val nodes = Tasks.await(nodeClient.connectedNodes)
+                nodes.any { it.isNearby }
             } catch (e: Exception) {
-                return@AsyncFunction false
+                Log.e(TAG, "isWatchReachable failed: ${e.message}")
+                false
             }
         }
     }
