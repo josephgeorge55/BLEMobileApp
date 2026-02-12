@@ -89,6 +89,22 @@ function cleanFrame(data: string): string {
 }
 
 function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): void {
+  if (classicOtaMode) {
+    const bytes: number[] = [];
+    for (let i = 0; i < data.length; i++) {
+      bytes.push(data.charCodeAt(i) & 0xFF);
+    }
+    const hexPreview = bytes.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    console.log(`[Classic-OTA] onDataReceived intercepted (${bytes.length} bytes): ${hexPreview}`);
+    classicOtaRxBuffer.push(...bytes);
+    if (classicOtaRxResolve) {
+      const resolve = classicOtaRxResolve;
+      classicOtaRxResolve = null;
+      resolve([...classicOtaRxBuffer]);
+    }
+    return;
+  }
+
   const cleaned = cleanFrame(data);
   if (cleaned.length === 0) return;
   dataBuffer += cleaned;
@@ -179,12 +195,18 @@ export function isClassicConnected(): boolean {
 }
 
 let classicOtaMode = false;
+let classicOtaRxBuffer: number[] = [];
+let classicOtaRxResolve: ((data: number[]) => void) | null = null;
 
 export function setClassicOTAMode(enabled: boolean): void {
   classicOtaMode = enabled;
   if (enabled) {
+    classicOtaRxBuffer = [];
+    classicOtaRxResolve = null;
     console.log("[Classic] OTA mode enabled");
   } else {
+    classicOtaRxBuffer = [];
+    classicOtaRxResolve = null;
     console.log("[Classic] OTA mode disabled");
   }
 }
@@ -252,51 +274,27 @@ export async function receiveClassicBinaryData(timeout: number): Promise<Uint8Ar
   if (!connectedDevice) return null;
 
   return new Promise((resolve) => {
-    let receivedData: number[] = [];
-    let checkInterval: ReturnType<typeof setInterval> | null = null;
-
-    const cleanup = () => {
-      if (checkInterval) {
-        clearInterval(checkInterval);
-        checkInterval = null;
-      }
-    };
+    if (classicOtaRxBuffer.length > 0) {
+      const data = [...classicOtaRxBuffer];
+      classicOtaRxBuffer = [];
+      const hexPreview = data.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      console.log(`[Classic-OTA] RX immediate from buffer (${data.length} bytes): ${hexPreview}`);
+      resolve(new Uint8Array(data));
+      return;
+    }
 
     const timeoutId = setTimeout(() => {
-      cleanup();
-      resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
+      classicOtaRxResolve = null;
+      console.log("[Classic-OTA] RX timeout - no data received");
+      resolve(null);
     }, timeout);
 
-    const checkForData = async () => {
-      try {
-        if (!connectedDevice) {
-          cleanup();
-          clearTimeout(timeoutId);
-          resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
-          return;
-        }
-
-        const available = await connectedDevice.available();
-        if (available > 0) {
-          const rawData = await connectedDevice.read();
-          if (rawData) {
-            const bytes = base64ToBytesClassic(rawData) || stringToBytesClassic(rawData);
-            receivedData.push(...bytes);
-
-            if (receivedData.length > 0 && (receivedData[0] === 0x79 || receivedData[0] === 0x1F)) {
-              cleanup();
-              clearTimeout(timeoutId);
-              resolve(new Uint8Array(receivedData));
-              return;
-            }
-          }
-        }
-      } catch (error) {
-        console.error("[Classic-OTA] Error in receive loop:", error);
-      }
+    classicOtaRxResolve = (data: number[]) => {
+      clearTimeout(timeoutId);
+      classicOtaRxBuffer = [];
+      const hexPreview = data.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      console.log(`[Classic-OTA] RX from onDataReceived (${data.length} bytes): ${hexPreview}`);
+      resolve(new Uint8Array(data));
     };
-
-    checkForData();
-    checkInterval = setInterval(checkForData, 50);
   });
 }

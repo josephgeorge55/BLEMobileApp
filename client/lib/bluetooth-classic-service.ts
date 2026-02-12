@@ -232,7 +232,22 @@ function cleanFrame(data: string): string {
 }
 
 function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): void {
-  // Clean the incoming data first - remove invisible characters
+  if (otaMode) {
+    const bytes: number[] = [];
+    for (let i = 0; i < data.length; i++) {
+      bytes.push(data.charCodeAt(i) & 0xFF);
+    }
+    const hexPreview = bytes.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    console.log(`[BT-OTA] onDataReceived intercepted (${bytes.length} bytes): ${hexPreview}`);
+    otaRxBuffer.push(...bytes);
+    if (otaRxResolve) {
+      const resolve = otaRxResolve;
+      otaRxResolve = null;
+      resolve([...otaRxBuffer]);
+    }
+    return;
+  }
+
   const cleanedData = cleanFrame(data);
   
   callbacks.onDebugLog?.("DATA", `Raw chunk (${data.length} chars, cleaned: ${cleanedData.length}): "${cleanedData.substring(0, 80)}"`);
@@ -387,13 +402,19 @@ export async function getClassicDiagnostics(): Promise<{
 let pendingDataResolve: ((data: Uint8Array | null) => void) | null = null;
 let pendingDataBuffer: number[] = [];
 let otaMode = false;
+let otaRxBuffer: number[] = [];
+let otaRxResolve: ((data: number[]) => void) | null = null;
 
 export function setOTAMode(enabled: boolean): void {
   otaMode = enabled;
   if (enabled) {
     pendingDataBuffer = [];
+    otaRxBuffer = [];
+    otaRxResolve = null;
     console.log("[BT-Classic] OTA mode enabled - binary data handling active");
   } else {
+    otaRxBuffer = [];
+    otaRxResolve = null;
     console.log("[BT-Classic] OTA mode disabled - normal text mode");
   }
 }
@@ -429,71 +450,28 @@ export async function receiveBinaryData(timeout: number): Promise<Uint8Array | n
   }
 
   return new Promise((resolve) => {
-    const startTime = Date.now();
-    let receivedData: number[] = [];
-    let checkInterval: ReturnType<typeof setInterval> | null = null;
-
-    const cleanup = () => {
-      if (checkInterval) {
-        clearInterval(checkInterval);
-        checkInterval = null;
-      }
-    };
+    if (otaRxBuffer.length > 0) {
+      const data = [...otaRxBuffer];
+      otaRxBuffer = [];
+      const hexPreview = data.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      console.log(`[BT-OTA] RX immediate from buffer (${data.length} bytes): ${hexPreview}`);
+      resolve(new Uint8Array(data));
+      return;
+    }
 
     const timeoutId = setTimeout(() => {
-      cleanup();
-      if (receivedData.length > 0) {
-        console.log(`[BT-OTA] RX timeout with ${receivedData.length} bytes collected`);
-        resolve(new Uint8Array(receivedData));
-      } else {
-        console.log("[BT-OTA] RX timeout - no data received");
-        resolve(null);
-      }
+      otaRxResolve = null;
+      console.log("[BT-OTA] RX timeout - no data received");
+      resolve(null);
     }, timeout);
 
-    const checkForData = async () => {
-      try {
-        if (!connectedDevice) {
-          cleanup();
-          clearTimeout(timeoutId);
-          resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
-          return;
-        }
-
-        const available = await connectedDevice.available();
-        if (available > 0) {
-          const rawData = await connectedDevice.read();
-          if (rawData) {
-            const bytes = base64ToBytes(rawData) || stringToBytes(rawData);
-            receivedData.push(...bytes);
-            
-            const hexPreview = bytes.slice(0, 16).map((b: number) => b.toString(16).padStart(2, '0')).join(' ');
-            console.log(`[BT-OTA] RX chunk (${bytes.length} bytes): ${hexPreview}${bytes.length > 16 ? '...' : ''}`);
-            
-            if (receivedData.length > 0 && (receivedData[0] === 0x79 || receivedData[0] === 0x1F)) {
-              cleanup();
-              clearTimeout(timeoutId);
-              console.log(`[BT-OTA] RX complete (ACK/NACK): ${receivedData.length} bytes`);
-              resolve(new Uint8Array(receivedData));
-              return;
-            }
-            
-            if (receivedData.length >= 13 && receivedData[0] === 0x79) {
-              cleanup();
-              clearTimeout(timeoutId);
-              console.log(`[BT-OTA] RX complete (GET response): ${receivedData.length} bytes`);
-              resolve(new Uint8Array(receivedData));
-              return;
-            }
-          }
-        }
-      } catch (error) {
-        console.error("[BT-OTA] Error in receive loop:", error);
-      }
+    otaRxResolve = (data: number[]) => {
+      clearTimeout(timeoutId);
+      otaRxBuffer = [];
+      const hexPreview = data.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      console.log(`[BT-OTA] RX from onDataReceived (${data.length} bytes): ${hexPreview}`);
+      resolve(new Uint8Array(data));
     };
-
-    checkForData();
-    checkInterval = setInterval(checkForData, 50);
   });
 }
 
