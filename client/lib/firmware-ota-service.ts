@@ -37,8 +37,12 @@ const BLOCK_SIZE = 256;
 const TIMEOUT_MS = 5000;
 const ERASE_TIMEOUT_MS = 15000;
 const WRITE_BLOCK_TIMEOUT_MS = 5000;
-const BOOTLOADER_ENTRY_DELAY_MS = 1500;
-const MAX_RETRIES = 3;
+const BOOTLOADER_RESET_DELAY_MS = 2500;
+const BOOTLOADER_INIT_DELAY_MS = 1500;
+const HELLO_RETRY_DELAY_MS = 1500;
+const INTER_STEP_DELAY_MS = 300;
+const MAX_HELLO_RETRIES = 5;
+const MAX_CMD_RETRIES = 3;
 
 export type OTAState = 
   | 'idle'
@@ -179,6 +183,19 @@ export class FirmwareOTAService {
     this.log('warning', `Unexpected response: ${this.formatBytes(response)}`);
     return false;
   }
+
+  private async drainRxBuffer(): Promise<void> {
+    this.log('debug', 'Draining RX buffer of stale data...');
+    let drained = 0;
+    while (true) {
+      const data = await this.receiveData(200);
+      if (!data || data.length === 0) break;
+      drained += data.length;
+    }
+    if (drained > 0) {
+      this.log('debug', `Drained ${drained} stale bytes from RX buffer`);
+    }
+  }
   
   private updateProgress(
     state: OTAState,
@@ -201,16 +218,29 @@ export class FirmwareOTAService {
   }
   
   async enterBootloaderMode(): Promise<boolean> {
-    this.log('info', 'Sending $APP_CONFIG,UPDATE_FW to enter bootloader mode...');
+    this.log('info', 'Entering bootloader mode...');
     this.updateProgress('connecting', 0, 'Entering bootloader mode...');
     
     try {
+      await this.drainRxBuffer();
+
       const cmd = '$APP_CONFIG,UPDATE_FW\n';
       const encoder = new TextEncoder();
+
+      this.log('info', 'Sending $APP_CONFIG,UPDATE_FW command...');
       await this.sendData(encoder.encode(cmd));
-      this.log('info', `Waiting ${BOOTLOADER_ENTRY_DELAY_MS}ms for bootloader to initialize...`);
-      await this.delay(BOOTLOADER_ENTRY_DELAY_MS);
-      this.log('success', 'Bootloader entry command sent');
+
+      this.log('info', `Waiting ${BOOTLOADER_RESET_DELAY_MS}ms for board to reset into bootloader...`);
+      await this.delay(BOOTLOADER_RESET_DELAY_MS);
+
+      await this.drainRxBuffer();
+
+      this.log('info', `Waiting ${BOOTLOADER_INIT_DELAY_MS}ms for bootloader to initialize...`);
+      await this.delay(BOOTLOADER_INIT_DELAY_MS);
+
+      await this.drainRxBuffer();
+
+      this.log('success', 'Bootloader entry sequence complete');
       return true;
     } catch (error) {
       this.log('error', `Failed to send bootloader entry command: ${error}`);
@@ -223,8 +253,12 @@ export class FirmwareOTAService {
     this.log('info', 'Sending HELLO command (0x79) to check bootloader connection...');
     this.updateProgress('initializing', 5, 'Checking bootloader connection...');
     
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      this.log('info', `HELLO attempt ${attempt}/${MAX_RETRIES}...`);
+    for (let attempt = 1; attempt <= MAX_HELLO_RETRIES; attempt++) {
+      this.checkAbort();
+
+      await this.drainRxBuffer();
+
+      this.log('info', `HELLO attempt ${attempt}/${MAX_HELLO_RETRIES}...`);
       await this.send([CMD.HELLO]);
       
       if (await this.waitForAck(TIMEOUT_MS)) {
@@ -233,9 +267,26 @@ export class FirmwareOTAService {
         return true;
       }
       
-      if (attempt < MAX_RETRIES) {
-        this.log('warning', `No ACK for HELLO, retrying in 500ms...`);
-        await this.delay(500);
+      if (attempt < MAX_HELLO_RETRIES) {
+        if (attempt === 3) {
+          this.log('warning', 'No response after 3 attempts, re-sending $APP_CONFIG,UPDATE_FW...');
+          try {
+            const cmd = '$APP_CONFIG,UPDATE_FW\n';
+            const encoder = new TextEncoder();
+            await this.sendData(encoder.encode(cmd));
+            this.log('info', `Waiting ${BOOTLOADER_RESET_DELAY_MS}ms for board to reset...`);
+            await this.delay(BOOTLOADER_RESET_DELAY_MS);
+            await this.drainRxBuffer();
+            this.log('info', `Waiting ${BOOTLOADER_INIT_DELAY_MS}ms for bootloader init...`);
+            await this.delay(BOOTLOADER_INIT_DELAY_MS);
+            await this.drainRxBuffer();
+          } catch (e) {
+            this.log('warning', `Re-send UPDATE_FW failed: ${e}`);
+          }
+        } else {
+          this.log('warning', `No ACK for HELLO, retrying in ${HELLO_RETRY_DELAY_MS}ms...`);
+          await this.delay(HELLO_RETRY_DELAY_MS);
+        }
       }
     }
     
@@ -249,6 +300,8 @@ export class FirmwareOTAService {
     this.checkAbort();
     this.log('info', `Sending FW_INFO: start=${formatAddress(FIRMWARE_START_ADDRESS)}, size=${firmwareSize} bytes`);
     this.updateProgress('initializing', 12, 'Sending firmware info...');
+
+    await this.delay(INTER_STEP_DELAY_MS);
     
     const frame = new Uint8Array(9);
     frame[0] = CMD.FW_INFO;
@@ -277,6 +330,8 @@ export class FirmwareOTAService {
     this.checkAbort();
     this.log('info', 'Sending ERASE command (0x43) to erase application flash...');
     this.updateProgress('erasing', 15, 'Erasing flash memory...');
+
+    await this.delay(INTER_STEP_DELAY_MS);
     
     await this.send([CMD.ERASE]);
     
@@ -300,6 +355,8 @@ export class FirmwareOTAService {
     const totalBlocks = Math.ceil(firmwareData.length / BLOCK_SIZE);
     this.log('info', `Starting WRITE: ${firmwareData.length} bytes in ${totalBlocks} blocks of ${BLOCK_SIZE} bytes`);
     this.updateProgress('programming', 25, 'Sending WRITE command...');
+
+    await this.delay(INTER_STEP_DELAY_MS);
     
     await this.send([CMD.WRITE]);
     
@@ -361,6 +418,8 @@ export class FirmwareOTAService {
     
     this.log('info', 'Sending GOTOAPP command (0x21) to start new firmware...');
     this.updateProgress('starting', 95, 'Starting firmware...');
+
+    await this.delay(INTER_STEP_DELAY_MS);
     
     await this.send([CMD.GOTOAPP]);
     
