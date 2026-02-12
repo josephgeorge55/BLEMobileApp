@@ -7,7 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { AppProvider, useApp } from "./context/AppContext";
 import AppNavigator from "./navigation/AppNavigator";
 
-const logoImage = require("../../assets/images/blade-logo-white.png");
+const logoImage = require("../assets/images/blade-logo-white.png");
 
 function ToastOverlay() {
   const { toast, hideToast } = useApp();

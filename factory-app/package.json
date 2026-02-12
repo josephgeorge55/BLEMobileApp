@@ -16,6 +16,8 @@
     "expo": "^54.0.23",
     "expo-build-properties": "^1.0.10",
     "expo-constants": "~18.0.9",
+    "expo-document-picker": "~14.0.6",
+    "expo-file-system": "~19.0.10",
     "expo-location": "^19.0.8",
     "expo-print": "^15.0.8",
     "expo-sharing": "^14.0.8",
