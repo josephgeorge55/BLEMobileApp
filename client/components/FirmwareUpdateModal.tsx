@@ -30,6 +30,14 @@ import {
   isClassicConnected,
   setOTAMode,
 } from "@/lib/bluetooth-classic-service";
+import {
+  sendBleBinaryData,
+  receiveBleBinaryData,
+  setBleOTAMode,
+  isConnected as isBleConnected,
+} from "@/lib/ble-service";
+
+type OTATransport = "classic" | "ble" | null;
 
 interface Props {
   visible: boolean;
@@ -59,6 +67,8 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
   });
   const [bootloaderReady, setBootloaderReady] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [transport, setTransport] = useState<OTATransport>(null);
+  const transportRef = useRef<OTATransport>(null);
 
   const otaServiceRef = useRef<FirmwareOTAService | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -122,22 +132,53 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     }
   };
 
+  const cleanupOTAMode = () => {
+    const t = transportRef.current;
+    if (t === "classic") {
+      setOTAMode(false);
+    } else if (t === "ble") {
+      setBleOTAMode(false);
+    }
+  };
+
   const handleConnect = async () => {
-    if (!isClassicConnected()) {
+    let detectedTransport: OTATransport = null;
+
+    if (isClassicConnected()) {
+      detectedTransport = "classic";
+    } else if (isBleConnected()) {
+      detectedTransport = "ble";
+    }
+
+    if (!detectedTransport) {
       addLog("error", "No Bluetooth device connected. Please connect via the Scanner first.");
       return;
     }
 
+    setTransport(detectedTransport);
+    transportRef.current = detectedTransport;
     addLog("info", "=== BOOTLOADER CONNECTION (FOTA v2.0) ===");
+    addLog("info", `Transport: ${detectedTransport === "classic" ? "Bluetooth Classic" : "BLE"}`);
     addLog("info", "1. Sending $APP_CONFIG,UPDATE_FW to enter bootloader mode");
     addLog("info", "2. Then checking connection with HELLO command");
-    
-    setOTAMode(true);
+
+    let sendFn: (data: Uint8Array) => Promise<void>;
+    let recvFn: (timeout: number) => Promise<Uint8Array | null>;
+
+    if (detectedTransport === "classic") {
+      setOTAMode(true);
+      sendFn = sendBinaryData;
+      recvFn = receiveBinaryData;
+    } else {
+      setBleOTAMode(true);
+      sendFn = sendBleBinaryData;
+      recvFn = receiveBleBinaryData;
+    }
     addLog("info", "OTA binary mode enabled");
 
     const service = new FirmwareOTAService(
-      sendBinaryData,
-      receiveBinaryData,
+      sendFn,
+      recvFn,
       addLog,
       setProgress
     );
@@ -146,7 +187,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     const entered = await service.enterBootloaderMode();
     if (!entered) {
       addLog("error", "Failed to send bootloader entry command");
-      setOTAMode(false);
+      cleanupOTAMode();
       return;
     }
 
@@ -161,7 +202,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
       addLog("info", "  - Verify Bluetooth is connected and paired");
       addLog("info", "  - Try power cycling the mainboard");
       addLog("info", "  - Ensure the board supports FOTA v2.0 protocol");
-      setOTAMode(false);
+      cleanupOTAMode();
     }
   };
 
@@ -215,7 +256,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
         addLog("info", "The mainboard should now be running the new firmware.");
         addLog("info", "You may need to reconnect via Bluetooth Scanner.");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setOTAMode(false);
+        cleanupOTAMode();
       } else {
         addLog("error", "Firmware update failed");
         addLog("info", "Check the log above for details.");
@@ -232,7 +273,7 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
   const handleAbort = () => {
     if (otaServiceRef.current) {
       otaServiceRef.current.abort();
-      setOTAMode(false);
+      cleanupOTAMode();
       addLog("warning", "Firmware update aborted by user");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
@@ -242,7 +283,9 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
     if (isUpdating) {
       return;
     }
-    setOTAMode(false);
+    cleanupOTAMode();
+    setTransport(null);
+    transportRef.current = null;
     setFirmwareFile(null);
     setLogs([]);
     setProgress({
@@ -332,6 +375,14 @@ export function FirmwareUpdateModal({ visible, onClose }: Props) {
               {motor?.serialNumber || "No motor connected"}
             </ThemedText>
           </View>
+          {transport ? (
+            <View style={styles.statusRow}>
+              <Feather name={transport === "ble" ? "radio" : "bluetooth"} size={16} color={BladeColors.accent} />
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {transport === "classic" ? "Bluetooth Classic" : "BLE"} transport
+              </ThemedText>
+            </View>
+          ) : null}
           {bootloaderReady ? (
             <View style={styles.statusRow}>
               <Feather name="cpu" size={16} color={BladeColors.accent} />
