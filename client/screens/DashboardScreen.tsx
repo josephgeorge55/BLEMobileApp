@@ -1050,7 +1050,7 @@ export default function DashboardScreen() {
                 Estimated Range
               </ThemedText>
             </View>
-            <View style={[styles.statusCard, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderRadius: BorderRadius.xl, padding: Spacing.lg }]}>
+            <StatusCardContainer style={{ borderWidth: 1, borderRadius: BorderRadius.xl, padding: Spacing.lg }}>
               {rangeData ? (
                 <>
                   <View style={{ flexDirection: "row", alignItems: "baseline", marginBottom: Spacing.sm }}>
@@ -1110,7 +1110,7 @@ export default function DashboardScreen() {
                   Estimate based on last 10 seconds avg consumption. For reference only — always maintain a safe buffer. Actual range varies with conditions, load, and speed. Do not rely on this as your sole indicator.
                 </ThemedText>
               </View>
-            </View>
+            </StatusCardContainer>
           </View>
         );
       }
