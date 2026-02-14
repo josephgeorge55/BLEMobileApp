@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, Image, Pressable, ActivityIndicator, ScrollView, Dimensions, Platform } from "react-native";
+import { StyleSheet, View, Image, Pressable, ActivityIndicator, ScrollView, Dimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import Animated, { SlideInDown, useAnimatedStyle, useSharedValue, withSpring, runOnJS } from "react-native-reanimated";
@@ -12,7 +11,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BladeColors, BorderRadius, Shadows } from "@/constants/theme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 const MIN_HEIGHT = 220;
 const MAX_HEIGHT = SCREEN_HEIGHT * 0.6;
 
@@ -172,15 +170,8 @@ export function FindMyPanel({
     <GestureDetector gesture={panGesture}>
       <Animated.View
         entering={SlideInDown.duration(400).springify()}
-        style={[styles.container, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }, Shadows.large, animatedContainerStyle]}
+        style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)" }, Shadows.large, animatedContainerStyle]}
       >
-        {supportsGlass ? (
-          <GlassView
-            glassEffectStyle="regular"
-            tintColor="rgba(255,255,255,0.08)"
-            style={StyleSheet.absoluteFill}
-          />
-        ) : null}
         <Pressable onPress={handleExpandToggle} style={styles.handleContainer}>
           <View style={styles.handle} />
           <ThemedText type="caption" style={{ color: theme.textTertiary, marginTop: Spacing.xs }}>

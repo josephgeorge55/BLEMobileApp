@@ -11,7 +11,6 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as Device from "expo-device";
 import * as Location from "expo-location";
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
@@ -24,8 +23,6 @@ import { useMotor } from "@/context/MotorContext";
 import { useTrip } from "@/context/TripContext";
 import { useDashboardLayout, DashboardSectionId } from "@/hooks/useDashboardLayout";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
-
-const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 interface LocationQueryData {
   latitude: number;
@@ -113,8 +110,7 @@ export default function DashboardScreen() {
   const consumptionHistoryRef = useRef<{value: number, timestamp: number}[]>([]);
 
   const StatusCardContainer = useCallback(({ children, style }: { children: React.ReactNode; style?: any }) => (
-    <View style={[styles.statusCard, { borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }, style]}>
-      {supportsGlass ? <GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.08)" style={StyleSheet.absoluteFill} /> : null}
+    <View style={[styles.statusCard, { borderColor: "rgba(255,255,255,0.08)", overflow: "hidden", backgroundColor: "rgba(44,44,46,0.92)" }, style]}>
       {children}
     </View>
   ), []);

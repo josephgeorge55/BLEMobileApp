@@ -56,6 +56,7 @@ export default function SettingsScreen() {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
   const [loadingMotors, setLoadingMotors] = useState(false);
+  const motorsLoadedRef = useRef(false);
   const [isLinkingMotor, setIsLinkingMotor] = useState(false);
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [showBoatModal, setShowBoatModal] = useState(false);
@@ -94,10 +95,13 @@ export default function SettingsScreen() {
 
   const loadRegisteredMotors = async () => {
     if (!user?.id) return;
-    setLoadingMotors(true);
+    if (!motorsLoadedRef.current) {
+      setLoadingMotors(true);
+    }
     try {
       const motors = await getRegisteredMotors(user.id);
       setRegisteredMotors(motors);
+      motorsLoadedRef.current = true;
     } catch (error) {
       console.error("Failed to load registered motors:", error);
     } finally {

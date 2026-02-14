@@ -1,6 +1,5 @@
 import React from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp, Platform } from "react-native";
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
+import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -11,8 +10,6 @@ import Animated, {
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
-
-const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 interface CardProps {
   elevation?: number;
@@ -90,37 +87,12 @@ export function Card({
     </>
   );
 
-  if (supportsGlass) {
-    return (
-      <AnimatedPressable
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[styles.card, animatedStyle, style]}
-      >
-        <GlassView
-          glassEffectStyle="regular"
-          tintColor={cardBackgroundColor}
-          style={StyleSheet.absoluteFill}
-        />
-        {content}
-      </AnimatedPressable>
-    );
-  }
-
   return (
     <AnimatedPressable
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[
-        styles.card,
-        {
-          backgroundColor: cardBackgroundColor,
-        },
-        animatedStyle,
-        style,
-      ]}
+      style={[styles.card, { backgroundColor: cardBackgroundColor }, animatedStyle, style]}
     >
       {content}
     </AnimatedPressable>

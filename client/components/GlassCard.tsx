@@ -1,6 +1,5 @@
 import React from "react";
-import { View, ViewStyle, StyleProp, Platform } from "react-native";
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
+import { View, ViewStyle, StyleProp } from "react-native";
 
 interface GlassCardProps {
   children?: React.ReactNode;
@@ -14,34 +13,10 @@ export const GlassCard = React.memo(
   ({
     children,
     style,
-    glassEffectStyle = "regular",
-    tintColor,
     fallbackBackgroundColor = "rgba(44,44,46,0.92)",
   }: GlassCardProps) => {
-    const supportsGlass =
-      isLiquidGlassAvailable() && Platform.OS === "ios";
-
-    if (supportsGlass) {
-      return (
-        <GlassView
-          glassEffectStyle={glassEffectStyle}
-          tintColor={tintColor}
-          style={style}
-        >
-          {children}
-        </GlassView>
-      );
-    }
-
     return (
-      <View
-        style={[
-          {
-            backgroundColor: fallbackBackgroundColor,
-          },
-          style,
-        ]}
-      >
+      <View style={[{ backgroundColor: fallbackBackgroundColor }, style]}>
         {children}
       </View>
     );

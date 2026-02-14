@@ -1,13 +1,10 @@
 import React from "react";
-import { StyleSheet, View, Switch, Pressable, Platform } from "react-native";
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
+import { StyleSheet, View, Switch, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
-
-const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 const DARK_TILE = "rgba(44,44,46,0.92)";
 const TILE_TEXT = "#FFFFFF";
 const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.5)";
@@ -134,11 +131,6 @@ export function SettingsSection({
   title: string;
   children: React.ReactNode;
 }) {
-  const SectionContainer = supportsGlass ? GlassView : View;
-  const sectionProps = supportsGlass
-    ? { glassEffectStyle: "regular" as const, tintColor: "rgba(255,255,255,0.08)" }
-    : {};
-
   return (
     <View style={styles.section}>
       <ThemedText
@@ -147,15 +139,14 @@ export function SettingsSection({
       >
         {title.toUpperCase()}
       </ThemedText>
-      <SectionContainer
-        {...sectionProps}
+      <View
         style={[
           styles.sectionContent,
-          !supportsGlass && { backgroundColor: DARK_TILE, borderColor: TILE_BORDER, borderWidth: 1 },
+          { backgroundColor: DARK_TILE, borderColor: TILE_BORDER, borderWidth: 1 },
         ]}
       >
         {children}
-      </SectionContainer>
+      </View>
     </View>
   );
 }
