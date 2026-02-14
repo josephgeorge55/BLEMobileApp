@@ -1,8 +1,9 @@
 import React from "react";
-import { StyleSheet, View, ViewStyle } from "react-native";
+import { StyleSheet, View, ViewStyle, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -16,6 +17,8 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, BladeColors, Typography, Shadows, Gradients } from "@/constants/theme";
+
+const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 interface MetricCardProps {
   icon: keyof typeof Feather.glyphMap;
@@ -188,12 +191,20 @@ export function MetricCard({
           animatedStyle,
         ]}
       >
-        <LinearGradient
-          colors={Gradients.cardPremium as [string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        {supportsGlass ? (
+          <GlassView
+            glassEffectStyle="regular"
+            tintColor="rgba(44,44,46,0.7)"
+            style={StyleSheet.absoluteFill}
+          />
+        ) : (
+          <LinearGradient
+            colors={Gradients.cardPremium as [string, string]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
         <View style={styles.header}>
           <View
             style={[

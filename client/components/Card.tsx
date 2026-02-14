@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, StyleProp, Platform } from "react-native";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -10,6 +11,8 @@ import Animated, {
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
+
+const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 interface CardProps {
   elevation?: number;
@@ -71,6 +74,40 @@ export function Card({
     scale.value = withSpring(1, springConfig);
   };
 
+  const content = (
+    <>
+      {title ? (
+        <ThemedText type="h4" style={styles.cardTitle}>
+          {title}
+        </ThemedText>
+      ) : null}
+      {description ? (
+        <ThemedText type="small" style={styles.cardDescription}>
+          {description}
+        </ThemedText>
+      ) : null}
+      {children}
+    </>
+  );
+
+  if (supportsGlass) {
+    return (
+      <AnimatedPressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[styles.card, animatedStyle, style]}
+      >
+        <GlassView
+          glassEffectStyle="regular"
+          tintColor={cardBackgroundColor}
+          style={StyleSheet.absoluteFill}
+        />
+        {content}
+      </AnimatedPressable>
+    );
+  }
+
   return (
     <AnimatedPressable
       onPress={onPress}
@@ -85,17 +122,7 @@ export function Card({
         style,
       ]}
     >
-      {title ? (
-        <ThemedText type="h4" style={styles.cardTitle}>
-          {title}
-        </ThemedText>
-      ) : null}
-      {description ? (
-        <ThemedText type="small" style={styles.cardDescription}>
-          {description}
-        </ThemedText>
-      ) : null}
-      {children}
+      {content}
     </AnimatedPressable>
   );
 }
@@ -104,6 +131,7 @@ const styles = StyleSheet.create({
   card: {
     padding: Spacing.xl,
     borderRadius: BorderRadius["2xl"],
+    overflow: "hidden",
   },
   cardTitle: {
     marginBottom: Spacing.sm,

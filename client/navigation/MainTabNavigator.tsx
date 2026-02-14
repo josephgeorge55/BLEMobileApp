@@ -2,6 +2,7 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Platform, StyleSheet, View } from "react-native";
 import * as Haptics from "expo-haptics";
 
@@ -13,6 +14,8 @@ import SettingsScreen from "@/screens/SettingsScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
 import { useTheme } from "@/hooks/useTheme";
 import { BladeColors, Spacing } from "@/constants/theme";
+
+const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 export type MainTabParamList = {
   DashboardTab: undefined;
@@ -82,7 +85,13 @@ export default function MainTabNavigator() {
           shadowRadius: 16,
         },
         tabBarBackground: () =>
-          Platform.OS === "ios" ? (
+          supportsGlass ? (
+            <GlassView
+              glassEffectStyle="regular"
+              tintColor={isDark ? "#0A0F14" : "#FFFFFF"}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : Platform.OS === "ios" ? (
             <BlurView
               intensity={isDark ? 60 : 80}
               tint={isDark ? "dark" : "light"}

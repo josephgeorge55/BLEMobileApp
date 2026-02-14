@@ -1,12 +1,15 @@
 import React, { useCallback } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { usePhoneSpeed } from "@/hooks/usePhoneSpeed";
 import { useMotor } from "@/context/MotorContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+
+const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 interface SpeedCardProps {
   motorSpeed: number;
@@ -38,7 +41,14 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }]}>
+    <View style={[styles.container, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }]}>
+      {supportsGlass ? (
+        <GlassView
+          glassEffectStyle="regular"
+          tintColor="rgba(44,44,46,0.7)"
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <View style={styles.header}>
         <View style={[styles.iconContainer, { backgroundColor: BladeColors.marine + "30" }]}>
           <Feather name="navigation" size={18} color={BladeColors.marine} />
@@ -131,6 +141,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: BorderRadius.lg,
     padding: Spacing.cardPadding,
+    overflow: "hidden",
   },
   header: {
     flexDirection: "row",
