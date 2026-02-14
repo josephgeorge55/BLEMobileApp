@@ -81,7 +81,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
         {supportsGlass && (
           <GlassView
             style={StyleSheet.absoluteFill}
-            tintColor="rgba(44,44,46,0.85)"
+            tintColor="rgba(20,20,22,0.35)"
             glassEffectStyle="regular"
           />
         )}
@@ -128,7 +128,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
         {supportsGlass && (
           <GlassView
             style={StyleSheet.absoluteFill}
-            tintColor="rgba(44,44,46,0.85)"
+            tintColor="rgba(20,20,22,0.35)"
             glassEffectStyle="regular"
           />
         )}
@@ -207,7 +207,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
           {supportsGlass && (
             <GlassView
               style={StyleSheet.absoluteFill}
-              tintColor="rgba(44,44,46,0.85)"
+              tintColor="rgba(20,20,22,0.35)"
               glassEffectStyle="regular"
             />
           )}
@@ -280,7 +280,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
         {supportsGlass && (
           <GlassView
             style={StyleSheet.absoluteFill}
-            tintColor="rgba(44,44,46,0.85)"
+            tintColor="rgba(20,20,22,0.35)"
             glassEffectStyle="regular"
           />
         )}

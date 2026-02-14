@@ -136,7 +136,7 @@ export function SettingsSection({
 }) {
   const SectionContainer = supportsGlass ? GlassView : View;
   const sectionProps = supportsGlass
-    ? { glassEffectStyle: "regular" as const, tintColor: DARK_TILE }
+    ? { glassEffectStyle: "regular" as const, tintColor: "rgba(20,20,22,0.35)" }
     : {};
 
   return (

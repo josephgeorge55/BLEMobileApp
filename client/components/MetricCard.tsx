@@ -194,7 +194,7 @@ export function MetricCard({
         {supportsGlass ? (
           <GlassView
             glassEffectStyle="regular"
-            tintColor="rgba(44,44,46,0.85)"
+            tintColor="rgba(20,20,22,0.35)"
             style={StyleSheet.absoluteFill}
           />
         ) : (
