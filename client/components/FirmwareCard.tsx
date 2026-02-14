@@ -3,7 +3,7 @@ import { StyleSheet, View, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import Animated, {
-  FadeIn,
+  SlideInRight,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -63,7 +63,7 @@ export function FirmwareCard({
 
   return (
     <Animated.View
-      entering={FadeIn.duration(300)}
+      entering={SlideInRight.duration(300)}
       style={[
         styles.card,
         !supportsGlass && { backgroundColor: DARK_TILE },

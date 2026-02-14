@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withSpring, runOnJS } from "react-native-reanimated";
+import Animated, { SlideInDown, useAnimatedStyle, useSharedValue, withSpring, runOnJS } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -171,7 +171,7 @@ export function FindMyPanel({
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View
-        entering={FadeInUp.duration(400).springify()}
+        entering={SlideInDown.duration(400).springify()}
         style={[styles.container, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }, Shadows.large, animatedContainerStyle]}
       >
         {supportsGlass ? (

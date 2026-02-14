@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
+import Animated, { SlideInDown, SlideInRight } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
@@ -75,7 +75,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
   if (loading && !weather) {
     return (
       <Animated.View
-        entering={FadeIn.duration(300)}
+        entering={SlideInRight.duration(300)}
         style={[styles.container, { overflow: "hidden", borderColor: "rgba(255,255,255,0.08)" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }]}
       >
         {supportsGlass && (
@@ -98,7 +98,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
   if (permissionDenied) {
     return (
       <Animated.View
-        entering={FadeInUp.duration(300)}
+        entering={SlideInDown.duration(300)}
         style={[styles.container, styles.errorContainer, { backgroundColor: BladeColors.error + '15', borderColor: BladeColors.error + '40' }]}
       >
         <View style={styles.errorContent}>
@@ -122,7 +122,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
   if (error && !weather) {
     return (
       <Animated.View
-        entering={FadeInUp.duration(300)}
+        entering={SlideInDown.duration(300)}
         style={[styles.container, styles.errorContainer, { overflow: "hidden", borderColor: "rgba(255,255,255,0.08)" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }]}
       >
         {supportsGlass && (
@@ -164,7 +164,7 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
   const aqiInfo = airQuality ? getAqiLabel(airQuality.aqi) : null;
 
   return (
-    <Animated.View entering={FadeInUp.duration(400).springify()}>
+    <Animated.View entering={SlideInDown.duration(400).springify()}>
       {alerts.length > 0 ? (
         <Pressable onPress={() => setShowAlerts(!showAlerts)}>
           <View style={[styles.alertBanner, { backgroundColor: BladeColors.warning + '20', borderColor: BladeColors.warning }]}>
