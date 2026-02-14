@@ -27,7 +27,7 @@ import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius, Gradients } from "@/constants/theme";
 
-const APP_VERSION = Constants.expoConfig?.version || "1.3.0";
+const APP_VERSION = Constants.expoConfig?.version || "1.3.1";
 const BUILD_NUMBER = "2026.02.14";
 const FIRMWARE_PROTOCOL = "BLE 5.0";
 

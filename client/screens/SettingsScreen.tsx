@@ -32,7 +32,7 @@ import {
   type BoatData
 } from "@/lib/firebase";
 
-const APP_VERSION = Constants.expoConfig?.version || "1.3.0";
+const APP_VERSION = Constants.expoConfig?.version || "1.3.1";
 const BUILD_NUMBER = "2026.02.14";
 const FIRMWARE_PROTOCOL = "BLE 5.0";
 const HARDWARE_REV = "HW-R3";
