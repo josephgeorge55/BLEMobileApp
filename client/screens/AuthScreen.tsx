@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Modal,
+  FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -29,6 +31,31 @@ const APP_VERSION = Constants.expoConfig?.version || "1.3.0";
 const BUILD_NUMBER = "2026.02.14";
 const FIRMWARE_PROTOCOL = "BLE 5.0";
 
+const COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Argentina", "Australia", "Austria",
+  "Bahamas", "Bahrain", "Bangladesh", "Belgium", "Bermuda", "Brazil", "Brunei", "Bulgaria",
+  "Cambodia", "Canada", "Chile", "China", "Colombia", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic",
+  "Denmark", "Dominican Republic",
+  "Ecuador", "Egypt", "Estonia",
+  "Fiji", "Finland", "France",
+  "Germany", "Ghana", "Greece", "Grenada", "Guatemala",
+  "Honduras", "Hong Kong", "Hungary",
+  "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy",
+  "Jamaica", "Japan", "Jordan",
+  "Kenya", "Kuwait",
+  "Latvia", "Lebanon", "Libya", "Lithuania", "Luxembourg",
+  "Madagascar", "Malaysia", "Maldives", "Malta", "Mauritius", "Mexico", "Monaco", "Montenegro", "Morocco", "Mozambique", "Myanmar",
+  "Netherlands", "New Zealand", "Nigeria", "Norway",
+  "Oman",
+  "Pakistan", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Puerto Rico",
+  "Qatar",
+  "Romania", "Russia",
+  "Saudi Arabia", "Seychelles", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "South Africa", "South Korea", "Spain", "Sri Lanka", "Sweden", "Switzerland",
+  "Taiwan", "Tanzania", "Thailand", "Trinidad and Tobago", "Tunisia", "Turkey",
+  "UAE", "UK", "Ukraine", "Uruguay", "USA",
+  "Vanuatu", "Venezuela", "Vietnam",
+];
+
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { login, register, loginAsGuest, resetPassword } = useUser();
@@ -41,6 +68,15 @@ export default function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch.trim()) return COUNTRIES;
+    const search = countrySearch.toLowerCase().trim();
+    return COUNTRIES.filter((c) => c.toLowerCase().includes(search));
+  }, [countrySearch]);
 
   const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -92,7 +128,7 @@ export default function AuthScreen() {
 
     try {
       const result = mode === "register" 
-        ? await register(email, password)
+        ? await register(email, password, selectedCountry || undefined)
         : await login(email, password);
 
       if (!result.success) {
@@ -117,6 +153,7 @@ export default function AuthScreen() {
     setError(null);
     setPassword("");
     setConfirmPassword("");
+    setSelectedCountry("");
   };
 
   const handleOpenSupport = async () => {
@@ -241,21 +278,46 @@ export default function AuthScreen() {
                   </View>
 
                   {mode === "register" ? (
-                    <View style={styles.inputGroup}>
-                      <ThemedText type="caption" style={styles.inputLabel}>
-                        CONFIRM PASSWORD
-                      </ThemedText>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Confirm password"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry={!showPassword}
-                        autoComplete="password"
-                        testID="confirm-password-input"
-                      />
-                    </View>
+                    <>
+                      <View style={styles.inputGroup}>
+                        <ThemedText type="caption" style={styles.inputLabel}>
+                          CONFIRM PASSWORD
+                        </ThemedText>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Confirm password"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          value={confirmPassword}
+                          onChangeText={setConfirmPassword}
+                          secureTextEntry={!showPassword}
+                          autoComplete="password"
+                          testID="confirm-password-input"
+                        />
+                      </View>
+
+                      <View style={styles.inputGroup}>
+                        <ThemedText type="caption" style={styles.inputLabel}>
+                          COUNTRY (OPTIONAL)
+                        </ThemedText>
+                        <Pressable
+                          style={styles.countrySelector}
+                          onPress={() => {
+                            setCountrySearch("");
+                            setShowCountryPicker(true);
+                          }}
+                          testID="country-picker-button"
+                        >
+                          <Feather name="globe" size={18} color="rgba(255,255,255,0.35)" style={styles.countryIcon} />
+                          <ThemedText
+                            type="body"
+                            style={selectedCountry ? styles.countryText : styles.countryPlaceholder}
+                          >
+                            {selectedCountry || "Select your country (optional)"}
+                          </ThemedText>
+                          <Feather name="chevron-down" size={18} color="rgba(255,255,255,0.35)" />
+                        </Pressable>
+                      </View>
+                    </>
                   ) : null}
 
                   {mode === "login" ? (
@@ -342,6 +404,65 @@ export default function AuthScreen() {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={showCountryPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCountryPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.md }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h3" style={styles.modalTitle}>Select Country</ThemedText>
+              <Pressable onPress={() => setShowCountryPicker(false)} style={styles.modalCloseButton}>
+                <Feather name="x" size={24} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            <TextInput
+              style={[styles.input, styles.modalSearchInput]}
+              placeholder="Search countries..."
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              value={countrySearch}
+              onChangeText={setCountrySearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+              testID="country-search-input"
+            />
+
+            <FlatList
+              data={filteredCountries}
+              keyExtractor={(item) => item}
+              keyboardShouldPersistTaps="handled"
+              style={styles.countryList}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={styles.countryItem}
+                  onPress={() => {
+                    setSelectedCountry(item);
+                    setShowCountryPicker(false);
+                  }}
+                >
+                  <ThemedText
+                    type="body"
+                    style={[
+                      styles.countryItemText,
+                      item === selectedCountry ? styles.countryItemSelected : null,
+                    ]}
+                  >
+                    {item}
+                  </ThemedText>
+                  {item === selectedCountry ? (
+                    <Feather name="check" size={18} color={BladeColors.accent} />
+                  ) : null}
+                </Pressable>
+              )}
+              ItemSeparatorComponent={() => <View style={styles.countryItemDivider} />}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -536,5 +657,74 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 1.5,
     backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  countrySelector: {
+    backgroundColor: "rgba(28,28,30,0.8)",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  countryIcon: {
+    marginRight: Spacing.sm,
+  },
+  countryText: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
+  countryPlaceholder: {
+    flex: 1,
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: "rgba(28,28,30,0.98)",
+    paddingHorizontal: Spacing.screenPadding,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    color: "#FFFFFF",
+  },
+  modalCloseButton: {
+    padding: Spacing.sm,
+  },
+  modalSearchInput: {
+    marginBottom: Spacing.md,
+  },
+  countryList: {
+    flex: 1,
+  },
+  countryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 48,
+    paddingHorizontal: Spacing.md,
+  },
+  countryItemText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
+  countryItemSelected: {
+    color: BladeColors.accent,
+    fontWeight: "600",
+  },
+  countryItemDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
 });

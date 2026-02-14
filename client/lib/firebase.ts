@@ -651,6 +651,20 @@ export async function uploadDeviceConnectionToFirestore(
   }
 }
 
+export async function saveUserCountry(country: string): Promise<void> {
+  const firestore = getFirestoreDb();
+  if (!firestore) return;
+  const currentAuth = getFirebaseAuth();
+  if (!currentAuth?.currentUser) return;
+  try {
+    const userRef = doc(firestore, "users", currentAuth.currentUser.uid);
+    await setDoc(userRef, { country, updatedAt: new Date() }, { merge: true });
+    console.log("[Firebase] User country saved:", country);
+  } catch (error) {
+    console.error("[Firebase] Error saving user country:", error);
+  }
+}
+
 export { 
   auth,
   db,

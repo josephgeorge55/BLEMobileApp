@@ -10,6 +10,7 @@ import { useUser } from "./UserContext";
 import { fetchWeather, getWindDirection } from "@/services/weatherService";
 import { uploadTripDataToFirestore } from "@/lib/firebase";
 import { logTripStarted, logTripEnded } from "@/lib/remote-logger";
+import { TripResumePrompt } from "@/components/TripResumePrompt";
 import type { WeatherData } from "@/services/weatherService";
 import type { Trip } from "@shared/schema";
 import type { TripDataPoint, TripEndReason, WeatherSnapshot } from "@/types/TripReport";
@@ -130,6 +131,10 @@ interface TripContextType {
   startTrip: (name?: string) => Promise<boolean>;
   endTrip: (reason?: TripEndReason) => Promise<boolean>;
   getTripDataPoints: (tripId: string) => Promise<TripDataPoint[]>;
+  pendingResumeTrip: ExtendedTripLocal | null;
+  showResumePrompt: boolean;
+  resumeTrip: () => void;
+  dismissResumePrompt: () => void;
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
@@ -141,6 +146,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const [activeTrip, setActiveTrip] = useState<ExtendedTripLocal | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingResumeTrip, setPendingResumeTrip] = useState<ExtendedTripLocal | null>(null);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [tripDuration, setTripDuration] = useState(0);
   const [tripStats, setTripStats] = useState<TripStats>({
     totalDistanceKm: 0,
@@ -195,8 +202,18 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       try {
         const stored = await AsyncStorage.getItem(ACTIVE_TRIP_KEY);
         if (stored) {
-          const trip = JSON.parse(stored) as Trip;
+          const trip = JSON.parse(stored) as ExtendedTripLocal;
           if (trip.isActive && trip.userId === user.id) {
+            const recordingState = await AsyncStorage.getItem(TRIP_RECORDING_STATE_KEY);
+            if (recordingState) {
+              const state = JSON.parse(recordingState);
+              if (state.tripId === trip.id) {
+                console.log("[Trip] Orphaned active trip detected, showing resume prompt:", trip.id);
+                setPendingResumeTrip(trip);
+                setShowResumePrompt(true);
+                return;
+              }
+            }
             console.log("[Trip] Restored active trip:", trip.id);
             setActiveTrip(trip);
             setIsRecording(true);
@@ -870,6 +887,73 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   // Keep endTripRef in sync
   useEffect(() => { endTripRef.current = endTrip; }, [endTrip]);
   
+  const resumeTrip = useCallback(async () => {
+    if (!pendingResumeTrip) return;
+    console.log("[Trip] User chose to resume trip:", pendingResumeTrip.id);
+    setActiveTrip(pendingResumeTrip);
+    setIsRecording(true);
+    setShowResumePrompt(false);
+    setPendingResumeTrip(null);
+
+    try {
+      const stateJson = await AsyncStorage.getItem(TRIP_RECORDING_STATE_KEY);
+      if (stateJson) {
+        const state = JSON.parse(stateJson);
+        if (state.tripId === pendingResumeTrip.id) {
+          const tripDataPointsKey = `${TRIP_DATA_POINTS_KEY}_${pendingResumeTrip.id}`;
+          const dataPointsJson = await AsyncStorage.getItem(tripDataPointsKey);
+          if (dataPointsJson) {
+            dataPointsRef.current = JSON.parse(dataPointsJson);
+          }
+          speedSamplesRef.current = state.speedSamples || [];
+          consumptionSamplesRef.current = state.consumptionSamples || [];
+          rpmSamplesRef.current = state.rpmSamples || [];
+          lastPositionRef.current = state.lastPosition || null;
+          lastActivityTimeRef.current = Date.now();
+          startWeatherRef.current = state.startWeather || null;
+          hourlyWeatherRef.current = state.hourlyWeather || [];
+          const timeSincePersisted = Math.floor((Date.now() - state.persistedAt) / 1000);
+          const actualDuration = state.tripDuration + timeSincePersisted;
+          setTripDuration(actualDuration);
+          setTripStats(state.tripStats);
+          console.log("[Trip] State restored after resume, duration:", actualDuration);
+        }
+      }
+    } catch (err) {
+      console.error("[Trip] Failed to restore state on resume:", err);
+    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [pendingResumeTrip]);
+
+  const dismissResumePrompt = useCallback(async () => {
+    if (!pendingResumeTrip) return;
+    console.log("[Trip] User dismissed resume prompt, ending orphaned trip");
+
+    const tripToEnd = { ...pendingResumeTrip, isActive: false, endTime: new Date() };
+
+    try {
+      const existingTrips = await AsyncStorage.getItem(LOCAL_TRIPS_KEY);
+      const trips: ExtendedTripLocal[] = existingTrips ? JSON.parse(existingTrips) : [];
+      const idx = trips.findIndex(t => t.id === tripToEnd.id);
+      if (idx >= 0) {
+        trips[idx] = { ...trips[idx], ...tripToEnd, endReason: 'auto_crash_recovery' };
+      } else {
+        trips.unshift({ ...tripToEnd, endReason: 'auto_crash_recovery' } as ExtendedTripLocal);
+      }
+      await AsyncStorage.setItem(LOCAL_TRIPS_KEY, JSON.stringify(trips));
+
+      await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+      await AsyncStorage.removeItem(TRIP_RECORDING_STATE_KEY);
+      await AsyncStorage.removeItem(`${TRIP_DATA_POINTS_KEY}_${tripToEnd.id}`);
+    } catch (err) {
+      console.error("[Trip] Error cleaning up orphaned trip:", err);
+    }
+
+    setShowResumePrompt(false);
+    setPendingResumeTrip(null);
+  }, [pendingResumeTrip]);
+
   // Get trip data points for PDF generation
   const getTripDataPoints = useCallback(async (tripId: string): Promise<TripDataPoint[]> => {
     try {
@@ -896,9 +980,19 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         startTrip, 
         endTrip,
         getTripDataPoints,
+        pendingResumeTrip,
+        showResumePrompt,
+        resumeTrip,
+        dismissResumePrompt,
       }}
     >
       {children}
+      <TripResumePrompt
+        visible={showResumePrompt}
+        tripName={pendingResumeTrip?.name || "Unnamed Trip"}
+        onResume={resumeTrip}
+        onDiscard={dismissResumePrompt}
+      />
     </TripContext.Provider>
   );
 }

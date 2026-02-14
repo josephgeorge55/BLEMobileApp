@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { captureRef } from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 import { useTheme } from "@/hooks/useTheme";
 import { useTrip } from "@/context/TripContext";
 import { OpenStreetMap } from "@/components/OpenStreetMap";
@@ -57,6 +59,8 @@ export default function TripDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isGeneratingCard, setIsGeneratingCard] = useState(false);
+  const cardRef = useRef<any>(null);
 
   useEffect(() => {
     fetchTripData();
@@ -202,6 +206,36 @@ export default function TripDetailScreen() {
       }
     } finally {
       setIsGeneratingReport(false);
+    }
+  };
+
+  const handleShareCard = async () => {
+    if (!trip || !cardRef.current) return;
+    setIsGeneratingCard(true);
+    try {
+      const uri = await captureRef(cardRef, {
+        format: 'png',
+        quality: 1,
+      });
+
+      if (Platform.OS === 'web') {
+        const link = document.createElement('a');
+        link.href = uri;
+        link.download = `blade-trip-${trip.id}.png`;
+        link.click();
+      } else if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share Trip Summary',
+        });
+      }
+    } catch (error) {
+      console.error("[TripDetail] Error generating share card:", error);
+      if (Platform.OS !== "web") {
+        Alert.alert("Error", "Failed to generate trip summary card. Please try again.");
+      }
+    } finally {
+      setIsGeneratingCard(false);
     }
   };
 
@@ -520,9 +554,84 @@ export default function TripDetailScreen() {
             <Text style={styles.dataPointsLabel}>data points recorded at 4-second intervals</Text>
           </View>
         </Animated.View>
+
+        <View style={{ position: 'absolute', left: -9999, top: 0 }}>
+          <View ref={cardRef} collapsable={false}>
+            <View style={styles.shareCard}>
+              <LinearGradient
+                colors={["#0D1B2A", "#1B3A4B"]}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.shareCardHeader}>
+                <Text style={styles.shareCardBrand}>BLADE OUTBOARDS</Text>
+                <Text style={styles.shareCardSubbrand}>HALO CONNECT</Text>
+              </View>
+              <View style={styles.shareCardBody}>
+                <Text style={styles.shareCardTripName}>{trip.name || "Trip Report"}</Text>
+                <Text style={styles.shareCardDate}>{formatDateTime(trip.startTime)}</Text>
+                <View style={styles.shareCardDivider} />
+                <View style={styles.shareCardStatsRow}>
+                  <View style={styles.shareCardStat}>
+                    <Text style={styles.shareCardStatValue}>{(trip.totalDistanceKm || 0).toFixed(2)}</Text>
+                    <Text style={styles.shareCardStatLabel}>km</Text>
+                  </View>
+                  <View style={styles.shareCardStatDivider} />
+                  <View style={styles.shareCardStat}>
+                    <Text style={styles.shareCardStatValue}>{formatDuration(trip.startTime, trip.endTime)}</Text>
+                    <Text style={styles.shareCardStatLabel}>Duration</Text>
+                  </View>
+                  <View style={styles.shareCardStatDivider} />
+                  <View style={styles.shareCardStat}>
+                    <Text style={styles.shareCardStatValue}>{(trip.maxSpeedKmh || 0).toFixed(1)}</Text>
+                    <Text style={styles.shareCardStatLabel}>Max km/h</Text>
+                  </View>
+                </View>
+                <View style={styles.shareCardStatsRow}>
+                  <View style={styles.shareCardStat}>
+                    <Text style={styles.shareCardStatValue}>{(trip.avgSpeedKmh || 0).toFixed(1)}</Text>
+                    <Text style={styles.shareCardStatLabel}>Avg km/h</Text>
+                  </View>
+                  <View style={styles.shareCardStatDivider} />
+                  <View style={styles.shareCardStat}>
+                    <Text style={styles.shareCardStatValue}>{(trip.totalEnergyWh || 0).toFixed(0)}</Text>
+                    <Text style={styles.shareCardStatLabel}>Wh Used</Text>
+                  </View>
+                  <View style={styles.shareCardStatDivider} />
+                  <View style={styles.shareCardStat}>
+                    <Text style={styles.shareCardStatValue}>
+                      {trip.totalDistanceKm && trip.totalEnergyWh
+                        ? (trip.totalEnergyWh / trip.totalDistanceKm).toFixed(1)
+                        : "0"}
+                    </Text>
+                    <Text style={styles.shareCardStatLabel}>Wh/km</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.shareCardFooter}>
+                <Text style={styles.shareCardFooterText}>bladeoutboards.com</Text>
+              </View>
+            </View>
+          </View>
+        </View>
       </ScrollView>
 
       <View style={[styles.actionBar, { paddingBottom: insets.bottom + Spacing.md }]}>
+        <Pressable
+          onPress={handleShareCard}
+          disabled={isGeneratingCard}
+          style={({ pressed }) => [styles.shareButton, { opacity: pressed ? 0.85 : 1 }]}
+          testID="share-card-button"
+        >
+          {isGeneratingCard ? (
+            <ActivityIndicator color={TILE_TEXT} size="small" />
+          ) : (
+            <>
+              <Feather name="image" size={18} color={TILE_TEXT} />
+              <Text style={styles.shareButtonText}>Card</Text>
+            </>
+          )}
+        </Pressable>
+
         <Pressable
           onPress={handleShare}
           style={({ pressed }) => [styles.shareButton, { opacity: pressed ? 0.85 : 1 }]}
@@ -543,7 +652,7 @@ export default function TripDetailScreen() {
           ) : (
             <>
               <Feather name="file-text" size={18} color="#FFFFFF" />
-              <Text style={styles.reportButtonText}>Generate Report</Text>
+              <Text style={styles.reportButtonText}>Report</Text>
             </>
           )}
         </Pressable>
@@ -834,5 +943,89 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: Typography.sizes.md,
     fontWeight: "600",
+  },
+  shareCard: {
+    width: 400,
+    backgroundColor: "#0D1B2A",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  shareCardHeader: {
+    paddingTop: 32,
+    paddingBottom: 16,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
+  shareCardBrand: {
+    fontSize: 14,
+    fontWeight: "300",
+    color: "#0A9ED1",
+    letterSpacing: 4,
+  },
+  shareCardSubbrand: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.4)",
+    letterSpacing: 2,
+    marginTop: 4,
+  },
+  shareCardBody: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  shareCardTripName: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  shareCardDate: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.5)",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  shareCardDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginVertical: 20,
+  },
+  shareCardStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 16,
+  },
+  shareCardStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+  shareCardStatValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#A4D08B",
+    fontVariant: ["tabular-nums"],
+  },
+  shareCardStatLabel: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.45)",
+    marginTop: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  shareCardStatDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignSelf: "center",
+  },
+  shareCardFooter: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+  },
+  shareCardFooterText: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.3)",
+    letterSpacing: 1,
   },
 });

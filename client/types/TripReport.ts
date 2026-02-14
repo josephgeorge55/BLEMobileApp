@@ -42,7 +42,8 @@ export type TripEndReason =
   | 'user_button'
   | 'auto_8hr_limit'
   | 'auto_inactivity_600s'
-  | 'app_closure';
+  | 'app_closure'
+  | 'auto_crash_recovery';
 
 export interface BoatInfo {
   boatType: string;

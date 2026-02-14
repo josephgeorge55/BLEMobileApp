@@ -10,6 +10,7 @@ import {
   sendPasswordResetEmail,
   getFirebaseAuth,
   isFirebaseInitialized,
+  saveUserCountry,
   type User as FirebaseUser
 } from "@/lib/firebase";
 import { logLoginSuccess, logLoginFailure, logLogout } from "@/lib/remote-logger";
@@ -27,7 +28,7 @@ interface UserContextType {
   isGuestMode: boolean;
   isFirebaseReady: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string, country?: string) => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -195,7 +196,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (email: string, password: string, country?: string): Promise<{ success: boolean; error?: string }> => {
     const currentAuth = getFirebaseAuth();
     if (!currentAuth) {
       return { success: false, error: "Authentication service unavailable. Please try again later." };
@@ -216,6 +217,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
       setIsGuestMode(false);
       logLoginSuccess(firebaseUser.uid, firebaseUser.email || email);
+
+      if (country) {
+        saveUserCountry(country).catch((err) =>
+          console.error("[Auth] Error saving country after registration:", err)
+        );
+      }
       
       return { success: true };
     } catch (error: any) {

@@ -15,7 +15,7 @@ Design aesthetic: iOS-style light gray theme with translucent white cards, green
 - **State Management**: React Context for local state, TanStack React Query for server state.
 - **Styling**: Custom theming with light/dark mode, Reanimated for animations, and Expo Linear Gradient for visual effects.
 - **UI/UX Decisions**: iOS-style light gray interface with specific color codes for backgrounds, translucent cards, borders, and text, optimized for outdoor visibility in marine environments.
-- **Key Features**: User authentication, real-time data dashboard, GPS tracking with trip recording and export, OTA firmware updates, device settings management, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for telemetry, Digital Outboard Passport (ownership certificate with QR code, PDF export, Wallet integration), Apple Watch companion app, and Android Wear OS companion app.
+- **Key Features**: User authentication, real-time data dashboard, GPS tracking with trip recording and export, OTA firmware updates, device settings management, BLE motor pairing, anti-theft functionality, custom STM32 bootloader flashing, Live Activities/Persistent Notifications for telemetry, Digital Outboard Passport (ownership certificate with QR code, PDF export, Wallet integration), Apple Watch companion app, Android Wear OS companion app, range estimator (10s avg consumption), trip auto-resume after crash, shareable trip summary card image, and optional country picker on signup.
 
 ### Android Wear OS Companion App (Added Feb 2026)
 - **Location**: `android-wear-app/` — standalone project, built separately in Android Studio (NOT bundled with Expo).

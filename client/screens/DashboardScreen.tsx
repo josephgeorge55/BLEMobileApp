@@ -107,6 +107,7 @@ export default function DashboardScreen() {
   const [infoModal, setInfoModal] = useState<{ visible: boolean; key: InfoHelpKey | null }>({ visible: false, key: null });
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { sectionOrder, isEditMode, moveSection, toggleEditMode, resetLayout } = useDashboardLayout();
+  const consumptionHistoryRef = useRef<{value: number, timestamp: number}[]>([]);
 
   const scrollToTelemetry = () => {
     scrollViewRef.current?.scrollTo({ y: telemetrySectionY.current, animated: true });
@@ -136,6 +137,42 @@ export default function DashboardScreen() {
       });
     }
   }, [locationData, isConnected]);
+
+  useEffect(() => {
+    if (!isConnected || !telemetry) return;
+    const voltage = telemetry?.bms?.voltage ?? 48;
+    const current = Math.abs(telemetry?.vesc?.current ?? telemetry?.bms?.current ?? 0);
+    const wattage = Math.abs(telemetry?.vesc?.wattage ?? telemetry?.bms?.wattage ?? (voltage * current));
+    const consumptionKW = wattage / 1000;
+    const now = Date.now();
+    consumptionHistoryRef.current.push({ value: consumptionKW, timestamp: now });
+    const cutoff = now - 10000;
+    consumptionHistoryRef.current = consumptionHistoryRef.current.filter(p => p.timestamp >= cutoff);
+  }, [telemetry, isConnected]);
+
+  const calculateEstimatedRange = useCallback(() => {
+    const history = consumptionHistoryRef.current;
+    if (history.length < 2) return null;
+    
+    const avgConsumptionKW = history.reduce((sum, p) => sum + p.value, 0) / history.length;
+    if (avgConsumptionKW < 0.01) return null;
+    
+    const batteryPercent = telemetry?.stateOfCharge ?? telemetry?.bms?.capacity ?? 0;
+    const batteryCapacityWh = 1536;
+    const remainingWh = (batteryPercent / 100) * batteryCapacityWh;
+    const remainingHours = remainingWh / (avgConsumptionKW * 1000);
+    
+    const currentSpeedKmh = telemetry?.speed ?? telemetry?.gnss?.speed ?? 0;
+    const estimatedRangeKm = currentSpeedKmh > 0.5 ? remainingHours * currentSpeedKmh : null;
+    const estimatedTimeMinutes = remainingHours * 60;
+    
+    return {
+      rangeKm: estimatedRangeKm,
+      timeMinutes: estimatedTimeMinutes,
+      avgConsumptionKW,
+      batteryPercent,
+    };
+  }, [telemetry]);
 
   const mapPreviewLocation = React.useMemo(() => {
     if (isConnected && telemetry?.gnss) {
@@ -1024,6 +1061,81 @@ export default function DashboardScreen() {
             </Pressable>
           </View>
         );
+      case 'rangeEstimator': {
+        if (!isConnected) return null;
+        const rangeData = calculateEstimatedRange();
+        return (
+          <View style={styles.metricsGrid}>
+            <View style={styles.sectionHeader}>
+              <Feather name="compass" size={14} color={theme.textSecondary} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                Estimated Range
+              </ThemedText>
+            </View>
+            <View style={[styles.statusCard, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderRadius: BorderRadius.xl, padding: Spacing.lg }]}>
+              {rangeData ? (
+                <>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", marginBottom: Spacing.sm }}>
+                    {rangeData.rangeKm !== null ? (
+                      <>
+                        <ThemedText type="mono" style={{ fontSize: 36, fontWeight: "700", color: BladeColors.accent }}>
+                          {rangeData.rangeKm.toFixed(1)}
+                        </ThemedText>
+                        <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: Spacing.xs }}>
+                          km
+                        </ThemedText>
+                      </>
+                    ) : (
+                      <>
+                        <ThemedText type="mono" style={{ fontSize: 36, fontWeight: "700", color: BladeColors.accent }}>
+                          {rangeData.timeMinutes.toFixed(0)}
+                        </ThemedText>
+                        <ThemedText type="small" style={{ color: "rgba(255,255,255,0.55)", marginLeft: Spacing.xs }}>
+                          min
+                        </ThemedText>
+                      </>
+                    )}
+                  </View>
+                  <View style={{ flexDirection: "row", gap: Spacing.lg, marginBottom: Spacing.md }}>
+                    <View>
+                      <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.4)" }}>Time Left</ThemedText>
+                      <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "500" }}>
+                        {rangeData.timeMinutes >= 60
+                          ? `${Math.floor(rangeData.timeMinutes / 60)}h ${Math.round(rangeData.timeMinutes % 60)}m`
+                          : `${Math.round(rangeData.timeMinutes)}m`}
+                      </ThemedText>
+                    </View>
+                    <View>
+                      <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.4)" }}>Avg Draw</ThemedText>
+                      <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "500" }}>
+                        {rangeData.avgConsumptionKW.toFixed(2)} kW
+                      </ThemedText>
+                    </View>
+                    <View>
+                      <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.4)" }}>Battery</ThemedText>
+                      <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "500" }}>
+                        {rangeData.batteryPercent.toFixed(0)}%
+                      </ThemedText>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <View style={{ alignItems: "center", paddingVertical: Spacing.md }}>
+                  <Feather name="compass" size={24} color="rgba(255,255,255,0.3)" />
+                  <ThemedText type="small" style={{ color: "rgba(255,255,255,0.4)", marginTop: Spacing.sm, textAlign: "center" }}>
+                    Collecting data... Range estimate will appear shortly.
+                  </ThemedText>
+                </View>
+              )}
+              <View style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: BorderRadius.sm, padding: Spacing.sm }}>
+                <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, lineHeight: 14 }}>
+                  Estimate based on last 10 seconds avg consumption. For reference only — always maintain a safe buffer. Actual range varies with conditions, load, and speed. Do not rely on this as your sole indicator.
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+        );
+      }
       default:
         return null;
     }
