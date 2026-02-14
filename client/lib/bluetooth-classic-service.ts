@@ -173,7 +173,7 @@ export async function connectToClassicDevice(
 
     callbacks.onDebugLog?.("INFO", `Attempting to connect to device: ${address}`);
     const device = await RNBluetoothClassic.connectToDevice(address, {
-      delimiter: "\n",
+      delimiter: "",
       charset: "utf-8",
     });
 
