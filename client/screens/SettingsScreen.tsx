@@ -9,7 +9,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as MailComposer from "expo-mail-composer";
 import Constants from "expo-constants";
 import { Feather } from "@expo/vector-icons";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, { SlideInDown } from "react-native-reanimated";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -333,7 +333,7 @@ export default function SettingsScreen() {
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       showsVerticalScrollIndicator={false}
     >
-      <Animated.View entering={FadeInUp.duration(350).springify()}>
+      <Animated.View entering={SlideInDown.duration(350).springify()}>
         <View style={styles.heroTile}>
           <View style={styles.heroIconRow}>
             <View style={styles.heroIconCircle}>
@@ -372,7 +372,7 @@ export default function SettingsScreen() {
       </Animated.View>
 
       {user ? (
-        <Animated.View entering={FadeInUp.duration(350).springify()}>
+        <Animated.View entering={SlideInDown.duration(350).springify()}>
           <SettingsSection title="Account">
             <SettingsRow
               icon="user"
@@ -392,7 +392,7 @@ export default function SettingsScreen() {
       ) : null}
 
       {user && !isGuestMode ? (
-        <Animated.View entering={FadeInUp.delay(50).duration(350).springify()}>
+        <Animated.View entering={SlideInDown.delay(50).duration(350).springify()}>
           <SettingsSection title="My Boat">
             <SettingsRow
               icon="anchor"
@@ -412,7 +412,7 @@ export default function SettingsScreen() {
       ) : null}
 
       {user && !isGuestMode ? (
-        <Animated.View entering={FadeInUp.delay(100).duration(350).springify()}>
+        <Animated.View entering={SlideInDown.delay(100).duration(350).springify()}>
           <SettingsSection title="Ownership">
             <SettingsRow
               icon="award"
@@ -429,7 +429,7 @@ export default function SettingsScreen() {
       ) : null}
 
       {user && !isGuestMode ? (
-        <Animated.View entering={FadeInUp.delay(150).duration(350).springify()}>
+        <Animated.View entering={SlideInDown.delay(150).duration(350).springify()}>
           <SettingsSection title="Registered Outboards">
             {loadingMotors ? (
               <View style={styles.loadingContainer}>
@@ -465,7 +465,7 @@ export default function SettingsScreen() {
       ) : null}
 
       {motor?.isConnected ? (
-        <Animated.View entering={FadeInUp.delay(200).duration(350).springify()}>
+        <Animated.View entering={SlideInDown.delay(200).duration(350).springify()}>
         <SettingsSection title="Connected Outboard">
           <View style={[styles.motorCard, { backgroundColor: "transparent" }]}>
             <View style={styles.motorImageContainer}>
@@ -630,7 +630,7 @@ export default function SettingsScreen() {
         </SettingsSection>
         </Animated.View>
       ) : (
-        <Animated.View entering={FadeInUp.delay(200).duration(350).springify()}>
+        <Animated.View entering={SlideInDown.delay(200).duration(350).springify()}>
         <SettingsSection title="Outboard">
           <Pressable 
             style={[styles.emptyMotorCard, { backgroundColor: "transparent" }]}
@@ -654,7 +654,7 @@ export default function SettingsScreen() {
         </Animated.View>
       )}
 
-      <Animated.View entering={FadeInUp.delay(250).duration(350).springify()}>
+      <Animated.View entering={SlideInDown.delay(250).duration(350).springify()}>
       <SettingsSection title="Notifications">
         <SettingsRow
           icon="tool"
@@ -683,7 +683,7 @@ export default function SettingsScreen() {
       </SettingsSection>
       </Animated.View>
 
-      <Animated.View entering={FadeInUp.delay(300).duration(350).springify()}>
+      <Animated.View entering={SlideInDown.delay(300).duration(350).springify()}>
       <SettingsSection title="Privacy">
         <SettingsRow
           icon="share-2"
@@ -701,7 +701,7 @@ export default function SettingsScreen() {
       </SettingsSection>
       </Animated.View>
 
-      <Animated.View entering={FadeInUp.delay(350).duration(350).springify()}>
+      <Animated.View entering={SlideInDown.delay(350).duration(350).springify()}>
       <SettingsSection title="Support">
         <SettingsRow
           icon="life-buoy"
@@ -732,7 +732,7 @@ export default function SettingsScreen() {
       </SettingsSection>
       </Animated.View>
 
-      <Animated.View entering={FadeInUp.delay(400).duration(350).springify()}>
+      <Animated.View entering={SlideInDown.delay(400).duration(350).springify()}>
       <SettingsSection title="Maintenance">
         <SettingsRow
           icon="tool"
@@ -744,7 +744,7 @@ export default function SettingsScreen() {
       </SettingsSection>
       </Animated.View>
 
-      <Animated.View entering={FadeInUp.delay(450).duration(350).springify()}>
+      <Animated.View entering={SlideInDown.delay(450).duration(350).springify()}>
       <SettingsSection title="Legal">
         <SettingsRow
           icon="shield"
@@ -759,7 +759,7 @@ export default function SettingsScreen() {
       </SettingsSection>
       </Animated.View>
 
-      <Animated.View entering={FadeInUp.delay(500).duration(350).springify()}>
+      <Animated.View entering={SlideInDown.delay(500).duration(350).springify()}>
       <SettingsSection title="System Information">
         <SettingsRow
           icon="smartphone"
@@ -793,7 +793,7 @@ export default function SettingsScreen() {
       </SettingsSection>
       </Animated.View>
 
-      <Animated.View entering={FadeInUp.delay(550).duration(350).springify()}>
+      <Animated.View entering={SlideInDown.delay(550).duration(350).springify()}>
       <View style={styles.footer}>
         <View style={[styles.oemBadge, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}>
           <Feather name="anchor" size={16} color={"rgba(255,255,255,0.35)"} />

@@ -88,7 +88,7 @@ export default function MainTabNavigator() {
           supportsGlass ? (
             <GlassView
               glassEffectStyle="regular"
-              tintColor={isDark ? "rgba(10,15,20,0.3)" : "rgba(255,255,255,0.3)"}
+              tintColor={isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}
               style={StyleSheet.absoluteFill}
             />
           ) : Platform.OS === "ios" ? (

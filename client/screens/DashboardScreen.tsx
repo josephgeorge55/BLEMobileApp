@@ -6,7 +6,7 @@ import { useNavigation, NavigationProp } from "@react-navigation/native";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
+import Animated, { SlideInDown, SlideInRight } from "react-native-reanimated";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as Device from "expo-device";
@@ -114,7 +114,7 @@ export default function DashboardScreen() {
 
   const StatusCardContainer = useCallback(({ children, style }: { children: React.ReactNode; style?: any }) => (
     <View style={[styles.statusCard, { borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }, style]}>
-      {supportsGlass ? <GlassView glassEffectStyle="regular" tintColor="rgba(20,20,22,0.35)" style={StyleSheet.absoluteFill} /> : null}
+      {supportsGlass ? <GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.08)" style={StyleSheet.absoluteFill} /> : null}
       {children}
     </View>
   ), []);
@@ -467,7 +467,7 @@ export default function DashboardScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeIn.duration(600)} style={[styles.heroArea, { paddingTop: insets.top + Spacing.md }]}>
+        <Animated.View entering={SlideInRight.duration(600)} style={[styles.heroArea, { paddingTop: insets.top + Spacing.md }]}>
           <Image
             source={require("../../assets/images/halo-outboard.png")}
             style={styles.heroImage}
@@ -1137,7 +1137,7 @@ export default function DashboardScreen() {
         />
       }
     >
-      <Animated.View entering={FadeIn.duration(600)} style={[styles.heroArea, { paddingTop: insets.top + Spacing.md }]}>
+      <Animated.View entering={SlideInRight.duration(600)} style={[styles.heroArea, { paddingTop: insets.top + Spacing.md }]}>
         <Image
           source={require("../../assets/images/halo-outboard.png")}
           style={styles.heroImage}
@@ -1294,7 +1294,7 @@ export default function DashboardScreen() {
 
         {errorCode ? (
           <Animated.View
-            entering={FadeInUp.duration(300).springify()}
+            entering={SlideInDown.duration(300).springify()}
             style={[styles.errorBanner, { backgroundColor: BladeColors.error + "20", borderColor: BladeColors.error }]}
           >
             <View style={styles.errorContent}>

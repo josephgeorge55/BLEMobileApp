@@ -177,7 +177,7 @@ export function FindMyPanel({
         {supportsGlass ? (
           <GlassView
             glassEffectStyle="regular"
-            tintColor="rgba(20,20,22,0.35)"
+            tintColor="rgba(255,255,255,0.08)"
             style={StyleSheet.absoluteFill}
           />
         ) : null}
