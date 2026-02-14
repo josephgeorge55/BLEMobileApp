@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Pressable } from "react-native";
+import { StyleSheet, View, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -17,6 +18,7 @@ const DARK_TILE = "rgba(44,44,46,0.92)";
 const TILE_TEXT = "#FFFFFF";
 const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.5)";
 const TILE_BORDER = "rgba(255,255,255,0.08)";
+const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 interface FirmwareCardProps {
   version: string;
@@ -64,10 +66,18 @@ export function FirmwareCard({
       entering={FadeIn.duration(300)}
       style={[
         styles.card,
+        !supportsGlass && { backgroundColor: DARK_TILE },
         animatedStyle,
         isCurrent && styles.currentCard,
       ]}
     >
+      {supportsGlass ? (
+        <GlassView
+          glassEffectStyle="regular"
+          tintColor="rgba(44,44,46,0.85)"
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <View style={styles.header}>
         <View style={styles.versionContainer}>
           <ThemedText type="h3" style={{ color: TILE_TEXT }}>
@@ -185,7 +195,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: TILE_BORDER,
     marginBottom: Spacing.md,
-    backgroundColor: DARK_TILE,
+    overflow: "hidden",
   },
   currentCard: {
     borderColor: BladeColors.accent,

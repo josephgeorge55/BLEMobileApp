@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { ThemedText } from './ThemedText';
 import { useTheme } from '@/hooks/useTheme';
@@ -22,6 +23,8 @@ import {
   getAqiLabel,
   getWeatherWithLocation,
 } from '@/services/weatherService';
+
+const supportsGlass = Platform.OS === "ios" && isLiquidGlassAvailable();
 
 interface WeatherCardProps {
   onRefresh?: () => void;
@@ -73,8 +76,15 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
     return (
       <Animated.View
         entering={FadeIn.duration(300)}
-        style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}
+        style={[styles.container, { overflow: "hidden", borderColor: "rgba(255,255,255,0.08)" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }]}
       >
+        {supportsGlass && (
+          <GlassView
+            style={StyleSheet.absoluteFill}
+            tintColor="rgba(44,44,46,0.85)"
+            glassEffectStyle="regular"
+          />
+        )}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={BladeColors.accent} />
           <ThemedText type="caption" style={{ marginTop: Spacing.sm, color: "rgba(255,255,255,0.55)" }}>
@@ -113,8 +123,15 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
     return (
       <Animated.View
         entering={FadeInUp.duration(300)}
-        style={[styles.container, styles.errorContainer, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}
+        style={[styles.container, styles.errorContainer, { overflow: "hidden", borderColor: "rgba(255,255,255,0.08)" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }]}
       >
+        {supportsGlass && (
+          <GlassView
+            style={StyleSheet.absoluteFill}
+            tintColor="rgba(44,44,46,0.85)"
+            glassEffectStyle="regular"
+          />
+        )}
         <View style={styles.errorContent}>
           <Feather name="cloud-off" size={24} color={theme.textSecondary} />
           <View style={styles.errorTextContainer}>
@@ -186,7 +203,14 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
 
       {/* Conditions-only card for sea level conditions */}
       {variant === 'conditions' ? (
-        <View style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}>
+        <View style={[styles.container, { overflow: "hidden", borderColor: "rgba(255,255,255,0.08)" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }]}>
+          {supportsGlass && (
+            <GlassView
+              style={StyleSheet.absoluteFill}
+              tintColor="rgba(44,44,46,0.85)"
+              glassEffectStyle="regular"
+            />
+          )}
           <View style={styles.conditionsSection}>
             <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.45)", marginBottom: Spacing.sm }}>
               Conditions at Sea Level
@@ -252,7 +276,14 @@ export function WeatherCard({ onRefresh, variant = 'full' }: WeatherCardProps) {
 
       {/* Main weather card */}
       {variant === 'full' || variant === 'weather' ? (
-      <View style={[styles.container, { backgroundColor: "rgba(44,44,46,0.92)", borderColor: "rgba(255,255,255,0.08)" }]}>
+      <View style={[styles.container, { overflow: "hidden", borderColor: "rgba(255,255,255,0.08)" }, !supportsGlass && { backgroundColor: "rgba(44,44,46,0.92)" }]}>
+        {supportsGlass && (
+          <GlassView
+            style={StyleSheet.absoluteFill}
+            tintColor="rgba(44,44,46,0.85)"
+            glassEffectStyle="regular"
+          />
+        )}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Feather name="navigation" size={12} color={"rgba(255,255,255,0.45)"} />
