@@ -252,6 +252,22 @@ export async function connectToDevice(deviceId: string, callbacks: BleServiceCal
 }
 
 function processIncomingData(data: string, callbacks: BleServiceCallbacks): void {
+  if (bleOtaMode) {
+    const bytes: number[] = [];
+    for (let i = 0; i < data.length; i++) {
+      bytes.push(data.charCodeAt(i) & 0xFF);
+    }
+    const hexPreview = bytes.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    console.log(`[BLE-OTA] notification intercepted (${bytes.length} bytes): ${hexPreview}`);
+    bleOtaRxBuffer.push(...bytes);
+    if (bleOtaRxResolve) {
+      const resolve = bleOtaRxResolve;
+      bleOtaRxResolve = null;
+      resolve([...bleOtaRxBuffer]);
+    }
+    return;
+  }
+
   dataBuffer += data;
   const lines = dataBuffer.split("\n");
   for (let i = 0; i < lines.length - 1; i++) {
@@ -329,17 +345,18 @@ export function destroyBle(): void {
 }
 
 let bleOtaMode = false;
-let blePendingDataBuffer: number[] = [];
-let blePendingDataResolve: ((data: Uint8Array | null) => void) | null = null;
+let bleOtaRxBuffer: number[] = [];
+let bleOtaRxResolve: ((data: number[]) => void) | null = null;
 
 export function setBleOTAMode(enabled: boolean): void {
   bleOtaMode = enabled;
   if (enabled) {
-    blePendingDataBuffer = [];
+    bleOtaRxBuffer = [];
+    bleOtaRxResolve = null;
     console.log("[BLE] OTA mode enabled");
   } else {
-    blePendingDataBuffer = [];
-    blePendingDataResolve = null;
+    bleOtaRxBuffer = [];
+    bleOtaRxResolve = null;
     console.log("[BLE] OTA mode disabled");
   }
 }
@@ -395,7 +412,8 @@ export async function sendBleBinaryData(data: Uint8Array): Promise<void> {
       const writeUUID = writeCharacteristic ? writeCharacteristic.uuid : targetCharUUID;
       await connectedDevice.writeCharacteristicWithResponseForService(targetServiceUUID, writeUUID, base64);
     }
-    await new Promise(resolve => setTimeout(resolve, 5));
+    const txDelayMs = Math.ceil((data.length / 3840) * 1000) + 5;
+    await new Promise(resolve => setTimeout(resolve, txDelayMs));
   } catch (error) {
     console.error("[BLE-OTA] Error sending binary data:", error);
     throw error;
@@ -406,42 +424,27 @@ export async function receiveBleBinaryData(timeout: number): Promise<Uint8Array 
   if (!connectedDevice) return null;
 
   return new Promise((resolve) => {
-    let receivedData: number[] = [];
-    let resolved = false;
+    if (bleOtaRxBuffer.length > 0) {
+      const data = [...bleOtaRxBuffer];
+      bleOtaRxBuffer = [];
+      const hexPreview = data.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      console.log(`[BLE-OTA] RX immediate from buffer (${data.length} bytes): ${hexPreview}`);
+      resolve(new Uint8Array(data));
+      return;
+    }
 
     const timeoutId = setTimeout(() => {
-      if (resolved) return;
-      resolved = true;
-      blePendingDataResolve = null;
-      resolve(receivedData.length > 0 ? new Uint8Array(receivedData) : null);
+      bleOtaRxResolve = null;
+      console.log("[BLE-OTA] RX timeout - no data received");
+      resolve(null);
     }, timeout);
 
-    const originalHandler = notificationSubscription;
-
-    const tempSubscription = connectedDevice.monitorCharacteristicForService(
-      targetServiceUUID,
-      targetCharUUID,
-      (_error: any, characteristic: any) => {
-        if (resolved) return;
-        if (characteristic && characteristic.value) {
-          const bytes = base64ToBytesBLE(characteristic.value);
-          if (bytes) {
-            receivedData.push(...bytes);
-            if (receivedData.length > 0 && (receivedData[0] === 0x79 || receivedData[0] === 0x1F)) {
-              resolved = true;
-              clearTimeout(timeoutId);
-              try { tempSubscription.remove(); } catch {}
-              resolve(new Uint8Array(receivedData));
-            }
-          }
-        }
-      }
-    );
-
-    setTimeout(() => {
-      if (!resolved) {
-        try { tempSubscription.remove(); } catch {}
-      }
-    }, timeout + 100);
+    bleOtaRxResolve = (data: number[]) => {
+      clearTimeout(timeoutId);
+      bleOtaRxBuffer = [];
+      const hexPreview = data.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      console.log(`[BLE-OTA] RX from notification (${data.length} bytes): ${hexPreview}`);
+      resolve(new Uint8Array(data));
+    };
   });
 }
