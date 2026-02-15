@@ -34,9 +34,9 @@ const CMD = {
 
 const FIRMWARE_START_ADDRESS = 0x08004000;
 const BLOCK_SIZE = 256;
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 1000;
 const ERASE_TIMEOUT_MS = 15000;
-const WRITE_BLOCK_TIMEOUT_MS = 5000;
+const WRITE_BLOCK_TIMEOUT_MS = 1500;
 const BOOTLOADER_RESET_DELAY_MS = 2500;
 const BOOTLOADER_INIT_DELAY_MS = 1500;
 const HELLO_RETRY_DELAY_MS = 1500;
@@ -322,14 +322,14 @@ export class FirmwareOTAService {
     
     const frame = new Uint8Array(9);
     frame[0] = CMD.FW_INFO;
-    frame[1] = (FIRMWARE_START_ADDRESS >> 24) & 0xFF;
-    frame[2] = (FIRMWARE_START_ADDRESS >> 16) & 0xFF;
-    frame[3] = (FIRMWARE_START_ADDRESS >> 8) & 0xFF;
-    frame[4] = FIRMWARE_START_ADDRESS & 0xFF;
-    frame[5] = (firmwareSize >> 24) & 0xFF;
-    frame[6] = (firmwareSize >> 16) & 0xFF;
-    frame[7] = (firmwareSize >> 8) & 0xFF;
-    frame[8] = firmwareSize & 0xFF;
+    frame[1] = FIRMWARE_START_ADDRESS & 0xFF;
+    frame[2] = (FIRMWARE_START_ADDRESS >> 8) & 0xFF;
+    frame[3] = (FIRMWARE_START_ADDRESS >> 16) & 0xFF;
+    frame[4] = (FIRMWARE_START_ADDRESS >> 24) & 0xFF;
+    frame[5] = firmwareSize & 0xFF;
+    frame[6] = (firmwareSize >> 8) & 0xFF;
+    frame[7] = (firmwareSize >> 16) & 0xFF;
+    frame[8] = (firmwareSize >> 24) & 0xFF;
     
     await this.sendBytes(frame);
     
