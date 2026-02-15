@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -12,6 +12,7 @@ import {
   Alert,
   Modal,
   FlatList,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
@@ -20,18 +21,138 @@ import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import { Feather } from "@expo/vector-icons";
-import Animated, { FadeInUp, FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, {
+  FadeInUp,
+  FadeIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  withRepeat,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
-import { Spacing, BladeColors, BorderRadius, Gradients } from "@/constants/theme";
+import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const APP_VERSION = Constants.expoConfig?.version || "1.3.1";
 const BUILD_NUMBER = "2026.02.14";
 const FIRMWARE_PROTOCOL = "BLE 5.0";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const IS_SHORT_SCREEN = SCREEN_HEIGHT < 700;
+
+const AUTH_PARTICLES = Array.from({ length: 10 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100,
+  y: Math.random() * 100,
+  size: 2 + Math.random() * 3,
+  opacity: 0.04 + Math.random() * 0.06,
+  duration: 8000 + Math.random() * 6000,
+  drift: 60 + Math.random() * 80,
+}));
+
+function AuthParticle({ data }: { data: (typeof AUTH_PARTICLES)[0] }) {
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withTiming(-data.drift, { duration: data.duration }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: "absolute",
+          left: `${data.x}%`,
+          top: `${data.y}%`,
+          width: data.size,
+          height: data.size,
+          borderRadius: data.size / 2,
+          backgroundColor: `rgba(164,208,139,${data.opacity})`,
+        },
+        animStyle,
+      ]}
+    />
+  );
+}
+
+function AnimatedLogo() {
+  const logoScale = useSharedValue(0.5);
+  const logoOpacity = useSharedValue(0);
+  const titleOpacity = useSharedValue(0);
+  const titleTranslateY = useSharedValue(16);
+  const subtitleOpacity = useSharedValue(0);
+  const subtitleTranslateY = useSharedValue(12);
+  const lineWidth = useSharedValue(0);
+
+  useEffect(() => {
+    logoOpacity.value = withDelay(200, withTiming(1, { duration: 700 }));
+    logoScale.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 80 }));
+    titleOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
+    titleTranslateY.value = withDelay(500, withSpring(0, { damping: 14 }));
+    subtitleOpacity.value = withDelay(750, withTiming(1, { duration: 500 }));
+    subtitleTranslateY.value = withDelay(750, withSpring(0, { damping: 14 }));
+    lineWidth.value = withDelay(900, withSpring(50, { damping: 15 }));
+  }, []);
+
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleTranslateY.value }],
+  }));
+
+  const subtitleStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+    transform: [{ translateY: subtitleTranslateY.value }],
+  }));
+
+  const lineStyle = useAnimatedStyle(() => ({
+    width: lineWidth.value,
+  }));
+
+  return (
+    <View style={styles.logoSection}>
+      {AUTH_PARTICLES.map((p) => (
+        <AuthParticle key={p.id} data={p} />
+      ))}
+      <Animated.View style={[styles.logoContainer, logoStyle]}>
+        <Image
+          source={require("../../assets/images/blade-icon-green.png")}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+      </Animated.View>
+      <Animated.View style={titleStyle}>
+        <ThemedText type="h2" style={styles.brandTitle}>
+          Blade Halo Connect
+        </ThemedText>
+      </Animated.View>
+      <Animated.View style={[styles.accentLine, lineStyle]} />
+      <Animated.View style={subtitleStyle}>
+        <ThemedText type="body" style={styles.brandSubtitle}>
+          by Blade Outboards
+        </ThemedText>
+      </Animated.View>
+    </View>
+  );
+}
 
 const COUNTRIES = [
   "Afghanistan", "Albania", "Algeria", "Argentina", "Australia", "Austria",
@@ -81,8 +202,8 @@ export default function AuthScreen() {
     return COUNTRIES.filter((c) => c.toLowerCase().includes(search));
   }, [countrySearch]);
 
-  const isValidEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isValidEmail = (emailStr: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr);
   };
 
   const handleSubmit = async () => {
@@ -178,7 +299,7 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={["#2C2C2E", "#1C1C1E"] as [string, string]}
+        colors={["#1A2332", "#0A1628"] as [string, string]}
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.noiseOverlay} pointerEvents="none" />
@@ -188,26 +309,17 @@ export default function AuthScreen() {
         style={styles.keyboardView}
       >
         <ScrollView 
-          contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing["4xl"] }]}
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + (IS_SHORT_SCREEN ? Spacing.md : Spacing.xl) },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           bounces={false}
           overScrollMode="never"
           alwaysBounceVertical={false}
         >
-          <View style={styles.logoSection}>
-            <Image
-              source={require("../../assets/images/halo-outboard.png")}
-              style={styles.productImage}
-              resizeMode="contain"
-            />
-            <ThemedText type="body" style={styles.seriesName}>
-              Blade Halo Series
-            </ThemedText>
-            <ThemedText type="body" style={styles.tagline}>
-              Redefined Electric Propulsion
-            </ThemedText>
-          </View>
+          <AnimatedLogo />
 
           <View style={styles.formSection}>
             <Animated.View entering={FadeInUp.delay(400).duration(500).springify()}>
@@ -378,41 +490,43 @@ export default function AuthScreen() {
             </Animated.View>
           </View>
 
-          <Pressable 
-            onPress={() => navigation.navigate('Onboarding')} 
-            style={styles.introLink}
-          >
-            <Feather name="play-circle" size={14} color="rgba(255,255,255,0.45)" />
-            <ThemedText type="caption" style={styles.introLinkText}>
-              View Introduction
-            </ThemedText>
-          </Pressable>
-
-          <Animated.View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]} entering={FadeIn.delay(800).duration(400)}>
-            <Pressable onPress={handleOpenSupport} style={styles.supportLink}>
-              <Feather name="life-buoy" size={14} color="rgba(255,255,255,0.35)" />
-              <ThemedText type="caption" style={styles.supportText}>
-                Support Center
+          <View style={[styles.bottomRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
+            <Pressable 
+              onPress={() => navigation.navigate('Onboarding')} 
+              style={styles.introLink}
+            >
+              <Feather name="play-circle" size={13} color="rgba(255,255,255,0.4)" />
+              <ThemedText type="caption" style={styles.introLinkText}>
+                View Introduction
               </ThemedText>
             </Pressable>
-            
-            <View style={styles.oemInfo}>
-              <ThemedText type="caption" style={styles.oemText}>
-                BLADE MARINE TECHNOLOGIES LTD
+
+            <Animated.View entering={FadeIn.delay(800).duration(400)}>
+              <Pressable onPress={handleOpenSupport} style={styles.supportLink}>
+                <Feather name="life-buoy" size={13} color="rgba(255,255,255,0.35)" />
+                <ThemedText type="caption" style={styles.supportText}>
+                  Support
+                </ThemedText>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <Animated.View style={styles.versionInfo} entering={FadeIn.delay(900).duration(400)}>
+            <ThemedText type="caption" style={styles.oemText}>
+              BLADE MARINE TECHNOLOGIES LTD
+            </ThemedText>
+            <View style={styles.versionRow}>
+              <ThemedText type="caption" style={styles.versionLabel}>
+                v{APP_VERSION}
               </ThemedText>
-              <View style={styles.versionRow}>
-                <ThemedText type="caption" style={styles.versionLabel}>
-                  App v{APP_VERSION}
-                </ThemedText>
-                <View style={styles.versionDot} />
-                <ThemedText type="caption" style={styles.versionLabel}>
-                  Build {BUILD_NUMBER}
-                </ThemedText>
-                <View style={styles.versionDot} />
-                <ThemedText type="caption" style={styles.versionLabel}>
-                  {FIRMWARE_PROTOCOL}
-                </ThemedText>
-              </View>
+              <View style={styles.versionDot} />
+              <ThemedText type="caption" style={styles.versionLabel}>
+                {BUILD_NUMBER}
+              </ThemedText>
+              <View style={styles.versionDot} />
+              <ThemedText type="caption" style={styles.versionLabel}>
+                {FIRMWARE_PROTOCOL}
+              </ThemedText>
             </View>
           </Animated.View>
         </ScrollView>
@@ -483,94 +597,107 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
+    backgroundColor: "#0A1628",
   },
   keyboardView: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
+  noiseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.01)",
   },
   logoSection: {
     alignItems: "center",
     justifyContent: "center",
-    width: "100%",
-    paddingHorizontal: Spacing["3xl"],
+    paddingVertical: IS_SHORT_SCREEN ? Spacing.lg : Spacing["2xl"],
+    overflow: "hidden",
   },
-  productImage: {
-    width: 200,
-    height: 200,
-    alignSelf: "center",
+  logoContainer: {
+    width: IS_SHORT_SCREEN ? 60 : 72,
+    height: IS_SHORT_SCREEN ? 60 : 72,
+    marginBottom: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  seriesName: {
-    color: "rgba(255,255,255,0.6)",
-    letterSpacing: 3,
-    textTransform: "uppercase",
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: Spacing.md,
-    marginBottom: 4,
+  logoImage: {
+    width: IS_SHORT_SCREEN ? 60 : 72,
+    height: IS_SHORT_SCREEN ? 60 : 72,
+  },
+  brandTitle: {
+    color: "#FFFFFF",
     textAlign: "center",
+    fontSize: IS_SHORT_SCREEN ? 22 : 26,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    marginBottom: Spacing.sm,
   },
-  noiseOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.015)",
+  accentLine: {
+    height: 1,
+    backgroundColor: "rgba(164,208,139,0.35)",
+    marginBottom: Spacing.sm,
   },
-  tagline: {
-    color: "rgba(255,255,255,0.45)",
-    letterSpacing: 2,
+  brandSubtitle: {
+    color: "rgba(255,255,255,0.35)",
+    textAlign: "center",
+    fontSize: 12,
+    letterSpacing: 1.5,
     textTransform: "uppercase",
-    fontSize: 11,
   },
   formSection: {
     paddingHorizontal: Spacing.screenPadding,
-    marginTop: Spacing["2xl"],
+    marginTop: Spacing.md,
   },
   formCard: {
-    backgroundColor: "rgba(44,44,46,0.92)",
+    backgroundColor: "rgba(44,44,46,0.65)",
     borderRadius: BorderRadius.xl,
-    padding: Spacing["2xl"],
+    padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.06)",
   },
   formTitle: {
     color: "#FFFFFF",
     textAlign: "center",
     marginBottom: Spacing.xs,
+    fontSize: 20,
   },
   formSubtitle: {
-    color: "rgba(255,255,255,0.55)",
+    color: "rgba(255,255,255,0.5)",
     textAlign: "center",
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
+    fontSize: 13,
   },
   errorContainer: {
     backgroundColor: BladeColors.error + "20",
-    padding: Spacing.md,
+    padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   errorText: {
     color: BladeColors.error,
     textAlign: "center",
   },
   inputGroup: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   inputLabel: {
-    color: "rgba(255,255,255,0.45)",
-    marginBottom: Spacing.xs,
+    color: "rgba(255,255,255,0.4)",
+    marginBottom: 4,
     letterSpacing: 1,
+    fontSize: 10,
   },
   input: {
     backgroundColor: "rgba(28,28,30,0.8)",
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    fontSize: 16,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
+    fontSize: 15,
     color: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
   passwordContainer: {
     position: "relative",
@@ -587,15 +714,16 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     alignItems: "flex-end",
-    marginTop: -Spacing.sm,
-    marginBottom: Spacing.md,
+    marginTop: -Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   forgotPasswordText: {
     color: BladeColors.accent,
+    fontSize: 13,
   },
   submitButton: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.lg,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   toggleContainer: {
     alignItems: "center",
@@ -610,15 +738,15 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: Spacing.lg,
+    marginVertical: Spacing.md,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   dividerText: {
-    color: "rgba(255,255,255,0.3)",
+    color: "rgba(255,255,255,0.25)",
     marginHorizontal: Spacing.md,
   },
   guestButton: {
@@ -626,73 +754,82 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    paddingVertical: 10,
     paddingHorizontal: Spacing.xl,
-    backgroundColor: "rgba(58,58,60,0.6)",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  guestButtonText: {
-    color: "rgba(255,255,255,0.55)",
-    fontWeight: "500",
-  },
-  footer: {
-    alignItems: "center",
-    gap: Spacing.md,
-    paddingTop: Spacing["3xl"],
-  },
-  supportLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
     backgroundColor: "rgba(58,58,60,0.4)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
+  guestButtonText: {
+    color: "rgba(255,255,255,0.5)",
+    fontWeight: "500",
+    fontSize: 14,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.screenPadding,
+  },
+  introLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: Spacing.xs,
+  },
+  introLinkText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
+  },
+  supportLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: Spacing.xs,
+  },
   supportText: {
     color: "rgba(255,255,255,0.35)",
-    fontWeight: "500",
+    fontSize: 12,
   },
-  oemInfo: {
+  versionInfo: {
     alignItems: "center",
-    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
   },
   oemText: {
-    color: "rgba(255,255,255,0.25)",
-    letterSpacing: 2,
-    fontWeight: "600",
-    fontSize: 10,
-    marginBottom: 6,
+    color: "rgba(255,255,255,0.15)",
+    fontWeight: "500",
+    fontSize: 9,
+    letterSpacing: 1.5,
   },
   versionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    marginTop: 3,
   },
   versionLabel: {
-    color: "rgba(255,255,255,0.2)",
-    fontSize: 10,
-    fontVariant: ["tabular-nums"],
+    color: "rgba(255,255,255,0.12)",
+    fontSize: 9,
   },
   versionDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   countrySelector: {
-    backgroundColor: "rgba(28,28,30,0.8)",
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(28,28,30,0.8)",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   countryIcon: {
     marginRight: Spacing.sm,
@@ -700,27 +837,30 @@ const styles = StyleSheet.create({
   countryText: {
     flex: 1,
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
   },
   countryPlaceholder: {
     flex: 1,
     color: "rgba(255,255,255,0.3)",
-    fontSize: 16,
+    fontSize: 15,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    flex: 1,
-    backgroundColor: "rgba(28,28,30,0.98)",
-    paddingHorizontal: Spacing.screenPadding,
+    backgroundColor: "#2C2C2E",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+    paddingHorizontal: Spacing.lg,
   },
   modalHeader: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: Spacing.lg,
+    alignItems: "center",
+    marginBottom: Spacing.md,
   },
   modalTitle: {
     color: "#FFFFFF",
@@ -736,10 +876,10 @@ const styles = StyleSheet.create({
   },
   countryItem: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    height: 48,
-    paddingHorizontal: Spacing.md,
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
   },
   countryItemText: {
     color: "#FFFFFF",
@@ -752,17 +892,5 @@ const styles = StyleSheet.create({
   countryItemDivider: {
     height: 1,
     backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  introLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: Spacing.lg,
-    marginTop: Spacing.sm,
-  },
-  introLinkText: {
-    color: "rgba(255,255,255,0.45)",
-    fontWeight: "500",
   },
 });
