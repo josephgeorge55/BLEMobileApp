@@ -311,7 +311,7 @@ export default function AuthScreen() {
         <ScrollView 
           contentContainerStyle={[
             styles.content,
-            { paddingTop: insets.top + (IS_SHORT_SCREEN ? Spacing.md : Spacing.xl) },
+            { paddingTop: insets.top + (IS_SHORT_SCREEN ? Spacing["2xl"] : Spacing["4xl"]) },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
