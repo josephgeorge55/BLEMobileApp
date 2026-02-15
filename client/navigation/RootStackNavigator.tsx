@@ -62,6 +62,15 @@ function MainWithFab() {
 }
 
 
+function OnboardingWithNavigation({ onStateComplete }: { onStateComplete: () => void }) {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const handleComplete = useCallback(() => {
+    onStateComplete();
+    navigation.reset({ index: 0, routes: [{ name: "Auth" }] });
+  }, [navigation, onStateComplete]);
+  return <OnboardingScreen onComplete={handleComplete} />;
+}
+
 function OnboardingReplay() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const handleComplete = useCallback(() => {
@@ -157,16 +166,27 @@ export default function RootStackNavigator() {
         }}
       >
         {!isLoggedIn ? (
-          hasSeenOnboarding ? (
-            <>
+          <>
+            {!hasSeenOnboarding ? (
               <Stack.Screen
-                name="Auth"
-                component={AuthScreen}
-                options={{ 
+                name="Onboarding"
+                options={{
                   headerShown: false,
                   animation: "fade",
                 }}
-              />
+              >
+                {() => <OnboardingWithNavigation onStateComplete={handleOnboardingComplete} />}
+              </Stack.Screen>
+            ) : null}
+            <Stack.Screen
+              name="Auth"
+              component={AuthScreen}
+              options={{ 
+                headerShown: false,
+                animation: "fade",
+              }}
+            />
+            {hasSeenOnboarding ? (
               <Stack.Screen
                 name="Onboarding"
                 component={OnboardingReplay}
@@ -176,28 +196,8 @@ export default function RootStackNavigator() {
                   presentation: "modal",
                 }}
               />
-            </>
-          ) : (
-            <>
-              <Stack.Screen
-                name="Onboarding"
-                options={{
-                  headerShown: false,
-                  animation: "fade",
-                }}
-              >
-                {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
-              </Stack.Screen>
-              <Stack.Screen
-                name="Auth"
-                component={AuthScreen}
-                options={{ 
-                  headerShown: false,
-                  animation: "fade",
-                }}
-              />
-            </>
-          )
+            ) : null}
+          </>
         ) : (
           <>
             <Stack.Screen
