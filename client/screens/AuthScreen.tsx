@@ -491,11 +491,14 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     paddingHorizontal: Spacing["3xl"],
   },
   productImage: {
     width: 200,
     height: 200,
+    alignSelf: "center",
     marginBottom: Spacing.lg,
   },
   seriesName: {
@@ -505,6 +508,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginBottom: 4,
+    textAlign: "center",
   },
   noiseOverlay: {
     ...StyleSheet.absoluteFillObject,
