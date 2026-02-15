@@ -35,6 +35,7 @@ import {
 import { getApiUrl } from "@/lib/query-client";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 import BladeWalletPassModule, { isNativeWalletAvailable, getWalletModuleLoadError } from "../../modules/blade-wallet-pass";
+import FeatureIntroOverlay, { INTRO_KEY_PASSPORT } from "@/components/FeatureIntroOverlay";
 
 const bladePassportLogo = require("../../assets/images/blade-passport-logo.png");
 const ukcaLogo = require("../../assets/images/ukca-logo.png");
@@ -461,6 +462,13 @@ export default function PassportScreen() {
 
   return (
     <View style={styles.screen}>
+      <FeatureIntroOverlay
+        storageKey={INTRO_KEY_PASSPORT}
+        icon="award"
+        title="Digital Passport"
+        subtitle="Your outboard's complete identity. Add to Apple Wallet, Google Wallet, or download as PDF."
+        gradientColors={["#2C2C2E", "#1C1C1E"]}
+      />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,

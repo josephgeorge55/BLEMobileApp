@@ -7,7 +7,6 @@ import MainTabNavigator from "@/navigation/MainTabNavigator";
 import BleScannerModal from "@/screens/BleScannerModal";
 import AuthScreen from "@/screens/AuthScreen";
 import OnboardingScreen, { ONBOARDING_KEY } from "@/screens/OnboardingScreen";
-import FeatureTourScreen, { FEATURE_TOUR_KEY } from "@/screens/FeatureTourScreen";
 import TripDetailScreen from "@/screens/TripDetailScreen";
 import PassportScreen from "@/screens/PassportScreen";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
@@ -25,7 +24,6 @@ const DATA_SHARING_PROMPT_SHOWN_KEY = "@blade_data_sharing_prompt_shown";
 export type RootStackParamList = {
   Onboarding: undefined;
   Auth: undefined;
-  FeatureTour: undefined;
   Main: undefined;
   BleScanner: undefined;
   TripDetail: { tripId: string };
@@ -80,24 +78,18 @@ export default function RootStackNavigator() {
   const { setAnonymousDataSharing } = useSettings();
   const [showDataPrompt, setShowDataPrompt] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
-  const [hasSeenFeatureTour, setHasSeenFeatureTour] = useState<boolean | null>(null);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const checkStartupFlags = async () => {
+    const checkOnboarding = async () => {
       try {
-        const [onboardingSeen, tourSeen] = await Promise.all([
-          AsyncStorage.getItem(ONBOARDING_KEY),
-          AsyncStorage.getItem(FEATURE_TOUR_KEY),
-        ]);
-        setHasSeenOnboarding(onboardingSeen === "true");
-        setHasSeenFeatureTour(tourSeen === "true");
+        const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
+        setHasSeenOnboarding(seen === "true");
       } catch {
         setHasSeenOnboarding(true);
-        setHasSeenFeatureTour(true);
       }
     };
-    checkStartupFlags();
+    checkOnboarding();
   }, []);
 
   useEffect(() => {
@@ -151,11 +143,7 @@ export default function RootStackNavigator() {
     setHasSeenOnboarding(true);
   }, []);
 
-  const handleFeatureTourComplete = useCallback(() => {
-    setHasSeenFeatureTour(true);
-  }, []);
-
-  if (isLoading || hasSeenOnboarding === null || hasSeenFeatureTour === null) {
+  if (isLoading || hasSeenOnboarding === null) {
     return <LoadingScreen />;
   }
 
@@ -210,59 +198,6 @@ export default function RootStackNavigator() {
               />
             </>
           )
-        ) : !hasSeenFeatureTour ? (
-          <>
-            <Stack.Screen
-              name="FeatureTour"
-              options={{
-                headerShown: false,
-                animation: "fade",
-              }}
-            >
-              {() => <FeatureTourScreen onComplete={handleFeatureTourComplete} />}
-            </Stack.Screen>
-            <Stack.Screen
-              name="Main"
-              component={MainWithFab}
-              options={{ 
-                headerShown: false,
-                animation: "fade",
-              }}
-            />
-            <Stack.Screen
-              name="BleScanner"
-              component={BleScannerModal}
-              options={{
-                presentation: "modal",
-                headerShown: false,
-                animation: "slide_from_bottom",
-              }}
-            />
-            <Stack.Screen
-              name="TripDetail"
-              component={TripDetailScreen}
-              options={{
-                headerTitle: "Trip Details",
-                headerBackTitle: "Back",
-                animation: "fade_from_bottom",
-                animationDuration: 350,
-                headerTransparent: false,
-                headerBlurEffect: undefined,
-                headerStyle: { backgroundColor: "rgba(44,44,46,0.95)" },
-                headerTintColor: "#FFFFFF",
-              }}
-            />
-            <Stack.Screen
-              name="Passport"
-              component={PassportScreen}
-              options={{
-                headerTitle: "Outboard Passport",
-                headerBackTitle: "Back",
-                animation: "fade_from_bottom",
-                animationDuration: 350,
-              }}
-            />
-          </>
         ) : (
           <>
             <Stack.Screen

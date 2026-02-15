@@ -19,6 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useUser } from "@/context/UserContext";
 import { useTrip } from "@/context/TripContext";
 import { BladeColors, Spacing, BorderRadius } from "@/constants/theme";
+import FeatureIntroOverlay, { INTRO_KEY_TRIPS } from "@/components/FeatureIntroOverlay";
 import type { Trip } from "@shared/schema";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -334,6 +335,13 @@ export default function TripsScreen() {
 
   return (
     <View style={styles.container}>
+      <FeatureIntroOverlay
+        storageKey={INTRO_KEY_TRIPS}
+        icon="navigation"
+        title="Trip Recording"
+        subtitle="Automatically log every journey with telemetry data. Export and share detailed PDF reports."
+        gradientColors={["#2C2C2E", "#2A2E2C"]}
+      />
       <FlatList
         data={trips}
         keyExtractor={item => item.id}

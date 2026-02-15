@@ -15,6 +15,7 @@ import {
   fetchLatestGPSFromFirestore,
   type RegisteredMotor
 } from "@/lib/firebase";
+import FeatureIntroOverlay, { INTRO_KEY_ANTITHEFT } from "@/components/FeatureIntroOverlay";
 
 interface LocationData {
   latitude: number;
@@ -209,6 +210,13 @@ export default function LocationScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <FeatureIntroOverlay
+        storageKey={INTRO_KEY_ANTITHEFT}
+        icon="shield"
+        title="Anti-Theft Tracking"
+        subtitle="GPS location tracking even when powered off. Know where your outboard is at all times."
+        gradientColors={["#2C2C2E", "#2E2A2A"]}
+      />
       {/* Always render map in background for smooth transitions */}
       <View style={styles.mapContainer}>
         <OpenStreetMap

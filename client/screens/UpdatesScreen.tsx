@@ -28,6 +28,7 @@ import {
   setOTAMode,
   isClassicConnected,
 } from "@/lib/bluetooth-classic-service";
+import FeatureIntroOverlay, { INTRO_KEY_UPDATES } from "@/components/FeatureIntroOverlay";
 import {
   sendBleBinaryData,
   receiveBleBinaryData,
@@ -270,6 +271,13 @@ export default function UpdatesScreen() {
 
   return (
     <>
+      <FeatureIntroOverlay
+        storageKey={INTRO_KEY_UPDATES}
+        icon="download-cloud"
+        title="Over-the-Air Updates"
+        subtitle="Receive the latest firmware and features delivered wirelessly to your outboard."
+        gradientColors={["#2C2C2E", "#2A2C2E"]}
+      />
       <ScrollView
         style={[styles.container, { backgroundColor: "#F2F2F7" }]}
         contentContainerStyle={{

@@ -47,6 +47,7 @@ import {
   ClassicDevice,
 } from "@/lib/bluetooth-classic-service";
 import { ParseResult } from "@/lib/ble-parser";
+import FeatureIntroOverlay, { INTRO_KEY_BLUETOOTH } from "@/components/FeatureIntroOverlay";
 
 interface ScanDevice {
   id: string;
@@ -718,6 +719,13 @@ export default function BleScannerModal() {
 
   return (
     <>
+    <FeatureIntroOverlay
+      storageKey={INTRO_KEY_BLUETOOTH}
+      icon="bluetooth"
+      title="Bluetooth Connection"
+      subtitle="Connect wirelessly to your outboard for real-time telemetry, diagnostics, and control."
+      gradientColors={["#2C2C2E", "#2A2A2E"]}
+    />
     <View
       style={[
         styles.container,
