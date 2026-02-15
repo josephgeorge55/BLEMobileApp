@@ -3,6 +3,8 @@ import { createServer, type Server } from "node:http";
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { storage } from "./storage";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
 import {
   locationReportSchema,
   firmwareCheckSchema,
@@ -593,6 +595,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating firmware:", error);
       res.status(500).json({ error: "Failed to create firmware version" });
+    }
+  });
+
+  app.post("/api/firmware/upload", async (req, res) => {
+    try {
+      const apiKey = req.headers["x-api-key"];
+      const expectedKey = process.env.PUSH_ADMIN_API_KEY;
+
+      if (!expectedKey || apiKey !== expectedKey) {
+        console.log("[Firmware Upload] Unauthorized API key attempt");
+        return res.status(401).json({ error: "Unauthorized. Valid API key required." });
+      }
+
+      const { version, releaseNotes, isMandatory, fileSize, eligibleSerials, fileData } = req.body;
+
+      if (!version) {
+        return res.status(400).json({ error: "Version is required" });
+      }
+
+      if (!eligibleSerials || !Array.isArray(eligibleSerials) || eligibleSerials.length === 0) {
+        return res.status(400).json({ error: "eligibleSerials array is required" });
+      }
+
+      if (!fileData || typeof fileData !== "string") {
+        return res.status(400).json({ error: "fileData (base64 encoded) is required" });
+      }
+
+      console.log(`[Firmware Upload] Processing firmware upload for version ${version}`);
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyAOS_qrKCWdXAENEdrvO3cJ2V8nLmE3v1A",
+        authDomain: "bladeobapp.firebaseapp.com",
+        projectId: "bladeobapp",
+        storageBucket: "bladeobapp.firebasestorage.app",
+        messagingSenderId: "416634217131",
+        appId: "1:416634217131:web:c45427f52f10285e3d0dee"
+      };
+
+      let firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+      const db = getFirestore(firebaseApp);
+
+      const docId = `fw_v${version.replace(/\./g, '_')}`;
+
+      const firestoreData = {
+        version,
+        releaseNotes: releaseNotes || null,
+        isMandatory: isMandatory ?? false,
+        fileSize: fileSize || null,
+        eligibleSerials: eligibleSerials.map((s: string) => s.toUpperCase()),
+        fileData,
+        releaseDate: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, "firmware_releases", docId), firestoreData);
+
+      console.log(`[Firmware Upload] Written to Firestore: ${docId}`);
+
+      await storage.createFirmwareVersion({
+        version,
+        releaseNotes,
+        isMandatory: isMandatory ?? false,
+        fileSize,
+      });
+
+      console.log(`[Firmware Upload] Written to PostgreSQL firmwareVersions table`);
+
+      res.json({
+        success: true,
+        firmwareId: docId,
+      });
+    } catch (error) {
+      console.error("[Firmware Upload] Error:", error);
+      res.status(500).json({ error: "Failed to upload firmware" });
     }
   });
 

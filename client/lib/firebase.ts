@@ -665,6 +665,113 @@ export async function saveUserCountry(country: string): Promise<void> {
   }
 }
 
+// Firmware Release interface
+export interface FirmwareRelease {
+  id: string;
+  version: string;
+  releaseNotes: string | null;
+  releaseDate: string | null;
+  isMandatory: boolean;
+  fileSize: number | null;
+}
+
+// Check firmware eligibility for a given serial number
+export async function checkFirmwareEligibility(serialNumber: string): Promise<FirmwareRelease[]> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    console.error("[Firebase] Firestore not initialized");
+    return [];
+  }
+
+  try {
+    const firmwareQuery = query(
+      collection(firestore, "firmware_releases"),
+      where("eligibleSerials", "array-contains", serialNumber.toUpperCase())
+    );
+
+    const snapshot = await getDocs(firmwareQuery);
+
+    if (snapshot.empty) {
+      console.log("[Firebase] No eligible firmware found for serial:", serialNumber);
+      return [];
+    }
+
+    const releases: FirmwareRelease[] = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      
+      // Convert Firestore timestamp to ISO string
+      let releaseDate: string | null = null;
+      if (data.releaseDate) {
+        if (typeof data.releaseDate.toDate === "function") {
+          releaseDate = data.releaseDate.toDate().toISOString();
+        } else if (data.releaseDate instanceof Date) {
+          releaseDate = data.releaseDate.toISOString();
+        } else if (typeof data.releaseDate === "string") {
+          releaseDate = data.releaseDate;
+        } else if (typeof data.releaseDate === "number") {
+          releaseDate = new Date(data.releaseDate).toISOString();
+        }
+      }
+
+      return {
+        id: doc.id,
+        version: data.version || "",
+        releaseNotes: data.releaseNotes || null,
+        releaseDate: releaseDate,
+        isMandatory: data.isMandatory || false,
+        fileSize: data.fileSize || null,
+      };
+    });
+
+    console.log("[Firebase] Found", releases.length, "eligible firmware releases for serial:", serialNumber);
+    return releases;
+  } catch (error: any) {
+    console.error("[Firebase] Error checking firmware eligibility:", error);
+    console.error("[Firebase] Error code:", error.code);
+    console.error("[Firebase] Error message:", error.message);
+    return [];
+  }
+}
+
+// Download firmware data by firmware ID
+export async function downloadFirmwareData(
+  firmwareId: string
+): Promise<{ fileData: string; version: string } | null> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    console.error("[Firebase] Firestore not initialized");
+    return null;
+  }
+
+  try {
+    const firmwareRef = doc(firestore, "firmware_releases", firmwareId);
+    const firmwareDoc = await getDoc(firmwareRef);
+
+    if (!firmwareDoc.exists()) {
+      console.error("[Firebase] Firmware not found with ID:", firmwareId);
+      return null;
+    }
+
+    const data = firmwareDoc.data();
+    
+    if (!data.fileData || !data.version) {
+      console.error("[Firebase] Firmware missing required fields (fileData or version)");
+      return null;
+    }
+
+    console.log("[Firebase] Firmware data downloaded successfully for ID:", firmwareId);
+    return {
+      fileData: data.fileData,
+      version: data.version,
+    };
+  } catch (error: any) {
+    console.error("[Firebase] Error downloading firmware data:", error);
+    console.error("[Firebase] Error code:", error.code);
+    console.error("[Firebase] Error message:", error.message);
+    return null;
+  }
+}
+
 export { 
   auth,
   db,
