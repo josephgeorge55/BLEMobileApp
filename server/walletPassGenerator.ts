@@ -420,14 +420,64 @@ export async function generateGoogleWalletUrl(passportData: WalletPassportData):
       return { error: "Invalid Google Wallet service account key JSON." };
     }
 
-    const objectId = `${issuerId}.blade-passport-${passportData.serialNumber.replace(/[^a-zA-Z0-9_-]/g, '_')}-${passportData.ownerId.substring(0, 8)}`;
+    const sanitizedSerial = passportData.serialNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const sanitizedOwner = passportData.ownerId.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 8);
+    const classId = `${issuerId}.blade-outboard-passport`;
+    const objectId = `${issuerId}.blade-passport-${sanitizedSerial}-${sanitizedOwner}`;
 
     const domain = process.env.EXPO_PUBLIC_DOMAIN || "bladephoneapp.replit.app";
     const qrUrl = `https://${domain}/passport?serial=${encodeURIComponent(passportData.serialNumber)}&owner=${encodeURIComponent(passportData.ownerId)}`;
 
+    const genericClass = {
+      id: classId,
+      classTemplateInfo: {
+        cardTemplateOverride: {
+          cardRowTemplateInfos: [
+            {
+              twoItems: {
+                startItem: {
+                  firstValue: {
+                    fields: [{ fieldPath: "object.textModulesData['serial']" }],
+                  },
+                },
+                endItem: {
+                  firstValue: {
+                    fields: [{ fieldPath: "object.textModulesData['owner']" }],
+                  },
+                },
+              },
+            },
+            {
+              twoItems: {
+                startItem: {
+                  firstValue: {
+                    fields: [{ fieldPath: "object.textModulesData['warranty']" }],
+                  },
+                },
+                endItem: {
+                  firstValue: {
+                    fields: [{ fieldPath: "object.textModulesData['power']" }],
+                  },
+                },
+              },
+            },
+            {
+              oneItem: {
+                item: {
+                  firstValue: {
+                    fields: [{ fieldPath: "object.textModulesData['vessel']" }],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
     const genericObject = {
       id: objectId,
-      classId: `${issuerId}.blade-outboard-passport`,
+      classId: classId,
       genericType: "GENERIC_TYPE_UNSPECIFIED",
       hexBackgroundColor: "#142841",
       logo: {
@@ -487,6 +537,7 @@ export async function generateGoogleWalletUrl(passportData: WalletPassportData):
       origins: [],
       typ: "savetowallet",
       payload: {
+        genericClasses: [genericClass],
         genericObjects: [genericObject],
       },
     };
@@ -494,6 +545,7 @@ export async function generateGoogleWalletUrl(passportData: WalletPassportData):
     const token = jwt.sign(claims, keyData.private_key, { algorithm: "RS256" });
     const saveUrl = `https://pay.google.com/gp/v/save/${token}`;
 
+    debugLog(`Google Wallet URL generated for serial=${passportData.serialNumber}, objectId=${objectId}`);
     return { url: saveUrl };
   } catch (e: any) {
     console.error("[Google Wallet] Generation error:", e);

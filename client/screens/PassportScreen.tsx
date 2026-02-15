@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -314,7 +315,11 @@ export default function PassportScreen() {
       const data = await response.json();
 
       if (data.type === "google_wallet" && data.url) {
-        await WebBrowser.openBrowserAsync(data.url);
+        if (Platform.OS === "android") {
+          await Linking.openURL(data.url);
+        } else {
+          await WebBrowser.openBrowserAsync(data.url);
+        }
       } else if (data.data) {
         const filename = data.filename || "blade-passport-google.pdf";
         await shareOrDownload(data.data, filename, "application/pdf");
