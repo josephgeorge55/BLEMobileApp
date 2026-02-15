@@ -59,7 +59,7 @@ Design aesthetic: iOS-style light gray theme with translucent white cards, green
 
 ### Data Flow & Protocols
 - **Telemetry**: Real-time data transmitted at 2 Hz via Bluetooth Classic serial frames.
-- **Firmware OTA (FOTA v2.0)**: Uses HALO FOTA v2.0 protocol. Enter bootloader via `$APP_CONFIG,UPDATE_FW` software command. Flow: HELLO (0x7F) → FW_INFO (0x10, start=0x08004000) → ERASE (0x43) → WRITE (0x31, 256-byte blocks) → GOTOAPP (0x21). Supports .bin and .hex files. ACK=0x79, NACK=0x1F. Bootloader entry includes RX buffer drain, 2500ms reset delay, 1500ms init delay, and auto-retry of UPDATE_FW on attempt 3 of 5.
+- **Firmware OTA (FOTA v2.0)**: Uses HALO FOTA v2.0 protocol. Enter bootloader via `$APP_CONFIG,UPDATE_FW` software command. Flow: HELLO (0x7F) → FW_INFO (0x10, start=0x08004000) → ERASE (0x43) → WRITE (0x31, 256-byte blocks) → GOTOAPP (0x21). Supports .bin and .hex files. ACK=0x79, NACK=0x1F. FW_INFO sends start address and firmware size in LSB (Little-Endian) byte order. ACK timeout: 1000ms general, 1500ms per write block, 15000ms for erase. Bootloader entry includes RX buffer drain, 2500ms reset delay, 1500ms init delay, and auto-retry of UPDATE_FW on attempt 3 of 5.
 - **Offline Support**: Trip data is recorded locally using AsyncStorage for intermittent connectivity.
 - **Anti-Theft Location**: Motors report GPS hourly via cellular for up to 30 days post-power-off, integrating with Firestore for location tracking.
 - **Bluetooth Platform Support**: Full BLE support across iOS and Android, with Bluetooth Classic support only on Android. Web platform provides a mock mode without real Bluetooth functionality. BLE and Classic scan results are filtered by device name. Serial number validation is implemented for anti-theft motor binding.
