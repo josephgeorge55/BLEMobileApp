@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { StyleSheet, View, Dimensions, Platform, Modal, Image } from "react-native";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { StyleSheet, View, Dimensions, Platform, Modal, Image, Pressable, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
@@ -114,6 +114,8 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   const { user, isGuestMode } = useUser();
   const [visible, setVisible] = useState(true);
   const [country, setCountry] = useState<string | null>(null);
+  const dismissingRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isGuest = isGuestMode || !user || user.id === "guest";
 
@@ -139,8 +141,11 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
     }
   }, [isGuest, user]);
 
-  const autoDismiss = useCallback(async () => {
-    overlayOpacity.value = withTiming(0, { duration: 600 }, () => {
+  const autoDismiss = useCallback(() => {
+    if (dismissingRef.current) return;
+    dismissingRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    overlayOpacity.value = withTiming(0, { duration: 500 }, () => {
       runOnJS(setVisible)(false);
       if (onDismiss) {
         runOnJS(onDismiss)();
@@ -149,7 +154,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
     setTimeout(() => {
       setVisible(false);
       if (onDismiss) onDismiss();
-    }, 800);
+    }, 700);
   }, [onDismiss]);
 
   useEffect(() => {
@@ -200,11 +205,13 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
       }));
     }
 
-    const timer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       autoDismiss();
     }, isGuest ? 4000 : 5500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [visible]);
 
   const overlayAnimStyle = useAnimatedStyle(() => ({
@@ -261,108 +268,111 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
       animationType="fade"
       statusBarTranslucent
     >
-      <Animated.View style={[styles.overlay, overlayAnimStyle]}>
-        <LinearGradient
-          colors={isGuest ? ["#1E2530", "#141B24"] : ["#1A2332", "#0F1720"]}
-          style={StyleSheet.absoluteFillObject}
-        />
+      <Pressable style={StyleSheet.absoluteFill} onPress={autoDismiss}>
+        <Animated.View style={[styles.overlay, overlayAnimStyle]}>
+          <LinearGradient
+            colors={isGuest ? ["#1E2530", "#141B24"] : ["#1A2332", "#0F1720"]}
+            style={StyleSheet.absoluteFillObject}
+          />
 
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-          {PARTICLES.map((p) => (
-            <Particle key={p.id} data={p} />
-          ))}
-        </View>
-
-        <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
-          <Animated.View style={logoAnimStyle}>
-            <Image
-              source={require("../../assets/images/blade-icon-green.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          <View style={styles.textContainer}>
-            <Animated.View style={titleAnimStyle}>
-              <ThemedText style={styles.labelText}>
-                {isGuest ? "Welcome" : "Welcome Back"}
-              </ThemedText>
-            </Animated.View>
-
-            <Animated.View style={subtitleAnimStyle}>
-              <ThemedText style={styles.nameText}>
-                {isGuest ? "Guest" : "Captain"}
-              </ThemedText>
-            </Animated.View>
-
-            <Animated.View style={[styles.divider, dividerAnimStyle]} />
-
-            {!isGuest && userEmail ? (
-              <Animated.View style={[styles.detailRow, detailAnimStyle]}>
-                <Feather name="mail" size={14} color="rgba(255,255,255,0.4)" />
-                <ThemedText style={styles.detailText}>{userEmail}</ThemedText>
-              </Animated.View>
-            ) : null}
-
-            {!isGuest && country ? (
-              <Animated.View style={[styles.detailRow, detailAnimStyle]}>
-                {flag ? (
-                  <ThemedText style={styles.flagText}>{flag}</ThemedText>
-                ) : (
-                  <Feather name="globe" size={14} color="rgba(255,255,255,0.4)" />
-                )}
-                <ThemedText style={styles.detailText}>{country}</ThemedText>
-              </Animated.View>
-            ) : null}
+          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+            {PARTICLES.map((p) => (
+              <Particle key={p.id} data={p} />
+            ))}
           </View>
 
-          <Animated.View style={[styles.lottieContainer, lottieAnimStyle]}>
-            <LottieView
-              source={require("../../assets/lottie/gps.json")}
-              autoPlay
-              loop
-              style={styles.lottie}
-            />
-          </Animated.View>
+          <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
+            <Animated.View style={logoAnimStyle}>
+              <Image
+                source={require("../../assets/images/blade-icon-green.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
-          {!isGuest ? (
-            <Animated.View style={[styles.hintContainer, hintAnimStyle]}>
-              <View style={styles.hintCard}>
-                <LinearGradient
-                  colors={["rgba(164,208,139,0.15)", "rgba(164,208,139,0.05)"]}
-                  style={StyleSheet.absoluteFillObject}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
-                <Animated.View style={pulseAnimStyle}>
-                  <View style={styles.scanIconCircle}>
-                    <Feather name="bluetooth" size={22} color="#A4D08B" />
-                  </View>
+            <View style={styles.textContainer}>
+              <Animated.View style={titleAnimStyle}>
+                <ThemedText style={styles.labelText}>
+                  {isGuest ? "Welcome" : "Welcome Back"}
+                </ThemedText>
+              </Animated.View>
+
+              <Animated.View style={subtitleAnimStyle}>
+                <ThemedText style={styles.nameText}>
+                  {isGuest ? "Guest" : "Captain"}
+                </ThemedText>
+              </Animated.View>
+
+              <Animated.View style={[styles.divider, dividerAnimStyle]} />
+
+              {!isGuest && userEmail ? (
+                <Animated.View style={[styles.detailRow, detailAnimStyle]}>
+                  <Feather name="mail" size={14} color="rgba(255,255,255,0.4)" />
+                  <ThemedText style={styles.detailText}>{userEmail}</ThemedText>
                 </Animated.View>
-                <View style={styles.hintTextArea}>
-                  <ThemedText style={styles.hintTitle}>Ready to Connect</ThemedText>
-                  <ThemedText style={styles.hintSubtitle}>
-                    Tap "Scan for Motors" to pair your outboard
-                  </ThemedText>
-                </View>
-              </View>
-            </Animated.View>
-          ) : (
-            <Animated.View style={[styles.guestHintContainer, detailAnimStyle]}>
-              <Feather name="info" size={16} color="rgba(255,255,255,0.4)" />
-              <ThemedText style={styles.guestHintText}>
-                Sign in for full access to all features
-              </ThemedText>
-            </Animated.View>
-          )}
-        </View>
+              ) : null}
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 32 }]}>
-          <View style={styles.progressBar}>
-            <Animated.View style={[styles.progressFill, { width: "100%" }]} />
+              {!isGuest && country ? (
+                <Animated.View style={[styles.detailRow, detailAnimStyle]}>
+                  {flag ? (
+                    <Text style={styles.flagText}>{flag}</Text>
+                  ) : (
+                    <Feather name="globe" size={14} color="rgba(255,255,255,0.4)" />
+                  )}
+                  <ThemedText style={styles.detailText}>{country}</ThemedText>
+                </Animated.View>
+              ) : null}
+            </View>
+
+            <Animated.View style={[styles.lottieContainer, lottieAnimStyle]}>
+              <LottieView
+                source={require("../../assets/lottie/gps.json")}
+                autoPlay
+                loop
+                style={styles.lottie}
+              />
+            </Animated.View>
+
+            {!isGuest ? (
+              <Animated.View style={[styles.hintContainer, hintAnimStyle]}>
+                <View style={styles.hintCard}>
+                  <LinearGradient
+                    colors={["rgba(164,208,139,0.15)", "rgba(164,208,139,0.05)"]}
+                    style={StyleSheet.absoluteFillObject}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  />
+                  <Animated.View style={pulseAnimStyle}>
+                    <View style={styles.scanIconCircle}>
+                      <Feather name="bluetooth" size={22} color="#A4D08B" />
+                    </View>
+                  </Animated.View>
+                  <View style={styles.hintTextArea}>
+                    <ThemedText style={styles.hintTitle}>Ready to Connect</ThemedText>
+                    <ThemedText style={styles.hintSubtitle}>
+                      Tap "Scan for Motors" to pair your outboard
+                    </ThemedText>
+                  </View>
+                </View>
+              </Animated.View>
+            ) : (
+              <Animated.View style={[styles.guestHintContainer, detailAnimStyle]}>
+                <Feather name="info" size={16} color="rgba(255,255,255,0.4)" />
+                <ThemedText style={styles.guestHintText}>
+                  Sign in for full access to all features
+                </ThemedText>
+              </Animated.View>
+            )}
           </View>
-        </View>
-      </Animated.View>
+
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 32 }]}>
+            <ThemedText style={styles.skipText}>Tap anywhere to skip</ThemedText>
+            <View style={styles.progressBar}>
+              <Animated.View style={[styles.progressFill, { width: "100%" }]} />
+            </View>
+          </View>
+        </Animated.View>
+      </Pressable>
     </Modal>
   );
 }
@@ -497,5 +507,13 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 1.5,
     backgroundColor: "#A4D08B",
+  },
+  skipText: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 12,
+    fontWeight: "400",
+    textAlign: "center",
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
 });
