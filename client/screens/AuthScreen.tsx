@@ -191,6 +191,9 @@ export default function AuthScreen() {
           contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing["4xl"] }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          bounces={false}
+          overScrollMode="never"
+          alwaysBounceVertical={false}
         >
           <View style={styles.logoSection}>
             <Image
