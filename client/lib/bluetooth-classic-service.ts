@@ -239,11 +239,14 @@ function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): 
     }
     const hexPreview = bytes.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
     console.log(`[BT-OTA] onDataReceived intercepted (${bytes.length} bytes): ${hexPreview}`);
-    otaRxBuffer.push(...bytes);
     if (otaRxResolve) {
       const resolve = otaRxResolve;
       otaRxResolve = null;
-      resolve([...otaRxBuffer]);
+      const allData = [...otaRxBuffer, ...bytes];
+      otaRxBuffer = [];
+      resolve(allData);
+    } else {
+      otaRxBuffer.push(...bytes);
     }
     return;
   }
@@ -435,8 +438,6 @@ export async function sendBinaryData(data: Uint8Array): Promise<void> {
     const base64 = arrayBufferToBase64(data);
     await connectedDevice.write(base64, "base64");
     
-    const txDelayMs = Math.ceil((data.length / 3840) * 1000) + 5;
-    await new Promise(resolve => setTimeout(resolve, txDelayMs));
   } catch (error) {
     console.error("[BT-OTA] Error sending binary data:", error);
     throw error;

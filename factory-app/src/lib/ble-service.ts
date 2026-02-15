@@ -259,11 +259,14 @@ function processIncomingData(data: string, callbacks: BleServiceCallbacks): void
     }
     const hexPreview = bytes.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
     console.log(`[BLE-OTA] notification intercepted (${bytes.length} bytes): ${hexPreview}`);
-    bleOtaRxBuffer.push(...bytes);
     if (bleOtaRxResolve) {
       const resolve = bleOtaRxResolve;
       bleOtaRxResolve = null;
-      resolve([...bleOtaRxBuffer]);
+      const allData = [...bleOtaRxBuffer, ...bytes];
+      bleOtaRxBuffer = [];
+      resolve(allData);
+    } else {
+      bleOtaRxBuffer.push(...bytes);
     }
     return;
   }
@@ -412,8 +415,6 @@ export async function sendBleBinaryData(data: Uint8Array): Promise<void> {
       const writeUUID = writeCharacteristic ? writeCharacteristic.uuid : targetCharUUID;
       await connectedDevice.writeCharacteristicWithResponseForService(targetServiceUUID, writeUUID, base64);
     }
-    const txDelayMs = Math.ceil((data.length / 3840) * 1000) + 5;
-    await new Promise(resolve => setTimeout(resolve, txDelayMs));
   } catch (error) {
     console.error("[BLE-OTA] Error sending binary data:", error);
     throw error;

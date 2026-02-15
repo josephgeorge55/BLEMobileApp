@@ -96,11 +96,14 @@ function processIncomingData(data: string, callbacks: ClassicServiceCallbacks): 
     }
     const hexPreview = bytes.slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join(' ');
     console.log(`[Classic-OTA] onDataReceived intercepted (${bytes.length} bytes): ${hexPreview}`);
-    classicOtaRxBuffer.push(...bytes);
     if (classicOtaRxResolve) {
       const resolve = classicOtaRxResolve;
       classicOtaRxResolve = null;
-      resolve([...classicOtaRxBuffer]);
+      const allData = [...classicOtaRxBuffer, ...bytes];
+      classicOtaRxBuffer = [];
+      resolve(allData);
+    } else {
+      classicOtaRxBuffer.push(...bytes);
     }
     return;
   }
@@ -262,8 +265,6 @@ export async function sendClassicBinaryData(data: Uint8Array): Promise<void> {
   try {
     const base64 = arrayBufferToBase64Classic(data);
     await connectedDevice.write(base64, "base64");
-    const txDelayMs = Math.ceil((data.length / 3840) * 1000) + 5;
-    await new Promise(resolve => setTimeout(resolve, txDelayMs));
   } catch (error) {
     console.error("[Classic-OTA] Error sending binary data:", error);
     throw error;
