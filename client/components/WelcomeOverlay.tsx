@@ -114,6 +114,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   const { user, isGuestMode } = useUser();
   const [visible, setVisible] = useState(true);
   const [country, setCountry] = useState<string | null>(null);
+  const [readyToAnimate, setReadyToAnimate] = useState(false);
   const dismissingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -141,6 +142,22 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
     }
   }, [isGuest, user]);
 
+  const handleModalShow = useCallback(() => {
+    const delay = Platform.OS === "web" ? 0 : 100;
+    setTimeout(() => {
+      setReadyToAnimate(true);
+    }, delay);
+  }, []);
+
+  useEffect(() => {
+    const fallback = setTimeout(() => {
+      if (!readyToAnimate) {
+        setReadyToAnimate(true);
+      }
+    }, Platform.OS === "web" ? 200 : 600);
+    return () => clearTimeout(fallback);
+  }, []);
+
   const autoDismiss = useCallback(() => {
     if (dismissingRef.current) return;
     dismissingRef.current = true;
@@ -158,7 +175,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   }, [onDismiss]);
 
   useEffect(() => {
-    if (visible !== true) return;
+    if (!readyToAnimate) return;
 
     logoOpacity.value = withDelay(200, withTiming(1, { duration: 600 }));
     logoScale.value = withDelay(
@@ -203,7 +220,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [visible]);
+  }, [readyToAnimate]);
 
   const overlayAnimStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -258,6 +275,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
       transparent
       animationType="fade"
       statusBarTranslucent
+      onShow={handleModalShow}
     >
       <Pressable style={StyleSheet.absoluteFill} onPress={autoDismiss}>
         <Animated.View style={[styles.overlay, overlayAnimStyle]}>
