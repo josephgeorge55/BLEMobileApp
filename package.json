@@ -66,6 +66,7 @@
     "firebase": "^12.8.0",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.3",
+    "lottie-react-native": "^7.3.6",
     "node-cron": "^4.2.1",
     "passkit-generator": "^3.5.7",
     "pdfkit": "^0.17.2",
