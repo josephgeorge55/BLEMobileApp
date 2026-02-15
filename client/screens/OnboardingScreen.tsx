@@ -1,11 +1,9 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
   StyleSheet,
   View,
   Dimensions,
   Pressable,
-  FlatList,
-  ViewToken,
   Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -13,12 +11,27 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedScrollHandler,
+  withSpring,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withDelay,
+  interpolate,
+  Extrapolation,
+  runOnJS,
+  SharedValue,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const LOTTIE_SIZE = 220;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const LOTTIE_SIZE = 280;
 
 export const ONBOARDING_KEY = "@blade_has_seen_onboarding";
 
@@ -32,6 +45,7 @@ interface Slide {
   title: string;
   subtitle: string;
   animation: any;
+  gradientColors: [string, string];
 }
 
 const SLIDES: Slide[] = [
@@ -41,6 +55,7 @@ const SLIDES: Slide[] = [
     subtitle:
       "Real-time RPM, temperature, voltage, and power \u2014 always visible.",
     animation: telemetryAnim,
+    gradientColors: ["#2C2C2E", "#1A2332"],
   },
   {
     id: "gps",
@@ -48,6 +63,7 @@ const SLIDES: Slide[] = [
     subtitle:
       "Know where your boat is at all times with GPS tracking.",
     animation: gpsAnim,
+    gradientColors: ["#2C2C2E", "#1C2A22"],
   },
   {
     id: "trip",
@@ -55,6 +71,7 @@ const SLIDES: Slide[] = [
     subtitle:
       "Automatically log every journey. Export trips as PDFs anytime.",
     animation: tripAnim,
+    gradientColors: ["#2C2C2E", "#2A1C2E"],
   },
   {
     id: "ota",
@@ -62,8 +79,172 @@ const SLIDES: Slide[] = [
     subtitle:
       "New features and firmware delivered directly to your outboard.",
     animation: otaAnim,
+    gradientColors: ["#2C2C2E", "#1C2628"],
   },
 ];
+
+const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100,
+  y: Math.random() * 100,
+  size: 3 + Math.random() * 3,
+  opacity: 0.05 + Math.random() * 0.07,
+  duration: 8000 + Math.random() * 7000,
+  drift: 80 + Math.random() * 120,
+}));
+
+function GradientLayer({
+  index,
+  colors,
+  scrollX,
+}: {
+  index: number;
+  colors: [string, string];
+  scrollX: SharedValue<number>;
+}) {
+  const animStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollX.value,
+      [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH],
+      [0, 1, 0],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFillObject, animStyle]} pointerEvents="none">
+      <LinearGradient colors={colors} style={StyleSheet.absoluteFillObject} />
+    </Animated.View>
+  );
+}
+
+function Particle({ data }: { data: (typeof PARTICLES)[0] }) {
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withTiming(-data.drift, { duration: data.duration }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: "absolute",
+          left: `${data.x}%`,
+          top: `${data.y}%`,
+          width: data.size,
+          height: data.size,
+          borderRadius: data.size / 2,
+          backgroundColor: `rgba(255,255,255,${data.opacity})`,
+        },
+        animStyle,
+      ]}
+    />
+  );
+}
+
+function SlideItem({
+  slide,
+  index,
+  scrollX,
+  isActive,
+}: {
+  slide: Slide;
+  index: number;
+  scrollX: SharedValue<number>;
+  isActive: boolean;
+}) {
+  const titleOffsetY = useSharedValue(20);
+  const subtitleOffsetY = useSharedValue(20);
+
+  useEffect(() => {
+    if (isActive) {
+      titleOffsetY.value = 20;
+      subtitleOffsetY.value = 20;
+      titleOffsetY.value = withSpring(0, { damping: 15 });
+      subtitleOffsetY.value = withDelay(150, withSpring(0, { damping: 15 }));
+    }
+  }, [isActive]);
+
+  const animContainerStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * SCREEN_WIDTH,
+      index * SCREEN_WIDTH,
+      (index + 1) * SCREEN_WIDTH,
+    ];
+    const translateX = interpolate(
+      scrollX.value,
+      inputRange,
+      [SCREEN_WIDTH * 0.3, 0, -SCREEN_WIDTH * 0.3],
+      Extrapolation.CLAMP
+    );
+    return { transform: [{ translateX }] };
+  });
+
+  const textContainerStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * SCREEN_WIDTH,
+      index * SCREEN_WIDTH,
+      (index + 1) * SCREEN_WIDTH,
+    ];
+    const translateX = interpolate(
+      scrollX.value,
+      inputRange,
+      [SCREEN_WIDTH * 0.1, 0, -SCREEN_WIDTH * 0.1],
+      Extrapolation.CLAMP
+    );
+    const opacity = interpolate(
+      scrollX.value,
+      inputRange,
+      [0.3, 1, 0.3],
+      Extrapolation.CLAMP
+    );
+    return { transform: [{ translateX }], opacity };
+  });
+
+  const titleStaggerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: titleOffsetY.value }],
+  }));
+
+  const subtitleStaggerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: subtitleOffsetY.value }],
+  }));
+
+  return (
+    <View style={styles.slide}>
+      <Animated.View style={[styles.animationContainer, animContainerStyle]}>
+        <LottieView
+          source={slide.animation}
+          autoPlay
+          loop
+          style={styles.lottie}
+          resizeMode="contain"
+        />
+      </Animated.View>
+      <Animated.View style={[styles.textContainer, textContainerStyle]}>
+        <Animated.View style={titleStaggerStyle}>
+          <ThemedText type="h1" style={styles.title}>
+            {slide.title}
+          </ThemedText>
+        </Animated.View>
+        <Animated.View style={subtitleStaggerStyle}>
+          <ThemedText type="body" style={styles.subtitle}>
+            {slide.subtitle}
+          </ThemedText>
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
 
 interface OnboardingScreenProps {
   onComplete: () => void;
@@ -71,8 +252,69 @@ interface OnboardingScreenProps {
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
-  const flatListRef = useRef<FlatList>(null);
+  const scrollViewRef = useRef<Animated.ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const prevIndexRef = useRef(0);
+  const [hasScrolled, setHasScrolled] = useState(false);
+
+  const scrollX = useSharedValue(0);
+  const progressAnim = useSharedValue(1 / SLIDES.length);
+  const hintOpacity = useSharedValue(1);
+  const hintTranslateX = useSharedValue(0);
+
+  useEffect(() => {
+    hintTranslateX.value = withRepeat(
+      withSequence(
+        withTiming(8, { duration: 800 }),
+        withTiming(-8, { duration: 800 })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const updateIndex = useCallback((newIndex: number) => {
+    if (newIndex !== prevIndexRef.current) {
+      prevIndexRef.current = newIndex;
+      setCurrentIndex(newIndex);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+  }, []);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
+      const newIndex = Math.round(event.contentOffset.x / SCREEN_WIDTH);
+      if (newIndex >= 0 && newIndex < SLIDES.length) {
+        runOnJS(updateIndex)(newIndex);
+      }
+    },
+  });
+
+  useEffect(() => {
+    progressAnim.value = withSpring((currentIndex + 1) / SLIDES.length, {
+      damping: 15,
+      stiffness: 120,
+    });
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (currentIndex > 0 && !hasScrolled) {
+      setHasScrolled(true);
+      hintOpacity.value = withTiming(0, { duration: 300 });
+    }
+  }, [currentIndex, hasScrolled]);
+
+  const progressAnimStyle = useAnimatedStyle(() => ({
+    width: `${progressAnim.value * 100}%`,
+  }));
+
+  const hintStyle = useAnimatedStyle(() => ({
+    opacity: hintOpacity.value,
+    transform: [{ translateX: hintTranslateX.value }],
+  }));
 
   const handleComplete = useCallback(async () => {
     if (Platform.OS !== "web") {
@@ -87,107 +329,83 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     if (currentIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({
-        index: currentIndex + 1,
+      (scrollViewRef.current as any)?.scrollTo({
+        x: (currentIndex + 1) * SCREEN_WIDTH,
         animated: true,
       });
     }
   }, [currentIndex]);
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0].index != null) {
-        setCurrentIndex(viewableItems[0].index);
-      }
-    }
-  ).current;
-
-  const viewabilityConfig = useRef({
-    viewAreaCoveragePercentThreshold: 50,
-  }).current;
-
   const isLastSlide = currentIndex === SLIDES.length - 1;
-
-  const renderSlide = useCallback(({ item }: { item: Slide }) => {
-    return (
-      <View style={styles.slide}>
-        <View style={styles.animationContainer}>
-          <LottieView
-            source={item.animation}
-            autoPlay
-            loop
-            style={styles.lottie}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.textContainer}>
-          <ThemedText type="h1" style={styles.title}>
-            {item.title}
-          </ThemedText>
-          <ThemedText type="body" style={styles.subtitle}>
-            {item.subtitle}
-          </ThemedText>
-        </View>
-      </View>
-    );
-  }, []);
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={["#2C2C2E", "#1C1C1E"] as [string, string]}
-        style={StyleSheet.absoluteFill}
-      />
+      {SLIDES.map((slide, i) => (
+        <GradientLayer
+          key={slide.id}
+          index={i}
+          colors={slide.gradientColors}
+          scrollX={scrollX}
+        />
+      ))}
 
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-        <View style={styles.headerSpacer} />
-        <Pressable
-          onPress={handleComplete}
-          style={styles.skipButton}
-          testID="onboarding-skip"
-        >
-          <ThemedText type="body" style={styles.skipText}>
-            Skip
-          </ThemedText>
-        </Pressable>
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        {PARTICLES.map((p) => (
+          <Particle key={p.id} data={p} />
+        ))}
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        renderItem={renderSlide}
-        keyExtractor={(item) => item.id}
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
+        <View style={styles.progressBarContainer}>
+          <Animated.View style={[styles.progressBarFill, progressAnimStyle]} />
+        </View>
+        <View style={styles.headerRow}>
+          <View style={styles.headerSpacer} />
+          <Pressable
+            onPress={handleComplete}
+            style={styles.skipButton}
+            testID="onboarding-skip"
+          >
+            <ThemedText type="body" style={styles.skipText}>
+              Skip
+            </ThemedText>
+          </Pressable>
+        </View>
+      </View>
+
+      <Animated.ScrollView
+        ref={scrollViewRef}
         horizontal
         pagingEnabled
         scrollEnabled
         showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
         bounces={false}
         decelerationRate="fast"
-        snapToInterval={SCREEN_WIDTH}
-        snapToAlignment="start"
-        style={styles.flatList}
-        getItemLayout={(_, index) => ({
-          length: SCREEN_WIDTH,
-          offset: SCREEN_WIDTH * index,
-          index,
-        })}
-      />
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        style={styles.scrollView}
+      >
+        {SLIDES.map((slide, index) => (
+          <SlideItem
+            key={slide.id}
+            slide={slide}
+            index={index}
+            scrollX={scrollX}
+            isActive={index === currentIndex}
+          />
+        ))}
+      </Animated.ScrollView>
+
+      {!hasScrolled ? (
+        <Animated.View style={[styles.swipeHint, hintStyle]}>
+          <ThemedText type="caption" style={styles.swipeHintText}>
+            Swipe to explore
+          </ThemedText>
+          <Feather name="chevrons-right" size={14} color="rgba(255,255,255,0.4)" />
+        </Animated.View>
+      ) : null}
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
-        <View style={styles.pagination}>
-          {SLIDES.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                index === currentIndex ? styles.dotActive : styles.dotInactive,
-              ]}
-            />
-          ))}
-        </View>
-
         <Pressable
           onPress={isLastSlide ? handleComplete : handleNext}
           style={styles.actionButton}
@@ -215,11 +433,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#1C1C1E",
   },
   header: {
+    paddingHorizontal: Spacing.screenPadding,
+    zIndex: 10,
+  },
+  progressBarContainer: {
+    width: "100%",
+    height: 3,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 1.5,
+    marginBottom: Spacing.sm,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: 3,
+    backgroundColor: "#A4D08B",
+    borderRadius: 1.5,
+  },
+  headerRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    paddingHorizontal: Spacing.screenPadding,
-    zIndex: 10,
   },
   headerSpacer: {
     flex: 1,
@@ -233,7 +466,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     fontSize: 16,
   },
-  flatList: {
+  scrollView: {
     flex: 1,
   },
   slide: {
@@ -272,30 +505,19 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontSize: 16,
   },
+  swipeHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingBottom: Spacing.md,
+  },
+  swipeHintText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
+  },
   footer: {
     paddingHorizontal: Spacing.screenPadding,
-    gap: Spacing["2xl"],
-  },
-  pagination: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  dot: {
-    borderRadius: 4,
-  },
-  dotActive: {
-    width: 24,
-    height: 8,
-    backgroundColor: "#A4D08B",
-    borderRadius: 4,
-  },
-  dotInactive: {
-    width: 8,
-    height: 8,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 4,
   },
   actionButton: {
     borderRadius: BorderRadius.md,
