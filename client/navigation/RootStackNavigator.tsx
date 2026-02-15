@@ -62,6 +62,16 @@ function MainWithFab() {
 }
 
 
+function OnboardingReplay() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const handleComplete = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [navigation]);
+  return <OnboardingScreen onComplete={handleComplete} />;
+}
+
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { isLoggedIn, isLoading } = useUser();
@@ -159,14 +169,13 @@ export default function RootStackNavigator() {
               />
               <Stack.Screen
                 name="Onboarding"
+                component={OnboardingReplay}
                 options={{
                   headerShown: false,
                   animation: "slide_from_bottom",
                   presentation: "modal",
                 }}
-              >
-                {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
-              </Stack.Screen>
+              />
             </>
           ) : (
             <>

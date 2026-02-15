@@ -192,30 +192,19 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Animated.View style={styles.logoSection} entering={FadeIn.duration(800)}>
-            <Animated.Image
-              source={require("../../assets/images/blade-logo-white.png")}
-              style={styles.logo}
-              resizeMode="contain"
-              entering={FadeIn.delay(200).duration(400)}
-            />
-            <Animated.View entering={FadeIn.delay(400).duration(400)}>
-              <ThemedText type="body" style={styles.seriesName}>
-                Blade Halo Series
-              </ThemedText>
-            </Animated.View>
-            <Animated.Image
+          <View style={styles.logoSection}>
+            <ThemedText type="body" style={styles.seriesName}>
+              Blade Halo Series
+            </ThemedText>
+            <Image
               source={require("../../assets/images/halo-outboard.png")}
               style={styles.productImage}
               resizeMode="contain"
-              entering={FadeInUp.delay(300).duration(600).springify()}
             />
-            <Animated.View entering={FadeIn.delay(600).duration(400)}>
-              <ThemedText type="body" style={styles.tagline}>
-                Redefined Electric Propulsion
-              </ThemedText>
-            </Animated.View>
-          </Animated.View>
+            <ThemedText type="body" style={styles.tagline}>
+              Redefined Electric Propulsion
+            </ThemedText>
+          </View>
 
           <View style={styles.formSection}>
             <Animated.View entering={FadeInUp.delay(400).duration(500).springify()}>
@@ -382,18 +371,19 @@ export default function AuthScreen() {
                 </>
               ) : null}
 
-              <Pressable 
-                onPress={() => navigation.navigate('Onboarding')} 
-                style={styles.introLink}
-              >
-                <Feather name="play-circle" size={14} color="rgba(255,255,255,0.35)" />
-                <ThemedText type="caption" style={styles.introLinkText}>
-                  View Introduction
-                </ThemedText>
-              </Pressable>
               </View>
             </Animated.View>
           </View>
+
+          <Pressable 
+            onPress={() => navigation.navigate('Onboarding')} 
+            style={styles.introLink}
+          >
+            <Feather name="play-circle" size={14} color="rgba(255,255,255,0.45)" />
+            <ThemedText type="caption" style={styles.introLinkText}>
+              View Introduction
+            </ThemedText>
+          </Pressable>
 
           <Animated.View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]} entering={FadeIn.delay(800).duration(400)}>
             <Pressable onPress={handleOpenSupport} style={styles.supportLink}>
@@ -507,11 +497,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     marginBottom: Spacing.lg,
-  },
-  logo: {
-    width: 180,
-    height: 36,
-    marginBottom: Spacing.xs,
   },
   seriesName: {
     color: "rgba(255,255,255,0.6)",
@@ -766,10 +751,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    marginTop: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    marginTop: Spacing.sm,
   },
   introLinkText: {
-    color: "rgba(255,255,255,0.35)",
+    color: "rgba(255,255,255,0.45)",
     fontWeight: "500",
   },
 });
