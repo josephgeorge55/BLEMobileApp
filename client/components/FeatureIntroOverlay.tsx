@@ -48,7 +48,7 @@ interface FeatureIntroOverlayProps {
   onDismiss?: () => void;
 }
 
-const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
+const PARTICLES = Array.from({ length: 8 }, (_, i) => ({
   id: i,
   x: Math.random() * 100,
   y: Math.random() * 100,
@@ -337,14 +337,16 @@ export default function FeatureIntroOverlay({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     await AsyncStorage.setItem(storageKey, "true");
-    overlayOpacity.value = withTiming(0, { duration: 400 }, (finished) => {
-      if (finished) {
-        runOnJS(setVisible)(false);
-        if (onDismiss) {
-          runOnJS(onDismiss)();
-        }
+    overlayOpacity.value = withTiming(0, { duration: 400 }, () => {
+      runOnJS(setVisible)(false);
+      if (onDismiss) {
+        runOnJS(onDismiss)();
       }
     });
+    setTimeout(() => {
+      setVisible(false);
+      if (onDismiss) onDismiss();
+    }, 600);
   }, [storageKey, onDismiss]);
 
   const handleNext = useCallback(() => {

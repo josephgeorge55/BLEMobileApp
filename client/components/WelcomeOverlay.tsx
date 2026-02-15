@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, Dimensions, Platform, Modal, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -17,12 +16,11 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
-import { INTRO_KEY_DASHBOARD_WELCOME } from "@/components/FeatureIntroOverlay";
 import { Spacing } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+const PARTICLES = Array.from({ length: 8 }, (_, i) => ({
   id: i,
   x: Math.random() * 100,
   y: Math.random() * 100,
@@ -72,7 +70,7 @@ interface WelcomeOverlayProps {
 
 export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayProps) {
   const insets = useSafeAreaInsets();
-  const [visible, setVisible] = useState<boolean | null>(null);
+  const [visible, setVisible] = useState(true);
 
   const overlayOpacity = useSharedValue(1);
   const logoScale = useSharedValue(0.3);
@@ -87,26 +85,17 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
   const lottieScale = useSharedValue(0);
   const lottieOpacity = useSharedValue(0);
 
-  useEffect(() => {
-    AsyncStorage.getItem(INTRO_KEY_DASHBOARD_WELCOME).then((value) => {
-      if (value === "true") {
-        setVisible(false);
-      } else {
-        setVisible(true);
-      }
-    });
-  }, []);
-
   const autoDismiss = useCallback(async () => {
-    await AsyncStorage.setItem(INTRO_KEY_DASHBOARD_WELCOME, "true");
-    overlayOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
-      if (finished) {
-        runOnJS(setVisible)(false);
-        if (onDismiss) {
-          runOnJS(onDismiss)();
-        }
+    overlayOpacity.value = withTiming(0, { duration: 600 }, () => {
+      runOnJS(setVisible)(false);
+      if (onDismiss) {
+        runOnJS(onDismiss)();
       }
     });
+    setTimeout(() => {
+      setVisible(false);
+      if (onDismiss) onDismiss();
+    }, 800);
   }, [onDismiss]);
 
   useEffect(() => {
