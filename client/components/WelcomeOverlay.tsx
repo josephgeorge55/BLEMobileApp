@@ -141,7 +141,7 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
 
     const timer = setTimeout(() => {
       autoDismiss();
-    }, 3500);
+    }, 5500);
 
     return () => clearTimeout(timer);
   }, [visible]);
@@ -223,7 +223,7 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
 
           <Animated.View style={[styles.lottieContainer, lottieAnimStyle]}>
             <LottieView
-              source={require("../../assets/lottie/telemetry.json")}
+              source={require("../../assets/lottie/gps.json")}
               autoPlay
               loop
               style={styles.lottie}
