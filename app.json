@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "buildNumber": "3",
       "supportsTablet": true,
       "bundleIdentifier": "app.replit.bladeoutboards",
       "infoPlist": {
@@ -19,6 +20,7 @@
       }
     },
     "android": {
+      "versionCode": 3,
       "package": "com.bladeoutboards.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A4D6E",
