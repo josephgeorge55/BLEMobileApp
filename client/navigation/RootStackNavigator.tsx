@@ -147,8 +147,29 @@ export default function RootStackNavigator() {
         }}
       >
         {!isLoggedIn ? (
-          <>
-            {!hasSeenOnboarding ? (
+          hasSeenOnboarding ? (
+            <>
+              <Stack.Screen
+                name="Auth"
+                component={AuthScreen}
+                options={{ 
+                  headerShown: false,
+                  animation: "fade",
+                }}
+              />
+              <Stack.Screen
+                name="Onboarding"
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_bottom",
+                  presentation: "modal",
+                }}
+              >
+                {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
+              </Stack.Screen>
+            </>
+          ) : (
+            <>
               <Stack.Screen
                 name="Onboarding"
                 options={{
@@ -158,16 +179,16 @@ export default function RootStackNavigator() {
               >
                 {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
               </Stack.Screen>
-            ) : null}
-            <Stack.Screen
-              name="Auth"
-              component={AuthScreen}
-              options={{ 
-                headerShown: false,
-                animation: "fade",
-              }}
-            />
-          </>
+              <Stack.Screen
+                name="Auth"
+                component={AuthScreen}
+                options={{ 
+                  headerShown: false,
+                  animation: "fade",
+                }}
+              />
+            </>
+          )
         ) : (
           <>
             <Stack.Screen

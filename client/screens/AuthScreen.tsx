@@ -14,6 +14,7 @@ import {
   FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
@@ -26,6 +27,7 @@ import { Button } from "@/components/Button";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius, Gradients } from "@/constants/theme";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const APP_VERSION = Constants.expoConfig?.version || "1.3.1";
 const BUILD_NUMBER = "2026.02.14";
@@ -57,6 +59,7 @@ const COUNTRIES = [
 ];
 
 export default function AuthScreen() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { login, register, loginAsGuest, resetPassword } = useUser();
   const { showSuccess, showError } = useToast();
@@ -178,6 +181,7 @@ export default function AuthScreen() {
         colors={["#2C2C2E", "#1C1C1E"] as [string, string]}
         style={StyleSheet.absoluteFill}
       />
+      <View style={styles.noiseOverlay} pointerEvents="none" />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -190,20 +194,25 @@ export default function AuthScreen() {
         >
           <Animated.View style={styles.logoSection} entering={FadeIn.duration(800)}>
             <Animated.Image
-              source={require("../../assets/images/halo-outboard.png")}
-              style={styles.productImage}
-              resizeMode="contain"
-              entering={FadeInUp.delay(200).duration(600).springify()}
-            />
-            <Animated.Image
               source={require("../../assets/images/blade-logo-white.png")}
               style={styles.logo}
               resizeMode="contain"
-              entering={FadeIn.delay(500).duration(400)}
+              entering={FadeIn.delay(200).duration(400)}
             />
-            <Animated.View entering={FadeIn.delay(700).duration(400)}>
+            <Animated.View entering={FadeIn.delay(400).duration(400)}>
+              <ThemedText type="body" style={styles.seriesName}>
+                Blade Halo Series
+              </ThemedText>
+            </Animated.View>
+            <Animated.Image
+              source={require("../../assets/images/halo-outboard.png")}
+              style={styles.productImage}
+              resizeMode="contain"
+              entering={FadeInUp.delay(300).duration(600).springify()}
+            />
+            <Animated.View entering={FadeIn.delay(600).duration(400)}>
               <ThemedText type="body" style={styles.tagline}>
-                Precision Electric Propulsion
+                Redefined Electric Propulsion
               </ThemedText>
             </Animated.View>
           </Animated.View>
@@ -334,6 +343,7 @@ export default function AuthScreen() {
                 onPress={handleSubmit}
                 disabled={isLoading}
                 style={styles.submitButton}
+                variant="accent"
               >
                 {isLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -371,6 +381,16 @@ export default function AuthScreen() {
                   </Pressable>
                 </>
               ) : null}
+
+              <Pressable 
+                onPress={() => navigation.navigate('Onboarding')} 
+                style={styles.introLink}
+              >
+                <Feather name="play-circle" size={14} color="rgba(255,255,255,0.35)" />
+                <ThemedText type="caption" style={styles.introLinkText}>
+                  View Introduction
+                </ThemedText>
+              </Pressable>
               </View>
             </Animated.View>
           </View>
@@ -477,7 +497,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    justifyContent: "space-between",
+    paddingBottom: Spacing.xl,
   },
   logoSection: {
     alignItems: "center",
@@ -485,13 +505,25 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: 200,
-    height: 220,
+    height: 200,
     marginBottom: Spacing.lg,
   },
   logo: {
     width: 180,
     height: 36,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  seriesName: {
+    color: "rgba(255,255,255,0.6)",
+    letterSpacing: 3,
+    textTransform: "uppercase",
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  noiseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.015)",
   },
   tagline: {
     color: "rgba(255,255,255,0.45)",
@@ -501,6 +533,7 @@ const styles = StyleSheet.create({
   },
   formSection: {
     paddingHorizontal: Spacing.screenPadding,
+    marginTop: Spacing["2xl"],
   },
   formCard: {
     backgroundColor: "rgba(44,44,46,0.92)",
@@ -615,6 +648,7 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: "center",
     gap: Spacing.md,
+    paddingTop: Spacing["3xl"],
   },
   supportLink: {
     flexDirection: "row",
@@ -726,5 +760,16 @@ const styles = StyleSheet.create({
   countryItemDivider: {
     height: 1,
     backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  introLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: Spacing.lg,
+  },
+  introLinkText: {
+    color: "rgba(255,255,255,0.35)",
+    fontWeight: "500",
   },
 });
