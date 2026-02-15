@@ -70,12 +70,12 @@ export default function MainTabNavigator() {
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
-            ios: "transparent",
-            android: isDark ? "#0A0F14" : "#FFFFFF",
-            default: isDark ? "#0A0F14" : "#FFFFFF",
+            ios: isDark ? "rgba(10,15,20,0.92)" : "rgba(245,245,247,0.95)",
+            android: isDark ? "#0A0F14" : "#F5F5F7",
+            default: isDark ? "#0A0F14" : "#F5F5F7",
           }),
-          borderTopWidth: Platform.select({ ios: 0, default: StyleSheet.hairlineWidth }),
-          borderTopColor: isDark ? "#1A2530" : "#E0E0E0",
+          borderTopWidth: Platform.select({ ios: StyleSheet.hairlineWidth, default: StyleSheet.hairlineWidth }),
+          borderTopColor: isDark ? "#1A2530" : "#D1D1D6",
           elevation: 0,
           height: Platform.select({ ios: 85, android: 68, default: 68 }),
           paddingBottom: Platform.select({ ios: 26, android: 8, default: 8 }),
@@ -89,18 +89,18 @@ export default function MainTabNavigator() {
           supportsGlass ? (
             <GlassView
               glassEffectStyle="regular"
-              tintColor={isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.85)"}
+              tintColor={isDark ? "rgba(10,15,20,0.92)" : "rgba(245,245,247,0.95)"}
               style={StyleSheet.absoluteFill}
             />
           ) : Platform.OS === "ios" ? (
             <BlurView
-              intensity={isDark ? 60 : 95}
+              intensity={isDark ? 80 : 98}
               tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
+              style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(10,15,20,0.7)" : "rgba(245,245,247,0.75)" }]}
             />
           ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#0A0F14" : "#FFFFFF" }]}>
-              <View style={[styles.tabBarTopBorder, { backgroundColor: isDark ? "#1A2530" : "#E8ECEF" }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#0A0F14" : "#F5F5F7" }]}>
+              <View style={[styles.tabBarTopBorder, { backgroundColor: isDark ? "#1A2530" : "#D1D1D6" }]} />
             </View>
           ),
         tabBarItemStyle: {

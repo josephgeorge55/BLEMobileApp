@@ -91,6 +91,8 @@ function Particle({ data }: { data: (typeof PARTICLES)[0] }) {
   );
 }
 
+const MAX_HINTS = 8;
+
 function PageContent({
   page,
   index,
@@ -109,7 +111,15 @@ function PageContent({
   const lottieScale = useSharedValue(0.6);
   const titleOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(20);
-  const hintOpacities = useRef(page.hints.map(() => useSharedValue(0))).current;
+  const h0 = useSharedValue(0);
+  const h1 = useSharedValue(0);
+  const h2 = useSharedValue(0);
+  const h3 = useSharedValue(0);
+  const h4 = useSharedValue(0);
+  const h5 = useSharedValue(0);
+  const h6 = useSharedValue(0);
+  const h7 = useSharedValue(0);
+  const hintOpacities = useRef([h0, h1, h2, h3, h4, h5, h6, h7]).current;
 
   useEffect(() => {
     if (isActive) {
@@ -121,8 +131,10 @@ function PageContent({
       lottieScale.value = withSpring(1, { damping: 12, stiffness: 80 });
       titleOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
       titleTranslateY.value = withDelay(200, withSpring(0, { damping: 14 }));
-      hintOpacities.forEach((o, i) => {
-        o.value = withDelay(400 + i * 100, withTiming(1, { duration: 400 }));
+      page.hints.forEach((_, i) => {
+        if (i < MAX_HINTS) {
+          hintOpacities[i].value = withDelay(400 + i * 100, withTiming(1, { duration: 400 }));
+        }
       });
     }
   }, [isActive]);
@@ -560,7 +572,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   subtitle: {
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.75)",
     textAlign: "center",
     lineHeight: 22,
     fontSize: 15,
@@ -587,7 +599,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   hintText: {
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(255,255,255,0.85)",
     fontSize: 14,
     lineHeight: 20,
     flex: 1,
