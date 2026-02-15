@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { StyleSheet, View, ScrollView, RefreshControl, Image } from "react-native";
+import React, { useState, useCallback, useRef } from "react";
+import { StyleSheet, View, ScrollView, RefreshControl, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
@@ -11,61 +10,220 @@ import { ThemedText } from "@/components/ThemedText";
 import { FirmwareCard } from "@/components/FirmwareCard";
 import { EmptyState } from "@/components/EmptyState";
 import { FirmwareCardSkeleton } from "@/components/SkeletonLoader";
+import { OTAInstallModal } from "@/components/OTAInstallModal";
 import { useMotor } from "@/context/MotorContext";
 import { Spacing, BorderRadius, BladeColors } from "@/constants/theme";
+import {
+  checkFirmwareEligibility,
+  downloadFirmwareData,
+  FirmwareRelease,
+} from "@/lib/firebase";
+import {
+  FirmwareOTAService,
+  prepareFirmwareData,
+} from "@/lib/firmware-ota-service";
+import {
+  sendBinaryData,
+  receiveBinaryData,
+  setOTAMode,
+  isClassicConnected,
+} from "@/lib/bluetooth-classic-service";
+import {
+  sendBleBinaryData,
+  receiveBleBinaryData,
+  setBleOTAMode,
+  isConnected as isBleConnected,
+} from "@/lib/ble-service";
 
-interface FirmwareVersion {
-  id: string;
-  version: string;
-  releaseNotes: string | null;
-  releaseDate: string | null;
-  isMandatory: boolean | null;
-  fileSize: number | null;
-}
+type OTAModalState = "idle" | "downloading" | "installing" | "complete" | "error";
 
 export default function UpdatesScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const { motor, telemetry } = useMotor();
+  const { motor, telemetry, sendCommand } = useMotor();
 
-  const [downloadingVersion, setDownloadingVersion] = useState<string | null>(
-    null,
-  );
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [availableUpdates, setAvailableUpdates] = useState<FirmwareRelease[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
+
+  const [downloadingVersion, setDownloadingVersion] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [otaState, setOtaState] = useState<OTAModalState>("idle");
+  const [otaProgress, setOtaProgress] = useState(0);
+  const [otaStatusMessage, setOtaStatusMessage] = useState("");
+  const [otaErrorMessage, setOtaErrorMessage] = useState<string | undefined>();
+
+  const otaServiceRef = useRef<FirmwareOTAService | null>(null);
 
   const serialNumber = motor?.serialNumber;
   const currentVersion = telemetry?.tillerFirmwareVersion || motor?.firmwareVersion || "1.0.0";
 
-  const {
-    data: firmwareData,
-    isLoading,
-    refetch,
-  } = useQuery<{ available: FirmwareVersion[]; current: string }>({
-    queryKey: ["/api/motor", serialNumber, "firmware"],
-    enabled: !!serialNumber,
-  });
+  const checkForUpdates = useCallback(async () => {
+    if (!serialNumber) return;
+    setIsLoading(true);
+    try {
+      const eligible = await checkFirmwareEligibility(serialNumber);
+      const filtered = eligible.filter((fw) => {
+        const fwParts = fw.version.split(".").map(Number);
+        const curParts = currentVersion.split(".").map(Number);
+        for (let i = 0; i < 3; i++) {
+          const fv = fwParts[i] || 0;
+          const cv = curParts[i] || 0;
+          if (fv > cv) return true;
+          if (fv < cv) return false;
+        }
+        return false;
+      });
+      setAvailableUpdates(filtered);
+      setHasChecked(true);
+    } catch (error) {
+      console.error("[UpdatesScreen] Error checking firmware:", error);
+      setAvailableUpdates([]);
+      setHasChecked(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [serialNumber, currentVersion]);
+
+  React.useEffect(() => {
+    if (serialNumber && !hasChecked) {
+      checkForUpdates();
+    }
+  }, [serialNumber, hasChecked, checkForUpdates]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    setHasChecked(false);
+    await checkForUpdates();
     setRefreshing(false);
   };
 
-  const handleDownload = async (version: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setDownloadingVersion(version);
-    setDownloadProgress(0);
+  const handleInstall = useCallback(
+    async (firmware: FirmwareRelease) => {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
 
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      setDownloadProgress(i);
+      setDownloadingVersion(firmware.version);
+      setDownloadProgress(0);
+      setModalVisible(true);
+      setOtaState("downloading");
+      setOtaProgress(0);
+      setOtaStatusMessage("Downloading firmware...");
+      setOtaErrorMessage(undefined);
+
+      try {
+        const fwData = await downloadFirmwareData(firmware.id);
+        if (!fwData) {
+          throw new Error("Failed to download firmware data");
+        }
+
+        setDownloadProgress(100);
+        setOtaProgress(10);
+        setOtaStatusMessage("Firmware downloaded. Preparing update...");
+
+        const firmwareBytes = prepareFirmwareData(fwData.fileData, true);
+        console.log(`[OTA] Firmware prepared: ${firmwareBytes.length} bytes`);
+
+        setOtaState("installing");
+        setOtaStatusMessage("Starting firmware installation...");
+
+        const useClassic = isClassicConnected();
+        const useBle = isBleConnected();
+
+        if (!useClassic && !useBle) {
+          throw new Error("No Bluetooth connection available. Please reconnect to your motor.");
+        }
+
+        const sendFn = useClassic ? sendBinaryData : sendBleBinaryData;
+        const recvFn = useClassic ? receiveBinaryData : receiveBleBinaryData;
+        const setOtaModeFn = useClassic ? setOTAMode : setBleOTAMode;
+
+        setOtaModeFn(true);
+
+        const otaService = new FirmwareOTAService(
+          sendFn,
+          recvFn,
+          (level, message) => {
+            console.log(`[OTA][${level}] ${message}`);
+            if (level !== "debug") {
+              setOtaStatusMessage(message);
+            }
+          },
+          (progress) => {
+            const mappedProgress = 10 + (progress.progress * 0.9);
+            setOtaProgress(Math.min(mappedProgress, 100));
+            if (progress.state !== "programming" || progress.currentBlock % 10 === 0) {
+              setOtaStatusMessage(progress.message);
+            }
+          }
+        );
+
+        otaServiceRef.current = otaService;
+
+        const enteredBootloader = await otaService.enterBootloaderMode();
+        if (!enteredBootloader) {
+          throw new Error("Failed to enter bootloader mode");
+        }
+
+        const success = await otaService.performFullUpdate(firmwareBytes);
+
+        setOtaModeFn(false);
+        otaServiceRef.current = null;
+
+        if (success) {
+          setOtaState("complete");
+          setOtaProgress(100);
+          setOtaStatusMessage("Firmware update complete!");
+        } else {
+          throw new Error("Firmware update failed. Please try again.");
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
+        console.error("[OTA] Update failed:", errorMsg);
+        setOtaState("error");
+        setOtaErrorMessage(errorMsg);
+        setOtaStatusMessage("Update failed");
+
+        try {
+          if (isClassicConnected()) setOTAMode(false);
+          if (isBleConnected()) setBleOTAMode(false);
+        } catch {}
+      } finally {
+        setDownloadingVersion(null);
+        setDownloadProgress(0);
+      }
+    },
+    [sendCommand]
+  );
+
+  const handleOtaCancel = useCallback(() => {
+    if (otaServiceRef.current) {
+      otaServiceRef.current.abort();
     }
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setOtaState("idle");
+    setModalVisible(false);
     setDownloadingVersion(null);
     setDownloadProgress(0);
-  };
+    try {
+      if (isClassicConnected()) setOTAMode(false);
+      if (isBleConnected()) setBleOTAMode(false);
+    } catch {}
+  }, []);
+
+  const handleModalClose = useCallback(() => {
+    setModalVisible(false);
+    setOtaState("idle");
+    setOtaProgress(0);
+    setOtaStatusMessage("");
+    setOtaErrorMessage(undefined);
+    if (otaState === "complete") {
+      setHasChecked(false);
+    }
+  }, [otaState]);
 
   if (!motor) {
     return (
@@ -108,180 +266,191 @@ export default function UpdatesScreen() {
     );
   }
 
-  const availableUpdates = firmwareData?.available ?? [];
   const hasUpdates = availableUpdates.length > 0;
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: "#F2F2F7" }]}
-      contentContainerStyle={{
-        paddingTop: insets.top + Spacing.md,
-        paddingBottom: tabBarHeight + Spacing["3xl"],
-        paddingHorizontal: Spacing.lg,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={BladeColors.primary}
-        />
-      }
-    >
-      <Animated.View entering={FadeInUp.duration(350).springify()}>
-        <View style={styles.heroTile}>
-          <View style={styles.heroIconRow}>
-            <View style={styles.heroIconCircle}>
-              <Feather name="download-cloud" size={24} color={BladeColors.accent} />
-            </View>
-            <View style={styles.heroTextGroup}>
-              <ThemedText type="h2" style={styles.heroTitle}>
-                OTA Updates
-              </ThemedText>
-              <ThemedText type="small" style={styles.heroSubtitle}>
-                Over-The-Air Firmware
-              </ThemedText>
-            </View>
-          </View>
-          <View style={styles.heroDivider} />
-          <ThemedText type="small" style={styles.heroDescription}>
-            Firmware updates are delivered wirelessly over Bluetooth. Connect your Blade Halo outboard, and updates will be flashed directly to the motor controller — no cables or laptop needed.
-          </ThemedText>
-        </View>
-      </Animated.View>
-
-      <Animated.View entering={FadeIn.delay(100).duration(300)}>
-        <ThemedText
-          type="caption"
-          style={{ color: "#8E8E93", marginBottom: Spacing.sm, marginTop: Spacing.md }}
-        >
-          INSTALLED FIRMWARE
-        </ThemedText>
-        <FirmwareCard
-          version={currentVersion}
-          isCurrent
-          releaseDate={new Date()}
-        />
-      </Animated.View>
-
-      {isLoading ? (
-        <View style={styles.loadingSection}>
-          <ThemedText
-            type="caption"
-            style={{ color: "#8E8E93", marginBottom: Spacing.sm }}
-          >
-            CHECKING FOR UPDATES...
-          </ThemedText>
-          <FirmwareCardSkeleton />
-        </View>
-      ) : hasUpdates ? (
-        <Animated.View
-          entering={FadeIn.delay(200).duration(300)}
-          style={styles.updatesSection}
-        >
-          <ThemedText
-            type="caption"
-            style={{ color: "#8E8E93", marginBottom: Spacing.sm }}
-          >
-            AVAILABLE UPDATES
-          </ThemedText>
-          {availableUpdates.map((fw) => (
-            <FirmwareCard
-              key={fw.id}
-              version={fw.version}
-              releaseNotes={fw.releaseNotes ?? undefined}
-              releaseDate={fw.releaseDate ? new Date(fw.releaseDate) : undefined}
-              isMandatory={fw.isMandatory ?? false}
-              isDownloading={downloadingVersion === fw.version}
-              downloadProgress={
-                downloadingVersion === fw.version ? downloadProgress : 0
-              }
-              onDownload={() => handleDownload(fw.version)}
-            />
-          ))}
-        </Animated.View>
-      ) : (
-        <Animated.View
-          entering={FadeIn.delay(200).duration(300)}
-          style={styles.upToDateSection}
-        >
-          <View style={styles.upToDateCard}>
-            <View style={styles.checkCircle}>
-              <Feather name="check" size={32} color="#FFFFFF" />
-            </View>
-            <ThemedText type="h3" style={styles.upToDateTitle}>
-              You're All Set
-            </ThemedText>
-            <ThemedText type="body" style={styles.upToDateText}>
-              Your Blade Halo is running the latest firmware. No action needed right now.
-            </ThemedText>
-          </View>
-
-          <ThemedText
-            type="caption"
-            style={{ color: "#8E8E93", marginBottom: Spacing.sm, marginTop: Spacing.xl }}
-          >
-            ABOUT OTA UPDATES
-          </ThemedText>
-          <View style={styles.aboutCard}>
-            <View style={styles.aboutRow}>
-              <View style={styles.aboutIconWrap}>
-                <Feather name="zap" size={16} color={BladeColors.accent} />
+    <>
+      <ScrollView
+        style={[styles.container, { backgroundColor: "#F2F2F7" }]}
+        contentContainerStyle={{
+          paddingTop: insets.top + Spacing.md,
+          paddingBottom: tabBarHeight + Spacing["3xl"],
+          paddingHorizontal: Spacing.lg,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={BladeColors.primary}
+          />
+        }
+      >
+        <Animated.View entering={FadeInUp.duration(350).springify()}>
+          <View style={styles.heroTile}>
+            <View style={styles.heroIconRow}>
+              <View style={styles.heroIconCircle}>
+                <Feather name="download-cloud" size={24} color={BladeColors.accent} />
               </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={styles.aboutRowTitle}>Performance</ThemedText>
-                <ThemedText type="small" style={styles.aboutRowDesc}>
-                  Motor efficiency, throttle response, and power curve optimisations.
+              <View style={styles.heroTextGroup}>
+                <ThemedText type="h2" style={styles.heroTitle}>
+                  OTA Updates
+                </ThemedText>
+                <ThemedText type="small" style={styles.heroSubtitle}>
+                  Over-The-Air Firmware
                 </ThemedText>
               </View>
             </View>
-            <View style={styles.aboutSeparator} />
-            <View style={styles.aboutRow}>
-              <View style={styles.aboutIconWrap}>
-                <Feather name="shield" size={16} color={BladeColors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={styles.aboutRowTitle}>Safety</ThemedText>
-                <ThemedText type="small" style={styles.aboutRowDesc}>
-                  Temperature protection, battery management, and fault detection improvements.
-                </ThemedText>
-              </View>
-            </View>
-            <View style={styles.aboutSeparator} />
-            <View style={styles.aboutRow}>
-              <View style={styles.aboutIconWrap}>
-                <Feather name="star" size={16} color={BladeColors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={styles.aboutRowTitle}>New Features</ThemedText>
-                <ThemedText type="small" style={styles.aboutRowDesc}>
-                  New drive modes, telemetry data, and connectivity enhancements.
-                </ThemedText>
-              </View>
-            </View>
-            <View style={styles.aboutSeparator} />
-            <View style={styles.aboutRow}>
-              <View style={styles.aboutIconWrap}>
-                <Feather name="bluetooth" size={16} color={BladeColors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={styles.aboutRowTitle}>Wireless Delivery</ThemedText>
-                <ThemedText type="small" style={styles.aboutRowDesc}>
-                  Updates are sent from your phone to the motor over Bluetooth — no cables required.
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.pullHint}>
-            <Feather name="refresh-cw" size={14} color="rgba(255,255,255,0.3)" />
-            <ThemedText type="caption" style={styles.pullHintText}>
-              Pull down to check for new updates
+            <View style={styles.heroDivider} />
+            <ThemedText type="small" style={styles.heroDescription}>
+              Firmware updates are delivered wirelessly over Bluetooth. Connect your Blade Halo outboard, and updates will be flashed directly to the motor controller — no cables or laptop needed.
             </ThemedText>
           </View>
         </Animated.View>
-      )}
-    </ScrollView>
+
+        <Animated.View entering={FadeIn.delay(100).duration(300)}>
+          <ThemedText
+            type="caption"
+            style={{ color: "#8E8E93", marginBottom: Spacing.sm, marginTop: Spacing.md }}
+          >
+            INSTALLED FIRMWARE
+          </ThemedText>
+          <FirmwareCard
+            version={currentVersion}
+            isCurrent
+            releaseDate={new Date()}
+          />
+        </Animated.View>
+
+        {isLoading ? (
+          <View style={styles.loadingSection}>
+            <ThemedText
+              type="caption"
+              style={{ color: "#8E8E93", marginBottom: Spacing.sm }}
+            >
+              CHECKING FOR UPDATES...
+            </ThemedText>
+            <FirmwareCardSkeleton />
+          </View>
+        ) : hasUpdates ? (
+          <Animated.View
+            entering={FadeIn.delay(200).duration(300)}
+            style={styles.updatesSection}
+          >
+            <ThemedText
+              type="caption"
+              style={{ color: "#8E8E93", marginBottom: Spacing.sm }}
+            >
+              AVAILABLE UPDATES
+            </ThemedText>
+            {availableUpdates.map((fw) => (
+              <FirmwareCard
+                key={fw.id}
+                version={fw.version}
+                releaseNotes={fw.releaseNotes ?? undefined}
+                releaseDate={fw.releaseDate ? new Date(fw.releaseDate) : undefined}
+                isMandatory={fw.isMandatory ?? false}
+                isDownloading={downloadingVersion === fw.version}
+                downloadProgress={
+                  downloadingVersion === fw.version ? downloadProgress : 0
+                }
+                onDownload={() => handleInstall(fw)}
+              />
+            ))}
+          </Animated.View>
+        ) : (
+          <Animated.View
+            entering={FadeIn.delay(200).duration(300)}
+            style={styles.upToDateSection}
+          >
+            <View style={styles.upToDateCard}>
+              <View style={styles.checkCircle}>
+                <Feather name="check" size={32} color="#FFFFFF" />
+              </View>
+              <ThemedText type="h3" style={styles.upToDateTitle}>
+                You're All Set
+              </ThemedText>
+              <ThemedText type="body" style={styles.upToDateText}>
+                Your Blade Halo is running the latest firmware. No action needed right now.
+              </ThemedText>
+            </View>
+
+            <ThemedText
+              type="caption"
+              style={{ color: "#8E8E93", marginBottom: Spacing.sm, marginTop: Spacing.xl }}
+            >
+              ABOUT OTA UPDATES
+            </ThemedText>
+            <View style={styles.aboutCard}>
+              <View style={styles.aboutRow}>
+                <View style={styles.aboutIconWrap}>
+                  <Feather name="zap" size={16} color={BladeColors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="body" style={styles.aboutRowTitle}>Performance</ThemedText>
+                  <ThemedText type="small" style={styles.aboutRowDesc}>
+                    Motor efficiency, throttle response, and power curve optimisations.
+                  </ThemedText>
+                </View>
+              </View>
+              <View style={styles.aboutSeparator} />
+              <View style={styles.aboutRow}>
+                <View style={styles.aboutIconWrap}>
+                  <Feather name="shield" size={16} color={BladeColors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="body" style={styles.aboutRowTitle}>Safety</ThemedText>
+                  <ThemedText type="small" style={styles.aboutRowDesc}>
+                    Temperature protection, battery management, and fault detection improvements.
+                  </ThemedText>
+                </View>
+              </View>
+              <View style={styles.aboutSeparator} />
+              <View style={styles.aboutRow}>
+                <View style={styles.aboutIconWrap}>
+                  <Feather name="star" size={16} color={BladeColors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="body" style={styles.aboutRowTitle}>New Features</ThemedText>
+                  <ThemedText type="small" style={styles.aboutRowDesc}>
+                    New drive modes, telemetry data, and connectivity enhancements.
+                  </ThemedText>
+                </View>
+              </View>
+              <View style={styles.aboutSeparator} />
+              <View style={styles.aboutRow}>
+                <View style={styles.aboutIconWrap}>
+                  <Feather name="bluetooth" size={16} color={BladeColors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="body" style={styles.aboutRowTitle}>Wireless Delivery</ThemedText>
+                  <ThemedText type="small" style={styles.aboutRowDesc}>
+                    Updates are sent from your phone to the motor over Bluetooth — no cables required.
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.pullHint}>
+              <Feather name="refresh-cw" size={14} color="rgba(255,255,255,0.3)" />
+              <ThemedText type="caption" style={styles.pullHintText}>
+                Pull down to check for new updates
+              </ThemedText>
+            </View>
+          </Animated.View>
+        )}
+      </ScrollView>
+
+      <OTAInstallModal
+        visible={modalVisible}
+        onClose={handleModalClose}
+        otaState={otaState}
+        progress={otaProgress}
+        statusMessage={otaStatusMessage}
+        errorMessage={otaErrorMessage}
+        onCancel={handleOtaCancel}
+      />
+    </>
   );
 }
 
