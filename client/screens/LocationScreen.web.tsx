@@ -215,12 +215,34 @@ export default function LocationScreen() {
         animation={require("../../assets/lottie/gps.json")}
         pages={[
           {
-            title: "Anti-Theft Tracking",
-            subtitle: "GPS location tracking even when powered off. Know where your outboard is at all times.",
+            title: "Anti-Theft GPS Tracking",
+            subtitle: "Your outboard reports its GPS location via cellular even when powered off. Know exactly where your motor is at all times.",
             hints: [
-              "Location updates even when the outboard is off",
-              "Set up geofence alerts for added security",
-              "View location history on the map",
+              "The motor sends GPS coordinates hourly via its built-in 4G module",
+              "Tracking continues for up to 30 days after the outboard is powered off",
+              "A green pin means the motor is live; an amber pin shows last known location",
+              "Location data is stored securely in the cloud linked to your account",
+            ],
+          },
+          {
+            title: "Reading the Map",
+            subtitle: "The map shows your outboard's current or last reported position. Pinch to zoom, and tap the pin for detailed status information.",
+            hints: [
+              "Pull down to refresh and request the latest GPS position",
+              "The timestamp below the map shows when the position was last updated",
+              "Your phone's location is also shown so you can see the distance to your motor",
+              "If the motor is connected via Bluetooth, live GPS from the motor is used instead",
+            ],
+          },
+          {
+            title: "Security Tips",
+            subtitle: "Maximise your outboard's security with these practical tips for anti-theft protection.",
+            hints: [
+              "Register your motor after pairing to enable anti-theft tracking",
+              "Check the map regularly when your outboard is stored at a marina",
+              "The motor's cellular module activates automatically — no setup needed",
+              "Contact Blade support immediately if you notice unexpected movement",
+              "Keep your account details secure to protect your motor's location data",
             ],
           },
         ]}

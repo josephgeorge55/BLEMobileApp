@@ -725,11 +725,33 @@ export default function BleScannerModal() {
       pages={[
         {
           title: "Bluetooth Connection",
-          subtitle: "Connect wirelessly to your outboard for real-time telemetry, diagnostics, and control.",
+          subtitle: "Connect wirelessly to your Blade Halo outboard for real-time telemetry, diagnostics, and motor control.",
           hints: [
-            "Ensure Bluetooth is enabled on your device",
-            "Keep your outboard powered on during pairing",
-            "Stay within 10 metres for best connection",
+            "Make sure Bluetooth is turned on in your phone settings before scanning",
+            "Your outboard must be powered on and within 10 metres to appear",
+            "BLE works on both iOS and Android; Bluetooth Classic is Android-only",
+            "The app auto-reconnects if you briefly go out of range",
+          ],
+        },
+        {
+          title: "Pairing Your Motor",
+          subtitle: "Once your motor appears in the scan list, tap it to begin pairing. The app links it to your account for future sessions.",
+          hints: [
+            "Tap a motor from the list to start the pairing process",
+            "Anti-theft registration is offered after your first successful pairing",
+            "Your motor's serial number is saved so it reconnects automatically",
+            "If a motor doesn't appear, power cycle the outboard and rescan",
+          ],
+        },
+        {
+          title: "On-Water Tips",
+          subtitle: "Get the most reliable wireless connection while you're out on the water.",
+          hints: [
+            "Keep your phone within line-of-sight of the motor for the strongest signal",
+            "Avoid placing your phone in metal compartments which block Bluetooth",
+            "Signal strength is shown by the bars next to each discovered motor",
+            "If connection drops mid-trip, the app will attempt to auto-reconnect",
+            "Trip data is saved locally so nothing is lost during brief disconnections",
           ],
         },
       ]}

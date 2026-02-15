@@ -467,12 +467,24 @@ export default function PassportScreen() {
         animation={require("../../assets/lottie/telemetry.json")}
         pages={[
           {
-            title: "Digital Passport",
-            subtitle: "Your outboard's complete identity. Add to Apple Wallet, Google Wallet, or download as PDF.",
+            title: "Digital Outboard Passport",
+            subtitle: "Your outboard's verified identity card. Contains model, serial number, specifications, and ownership details all in one place.",
             hints: [
-              "Contains your outboard's serial and model info",
-              "Add to Apple Wallet or Google Wallet",
-              "Download a certified PDF at any time",
+              "Displays your outboard's model, serial number, and power rating",
+              "Shows boat registration details like name, hull ID, and dimensions",
+              "Includes UKCA/CE compliance markings for your motor's certification",
+              "Passport data is synced from your account and updates automatically",
+            ],
+          },
+          {
+            title: "Wallet & PDF Export",
+            subtitle: "Carry your outboard's passport everywhere. Add it to Apple Wallet, Google Wallet, or download a professional PDF certificate.",
+            hints: [
+              "Add to Apple Wallet for quick access from your iPhone lock screen",
+              "Add to Google Wallet on Android for instant access anywhere",
+              "Download a certified PDF with full specifications and QR code",
+              "Share the PDF with marine insurers, dealers, or harbour authorities",
+              "The QR code on your passport links to your motor's verified profile",
             ],
           },
         ]}

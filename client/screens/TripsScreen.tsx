@@ -341,11 +341,33 @@ export default function TripsScreen() {
         pages={[
           {
             title: "Trip Recording",
-            subtitle: "Automatically log every journey with telemetry data. Export and share detailed PDF reports.",
+            subtitle: "Capture every journey on the water. The app records GPS positions, speed, battery usage, and motor telemetry while you ride.",
             hints: [
-              "Trips are recorded automatically when connected",
-              "View distance, duration, and speed data",
-              "Export trips as detailed PDF reports",
+              "Tap the record button to start logging your trip manually",
+              "GPS tracks your route using both your phone and the outboard's sensor",
+              "Battery consumption, RPM, temperatures, and throttle are all logged",
+              "Trips are saved locally on your device so they work without internet",
+            ],
+          },
+          {
+            title: "Trip Details & History",
+            subtitle: "Review past trips with detailed statistics. See distance covered, average speed, energy consumed, and your route on the map.",
+            hints: [
+              "Tap any trip to see a detailed breakdown with route map",
+              "View max speed, average speed, and total distance for each journey",
+              "Energy consumption and drive mode usage are tracked per trip",
+              "Trips auto-pause after inactivity and resume when you start moving",
+              "Your trip history is stored securely and synced to your account",
+            ],
+          },
+          {
+            title: "PDF Reports & Sharing",
+            subtitle: "Export professional trip reports as PDFs. Share them with fellow boaters, log them for insurance, or keep them for your own records.",
+            hints: [
+              "Tap the export button on any trip to generate a detailed PDF",
+              "Reports include route maps, speed charts, and telemetry data",
+              "Share PDFs via email, messaging apps, or save to your files",
+              "Great for logging hours for warranty or maintenance records",
             ],
           },
         ]}

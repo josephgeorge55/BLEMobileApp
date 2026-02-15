@@ -277,11 +277,34 @@ export default function UpdatesScreen() {
         pages={[
           {
             title: "Over-the-Air Updates",
-            subtitle: "Receive the latest firmware and features delivered wirelessly to your outboard.",
+            subtitle: "Receive the latest firmware improvements and new features wirelessly via Bluetooth. No cables or laptop needed.",
             hints: [
-              "Keep your outboard connected during updates",
-              "Updates are downloaded and installed automatically",
-              "New features are added with each release",
+              "Updates are delivered over Bluetooth directly to your motor controller",
+              "Your outboard must be connected and powered on throughout the update",
+              "Each update includes release notes describing what's new or improved",
+              "The app checks for eligible updates specific to your motor's serial number",
+            ],
+          },
+          {
+            title: "The Update Process",
+            subtitle: "Firmware is downloaded to your phone first, then flashed to the outboard in a secure three-step process using the HALO FOTA v2.0 protocol.",
+            hints: [
+              "Step 1: Firmware is downloaded securely to your phone",
+              "Step 2: Data is transferred over Bluetooth to the motor controller",
+              "Step 3: The motor verifies and installs the new firmware",
+              "A progress bar shows real-time status during the entire process",
+              "Do not power off or move away from the motor during installation",
+            ],
+          },
+          {
+            title: "Important Tips",
+            subtitle: "Follow these best practices to make sure every update installs smoothly and safely.",
+            hints: [
+              "Ensure your phone has at least 30% battery before starting an update",
+              "Stay within 2 metres of the outboard during the flashing process",
+              "If an update fails, the motor safely rolls back to the previous version",
+              "Pull to refresh on the updates screen to check for new releases",
+              "Updates can improve performance, efficiency, and add new drive modes",
             ],
           },
         ]}
