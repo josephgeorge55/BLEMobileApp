@@ -191,9 +191,6 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   charCell: {
-    backgroundColor: "rgba(20, 25, 32, 0.95)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
