@@ -721,10 +721,19 @@ export default function BleScannerModal() {
     <>
     <FeatureIntroOverlay
       storageKey={INTRO_KEY_BLUETOOTH}
-      icon="bluetooth"
-      title="Bluetooth Connection"
-      subtitle="Connect wirelessly to your outboard for real-time telemetry, diagnostics, and control."
-      gradientColors={["#2C2C2E", "#2A2A2E"]}
+      animation={require("../../assets/lottie/telemetry.json")}
+      pages={[
+        {
+          title: "Bluetooth Connection",
+          subtitle: "Connect wirelessly to your outboard for real-time telemetry, diagnostics, and control.",
+          hints: [
+            "Ensure Bluetooth is enabled on your device",
+            "Keep your outboard powered on during pairing",
+            "Stay within 10 metres for best connection",
+          ],
+        },
+      ]}
+      gradientColors={["#1E2530", "#141B24"]}
     />
     <View
       style={[

@@ -464,10 +464,19 @@ export default function PassportScreen() {
     <View style={styles.screen}>
       <FeatureIntroOverlay
         storageKey={INTRO_KEY_PASSPORT}
-        icon="award"
-        title="Digital Passport"
-        subtitle="Your outboard's complete identity. Add to Apple Wallet, Google Wallet, or download as PDF."
-        gradientColors={["#2C2C2E", "#1C1C1E"]}
+        animation={require("../../assets/lottie/telemetry.json")}
+        pages={[
+          {
+            title: "Digital Passport",
+            subtitle: "Your outboard's complete identity. Add to Apple Wallet, Google Wallet, or download as PDF.",
+            hints: [
+              "Contains your outboard's serial and model info",
+              "Add to Apple Wallet or Google Wallet",
+              "Download a certified PDF at any time",
+            ],
+          },
+        ]}
+        gradientColors={["#1E2530", "#141B24"]}
       />
       <ScrollView
         contentContainerStyle={[

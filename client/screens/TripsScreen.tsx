@@ -337,10 +337,19 @@ export default function TripsScreen() {
     <View style={styles.container}>
       <FeatureIntroOverlay
         storageKey={INTRO_KEY_TRIPS}
-        icon="navigation"
-        title="Trip Recording"
-        subtitle="Automatically log every journey with telemetry data. Export and share detailed PDF reports."
-        gradientColors={["#2C2C2E", "#2A2E2C"]}
+        animation={require("../../assets/lottie/trip.json")}
+        pages={[
+          {
+            title: "Trip Recording",
+            subtitle: "Automatically log every journey with telemetry data. Export and share detailed PDF reports.",
+            hints: [
+              "Trips are recorded automatically when connected",
+              "View distance, duration, and speed data",
+              "Export trips as detailed PDF reports",
+            ],
+          },
+        ]}
+        gradientColors={["#1E2530", "#141B24"]}
       />
       <FlatList
         data={trips}

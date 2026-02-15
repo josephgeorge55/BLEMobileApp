@@ -212,10 +212,19 @@ export default function LocationScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <FeatureIntroOverlay
         storageKey={INTRO_KEY_ANTITHEFT}
-        icon="shield"
-        title="Anti-Theft Tracking"
-        subtitle="GPS location tracking even when powered off. Know where your outboard is at all times."
-        gradientColors={["#2C2C2E", "#2E2A2A"]}
+        animation={require("../../assets/lottie/gps.json")}
+        pages={[
+          {
+            title: "Anti-Theft Tracking",
+            subtitle: "GPS location tracking even when powered off. Know where your outboard is at all times.",
+            hints: [
+              "Location updates even when the outboard is off",
+              "Set up geofence alerts for added security",
+              "View location history on the map",
+            ],
+          },
+        ]}
+        gradientColors={["#1A2332", "#0F1720"]}
       />
       {/* Always render map in background for smooth transitions */}
       <View style={styles.mapContainer}>

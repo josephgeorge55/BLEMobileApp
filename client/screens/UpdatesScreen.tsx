@@ -273,10 +273,19 @@ export default function UpdatesScreen() {
     <>
       <FeatureIntroOverlay
         storageKey={INTRO_KEY_UPDATES}
-        icon="download-cloud"
-        title="Over-the-Air Updates"
-        subtitle="Receive the latest firmware and features delivered wirelessly to your outboard."
-        gradientColors={["#2C2C2E", "#2A2C2E"]}
+        animation={require("../../assets/lottie/ota.json")}
+        pages={[
+          {
+            title: "Over-the-Air Updates",
+            subtitle: "Receive the latest firmware and features delivered wirelessly to your outboard.",
+            hints: [
+              "Keep your outboard connected during updates",
+              "Updates are downloaded and installed automatically",
+              "New features are added with each release",
+            ],
+          },
+        ]}
+        gradientColors={["#1A2332", "#0F1720"]}
       />
       <ScrollView
         style={[styles.container, { backgroundColor: "#F2F2F7" }]}
