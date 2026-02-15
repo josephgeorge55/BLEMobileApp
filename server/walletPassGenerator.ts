@@ -422,7 +422,7 @@ export async function generateGoogleWalletUrl(passportData: WalletPassportData):
 
     const sanitizedSerial = passportData.serialNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
     const sanitizedOwner = passportData.ownerId.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 8);
-    const classId = `${issuerId}.blade-outboard-passport`;
+    const classId = `${issuerId}.blade.passport`;
     const objectId = `${issuerId}.blade-passport-${sanitizedSerial}-${sanitizedOwner}`;
 
     const domain = process.env.EXPO_PUBLIC_DOMAIN || "bladephoneapp.replit.app";
