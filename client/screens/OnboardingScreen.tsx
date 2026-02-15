@@ -26,6 +26,7 @@ import Animated, {
   Extrapolation,
   runOnJS,
   SharedValue,
+  FadeIn,
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -45,11 +46,20 @@ interface Slide {
   id: string;
   title: string;
   subtitle: string;
-  animation: any;
+  animation: any | null;
   gradientColors: [string, string];
+  isWelcome?: boolean;
 }
 
 const SLIDES: Slide[] = [
+  {
+    id: "welcome",
+    title: "Blade Halo Connect",
+    subtitle: "by Blade Outboards",
+    animation: null,
+    gradientColors: ["#1A2332", "#0A1628"],
+    isWelcome: true,
+  },
   {
     id: "telemetry",
     title: "Live Telemetry",
@@ -153,6 +163,93 @@ function Particle({ data }: { data: (typeof PARTICLES)[0] }) {
   );
 }
 
+function WelcomeSlide({
+  index,
+  scrollX,
+  isActive,
+}: {
+  index: number;
+  scrollX: SharedValue<number>;
+  isActive: boolean;
+}) {
+  const logoScale = useSharedValue(0.6);
+  const logoOpacity = useSharedValue(0);
+  const titleOpacity = useSharedValue(0);
+  const titleTranslateY = useSharedValue(24);
+  const subtitleOpacity = useSharedValue(0);
+  const subtitleTranslateY = useSharedValue(16);
+  const lineWidth = useSharedValue(0);
+
+  useEffect(() => {
+    logoOpacity.value = withDelay(300, withTiming(1, { duration: 800 }));
+    logoScale.value = withDelay(300, withSpring(1, { damping: 12, stiffness: 80 }));
+    titleOpacity.value = withDelay(700, withTiming(1, { duration: 600 }));
+    titleTranslateY.value = withDelay(700, withSpring(0, { damping: 14 }));
+    subtitleOpacity.value = withDelay(1000, withTiming(1, { duration: 600 }));
+    subtitleTranslateY.value = withDelay(1000, withSpring(0, { damping: 14 }));
+    lineWidth.value = withDelay(1200, withSpring(60, { damping: 15 }));
+  }, []);
+
+  const containerStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * SCREEN_WIDTH,
+      index * SCREEN_WIDTH,
+      (index + 1) * SCREEN_WIDTH,
+    ];
+    const opacity = interpolate(
+      scrollX.value,
+      inputRange,
+      [0.3, 1, 0.3],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
+
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleTranslateY.value }],
+  }));
+
+  const subtitleStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+    transform: [{ translateY: subtitleTranslateY.value }],
+  }));
+
+  const lineStyle = useAnimatedStyle(() => ({
+    width: lineWidth.value,
+  }));
+
+  return (
+    <View style={styles.slide}>
+      <Animated.View style={[styles.welcomeContent, containerStyle]}>
+        <Animated.View style={[styles.welcomeLogoContainer, logoStyle]}>
+          <Image
+            source={require("../../assets/images/blade-icon-green.png")}
+            style={styles.welcomeLogo}
+            resizeMode="contain"
+          />
+        </Animated.View>
+        <Animated.View style={titleStyle}>
+          <ThemedText type="h1" style={styles.welcomeTitle}>
+            Blade Halo Connect
+          </ThemedText>
+        </Animated.View>
+        <Animated.View style={[styles.welcomeLine, lineStyle]} />
+        <Animated.View style={subtitleStyle}>
+          <ThemedText type="body" style={styles.welcomeSubtitle}>
+            by Blade Outboards
+          </ThemedText>
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
+
 function SlideItem({
   slide,
   index,
@@ -219,6 +316,16 @@ function SlideItem({
   const subtitleStaggerStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: subtitleOffsetY.value }],
   }));
+
+  if (slide.isWelcome) {
+    return (
+      <WelcomeSlide
+        index={index}
+        scrollX={scrollX}
+        isActive={isActive}
+      />
+    );
+  }
 
   return (
     <View style={styles.slide}>
@@ -361,11 +468,13 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           <Animated.View style={[styles.progressBarFill, progressAnimStyle]} />
         </View>
         <View style={styles.headerRow}>
-          <Image
-            source={require("../../assets/images/blade-icon-green.png")}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
+          <Animated.View entering={FadeIn.delay(400).duration(600)}>
+            <Image
+              source={require("../../assets/images/blade-icon-green.png")}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+          </Animated.View>
           <View style={styles.headerSpacer} />
           <Pressable
             onPress={handleComplete}
@@ -545,5 +654,40 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     fontWeight: "700",
     fontSize: 17,
+  },
+  welcomeContent: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  welcomeLogoContainer: {
+    width: 100,
+    height: 100,
+    marginBottom: Spacing["3xl"],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  welcomeLogo: {
+    width: 100,
+    height: 100,
+  },
+  welcomeTitle: {
+    color: "#FFFFFF",
+    textAlign: "center",
+    fontSize: 32,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    marginBottom: Spacing.lg,
+  },
+  welcomeLine: {
+    height: 1,
+    backgroundColor: "rgba(164,208,139,0.35)",
+    marginBottom: Spacing.lg,
+  },
+  welcomeSubtitle: {
+    color: "rgba(255,255,255,0.4)",
+    textAlign: "center",
+    fontSize: 15,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
 });
