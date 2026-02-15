@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { StyleSheet, View, ViewStyle, TextStyle, Platform } from "react-native";
+import React, { useEffect, useRef, useState, useCallback, memo } from "react";
+import { StyleSheet, View, ViewStyle, TextStyle, Platform, InteractionManager } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-const CHARS = "0123456789ABCDEF.-/%";
+const CHARS = "0123456789ABCDEF";
 const NON_CYCLING_CHARS = new Set([".", "-", "/", "%", " "]);
 
 interface FlipBoardProps {
@@ -20,98 +20,165 @@ interface FlipBoardProps {
   charHeight?: number;
 }
 
-interface CharCellProps {
-  targetChar: string;
-  isInitializing: boolean;
-  settleDelay: number;
-  shouldAnimate: boolean;
-  charWidth: number;
-  charHeight: number;
-  charStyle?: TextStyle;
+function randomChar() {
+  return CHARS[Math.floor(Math.random() * CHARS.length)];
 }
 
-function CharCell({
-  targetChar,
+export const FlipBoard = memo(function FlipBoard({
+  value,
   isInitializing,
-  settleDelay,
-  shouldAnimate,
-  charWidth,
-  charHeight,
+  style,
   charStyle,
-}: CharCellProps) {
-  const [displayChar, setDisplayChar] = useState(shouldAnimate ? CHARS[Math.floor(Math.random() * CHARS.length)] : targetChar);
-  const [isSettled, setIsSettled] = useState(!shouldAnimate);
-  const scale = useSharedValue(shouldAnimate ? 1 : 1);
-  const opacity = useSharedValue(shouldAnimate ? 0.7 : 1);
+  charWidth = 28,
+  charHeight = 40,
+}: FlipBoardProps) {
+  const chars = value.split("");
+  const [displayChars, setDisplayChars] = useState<string[]>(() =>
+    chars.map((c) => (NON_CYCLING_CHARS.has(c) ? c : randomChar()))
+  );
+  const [settledIndices, setSettledIndices] = useState<Set<number>>(() => {
+    if (!isInitializing) return new Set(chars.map((_, i) => i));
+    return new Set(chars.map((c, i) => (NON_CYCLING_CHARS.has(c) ? i : -1)).filter((i) => i >= 0));
+  });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const settleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const mountedRef = useRef(true);
+  const readyRef = useRef(false);
 
-  const startCycling = useCallback(() => {
-    if (intervalRef.current) return;
-    intervalRef.current = setInterval(() => {
-      setDisplayChar(CHARS[Math.floor(Math.random() * CHARS.length)]);
-    }, 50);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      settleTimersRef.current.forEach(clearTimeout);
+    };
   }, []);
 
-  const stopCycling = useCallback(() => {
+  useEffect(() => {
+    if (!isInitializing) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setDisplayChars(chars);
+      setSettledIndices(new Set(chars.map((_, i) => i)));
+      return;
+    }
+
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (!mountedRef.current) return;
+      readyRef.current = true;
+
+      intervalRef.current = setInterval(() => {
+        if (!mountedRef.current) return;
+        setDisplayChars((prev) => {
+          const next = [...prev];
+          for (let i = 0; i < chars.length; i++) {
+            if (!NON_CYCLING_CHARS.has(chars[i])) {
+              next[i] = randomChar();
+            } else {
+              next[i] = chars[i];
+            }
+          }
+          return next;
+        });
+      }, 100);
+    });
+
+    return () => {
+      handle.cancel();
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isInitializing]);
+
+  useEffect(() => {
+    if (isInitializing || !readyRef.current) return;
+
+    settleTimersRef.current.forEach(clearTimeout);
+    settleTimersRef.current = [];
+
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  }, []);
 
-  useEffect(() => {
-    if (!shouldAnimate) {
-      setDisplayChar(targetChar);
-      setIsSettled(true);
-      opacity.value = 1;
-      return;
-    }
-
-    if (isInitializing) {
-      setIsSettled(false);
-      opacity.value = 0.7;
-      if (NON_CYCLING_CHARS.has(targetChar)) {
-        setDisplayChar(targetChar);
-        setIsSettled(true);
-        opacity.value = 1;
-      } else {
-        startCycling();
+    chars.forEach((char, i) => {
+      if (NON_CYCLING_CHARS.has(char)) {
+        setSettledIndices((prev) => new Set([...prev, i]));
+        return;
       }
-    } else {
-      settleTimeoutRef.current = setTimeout(() => {
-        stopCycling();
-        setDisplayChar(targetChar);
-        setIsSettled(true);
-        scale.value = withSpring(1.05, { damping: 12, mass: 0.3, stiffness: 300 }, () => {
-          scale.value = withSpring(1, { damping: 14, mass: 0.4, stiffness: 200 });
+      const timer = setTimeout(() => {
+        if (!mountedRef.current) return;
+        setDisplayChars((prev) => {
+          const next = [...prev];
+          next[i] = char;
+          return next;
         });
-        opacity.value = withTiming(1, { duration: 200 });
-      }, settleDelay);
-    }
-
-    return () => {
-      stopCycling();
-      if (settleTimeoutRef.current) {
-        clearTimeout(settleTimeoutRef.current);
-        settleTimeoutRef.current = null;
-      }
-    };
-  }, [isInitializing, targetChar, shouldAnimate]);
+        setSettledIndices((prev) => new Set([...prev, i]));
+      }, i * 150);
+      settleTimersRef.current.push(timer);
+    });
+  }, [isInitializing]);
 
   useEffect(() => {
-    if (isSettled && !isInitializing) {
-      setDisplayChar(targetChar);
+    if (!isInitializing) {
+      setDisplayChars(value.split(""));
     }
-  }, [targetChar, isSettled, isInitializing]);
+  }, [value, isInitializing]);
+
+  return (
+    <View style={[styles.container, style]}>
+      {displayChars.map((char, index) => {
+        const isSettled = settledIndices.has(index);
+        const textColor = isSettled ? "#FFFFFF" : "rgba(52, 199, 89, 0.7)";
+
+        return (
+          <CharCellSimple
+            key={`${index}-${chars.length}`}
+            char={char}
+            isSettled={isSettled}
+            textColor={textColor}
+            charWidth={charWidth}
+            charHeight={charHeight}
+            charStyle={charStyle}
+          />
+        );
+      })}
+    </View>
+  );
+});
+
+const CharCellSimple = memo(function CharCellSimple({
+  char,
+  isSettled,
+  textColor,
+  charWidth,
+  charHeight,
+  charStyle,
+}: {
+  char: string;
+  isSettled: boolean;
+  textColor: string;
+  charWidth: number;
+  charHeight: number;
+  charStyle?: TextStyle;
+}) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (isSettled) {
+      scale.value = withSpring(1.05, { damping: 12, mass: 0.3, stiffness: 300 }, () => {
+        scale.value = withSpring(1, { damping: 14, mass: 0.4, stiffness: 200 });
+      });
+    }
+  }, [isSettled]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: opacity.value,
   }));
-
-  const isNonCycling = NON_CYCLING_CHARS.has(targetChar);
-  const textColor = isSettled || isNonCycling ? "#FFFFFF" : "rgba(52, 199, 89, 0.7)";
 
   return (
     <Animated.View
@@ -120,7 +187,6 @@ function CharCell({
         {
           width: charWidth,
           height: charHeight,
-          borderRadius: charWidth * 0.18,
         },
         animatedStyle,
       ]}
@@ -136,53 +202,11 @@ function CharCell({
           charStyle,
         ]}
       >
-        {displayChar}
+        {char}
       </Animated.Text>
     </Animated.View>
   );
-}
-
-export function FlipBoard({
-  value,
-  isInitializing,
-  style,
-  charStyle,
-  duration = 2500,
-  charWidth = 28,
-  charHeight = 40,
-}: FlipBoardProps) {
-  const [shouldAnimate, setShouldAnimate] = useState(isInitializing);
-  const wasInitializingRef = useRef(isInitializing);
-
-  useEffect(() => {
-    if (wasInitializingRef.current && !isInitializing) {
-      setShouldAnimate(true);
-    } else if (!wasInitializingRef.current && !isInitializing) {
-      setShouldAnimate(false);
-    }
-    wasInitializingRef.current = isInitializing;
-  }, [isInitializing]);
-
-  const chars = value.split("");
-  const settleDelayPerChar = 150;
-
-  return (
-    <View style={[styles.container, style]}>
-      {chars.map((char, index) => (
-        <CharCell
-          key={`${index}-${chars.length}`}
-          targetChar={char}
-          isInitializing={isInitializing}
-          settleDelay={index * settleDelayPerChar}
-          shouldAnimate={shouldAnimate}
-          charWidth={charWidth}
-          charHeight={charHeight}
-          charStyle={charStyle}
-        />
-      ))}
-    </View>
-  );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

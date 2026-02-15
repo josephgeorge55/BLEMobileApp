@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, memo } from "react";
 import { TextStyle, StyleProp } from "react-native";
 import Animated, {
   useSharedValue,
@@ -17,35 +17,30 @@ interface AnimatedValueProps {
   suffix?: string;
   style?: StyleProp<TextStyle>;
   duration?: number;
-  formatFn?: (val: number) => string;
 }
 
-export function AnimatedValue({
+export const AnimatedValue = memo(function AnimatedValue({
   value,
   decimals = 0,
   prefix = "",
   suffix = "",
   style,
   duration = 600,
-  formatFn,
 }: AnimatedValueProps) {
-  const animatedValue = useSharedValue(value);
+  const safeValue = typeof value === "number" && !isNaN(value) && isFinite(value) ? value : 0;
+  const animatedValue = useSharedValue(safeValue);
 
   useEffect(() => {
-    animatedValue.value = withTiming(value, {
+    const target = typeof value === "number" && !isNaN(value) && isFinite(value) ? value : 0;
+    animatedValue.value = withTiming(target, {
       duration,
       easing: Easing.out(Easing.cubic),
     });
-  }, [value]);
+  }, [value, duration]);
 
   const animatedProps = useAnimatedProps(() => {
     const val = animatedValue.value;
-    let text: string;
-    if (formatFn) {
-      text = decimals > 0 ? val.toFixed(decimals) : Math.round(val).toString();
-    } else {
-      text = decimals > 0 ? val.toFixed(decimals) : Math.round(val).toString();
-    }
+    const text = decimals > 0 ? val.toFixed(decimals) : Math.round(val).toString();
     return {
       text: `${prefix}${text}${suffix}`,
       defaultValue: `${prefix}${text}${suffix}`,
@@ -60,4 +55,4 @@ export function AnimatedValue({
       animatedProps={animatedProps}
     />
   );
-}
+});

@@ -163,16 +163,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
     logoOpacity.value = withDelay(200, withTiming(1, { duration: 600 }));
     logoScale.value = withDelay(
       200,
-      withSpring(1, { damping: 10, stiffness: 60 }, () => {
-        logoScale.value = withRepeat(
-          withSequence(
-            withTiming(1.05, { duration: 2000 }),
-            withTiming(1.0, { duration: 2000 })
-          ),
-          -1,
-          false
-        );
-      })
+      withSpring(1, { damping: 10, stiffness: 60 })
     );
 
     titleOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
@@ -193,16 +184,16 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
       hintOpacity.value = withDelay(1700, withTiming(1, { duration: 500 }));
       hintTranslateY.value = withDelay(1700, withSpring(0, { damping: 14 }));
 
-      pulseOpacity.value = withDelay(2100, withTiming(0.8, { duration: 400 }, () => {
-        pulseOpacity.value = withRepeat(
+      pulseOpacity.value = withDelay(2100,
+        withRepeat(
           withSequence(
             withTiming(1, { duration: 800 }),
             withTiming(0.5, { duration: 800 })
           ),
           -1,
           false
-        );
-      }));
+        )
+      );
     }
 
     timerRef.current = setTimeout(() => {

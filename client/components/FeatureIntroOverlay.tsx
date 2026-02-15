@@ -274,14 +274,17 @@ export default function FeatureIntroOverlay({
 
   useEffect(() => {
     if (!isSinglePage) {
-      hintTranslateX.value = withRepeat(
-        withSequence(
-          withTiming(8, { duration: 800 }),
-          withTiming(-8, { duration: 800 })
-        ),
-        -1,
-        false
-      );
+      const timer = setTimeout(() => {
+        hintTranslateX.value = withRepeat(
+          withSequence(
+            withTiming(8, { duration: 800 }),
+            withTiming(-8, { duration: 800 })
+          ),
+          -1,
+          false
+        );
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, []);
 

@@ -131,11 +131,17 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     if (isConnected && !prevConnectedRef.current) {
-      setIsInitialConnection(true);
-      const timer = setTimeout(() => {
+      const delayTimer = setTimeout(() => {
+        setIsInitialConnection(true);
+      }, 300);
+      const endTimer = setTimeout(() => {
         setIsInitialConnection(false);
-      }, 2500);
-      return () => clearTimeout(timer);
+      }, 2800);
+      prevConnectedRef.current = isConnected;
+      return () => {
+        clearTimeout(delayTimer);
+        clearTimeout(endTimer);
+      };
     }
     if (!isConnected) {
       setIsInitialConnection(false);
