@@ -159,10 +159,14 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
+        scrollEnabled
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         bounces={false}
+        decelerationRate="fast"
+        snapToInterval={SCREEN_WIDTH}
+        snapToAlignment="start"
         style={styles.flatList}
         getItemLayout={(_, index) => ({
           length: SCREEN_WIDTH,
