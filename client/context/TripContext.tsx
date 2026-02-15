@@ -7,6 +7,7 @@ import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useMotor } from "./MotorContext";
 import { useUser } from "./UserContext";
+import { playTripStartSound, playTripEndSound } from "@/lib/sounds";
 import { fetchWeather, getWindDirection } from "@/services/weatherService";
 import { uploadTripDataToFirestore } from "@/lib/firebase";
 import { logTripStarted, logTripEnded } from "@/lib/remote-logger";
@@ -699,7 +700,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
       console.log("=== [Trip] TRIP STARTED SUCCESSFULLY ===");
       console.log("[Trip] Recording is now ACTIVE for trip:", tripId);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      playTripStartSound();
       logTripStarted(tripId, serial);
       return true;
     } catch (err) {
@@ -873,7 +874,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       setIsRecording(false);
 
       console.log("=== [Trip] TRIP ENDED SUCCESSFULLY ===");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      playTripEndSound();
       logTripEnded(trip.id, trip.motorSerialNumber, tripDurationSec, reason);
       return true;
     } catch (err) {

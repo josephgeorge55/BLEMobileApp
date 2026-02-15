@@ -16,6 +16,7 @@ import { writeCommand as writeBleCommand, isConnected as isBleConnected } from "
 import { writeClassicData, isClassicConnected } from "@/lib/bluetooth-classic-service";
 import { uploadDeviceConnectionToFirestore } from "@/lib/firebase";
 import { logBleConnect, logBleDisconnect } from "@/lib/remote-logger";
+import { playConnectSound, playDisconnectSound } from "@/lib/sounds";
 
 const SETTINGS_STORAGE_KEY = "@blade_settings";
 
@@ -150,6 +151,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
           const classicStillConnected = isClassicConnected();
           if (!bleStillConnected && !classicStillConnected) {
             console.log("[Motor] Foreground check: BLE/Classic both disconnected, updating motor state");
+            playDisconnectSound();
             addDebugLog("INFO", "Foreground check: motor disconnected while in background");
             logBleDisconnect(currentMotor?.serialNumber || "unknown", "background_disconnect");
             setMotorState(prev => prev ? { ...prev, isConnected: false } : null);
@@ -379,6 +381,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
     await setMotor(newMotor);
     setIsConnecting(false);
     setIsRealConnection(true);
+    playConnectSound();
     addDebugLog("INFO", "Motor connected: isRealConnection=true");
     logBleConnect(serialNumber, newMotor.name);
 
@@ -414,6 +417,7 @@ export function MotorProvider({ children }: { children: React.ReactNode }) {
   };
 
   const disconnectMotor = () => {
+    playDisconnectSound();
     const serialForLog = motor?.serialNumber || "unknown";
     gnssRef.current = null;
     bmsRef.current = null;
