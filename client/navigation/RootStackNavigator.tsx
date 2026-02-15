@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { View, StyleSheet, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import BleScannerModal from "@/screens/BleScannerModal";
 import AuthScreen from "@/screens/AuthScreen";
+import OnboardingScreen, { ONBOARDING_KEY } from "@/screens/OnboardingScreen";
 import TripDetailScreen from "@/screens/TripDetailScreen";
 import PassportScreen from "@/screens/PassportScreen";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
@@ -21,6 +22,7 @@ import { Spacing, BladeColors } from "@/constants/theme";
 const DATA_SHARING_PROMPT_SHOWN_KEY = "@blade_data_sharing_prompt_shown";
 
 export type RootStackParamList = {
+  Onboarding: undefined;
   Auth: undefined;
   Main: undefined;
   BleScanner: undefined;
@@ -65,7 +67,20 @@ export default function RootStackNavigator() {
   const { isLoggedIn, isLoading } = useUser();
   const { setAnonymousDataSharing } = useSettings();
   const [showDataPrompt, setShowDataPrompt] = useState(false);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
+        setHasSeenOnboarding(seen === "true");
+      } catch {
+        setHasSeenOnboarding(true);
+      }
+    };
+    checkOnboarding();
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -114,7 +129,11 @@ export default function RootStackNavigator() {
     console.log("[DataShare] User declined data sharing");
   };
 
-  if (isLoading) {
+  const handleOnboardingComplete = useCallback(() => {
+    setHasSeenOnboarding(true);
+  }, []);
+
+  if (isLoading || hasSeenOnboarding === null) {
     return <LoadingScreen />;
   }
 
@@ -128,14 +147,27 @@ export default function RootStackNavigator() {
         }}
       >
         {!isLoggedIn ? (
-          <Stack.Screen
-            name="Auth"
-            component={AuthScreen}
-            options={{ 
-              headerShown: false,
-              animation: "fade",
-            }}
-          />
+          <>
+            {!hasSeenOnboarding ? (
+              <Stack.Screen
+                name="Onboarding"
+                options={{
+                  headerShown: false,
+                  animation: "fade",
+                }}
+              >
+                {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
+              </Stack.Screen>
+            ) : null}
+            <Stack.Screen
+              name="Auth"
+              component={AuthScreen}
+              options={{ 
+                headerShown: false,
+                animation: "fade",
+              }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen
