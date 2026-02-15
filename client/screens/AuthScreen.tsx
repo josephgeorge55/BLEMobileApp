@@ -193,14 +193,14 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.logoSection}>
-            <ThemedText type="body" style={styles.seriesName}>
-              Blade Halo Series
-            </ThemedText>
             <Image
               source={require("../../assets/images/halo-outboard.png")}
               style={styles.productImage}
               resizeMode="contain"
             />
+            <ThemedText type="body" style={styles.seriesName}>
+              Blade Halo Series
+            </ThemedText>
             <ThemedText type="body" style={styles.tagline}>
               Redefined Electric Propulsion
             </ThemedText>
@@ -499,7 +499,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     alignSelf: "center",
-    marginBottom: Spacing.lg,
   },
   seriesName: {
     color: "rgba(255,255,255,0.6)",
@@ -507,6 +506,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     fontSize: 12,
     fontWeight: "600",
+    marginTop: Spacing.md,
     marginBottom: 4,
     textAlign: "center",
   },
