@@ -5,6 +5,7 @@ import {
   Dimensions,
   Pressable,
   Platform,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -360,6 +361,11 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           <Animated.View style={[styles.progressBarFill, progressAnimStyle]} />
         </View>
         <View style={styles.headerRow}>
+          <Image
+            source={require("../../assets/images/blade-icon-green.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
           <View style={styles.headerSpacer} />
           <Pressable
             onPress={handleComplete}
@@ -451,8 +457,14 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
     alignItems: "center",
+  },
+  headerLogo: {
+    width: 28,
+    height: 28,
+    opacity: 0.5,
+    marginLeft: Spacing.sm,
   },
   headerSpacer: {
     flex: 1,
