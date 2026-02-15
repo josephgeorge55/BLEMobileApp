@@ -665,6 +665,24 @@ export async function saveUserCountry(country: string): Promise<void> {
   }
 }
 
+export async function getUserCountry(): Promise<string | null> {
+  const firestore = getFirestoreDb();
+  if (!firestore) return null;
+  const currentAuth = getFirebaseAuth();
+  if (!currentAuth?.currentUser) return null;
+  try {
+    const userRef = doc(firestore, "users", currentAuth.currentUser.uid);
+    const userDoc = await getDoc(userRef);
+    if (userDoc.exists()) {
+      return userDoc.data()?.country || null;
+    }
+    return null;
+  } catch (error) {
+    console.error("[Firebase] Error getting user country:", error);
+    return null;
+  }
+}
+
 // Firmware Release interface
 export interface FirmwareRelease {
   id: string;

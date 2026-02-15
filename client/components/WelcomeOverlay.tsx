@@ -3,7 +3,6 @@ import { StyleSheet, View, Dimensions, Platform, Modal, Image } from "react-nati
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
-import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
@@ -16,9 +15,56 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
+import { useUser } from "@/context/UserContext";
+import { getUserCountry } from "@/lib/firebase";
 import { Spacing } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  "Afghanistan": "\u{1F1E6}\u{1F1EB}", "Albania": "\u{1F1E6}\u{1F1F1}", "Algeria": "\u{1F1E9}\u{1F1FF}",
+  "Argentina": "\u{1F1E6}\u{1F1F7}", "Australia": "\u{1F1E6}\u{1F1FA}", "Austria": "\u{1F1E6}\u{1F1F9}",
+  "Bahamas": "\u{1F1E7}\u{1F1F8}", "Bahrain": "\u{1F1E7}\u{1F1ED}", "Bangladesh": "\u{1F1E7}\u{1F1E9}",
+  "Belgium": "\u{1F1E7}\u{1F1EA}", "Bermuda": "\u{1F1E7}\u{1F1F2}", "Brazil": "\u{1F1E7}\u{1F1F7}",
+  "Brunei": "\u{1F1E7}\u{1F1F3}", "Bulgaria": "\u{1F1E7}\u{1F1EC}", "Cambodia": "\u{1F1F0}\u{1F1ED}",
+  "Canada": "\u{1F1E8}\u{1F1E6}", "Chile": "\u{1F1E8}\u{1F1F1}", "China": "\u{1F1E8}\u{1F1F3}",
+  "Colombia": "\u{1F1E8}\u{1F1F4}", "Costa Rica": "\u{1F1E8}\u{1F1F7}", "Croatia": "\u{1F1ED}\u{1F1F7}",
+  "Cuba": "\u{1F1E8}\u{1F1FA}", "Cyprus": "\u{1F1E8}\u{1F1FE}", "Czech Republic": "\u{1F1E8}\u{1F1FF}",
+  "Denmark": "\u{1F1E9}\u{1F1F0}", "Dominican Republic": "\u{1F1E9}\u{1F1F4}",
+  "Ecuador": "\u{1F1EA}\u{1F1E8}", "Egypt": "\u{1F1EA}\u{1F1EC}", "Estonia": "\u{1F1EA}\u{1F1EA}",
+  "Fiji": "\u{1F1EB}\u{1F1EF}", "Finland": "\u{1F1EB}\u{1F1EE}", "France": "\u{1F1EB}\u{1F1F7}",
+  "Germany": "\u{1F1E9}\u{1F1EA}", "Ghana": "\u{1F1EC}\u{1F1ED}", "Greece": "\u{1F1EC}\u{1F1F7}",
+  "Grenada": "\u{1F1EC}\u{1F1E9}", "Guatemala": "\u{1F1EC}\u{1F1F9}",
+  "Honduras": "\u{1F1ED}\u{1F1F3}", "Hong Kong": "\u{1F1ED}\u{1F1F0}", "Hungary": "\u{1F1ED}\u{1F1FA}",
+  "Iceland": "\u{1F1EE}\u{1F1F8}", "India": "\u{1F1EE}\u{1F1F3}", "Indonesia": "\u{1F1EE}\u{1F1E9}",
+  "Iran": "\u{1F1EE}\u{1F1F7}", "Iraq": "\u{1F1EE}\u{1F1F6}", "Ireland": "\u{1F1EE}\u{1F1EA}",
+  "Israel": "\u{1F1EE}\u{1F1F1}", "Italy": "\u{1F1EE}\u{1F1F9}",
+  "Jamaica": "\u{1F1EF}\u{1F1F2}", "Japan": "\u{1F1EF}\u{1F1F5}", "Jordan": "\u{1F1EF}\u{1F1F4}",
+  "Kenya": "\u{1F1F0}\u{1F1EA}", "Kuwait": "\u{1F1F0}\u{1F1FC}",
+  "Latvia": "\u{1F1F1}\u{1F1FB}", "Lebanon": "\u{1F1F1}\u{1F1E7}", "Lithuania": "\u{1F1F1}\u{1F1F9}",
+  "Luxembourg": "\u{1F1F1}\u{1F1FA}",
+  "Malaysia": "\u{1F1F2}\u{1F1FE}", "Maldives": "\u{1F1F2}\u{1F1FB}", "Malta": "\u{1F1F2}\u{1F1F9}",
+  "Mauritius": "\u{1F1F2}\u{1F1FA}", "Mexico": "\u{1F1F2}\u{1F1FD}", "Monaco": "\u{1F1F2}\u{1F1E8}",
+  "Morocco": "\u{1F1F2}\u{1F1E6}", "Mozambique": "\u{1F1F2}\u{1F1FF}", "Myanmar": "\u{1F1F2}\u{1F1F2}",
+  "Nepal": "\u{1F1F3}\u{1F1F5}", "Netherlands": "\u{1F1F3}\u{1F1F1}", "New Zealand": "\u{1F1F3}\u{1F1FF}",
+  "Nigeria": "\u{1F1F3}\u{1F1EC}", "Norway": "\u{1F1F3}\u{1F1F4}",
+  "Oman": "\u{1F1F4}\u{1F1F2}",
+  "Pakistan": "\u{1F1F5}\u{1F1F0}", "Panama": "\u{1F1F5}\u{1F1E6}", "Papua New Guinea": "\u{1F1F5}\u{1F1EC}",
+  "Peru": "\u{1F1F5}\u{1F1EA}", "Philippines": "\u{1F1F5}\u{1F1ED}", "Poland": "\u{1F1F5}\u{1F1F1}",
+  "Portugal": "\u{1F1F5}\u{1F1F9}",
+  "Qatar": "\u{1F1F6}\u{1F1E6}",
+  "Romania": "\u{1F1F7}\u{1F1F4}", "Russia": "\u{1F1F7}\u{1F1FA}",
+  "Saudi Arabia": "\u{1F1F8}\u{1F1E6}", "Seychelles": "\u{1F1F8}\u{1F1E8}",
+  "Singapore": "\u{1F1F8}\u{1F1EC}", "Slovakia": "\u{1F1F8}\u{1F1F0}", "Slovenia": "\u{1F1F8}\u{1F1EE}",
+  "South Africa": "\u{1F1FF}\u{1F1E6}", "South Korea": "\u{1F1F0}\u{1F1F7}", "Spain": "\u{1F1EA}\u{1F1F8}",
+  "Sri Lanka": "\u{1F1F1}\u{1F1F0}", "Sweden": "\u{1F1F8}\u{1F1EA}", "Switzerland": "\u{1F1E8}\u{1F1ED}",
+  "Taiwan": "\u{1F1F9}\u{1F1FC}", "Tanzania": "\u{1F1F9}\u{1F1FF}", "Thailand": "\u{1F1F9}\u{1F1ED}",
+  "Trinidad and Tobago": "\u{1F1F9}\u{1F1F9}", "Tunisia": "\u{1F1F9}\u{1F1F3}", "Turkey": "\u{1F1F9}\u{1F1F7}",
+  "Ukraine": "\u{1F1FA}\u{1F1E6}", "United Arab Emirates": "\u{1F1E6}\u{1F1EA}",
+  "United Kingdom": "\u{1F1EC}\u{1F1E7}", "United States": "\u{1F1FA}\u{1F1F8}",
+  "Uruguay": "\u{1F1FA}\u{1F1FE}",
+  "Venezuela": "\u{1F1FB}\u{1F1EA}", "Vietnam": "\u{1F1FB}\u{1F1F3}",
+};
 
 const PARTICLES = Array.from({ length: 8 }, (_, i) => ({
   id: i,
@@ -63,27 +109,35 @@ function Particle({ data }: { data: (typeof PARTICLES)[0] }) {
   );
 }
 
-interface WelcomeOverlayProps {
-  userName?: string;
-  onDismiss?: () => void;
-}
-
-export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayProps) {
+export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }) {
   const insets = useSafeAreaInsets();
+  const { user, isGuestMode } = useUser();
   const [visible, setVisible] = useState(true);
+  const [country, setCountry] = useState<string | null>(null);
+
+  const isGuest = isGuestMode || !user || user.id === "guest";
 
   const overlayOpacity = useSharedValue(1);
   const logoScale = useSharedValue(0.3);
   const logoOpacity = useSharedValue(0);
-  const welcomeOpacity = useSharedValue(0);
-  const welcomeTranslateY = useSharedValue(30);
-  const nameOpacity = useSharedValue(0);
-  const nameTranslateY = useSharedValue(20);
+  const titleOpacity = useSharedValue(0);
+  const titleTranslateY = useSharedValue(30);
+  const subtitleOpacity = useSharedValue(0);
+  const subtitleTranslateY = useSharedValue(20);
+  const detailOpacity = useSharedValue(0);
+  const detailTranslateY = useSharedValue(15);
+  const lottieScale = useSharedValue(0);
+  const lottieOpacity = useSharedValue(0);
   const hintOpacity = useSharedValue(0);
   const hintTranslateY = useSharedValue(15);
   const pulseOpacity = useSharedValue(0);
-  const lottieScale = useSharedValue(0);
-  const lottieOpacity = useSharedValue(0);
+  const dividerWidth = useSharedValue(0);
+
+  useEffect(() => {
+    if (!isGuest && user) {
+      getUserCountry().then((c) => setCountry(c)).catch(() => {});
+    }
+  }, [isGuest, user]);
 
   const autoDismiss = useCallback(async () => {
     overlayOpacity.value = withTiming(0, { duration: 600 }, () => {
@@ -116,32 +170,39 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
       })
     );
 
-    welcomeOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
-    welcomeTranslateY.value = withDelay(500, withSpring(0, { damping: 14 }));
+    titleOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
+    titleTranslateY.value = withDelay(500, withSpring(0, { damping: 14 }));
 
-    nameOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
-    nameTranslateY.value = withDelay(800, withSpring(0, { damping: 14 }));
+    subtitleOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
+    subtitleTranslateY.value = withDelay(800, withSpring(0, { damping: 14 }));
 
-    lottieOpacity.value = withDelay(1100, withTiming(1, { duration: 500 }));
-    lottieScale.value = withDelay(1100, withSpring(1, { damping: 12, stiffness: 80 }));
+    dividerWidth.value = withDelay(1000, withTiming(1, { duration: 600 }));
 
-    hintOpacity.value = withDelay(1400, withTiming(1, { duration: 500 }));
-    hintTranslateY.value = withDelay(1400, withSpring(0, { damping: 14 }));
+    detailOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
+    detailTranslateY.value = withDelay(1200, withSpring(0, { damping: 14 }));
 
-    pulseOpacity.value = withDelay(1800, withTiming(0.8, { duration: 400 }, () => {
-      pulseOpacity.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 800 }),
-          withTiming(0.5, { duration: 800 })
-        ),
-        -1,
-        false
-      );
-    }));
+    lottieOpacity.value = withDelay(1400, withTiming(1, { duration: 500 }));
+    lottieScale.value = withDelay(1400, withSpring(1, { damping: 12, stiffness: 80 }));
+
+    if (!isGuest) {
+      hintOpacity.value = withDelay(1700, withTiming(1, { duration: 500 }));
+      hintTranslateY.value = withDelay(1700, withSpring(0, { damping: 14 }));
+
+      pulseOpacity.value = withDelay(2100, withTiming(0.8, { duration: 400 }, () => {
+        pulseOpacity.value = withRepeat(
+          withSequence(
+            withTiming(1, { duration: 800 }),
+            withTiming(0.5, { duration: 800 })
+          ),
+          -1,
+          false
+        );
+      }));
+    }
 
     const timer = setTimeout(() => {
       autoDismiss();
-    }, 5500);
+    }, isGuest ? 4000 : 5500);
 
     return () => clearTimeout(timer);
   }, [visible]);
@@ -155,14 +216,23 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
     transform: [{ scale: logoScale.value }],
   }));
 
-  const welcomeAnimStyle = useAnimatedStyle(() => ({
-    opacity: welcomeOpacity.value,
-    transform: [{ translateY: welcomeTranslateY.value }],
+  const titleAnimStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleTranslateY.value }],
   }));
 
-  const nameAnimStyle = useAnimatedStyle(() => ({
-    opacity: nameOpacity.value,
-    transform: [{ translateY: nameTranslateY.value }],
+  const subtitleAnimStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+    transform: [{ translateY: subtitleTranslateY.value }],
+  }));
+
+  const dividerAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: dividerWidth.value }],
+  }));
+
+  const detailAnimStyle = useAnimatedStyle(() => ({
+    opacity: detailOpacity.value,
+    transform: [{ translateY: detailTranslateY.value }],
   }));
 
   const lottieAnimStyle = useAnimatedStyle(() => ({
@@ -181,7 +251,8 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
 
   if (visible !== true) return null;
 
-  const displayName = userName || "Captain";
+  const flag = country ? COUNTRY_FLAGS[country] || null : null;
+  const userEmail = !isGuest && user ? user.email : null;
 
   return (
     <Modal
@@ -192,7 +263,7 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
     >
       <Animated.View style={[styles.overlay, overlayAnimStyle]}>
         <LinearGradient
-          colors={["#1A2332", "#0F1720"] as [string, string]}
+          colors={isGuest ? ["#1E2530", "#141B24"] : ["#1A2332", "#0F1720"]}
           style={StyleSheet.absoluteFillObject}
         />
 
@@ -212,13 +283,37 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
           </Animated.View>
 
           <View style={styles.textContainer}>
-            <Animated.View style={welcomeAnimStyle}>
-              <ThemedText style={styles.welcomeText}>Welcome Back</ThemedText>
+            <Animated.View style={titleAnimStyle}>
+              <ThemedText style={styles.labelText}>
+                {isGuest ? "Welcome" : "Welcome Back"}
+              </ThemedText>
             </Animated.View>
 
-            <Animated.View style={nameAnimStyle}>
-              <ThemedText style={styles.nameText}>{displayName}</ThemedText>
+            <Animated.View style={subtitleAnimStyle}>
+              <ThemedText style={styles.nameText}>
+                {isGuest ? "Guest" : "Captain"}
+              </ThemedText>
             </Animated.View>
+
+            <Animated.View style={[styles.divider, dividerAnimStyle]} />
+
+            {!isGuest && userEmail ? (
+              <Animated.View style={[styles.detailRow, detailAnimStyle]}>
+                <Feather name="mail" size={14} color="rgba(255,255,255,0.4)" />
+                <ThemedText style={styles.detailText}>{userEmail}</ThemedText>
+              </Animated.View>
+            ) : null}
+
+            {!isGuest && country ? (
+              <Animated.View style={[styles.detailRow, detailAnimStyle]}>
+                {flag ? (
+                  <ThemedText style={styles.flagText}>{flag}</ThemedText>
+                ) : (
+                  <Feather name="globe" size={14} color="rgba(255,255,255,0.4)" />
+                )}
+                <ThemedText style={styles.detailText}>{country}</ThemedText>
+              </Animated.View>
+            ) : null}
           </View>
 
           <Animated.View style={[styles.lottieContainer, lottieAnimStyle]}>
@@ -230,32 +325,41 @@ export default function WelcomeOverlay({ userName, onDismiss }: WelcomeOverlayPr
             />
           </Animated.View>
 
-          <Animated.View style={[styles.hintContainer, hintAnimStyle]}>
-            <View style={styles.hintCard}>
-              <LinearGradient
-                colors={["rgba(164,208,139,0.15)", "rgba(164,208,139,0.05)"] as [string, string]}
-                style={StyleSheet.absoluteFillObject}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              />
-              <Animated.View style={pulseAnimStyle}>
-                <View style={styles.scanIconCircle}>
-                  <Feather name="bluetooth" size={22} color="#A4D08B" />
+          {!isGuest ? (
+            <Animated.View style={[styles.hintContainer, hintAnimStyle]}>
+              <View style={styles.hintCard}>
+                <LinearGradient
+                  colors={["rgba(164,208,139,0.15)", "rgba(164,208,139,0.05)"]}
+                  style={StyleSheet.absoluteFillObject}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+                <Animated.View style={pulseAnimStyle}>
+                  <View style={styles.scanIconCircle}>
+                    <Feather name="bluetooth" size={22} color="#A4D08B" />
+                  </View>
+                </Animated.View>
+                <View style={styles.hintTextArea}>
+                  <ThemedText style={styles.hintTitle}>Ready to Connect</ThemedText>
+                  <ThemedText style={styles.hintSubtitle}>
+                    Tap "Scan for Motors" to pair your outboard
+                  </ThemedText>
                 </View>
-              </Animated.View>
-              <View style={styles.hintTextArea}>
-                <ThemedText style={styles.hintTitle}>Ready to Connect</ThemedText>
-                <ThemedText style={styles.hintSubtitle}>
-                  Tap "Scan for Motors" to pair your outboard
-                </ThemedText>
               </View>
-            </View>
-          </Animated.View>
+            </Animated.View>
+          ) : (
+            <Animated.View style={[styles.guestHintContainer, detailAnimStyle]}>
+              <Feather name="info" size={16} color="rgba(255,255,255,0.4)" />
+              <ThemedText style={styles.guestHintText}>
+                Sign in for full access to all features
+              </ThemedText>
+            </Animated.View>
+          )}
         </View>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + 32 }]}>
           <View style={styles.progressBar}>
-            <Animated.View style={[styles.progressFill, { width: '100%' }]} />
+            <Animated.View style={[styles.progressFill, { width: "100%" }]} />
           </View>
         </View>
       </Animated.View>
@@ -274,29 +378,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screenPadding,
   },
   logo: {
-    width: 64,
-    height: 64,
-    marginBottom: 24,
+    width: 72,
+    height: 72,
+    marginBottom: 28,
   },
   textContainer: {
     alignItems: "center",
     marginBottom: 20,
   },
-  welcomeText: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 16,
+  labelText: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 14,
     fontWeight: "500",
-    letterSpacing: 2,
+    letterSpacing: 3,
     textTransform: "uppercase",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   nameText: {
     color: "#FFFFFF",
-    fontSize: 34,
+    fontSize: 38,
     fontWeight: "700",
     letterSpacing: -0.5,
     textAlign: "center",
+  },
+  divider: {
+    width: 48,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "rgba(164,208,139,0.4)",
+    marginVertical: 16,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  detailText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  flagText: {
+    fontSize: 18,
   },
   lottieContainer: {
     marginVertical: 16,
@@ -341,6 +466,23 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.5)",
     fontSize: 13,
     lineHeight: 18,
+  },
+  guestHintContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  guestHintText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
+    fontWeight: "400",
   },
   footer: {
     paddingHorizontal: Spacing.screenPadding,
