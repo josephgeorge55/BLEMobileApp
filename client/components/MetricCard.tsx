@@ -14,6 +14,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
+import { AnimatedValue } from "@/components/AnimatedValue";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, BladeColors, Typography, Shadows, Gradients } from "@/constants/theme";
 
@@ -230,9 +231,23 @@ export function MetricCard({
             {label.toUpperCase()}
           </ThemedText>
           <View style={styles.valueRow}>
-            <ThemedText style={[styles.value, compact && styles.valueCompact, { color: lightText }]}>
-              {value}
-            </ThemedText>
+            {typeof value === 'number' ? (
+              <AnimatedValue
+                value={value}
+                decimals={value % 1 !== 0 ? 1 : 0}
+                style={[styles.value, compact && styles.valueCompact, { color: lightText }]}
+              />
+            ) : typeof value === 'string' && /^\d+\.?\d*$/.test(value) ? (
+              <AnimatedValue
+                value={parseFloat(value)}
+                decimals={value.includes('.') ? 1 : 0}
+                style={[styles.value, compact && styles.valueCompact, { color: lightText }]}
+              />
+            ) : (
+              <ThemedText style={[styles.value, compact && styles.valueCompact, { color: lightText }]}>
+                {value}
+              </ThemedText>
+            )}
             {unit ? (
               <ThemedText
                 type="body"

@@ -16,6 +16,7 @@ import WelcomeOverlay from "@/components/WelcomeOverlay";
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
 import { SpeedCard } from "@/components/SpeedCard";
+import { FlipBoard } from "@/components/FlipBoard";
 import { EmptyState } from "@/components/EmptyState";
 import { WeatherCard } from "@/components/WeatherCard";
 import { OpenStreetMap } from "@/components/OpenStreetMap";
@@ -109,6 +110,8 @@ export default function DashboardScreen() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { sectionOrder, isEditMode, moveSection, toggleEditMode, resetLayout } = useDashboardLayout();
   const consumptionHistoryRef = useRef<{value: number, timestamp: number}[]>([]);
+  const [isInitialConnection, setIsInitialConnection] = useState(false);
+  const prevConnectedRef = useRef(false);
 
   const StatusCardContainer = useCallback(({ children, style }: { children: React.ReactNode; style?: any }) => (
     <View style={[styles.statusCard, { borderColor: "rgba(255,255,255,0.08)", overflow: "hidden", backgroundColor: "rgba(44,44,46,0.92)" }, style]}>
@@ -125,6 +128,20 @@ export default function DashboardScreen() {
 
   const isConnected = motor?.isConnected ?? false;
   const serialNumber = motor?.serialNumber;
+
+  useEffect(() => {
+    if (isConnected && !prevConnectedRef.current) {
+      setIsInitialConnection(true);
+      const timer = setTimeout(() => {
+        setIsInitialConnection(false);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+    if (!isConnected) {
+      setIsInitialConnection(false);
+    }
+    prevConnectedRef.current = isConnected;
+  }, [isConnected]);
 
   const { data: locationData, refetch: refetchLocation } = useQuery<LocationQueryData>({
     queryKey: ["/api/motor", serialNumber, "location"],
@@ -625,10 +642,23 @@ export default function DashboardScreen() {
                 <Feather name="info" size={14} color={theme.textTertiary} />
               </Pressable>
             </View>
-            <SpeedCard
-              motorSpeed={speed}
-              isConnected={isConnected}
-            />
+            {isInitialConnection && isConnected ? (
+              <View style={{ backgroundColor: "rgba(44,44,46,0.92)", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <Feather name="navigation" size={16} color={BladeColors.marine} />
+                  <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: 1.5 }}>SPEED</ThemedText>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+                  <FlipBoard value={speed.toFixed(1)} isInitializing={isInitialConnection} charWidth={32} charHeight={44} />
+                  <ThemedText style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 4 }}>km/h</ThemedText>
+                </View>
+              </View>
+            ) : (
+              <SpeedCard
+                motorSpeed={speed}
+                isConnected={isConnected}
+              />
+            )}
           </View>
         );
       case 'batteryPower':
@@ -646,25 +676,51 @@ export default function DashboardScreen() {
                 <Feather name="zap" size={14} color={theme.textTertiary} />
               </Pressable>
             </View>
-            <View style={styles.metricRow}>
-              <MetricCard
-                icon="battery-charging"
-                label="Battery"
-                value={Math.round(soc)}
-                unit="%"
-                iconColor={getBatteryColor()}
-                accentGlow={soc < 20}
-              />
-              <View style={{ width: Spacing.md }} />
-              <MetricCard
-                icon="zap"
-                label="Power"
-                value={power.toFixed(1)}
-                unit="kW"
-                trend={power > 0 ? "up" : "stable"}
-                iconColor={BladeColors.accent}
-              />
-            </View>
+            {isInitialConnection && isConnected ? (
+              <View style={styles.metricRow}>
+                <View style={{ flex: 1, backgroundColor: "rgba(44,44,46,0.92)", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", minHeight: 150, justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <Feather name="battery-charging" size={16} color={getBatteryColor()} />
+                    <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: 1 }}>BATTERY</ThemedText>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                    <FlipBoard value={Math.round(soc).toString()} isInitializing={isInitialConnection} charWidth={32} charHeight={44} />
+                    <ThemedText style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>%</ThemedText>
+                  </View>
+                </View>
+                <View style={{ width: 12 }} />
+                <View style={{ flex: 1, backgroundColor: "rgba(44,44,46,0.92)", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", minHeight: 150, justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <Feather name="zap" size={16} color={BladeColors.accent} />
+                    <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: 1 }}>POWER</ThemedText>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                    <FlipBoard value={power.toFixed(1)} isInitializing={isInitialConnection} charWidth={32} charHeight={44} />
+                    <ThemedText style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>kW</ThemedText>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.metricRow}>
+                <MetricCard
+                  icon="battery-charging"
+                  label="Battery"
+                  value={Math.round(soc)}
+                  unit="%"
+                  iconColor={getBatteryColor()}
+                  accentGlow={soc < 20}
+                />
+                <View style={{ width: Spacing.md }} />
+                <MetricCard
+                  icon="zap"
+                  label="Power"
+                  value={power.toFixed(1)}
+                  unit="kW"
+                  trend={power > 0 ? "up" : "stable"}
+                  iconColor={BladeColors.accent}
+                />
+              </View>
+            )}
           </View>
         );
       case 'throttleMode':
@@ -682,24 +738,47 @@ export default function DashboardScreen() {
                 <Feather name="disc" size={14} color={theme.textTertiary} />
               </Pressable>
             </View>
-            <View style={styles.metricRow}>
-              <MetricCard
-                icon="percent"
-                label="Throttle"
-                value={vesc?.throttle ?? 0}
-                unit="%"
-                iconColor={BladeColors.marine}
-                accentGlow={(vesc?.throttle ?? 0) > 80}
-              />
-              <View style={{ width: Spacing.md }} />
-              <MetricCard
-                icon={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"}
-                label="Drive Mode"
-                value={driverMode || "--"}
-                iconColor={getDriverModeColor(driverMode)}
-                compact
-              />
-            </View>
+            {isInitialConnection && isConnected ? (
+              <View style={styles.metricRow}>
+                <View style={{ flex: 1, backgroundColor: "rgba(44,44,46,0.92)", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", minHeight: 150, justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <Feather name="percent" size={16} color={BladeColors.marine} />
+                    <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: 1 }}>THROTTLE</ThemedText>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                    <FlipBoard value={(vesc?.throttle ?? 0).toString()} isInitializing={isInitialConnection} charWidth={32} charHeight={44} />
+                    <ThemedText style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>%</ThemedText>
+                  </View>
+                </View>
+                <View style={{ width: 12 }} />
+                <View style={{ flex: 1, backgroundColor: "rgba(44,44,46,0.92)", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", minHeight: 150, justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <Feather name={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"} size={16} color={getDriverModeColor(driverMode)} />
+                    <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: 1 }}>MODE</ThemedText>
+                  </View>
+                  <FlipBoard value={driverMode || "--"} isInitializing={isInitialConnection} charWidth={28} charHeight={40} />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.metricRow}>
+                <MetricCard
+                  icon="percent"
+                  label="Throttle"
+                  value={vesc?.throttle ?? 0}
+                  unit="%"
+                  iconColor={BladeColors.marine}
+                  accentGlow={(vesc?.throttle ?? 0) > 80}
+                />
+                <View style={{ width: Spacing.md }} />
+                <MetricCard
+                  icon={driverMode === "Sport" ? "zap" : driverMode === "Eco" ? "sun" : driverMode === "Docking" ? "anchor" : "disc"}
+                  label="Drive Mode"
+                  value={driverMode || "--"}
+                  iconColor={getDriverModeColor(driverMode)}
+                  compact
+                />
+              </View>
+            )}
           </View>
         );
       case 'motorTelemetry':

@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
+import { AnimatedValue } from "@/components/AnimatedValue";
 import { useTheme } from "@/hooks/useTheme";
 import { usePhoneSpeed } from "@/hooks/usePhoneSpeed";
 import { useMotor } from "@/context/MotorContext";
@@ -57,15 +58,26 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
             </ThemedText>
           </View>
           <View style={styles.speedValueRow}>
-            <ThemedText 
-              type="h1" 
-              style={[
-                styles.speedValue, 
-                { color: isConnected ? getSpeedColor(safeMotorSpeed) : "rgba(255,255,255,0.35)" }
-              ]}
-            >
-              {isConnected ? displayMotorSpeed : "--"}
-            </ThemedText>
+            {isConnected ? (
+              <AnimatedValue
+                value={safeMotorSpeed}
+                decimals={1}
+                style={[
+                  styles.speedValue, 
+                  { color: getSpeedColor(safeMotorSpeed) }
+                ]}
+              />
+            ) : (
+              <ThemedText 
+                type="h1" 
+                style={[
+                  styles.speedValue, 
+                  { color: "rgba(255,255,255,0.35)" }
+                ]}
+              >
+                --
+              </ThemedText>
+            )}
             <ThemedText type="small" style={[styles.unit, { color: "rgba(255,255,255,0.55)" }]}>
               km/h
             </ThemedText>
@@ -85,15 +97,26 @@ export function SpeedCard({ motorSpeed, isConnected }: SpeedCardProps) {
             ) : null}
           </View>
           <View style={styles.speedValueRow}>
-            <ThemedText 
-              type="h2" 
-              style={[
-                styles.phoneSpeedValue, 
-                { color: phoneSpeed.speed !== null ? getSpeedColor(phoneSpeed.speed) : "rgba(255,255,255,0.35)" }
-              ]}
-            >
-              {displayPhoneSpeed}
-            </ThemedText>
+            {phoneSpeed.speed !== null && !isNaN(phoneSpeed.speed) ? (
+              <AnimatedValue
+                value={phoneSpeed.speed}
+                decimals={1}
+                style={[
+                  styles.phoneSpeedValue, 
+                  { color: getSpeedColor(phoneSpeed.speed) }
+                ]}
+              />
+            ) : (
+              <ThemedText 
+                type="h2" 
+                style={[
+                  styles.phoneSpeedValue, 
+                  { color: "rgba(255,255,255,0.35)" }
+                ]}
+              >
+                --
+              </ThemedText>
+            )}
             <ThemedText type="small" style={[styles.unit, { color: "rgba(255,255,255,0.55)" }]}>
               km/h
             </ThemedText>
