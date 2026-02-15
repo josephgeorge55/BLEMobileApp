@@ -12,6 +12,7 @@ import * as Sharing from "expo-sharing";
 import * as Device from "expo-device";
 import * as Location from "expo-location";
 
+import WelcomeOverlay from "@/components/WelcomeOverlay";
 import { ThemedText } from "@/components/ThemedText";
 import { MetricCard } from "@/components/MetricCard";
 import { SpeedCard } from "@/components/SpeedCard";
@@ -1117,6 +1118,7 @@ export default function DashboardScreen() {
 
   return (
     <>
+    <WelcomeOverlay />
     <ScrollView
       ref={scrollViewRef}
       style={[styles.container, { backgroundColor: "#F2F2F7" }]}
