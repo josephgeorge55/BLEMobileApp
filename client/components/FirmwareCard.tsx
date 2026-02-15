@@ -160,7 +160,7 @@ export function FirmwareCard({
         </View>
       ) : !isCurrent && onDownload ? (
         <View style={styles.actionContainer}>
-          <Button onPress={onDownload}>
+          <Button variant="accent" onPress={onDownload}>
             <View style={styles.buttonContent}>
               <Feather
                 name="download-cloud"
