@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "blade-outboards",
+  "private_key_id": "c2520eadf9dac5123c2a6a745900d16adf84b51a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDMKxWvCf9Tcwp8\nw74C7oZZFtO54nemH56tFoHCQM2jHYV9c309HKXSpmTv8PrD/WDiYKXVDC6bcE7N\ndg+VTC8B30X5D6PKp9eNy+OwUq1y00ZepQee+5q2g09tQ2LZxOCGBdqKkwQE6RTa\ngsHEgsEMitkbtfyuaqmJU9UXxKKV49OJTVIzWuHRioId95fpPTbuL5cw0N7oeXzG\nifr0nGrg0fpx/UMsrv0rFiqySxJAX3WU+6npBS8yikD9aH2L8DtsGOs5Z1oHj/eK\nXTiW+q6QG7PGmuzDpdgkda45TSccWwmLc0Jo0p2NdUvXxAPnDG5N7JEISagNiw7b\nvZe715lLAgMBAAECggEAB7X+29Kxq8oAqjqi/q2vMZvXmOx73rB7XTJ9lG5pyyXO\nc1unw2WawQHGISZwSh5T3j45NSUrI3Vn5yxKJWDbC6PjmtGjkCqrokWCOW1one7A\neHWc0T0pGDM4Y4+JIwwOUMbVfKirHQZdN8LQJPxX5IHf9kMhd8g70/MbGAqLUMQt\n2Z/AI9dLN1HgFFbU/dtNtXC3D7U49DDsK1t9DG7H2oRe5Z6MP+MHIuBJa4RDAJXc\nb1DTiBe229cYDClmctvV8VfgEGdL8S7Qpuipixvp+ZHAc9gLuIAS/4Vt/C1x+/MH\naNe15TKofQtRnMU03jft02kMFS+7c80pifL/xgpA1QKBgQD2KKoH32dhfJMvQ0Nt\ndnXq1jsDFw8EgL7ETIM+S8OoMg9IHisLCEbdAI+HNBdjE8xRi2kmxGgK7M6HG6Gv\nDHUmH1u9DkV1jaPnPjQyb0+zsPh5y1g4yGLLmEuO9l5m3soBp7WoUm+6uwsopw++\n9RABYf+cg8ZYMLi7vXPaoFBRnQKBgQDUVKoSbuaeYg61amh1DTvno+9a8p125lZX\nbs4sAd0XkNRf0/BdXZczMH+KXPuf6sq2skUUBMjT2hrSa2RiUhTL/FfQWSedO/FJ\nXcMZ7uhspLq6ZNfFCtCA2+W0Sgq2GSiirpVyjZ2ClD1+Cr9xQSEEVrFqieA1ufjQ\n8YRtjPN2BwKBgD8kgTERymgEV5D5FRPAHlFF8M9DG/QQvl6GLehN8Pt1E9xw+KOU\n1PCd0zNgVltw2alVNHzgRrv+sJ+Ro/DOJkLIKnUdcw3Lbm7D0wnY6b3zOFmtooy2\nQjltcHxUkDSdE35HMd7ifoyMrDkaWXynShrAs5vHZZp7rPdjipNbKh81AoGBAMJR\nLUgrWEEwijd6x1gAIYevXtkD2hm7WN8xV9usZPMxJzr/0iUQBtThGIe+6sUCcjxa\nz58vdb90BkH16GuWpNO9/3t8bCWYewxik6/DFdB/vSfiLBl2+TREimbBsCXQxoCD\nd9/bPIAJPHGCUovKR/YZhMp0nc1tggluTnyXlyO3AoGBAN8PEcEvLdqR4d09Sqmo\n6PSkQLe4fdbrRGMkrhiHkKEfuQkEg5lUXf+ODWOrHgkOXMql/2rSuSL3F6lkAizz\n9065NEG52+Vu+UKIEDWWDhyvyGBCL+qlUrtj8GRWXYaaK4EKlhHl+FPByVg+i9pg\n9+FF3l6TvDVYNj5RFPZr/J7p\n-----END PRIVATE KEY-----\n",
+  "client_email": "bladewallet@blade-outboards.iam.gserviceaccount.com",
+  "client_id": "107313567487163653182",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/bladewallet%40blade-outboards.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -1,0 +1,76 @@
+{
+  "aud": "google",
+  "origins": [
+    "https://localhost:8080"
+  ],
+  "iss": "177146692044@developer.gserviceaccount.com",
+  "iat": 1389816895,
+  "typ": "savetowallet",
+  "payload": {
+    "loyaltyObjects": [
+      {
+        "barcode": {
+          "alternateText": "12345",
+          "type": "qrCode",
+          "value": "28343E3"
+        },
+        "linksModuleData": {
+          "uris": [
+            {
+              "kind": "walletobjects#uri",
+              "uri": "https://www.baconrista.com/myaccount?id=1234567890",
+              "description": "My Baconrista Account"
+            }
+          ]
+        },
+        "infoModuleData": {
+          "labelValueRows": [
+            {
+              "columns": [
+                {
+                  "value": "Jane Doe",
+                  "label": "Member Name"
+                },
+                {
+                  "value": "1234567890",
+                  "label": "Membership #"
+                }
+              ]
+            },
+            {
+              "columns": [
+                {
+                  "value": "2 coffees",
+                  "label": "Next Reward in"
+                },
+                {
+                  "value": "01/15/2013",
+                  "label": "Member Since"
+                }
+              ]
+            }
+          ],
+          "showLastUpdateTime": "true"
+        },
+        "id": "2956054058108947698.LoyaltyObjectPython10",
+        "loyaltyPoints": {
+          "balance": {
+            "string": "500"
+          },
+          "label": "Points"
+        },
+        "accountId": "1234567890",
+        "classId": "2956054058108947698.LoyaltyClassPython10",
+        "accountName": "Jane Doe",
+        "state": "active",
+        "version": 1,
+        "textModulesData": [
+          {
+            "body": "You are 5 coffees away from receiving a free bacon fat latte. ",
+            "header": "Jane's Baconrista Rewards"
+          }
+        ]
+      }
+    ]
+  }
+}
