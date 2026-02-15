@@ -299,7 +299,7 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={["#1A2332", "#0A1628"] as [string, string]}
+        colors={["#2C2C2E", "#1C1C1E"] as [string, string]}
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.noiseOverlay} pointerEvents="none" />
@@ -321,8 +321,8 @@ export default function AuthScreen() {
         >
           <AnimatedLogo />
 
-          <View style={styles.formSection}>
-            <Animated.View entering={FadeInUp.delay(400).duration(500).springify()}>
+          <Animated.View entering={FadeInUp.delay(300).duration(600).springify()} style={styles.formSection}>
+            <Animated.View entering={FadeIn.delay(500).duration(400)}>
               <View style={styles.formCard}>
               <ThemedText type="h2" style={styles.formTitle}>
                 {mode === "login" ? "Welcome Back" : mode === "register" ? "Create Account" : "Reset Password"}
@@ -488,9 +488,9 @@ export default function AuthScreen() {
 
               </View>
             </Animated.View>
-          </View>
+          </Animated.View>
 
-          <View style={[styles.bottomRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
+          <Animated.View entering={FadeInUp.delay(700).duration(500).springify()} style={[styles.bottomRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
             <Pressable 
               onPress={() => navigation.navigate('Onboarding')} 
               style={styles.introLink}
@@ -509,9 +509,9 @@ export default function AuthScreen() {
                 </ThemedText>
               </Pressable>
             </Animated.View>
-          </View>
+          </Animated.View>
 
-          <Animated.View style={styles.versionInfo} entering={FadeIn.delay(900).duration(400)}>
+          <Animated.View style={styles.versionInfo} entering={FadeIn.delay(1000).duration(400)}>
             <ThemedText type="caption" style={styles.oemText}>
               BLADE MARINE TECHNOLOGIES LTD
             </ThemedText>
@@ -597,7 +597,7 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A1628",
+    backgroundColor: "#1C1C1E",
   },
   keyboardView: {
     flex: 1,
