@@ -65,7 +65,7 @@ export default function MainTabNavigator() {
           fontWeight: "600",
         },
         tabBarActiveTintColor: BladeColors.accent,
-        tabBarInactiveTintColor: isDark ? "#5A6B7A" : "#8A9BA8",
+        tabBarInactiveTintColor: isDark ? "#5A6B7A" : "#6B7280",
         tabBarShowLabel: true,
         tabBarStyle: {
           position: "absolute",
@@ -74,26 +74,27 @@ export default function MainTabNavigator() {
             android: isDark ? "#0A0F14" : "#FFFFFF",
             default: isDark ? "#0A0F14" : "#FFFFFF",
           }),
-          borderTopWidth: 0,
+          borderTopWidth: Platform.select({ ios: 0, default: StyleSheet.hairlineWidth }),
+          borderTopColor: isDark ? "#1A2530" : "#E0E0E0",
           elevation: 0,
           height: Platform.select({ ios: 85, android: 68, default: 68 }),
           paddingBottom: Platform.select({ ios: 26, android: 8, default: 8 }),
           paddingTop: 8,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: isDark ? 0.4 : 0.06,
+          shadowOpacity: isDark ? 0.4 : 0.08,
           shadowRadius: 16,
         },
         tabBarBackground: () =>
           supportsGlass ? (
             <GlassView
               glassEffectStyle="regular"
-              tintColor={isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}
+              tintColor={isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.85)"}
               style={StyleSheet.absoluteFill}
             />
           ) : Platform.OS === "ios" ? (
             <BlurView
-              intensity={isDark ? 60 : 80}
+              intensity={isDark ? 60 : 95}
               tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
