@@ -15,7 +15,7 @@ Design aesthetic: iOS-style light gray theme with translucent white cards, green
 - **State Management**: React Context for local state, TanStack React Query for server state.
 - **Styling**: Custom theming with light/dark mode, Reanimated for animations, Expo Linear Gradient.
 - **UI/UX Decisions**: iOS-style light gray interface with specific color codes for backgrounds, translucent cards, borders, and text, optimized for outdoor visibility in marine environments.
-- **Key Features**: User authentication, real-time data dashboard, GPS tracking with trip recording and export, OTA firmware updates, device settings management, BLE motor pairing, anti-theft functionality, Live Activities/Persistent Notifications, Digital Outboard Passport, Apple Watch/Android Wear OS companion apps, range estimator, trip auto-resume, shareable trip summary, and first-launch onboarding carousel.
+- **Key Features**: User authentication, real-time data dashboard, GPS tracking with trip recording and export, OTA firmware updates, device settings management, BLE motor pairing, anti-theft functionality, Live Activities/Persistent Notifications, Digital Outboard Passport, Apple Watch/Android Wear OS companion apps, range estimator, trip auto-resume, shareable trip summary, first-launch onboarding carousel, animated number gauges (AnimatedValue), airport-style flip board telemetry initialization (FlipBoard), haptic feedback patterns for events (sounds.ts), and smooth screen transitions.
 
 ### Android Wear OS Companion App
 - **Location**: `android-wear-app/` (standalone project).
