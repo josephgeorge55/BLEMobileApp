@@ -408,8 +408,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#636366",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     overflow: "hidden" as const,
+    paddingBottom: "20%",
   },
   overlayLottie: {
     position: "absolute" as const,
@@ -420,7 +421,6 @@ const styles = StyleSheet.create({
   overlayContentCentered: {
     alignItems: "center",
     paddingHorizontal: Spacing["2xl"],
-    paddingTop: "35%",
     maxWidth: 340,
   },
   emptyIconCircle: {

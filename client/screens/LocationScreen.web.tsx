@@ -336,8 +336,9 @@ const styles = StyleSheet.create({
   emptyContainer: {
     backgroundColor: "#636366",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     overflow: "hidden" as const,
+    paddingBottom: "20%",
   },
   emptyLottie: {
     position: "absolute" as const,
@@ -348,7 +349,6 @@ const styles = StyleSheet.create({
   emptyContent: {
     alignItems: "center" as const,
     paddingHorizontal: Spacing["2xl"],
-    paddingTop: "25%",
     zIndex: 1,
     maxWidth: 340,
   },
