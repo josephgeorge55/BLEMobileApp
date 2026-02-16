@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StyleSheet, View, Dimensions, Platform, Modal, Image, Pressable, Text } from "react-native";
+import { StyleSheet, View, Dimensions, Platform, Image, Pressable, Text, StatusBar } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
@@ -114,13 +114,13 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   const { user, isGuestMode } = useUser();
   const [visible, setVisible] = useState(true);
   const [country, setCountry] = useState<string | null>(null);
-  const [readyToAnimate, setReadyToAnimate] = useState(false);
   const dismissingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   const isGuest = isGuestMode || !user || user.id === "guest";
 
-  const overlayOpacity = useSharedValue(1);
+  const overlayOpacity = useSharedValue(0);
   const logoScale = useSharedValue(0.3);
   const logoOpacity = useSharedValue(0);
   const titleOpacity = useSharedValue(0);
@@ -137,26 +137,17 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   const dividerWidth = useSharedValue(0);
 
   useEffect(() => {
-    if (!isGuest && user) {
-      getUserCountry().then((c) => setCountry(c)).catch(() => {});
-    }
-  }, [isGuest, user]);
-
-  const handleModalShow = useCallback(() => {
-    const delay = Platform.OS === "web" ? 0 : 100;
-    setTimeout(() => {
-      setReadyToAnimate(true);
-    }, delay);
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
   useEffect(() => {
-    const fallback = setTimeout(() => {
-      if (!readyToAnimate) {
-        setReadyToAnimate(true);
-      }
-    }, Platform.OS === "web" ? 200 : 600);
-    return () => clearTimeout(fallback);
-  }, []);
+    if (!isGuest && user) {
+      getUserCountry().then((c) => {
+        if (mountedRef.current) setCountry(c);
+      }).catch(() => {});
+    }
+  }, [isGuest, user]);
 
   const autoDismiss = useCallback(() => {
     if (dismissingRef.current) return;
@@ -169,58 +160,69 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
       }
     });
     setTimeout(() => {
-      setVisible(false);
-      if (onDismiss) onDismiss();
+      if (mountedRef.current) {
+        setVisible(false);
+        if (onDismiss) onDismiss();
+      }
     }, 700);
   }, [onDismiss]);
 
   useEffect(() => {
-    if (!readyToAnimate) return;
+    if (!visible) return;
 
-    logoOpacity.value = withDelay(200, withTiming(1, { duration: 600 }));
-    logoScale.value = withDelay(
-      200,
-      withSpring(1, { damping: 10, stiffness: 60 })
-    );
+    const startDelay = Platform.OS === "web" ? 100 : 500;
 
-    titleOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
-    titleTranslateY.value = withDelay(500, withSpring(0, { damping: 14 }));
+    const startTimer = setTimeout(() => {
+      if (!mountedRef.current) return;
 
-    subtitleOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
-    subtitleTranslateY.value = withDelay(800, withSpring(0, { damping: 14 }));
+      overlayOpacity.value = withTiming(1, { duration: 300 });
 
-    dividerWidth.value = withDelay(1000, withTiming(1, { duration: 600 }));
-
-    detailOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
-    detailTranslateY.value = withDelay(1200, withSpring(0, { damping: 14 }));
-
-    lottieOpacity.value = withDelay(1400, withTiming(1, { duration: 500 }));
-    lottieScale.value = withDelay(1400, withSpring(1, { damping: 12, stiffness: 80 }));
-
-    if (!isGuest) {
-      hintOpacity.value = withDelay(1700, withTiming(1, { duration: 500 }));
-      hintTranslateY.value = withDelay(1700, withSpring(0, { damping: 14 }));
-
-      pulseOpacity.value = withDelay(2100,
-        withRepeat(
-          withSequence(
-            withTiming(1, { duration: 800 }),
-            withTiming(0.5, { duration: 800 })
-          ),
-          -1,
-          false
-        )
+      logoOpacity.value = withDelay(200, withTiming(1, { duration: 600 }));
+      logoScale.value = withDelay(
+        200,
+        withSpring(1, { damping: 10, stiffness: 60 })
       );
-    }
 
-    timerRef.current = setTimeout(() => {
-      autoDismiss();
-    }, isGuest ? 4000 : 5500);
+      titleOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
+      titleTranslateY.value = withDelay(500, withSpring(0, { damping: 14 }));
+
+      subtitleOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
+      subtitleTranslateY.value = withDelay(800, withSpring(0, { damping: 14 }));
+
+      dividerWidth.value = withDelay(1000, withTiming(1, { duration: 600 }));
+
+      detailOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
+      detailTranslateY.value = withDelay(1200, withSpring(0, { damping: 14 }));
+
+      lottieOpacity.value = withDelay(1400, withTiming(1, { duration: 500 }));
+      lottieScale.value = withDelay(1400, withSpring(1, { damping: 12, stiffness: 80 }));
+
+      if (!isGuest) {
+        hintOpacity.value = withDelay(1700, withTiming(1, { duration: 500 }));
+        hintTranslateY.value = withDelay(1700, withSpring(0, { damping: 14 }));
+
+        pulseOpacity.value = withDelay(2100,
+          withRepeat(
+            withSequence(
+              withTiming(1, { duration: 800 }),
+              withTiming(0.5, { duration: 800 })
+            ),
+            -1,
+            false
+          )
+        );
+      }
+
+      timerRef.current = setTimeout(() => {
+        autoDismiss();
+      }, isGuest ? 4000 : 5500);
+    }, startDelay);
 
     return () => {
+      clearTimeout(startTimer);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [readyToAnimate]);
+  }, [visible]);
 
   const overlayAnimStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -270,123 +272,123 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   const userEmail = !isGuest && user ? user.email : null;
 
   return (
-    <Modal
-      visible={true}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onShow={handleModalShow}
+    <Pressable
+      style={[StyleSheet.absoluteFill, styles.overlayWrapper]}
+      onPress={autoDismiss}
     >
-      <Pressable style={StyleSheet.absoluteFill} onPress={autoDismiss}>
-        <Animated.View style={[styles.overlay, overlayAnimStyle]}>
-          <LinearGradient
-            colors={isGuest ? ["#1E2530", "#141B24"] : ["#1A2332", "#0F1720"]}
-            style={StyleSheet.absoluteFillObject}
-          />
+      <StatusBar barStyle="light-content" />
+      <Animated.View style={[styles.overlay, overlayAnimStyle]}>
+        <LinearGradient
+          colors={isGuest ? ["#1E2530", "#141B24"] : ["#1A2332", "#0F1720"]}
+          style={StyleSheet.absoluteFillObject}
+        />
 
-          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-            {PARTICLES.map((p) => (
-              <Particle key={p.id} data={p} />
-            ))}
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          {PARTICLES.map((p) => (
+            <Particle key={p.id} data={p} />
+          ))}
+        </View>
+
+        <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
+          <Animated.View style={logoAnimStyle}>
+            <Image
+              source={require("../../assets/images/blade-icon-green.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          <View style={styles.textContainer}>
+            <Animated.View style={titleAnimStyle}>
+              <ThemedText style={styles.labelText}>
+                {isGuest ? "Welcome" : "Welcome Back"}
+              </ThemedText>
+            </Animated.View>
+
+            <Animated.View style={subtitleAnimStyle}>
+              <ThemedText style={styles.nameText}>
+                {isGuest ? "Guest" : "Captain"}
+              </ThemedText>
+            </Animated.View>
+
+            <Animated.View style={[styles.divider, dividerAnimStyle]} />
+
+            {!isGuest && userEmail ? (
+              <Animated.View style={[styles.detailRow, detailAnimStyle]}>
+                <Feather name="mail" size={14} color="rgba(255,255,255,0.4)" />
+                <ThemedText style={styles.detailText}>{userEmail}</ThemedText>
+              </Animated.View>
+            ) : null}
+
+            {!isGuest && country ? (
+              <Animated.View style={[styles.detailRow, detailAnimStyle]}>
+                {flag ? (
+                  <Text style={styles.flagText}>{flag}</Text>
+                ) : (
+                  <Feather name="globe" size={14} color="rgba(255,255,255,0.4)" />
+                )}
+                <ThemedText style={styles.detailText}>{country}</ThemedText>
+              </Animated.View>
+            ) : null}
           </View>
 
-          <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
-            <Animated.View style={logoAnimStyle}>
-              <Image
-                source={require("../../assets/images/blade-icon-green.png")}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </Animated.View>
+          <Animated.View style={[styles.lottieContainer, lottieAnimStyle]}>
+            <LottieView
+              source={require("../../assets/lottie/gps.json")}
+              autoPlay
+              loop
+              style={styles.lottie}
+            />
+          </Animated.View>
 
-            <View style={styles.textContainer}>
-              <Animated.View style={titleAnimStyle}>
-                <ThemedText style={styles.labelText}>
-                  {isGuest ? "Welcome" : "Welcome Back"}
-                </ThemedText>
-              </Animated.View>
-
-              <Animated.View style={subtitleAnimStyle}>
-                <ThemedText style={styles.nameText}>
-                  {isGuest ? "Guest" : "Captain"}
-                </ThemedText>
-              </Animated.View>
-
-              <Animated.View style={[styles.divider, dividerAnimStyle]} />
-
-              {!isGuest && userEmail ? (
-                <Animated.View style={[styles.detailRow, detailAnimStyle]}>
-                  <Feather name="mail" size={14} color="rgba(255,255,255,0.4)" />
-                  <ThemedText style={styles.detailText}>{userEmail}</ThemedText>
-                </Animated.View>
-              ) : null}
-
-              {!isGuest && country ? (
-                <Animated.View style={[styles.detailRow, detailAnimStyle]}>
-                  {flag ? (
-                    <Text style={styles.flagText}>{flag}</Text>
-                  ) : (
-                    <Feather name="globe" size={14} color="rgba(255,255,255,0.4)" />
-                  )}
-                  <ThemedText style={styles.detailText}>{country}</ThemedText>
-                </Animated.View>
-              ) : null}
-            </View>
-
-            <Animated.View style={[styles.lottieContainer, lottieAnimStyle]}>
-              <LottieView
-                source={require("../../assets/lottie/gps.json")}
-                autoPlay
-                loop
-                style={styles.lottie}
-              />
-            </Animated.View>
-
-            {!isGuest ? (
-              <Animated.View style={[styles.hintContainer, hintAnimStyle]}>
-                <View style={styles.hintCard}>
-                  <LinearGradient
-                    colors={["rgba(164,208,139,0.15)", "rgba(164,208,139,0.05)"]}
-                    style={StyleSheet.absoluteFillObject}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  />
-                  <Animated.View style={pulseAnimStyle}>
-                    <View style={styles.scanIconCircle}>
-                      <Feather name="bluetooth" size={22} color="#A4D08B" />
-                    </View>
-                  </Animated.View>
-                  <View style={styles.hintTextArea}>
-                    <ThemedText style={styles.hintTitle}>Ready to Connect</ThemedText>
-                    <ThemedText style={styles.hintSubtitle}>
-                      Tap "Scan for Motors" to pair your outboard
-                    </ThemedText>
+          {!isGuest ? (
+            <Animated.View style={[styles.hintContainer, hintAnimStyle]}>
+              <View style={styles.hintCard}>
+                <LinearGradient
+                  colors={["rgba(164,208,139,0.15)", "rgba(164,208,139,0.05)"]}
+                  style={StyleSheet.absoluteFillObject}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+                <Animated.View style={pulseAnimStyle}>
+                  <View style={styles.scanIconCircle}>
+                    <Feather name="bluetooth" size={22} color="#A4D08B" />
                   </View>
+                </Animated.View>
+                <View style={styles.hintTextArea}>
+                  <ThemedText style={styles.hintTitle}>Ready to Connect</ThemedText>
+                  <ThemedText style={styles.hintSubtitle}>
+                    Tap "Scan for Motors" to pair your outboard
+                  </ThemedText>
                 </View>
-              </Animated.View>
-            ) : (
-              <Animated.View style={[styles.guestHintContainer, detailAnimStyle]}>
-                <Feather name="info" size={16} color="rgba(255,255,255,0.4)" />
-                <ThemedText style={styles.guestHintText}>
-                  Sign in for full access to all features
-                </ThemedText>
-              </Animated.View>
-            )}
-          </View>
+              </View>
+            </Animated.View>
+          ) : (
+            <Animated.View style={[styles.guestHintContainer, detailAnimStyle]}>
+              <Feather name="info" size={16} color="rgba(255,255,255,0.4)" />
+              <ThemedText style={styles.guestHintText}>
+                Sign in for full access to all features
+              </ThemedText>
+            </Animated.View>
+          )}
+        </View>
 
-          <View style={[styles.footer, { paddingBottom: insets.bottom + 32 }]}>
-            <ThemedText style={styles.skipText}>Tap anywhere to skip</ThemedText>
-            <View style={styles.progressBar}>
-              <Animated.View style={[styles.progressFill, { width: "100%" }]} />
-            </View>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 32 }]}>
+          <ThemedText style={styles.skipText}>Tap anywhere to skip</ThemedText>
+          <View style={styles.progressBar}>
+            <Animated.View style={[styles.progressFill, { width: "100%" }]} />
           </View>
-        </Animated.View>
-      </Pressable>
-    </Modal>
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  overlayWrapper: {
+    zIndex: 9999,
+    elevation: 9999,
+  },
   overlay: {
     flex: 1,
   },

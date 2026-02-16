@@ -1203,7 +1203,6 @@ export default function DashboardScreen() {
 
   return (
     <>
-    <WelcomeOverlay />
     <ScrollView
       ref={scrollViewRef}
       style={[styles.container, { backgroundColor: "#F2F2F7" }]}
@@ -1504,6 +1503,7 @@ export default function DashboardScreen() {
         </Pressable>
       </Modal>
     </ScrollView>
+    <WelcomeOverlay />
   </>
   );
 }
