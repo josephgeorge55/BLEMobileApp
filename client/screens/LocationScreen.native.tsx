@@ -407,8 +407,8 @@ const styles = StyleSheet.create({
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#636366",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "flex-start",
     overflow: "hidden" as const,
   },
   overlayLottie: {
@@ -419,12 +419,14 @@ const styles = StyleSheet.create({
   },
   overlayContentCentered: {
     alignItems: "center",
-    paddingHorizontal: Spacing["3xl"],
+    paddingHorizontal: Spacing["2xl"],
+    paddingTop: "35%",
+    maxWidth: 340,
   },
   emptyIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
@@ -432,13 +434,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: "#FFFFFF",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
     textAlign: "center",
     marginBottom: Spacing.md,
   },
   emptyDescription: {
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "rgba(255, 255, 255, 0.75)",
     fontSize: 16,
     textAlign: "center",
     lineHeight: 24,
