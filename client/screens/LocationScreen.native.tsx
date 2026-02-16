@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden" as const,
-    paddingBottom: "20%",
+    paddingBottom: "35%",
   },
   overlayLottie: {
     position: "absolute" as const,
