@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blade Outboards",
     "slug": "blade-outboards",
-    "version": "1.4.1",
+    "version": "1.5.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bladeoutboards",
@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "versionCode": 3,
+      "versionCode": 4,
       "package": "com.bladeoutboards.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A4D6E",

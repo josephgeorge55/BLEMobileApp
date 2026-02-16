@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blade Factory",
     "slug": "blade-factory",
-    "version": "1.4.1",
+    "version": "1.5.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bladefactory",
@@ -19,6 +19,7 @@
       }
     },
     "android": {
+      "versionCode": 4,
       "package": "com.bladefactory.app",
       "permissions": [
         "android.permission.INTERNET",
