@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import LottieView from "lottie-react-native";
 
 import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { FindMyPanel } from "@/components/FindMyPanel";
@@ -144,13 +145,21 @@ export default function LocationScreen() {
   if (!motor && registeredMotors.length === 0) {
     return (
       <View style={[styles.container, styles.emptyContainer]}>
-        <View style={styles.emptyIconCircle}>
-          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        <LottieView
+          source={require("../../assets/lottie/gps.json")}
+          autoPlay
+          loop
+          style={styles.emptyLottie}
+        />
+        <View style={styles.emptyContent}>
+          <View style={styles.emptyIconCircle}>
+            <Feather name="shield-off" size={32} color="#FFFFFF" />
+          </View>
+          <Text style={styles.emptyTitle}>No Motor Registered</Text>
+          <Text style={styles.emptyDescription}>
+            Register your Blade outboard in Settings to enable anti-theft GPS tracking.
+          </Text>
         </View>
-        <Text style={styles.emptyTitle}>No Motor Registered</Text>
-        <Text style={styles.emptyDescription}>
-          Register your Blade outboard in Settings to enable anti-theft GPS tracking.
-        </Text>
       </View>
     );
   }
@@ -158,13 +167,21 @@ export default function LocationScreen() {
   if (isGuestMode) {
     return (
       <View style={[styles.container, styles.emptyContainer]}>
-        <View style={styles.emptyIconCircle}>
-          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        <LottieView
+          source={require("../../assets/lottie/gps.json")}
+          autoPlay
+          loop
+          style={styles.emptyLottie}
+        />
+        <View style={styles.emptyContent}>
+          <View style={styles.emptyIconCircle}>
+            <Feather name="shield-off" size={32} color="#FFFFFF" />
+          </View>
+          <Text style={styles.emptyTitle}>Sign In Required</Text>
+          <Text style={styles.emptyDescription}>
+            Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location.
+          </Text>
         </View>
-        <Text style={styles.emptyTitle}>Sign In Required</Text>
-        <Text style={styles.emptyDescription}>
-          Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location.
-        </Text>
       </View>
     );
   }
@@ -172,10 +189,18 @@ export default function LocationScreen() {
   if (isLoadingLocation && !currentLocation) {
     return (
       <View style={[styles.container, styles.emptyContainer]}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={[styles.emptyDescription, { marginTop: Spacing.md }]}>
-          Fetching location...
-        </Text>
+        <LottieView
+          source={require("../../assets/lottie/gps.json")}
+          autoPlay
+          loop
+          style={styles.emptyLottie}
+        />
+        <View style={styles.emptyContent}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={[styles.emptyDescription, { marginTop: Spacing.md }]}>
+            Fetching location...
+          </Text>
+        </View>
       </View>
     );
   }
@@ -183,11 +208,19 @@ export default function LocationScreen() {
   if (locationError && !currentLocation) {
     return (
       <View style={[styles.container, styles.emptyContainer]}>
-        <View style={styles.emptyIconCircle}>
-          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        <LottieView
+          source={require("../../assets/lottie/gps.json")}
+          autoPlay
+          loop
+          style={styles.emptyLottie}
+        />
+        <View style={styles.emptyContent}>
+          <View style={styles.emptyIconCircle}>
+            <Feather name="shield-off" size={32} color="#FFFFFF" />
+          </View>
+          <Text style={styles.emptyTitle}>No Location Data</Text>
+          <Text style={styles.emptyDescription}>{locationError}</Text>
         </View>
-        <Text style={styles.emptyTitle}>No Location Data</Text>
-        <Text style={styles.emptyDescription}>{locationError}</Text>
       </View>
     );
   }
@@ -195,13 +228,21 @@ export default function LocationScreen() {
   if (!currentLocation) {
     return (
       <View style={[styles.container, styles.emptyContainer]}>
-        <View style={styles.emptyIconCircle}>
-          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        <LottieView
+          source={require("../../assets/lottie/gps.json")}
+          autoPlay
+          loop
+          style={styles.emptyLottie}
+        />
+        <View style={styles.emptyContent}>
+          <View style={styles.emptyIconCircle}>
+            <Feather name="shield-off" size={32} color="#FFFFFF" />
+          </View>
+          <Text style={styles.emptyTitle}>No Location Data</Text>
+          <Text style={styles.emptyDescription}>
+            Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity.
+          </Text>
         </View>
-        <Text style={styles.emptyTitle}>No Location Data</Text>
-        <Text style={styles.emptyDescription}>
-          Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity.
-        </Text>
       </View>
     );
   }
@@ -293,10 +334,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyContainer: {
-    backgroundColor: "rgba(99, 99, 102, 0.95)",
+    backgroundColor: "#636366",
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden" as const,
+  },
+  emptyLottie: {
+    position: "absolute" as const,
+    width: "100%",
+    height: "100%",
+    opacity: 0.25,
+  },
+  emptyContent: {
+    alignItems: "center" as const,
     paddingHorizontal: Spacing["3xl"],
+    zIndex: 1,
   },
   emptyIconCircle: {
     width: 72,

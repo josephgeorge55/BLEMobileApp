@@ -406,13 +406,16 @@ const styles = StyleSheet.create({
   },
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(99, 99, 102, 0.95)",
+    backgroundColor: "#636366",
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden" as const,
   },
   overlayLottie: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.15,
+    position: "absolute" as const,
+    width: "100%",
+    height: "100%",
+    opacity: 0.25,
   },
   overlayContentCentered: {
     alignItems: "center",
