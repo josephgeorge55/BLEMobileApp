@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, ActivityIndicator, Alert } from "react-native";
+import { StyleSheet, View, ActivityIndicator, Alert, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LottieView from "lottie-react-native";
+import { Feather } from "@expo/vector-icons";
 
 import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { FindMyPanel } from "@/components/FindMyPanel";
-import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
@@ -285,44 +286,83 @@ export default function LocationScreen() {
         </View>
       ) : null}
 
-      {/* Empty states overlay */}
       {showNoMotorState ? (
         <View style={styles.overlayContainer}>
-          <EmptyState
-            image={require("../../assets/images/empty-location.png")}
-            title="No Motor Registered"
-            description="Register your Blade outboard in Settings to enable anti-theft GPS tracking."
+          <LottieView
+            source={require("../../assets/lottie/gps.json")}
+            autoPlay
+            loop
+            style={styles.overlayLottie}
           />
+          <View style={styles.overlayContentCentered}>
+            <View style={styles.emptyIconCircle}>
+              <Feather name="shield-off" size={32} color="#FFFFFF" />
+            </View>
+            <Text style={styles.emptyTitle}>No Motor Registered</Text>
+            <Text style={styles.emptyDescription}>
+              Register your Blade outboard in Settings to enable anti-theft GPS tracking.
+            </Text>
+          </View>
         </View>
       ) : null}
 
       {showGuestState ? (
         <View style={styles.overlayContainer}>
-          <EmptyState
-            image={require("../../assets/images/empty-location.png")}
-            title="Sign In Required"
-            description="Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location."
+          <LottieView
+            source={require("../../assets/lottie/gps.json")}
+            autoPlay
+            loop
+            style={styles.overlayLottie}
           />
+          <View style={styles.overlayContentCentered}>
+            <View style={styles.emptyIconCircle}>
+              <Feather name="shield-off" size={32} color="#FFFFFF" />
+            </View>
+            <Text style={styles.emptyTitle}>Sign In Required</Text>
+            <Text style={styles.emptyDescription}>
+              Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location.
+            </Text>
+          </View>
         </View>
       ) : null}
 
       {showErrorState ? (
         <View style={styles.overlayContainer}>
-          <EmptyState
-            image={require("../../assets/images/empty-location.png")}
-            title="No Location Data"
-            description={locationError || "Unable to fetch location"}
+          <LottieView
+            source={require("../../assets/lottie/gps.json")}
+            autoPlay
+            loop
+            style={styles.overlayLottie}
           />
+          <View style={styles.overlayContentCentered}>
+            <View style={styles.emptyIconCircle}>
+              <Feather name="shield-off" size={32} color="#FFFFFF" />
+            </View>
+            <Text style={styles.emptyTitle}>No Location Data</Text>
+            <Text style={styles.emptyDescription}>
+              {locationError || "Unable to fetch location"}
+            </Text>
+          </View>
         </View>
       ) : null}
 
       {showNoLocationState ? (
         <View style={styles.overlayContainer}>
-          <EmptyState
-            image={require("../../assets/images/empty-location.png")}
-            title="No Location Data"
-            description="Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity."
+          <LottieView
+            source={require("../../assets/lottie/gps.json")}
+            autoPlay
+            loop
+            style={styles.overlayLottie}
           />
+          <View style={styles.overlayContentCentered}>
+            <View style={styles.emptyIconCircle}>
+              <Feather name="shield-off" size={32} color="#FFFFFF" />
+            </View>
+            <Text style={styles.emptyTitle}>No Location Data</Text>
+            <Text style={styles.emptyDescription}>
+              Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity.
+            </Text>
+          </View>
         </View>
       ) : null}
 
@@ -366,9 +406,39 @@ const styles = StyleSheet.create({
   },
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(20, 30, 45, 0.85)",
+    backgroundColor: "rgba(99, 99, 102, 0.95)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  overlayLottie: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.15,
+  },
+  overlayContentCentered: {
+    alignItems: "center",
+    paddingHorizontal: Spacing["3xl"],
+  },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  emptyTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  emptyDescription: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
   },
   overlayContent: {
     backgroundColor: "rgba(30, 45, 65, 0.95)",

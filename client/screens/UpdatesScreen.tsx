@@ -6,9 +6,10 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 
+import LottieView from "lottie-react-native";
+
 import { ThemedText } from "@/components/ThemedText";
 import { FirmwareCard } from "@/components/FirmwareCard";
-import { EmptyState } from "@/components/EmptyState";
 import { FirmwareCardSkeleton } from "@/components/SkeletonLoader";
 import { OTAInstallModal } from "@/components/OTAInstallModal";
 import { useMotor } from "@/context/MotorContext";
@@ -228,41 +229,24 @@ export default function UpdatesScreen() {
 
   if (!motor) {
     return (
-      <View style={[styles.container, { backgroundColor: "#F2F2F7" }]}>
-        <ScrollView
-          contentContainerStyle={{
-            paddingTop: insets.top + Spacing.md,
-            paddingBottom: tabBarHeight + Spacing["3xl"],
-            paddingHorizontal: Spacing.lg,
-            flexGrow: 1,
-          }}
-          scrollIndicatorInsets={{ bottom: insets.bottom }}
-        >
-          <Animated.View entering={FadeInUp.duration(350).springify()}>
-            <View style={styles.heroTile}>
-              <View style={styles.heroIconRow}>
-                <View style={styles.heroIconCircle}>
-                  <Feather name="download-cloud" size={24} color={BladeColors.accent} />
-                </View>
-                <View style={styles.heroTextGroup}>
-                  <ThemedText type="h2" style={styles.heroTitle}>
-                    OTA Updates
-                  </ThemedText>
-                  <ThemedText type="small" style={styles.heroSubtitle}>
-                    Over-The-Air Firmware
-                  </ThemedText>
-                </View>
-              </View>
-            </View>
-          </Animated.View>
-          <View style={styles.noMotorCenter}>
-            <EmptyState
-              image={require("../../assets/images/empty-dashboard.png")}
-              title="No Motor Connected"
-              description="Connect to your Blade outboard to check for firmware updates."
-            />
+      <View style={styles.noMotorContainer}>
+        <LottieView
+          source={require("../../assets/lottie/ota.json")}
+          autoPlay
+          loop
+          style={styles.noMotorLottie}
+        />
+        <View style={styles.noMotorContent}>
+          <View style={styles.noMotorIconCircle}>
+            <Feather name="download-cloud" size={32} color="#FFFFFF" />
           </View>
-        </ScrollView>
+          <ThemedText type="h2" style={styles.noMotorTitle}>
+            No Motor Connected
+          </ThemedText>
+          <ThemedText type="body" style={styles.noMotorDescription}>
+            Connect to your Blade outboard to check for firmware updates.
+          </ThemedText>
+        </View>
       </View>
     );
   }
@@ -501,10 +485,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  noMotorCenter: {
+  noMotorContainer: {
     flex: 1,
+    backgroundColor: "rgba(99, 99, 102, 0.95)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  noMotorLottie: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.18,
+  },
+  noMotorContent: {
+    alignItems: "center",
+    paddingHorizontal: Spacing["3xl"],
+  },
+  noMotorIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  noMotorTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  noMotorDescription: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
   },
   heroTile: {
     backgroundColor: DARK_TILE,

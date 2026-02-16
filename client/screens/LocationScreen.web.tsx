@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { FindMyPanel } from "@/components/FindMyPanel";
-import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useMotor } from "@/context/MotorContext";
@@ -141,66 +141,67 @@ export default function LocationScreen() {
     }
   };
 
-  // No motor registered and not connected
   if (!motor && registeredMotors.length === 0) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="No Motor Registered"
-          description="Register your Blade outboard in Settings to enable anti-theft GPS tracking."
-        />
+      <View style={[styles.container, styles.emptyContainer]}>
+        <View style={styles.emptyIconCircle}>
+          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        </View>
+        <Text style={styles.emptyTitle}>No Motor Registered</Text>
+        <Text style={styles.emptyDescription}>
+          Register your Blade outboard in Settings to enable anti-theft GPS tracking.
+        </Text>
       </View>
     );
   }
 
-  // Guest mode - can't use anti-theft
   if (isGuestMode) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="Sign In Required"
-          description="Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location."
-        />
+      <View style={[styles.container, styles.emptyContainer]}>
+        <View style={styles.emptyIconCircle}>
+          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        </View>
+        <Text style={styles.emptyTitle}>Sign In Required</Text>
+        <Text style={styles.emptyDescription}>
+          Anti-theft GPS tracking requires a registered account. Please sign in to track your motor's location.
+        </Text>
       </View>
     );
   }
 
-  // Loading state
   if (isLoadingLocation && !currentLocation) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
-        <ActivityIndicator size="large" color="#8E8E93" />
-        <ThemedText type="body" style={styles.loadingText}>
-          Fetching location from Firestore...
-        </ThemedText>
+      <View style={[styles.container, styles.emptyContainer]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Text style={[styles.emptyDescription, { marginTop: Spacing.md }]}>
+          Fetching location...
+        </Text>
       </View>
     );
   }
 
-  // Error state - Device has never connected to GNSS
   if (locationError && !currentLocation) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="No Location Data"
-          description={locationError}
-        />
+      <View style={[styles.container, styles.emptyContainer]}>
+        <View style={styles.emptyIconCircle}>
+          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        </View>
+        <Text style={styles.emptyTitle}>No Location Data</Text>
+        <Text style={styles.emptyDescription}>{locationError}</Text>
       </View>
     );
   }
 
-  // No location data available
   if (!currentLocation) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <EmptyState
-          image={require("../../assets/images/empty-location.png")}
-          title="No Location Data"
-          description="Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity."
-        />
+      <View style={[styles.container, styles.emptyContainer]}>
+        <View style={styles.emptyIconCircle}>
+          <Feather name="shield-off" size={32} color="#FFFFFF" />
+        </View>
+        <Text style={styles.emptyTitle}>No Location Data</Text>
+        <Text style={styles.emptyDescription}>
+          Your outboard hasn't reported its location yet. Make sure the motor is powered on and has cellular connectivity.
+        </Text>
       </View>
     );
   }
@@ -291,13 +292,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
+  emptyContainer: {
+    backgroundColor: "rgba(99, 99, 102, 0.95)",
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: Spacing["3xl"],
   },
-  loadingText: {
-    marginTop: Spacing.md,
-    color: "#8E8E93",
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  emptyTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  emptyDescription: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
   },
   mapContainer: {
     flex: 1,
