@@ -411,20 +411,84 @@ export default function SettingsScreen() {
           hasWarranty={hasWarranty}
           hasAntiTheft={registeredMotors.length > 0}
           registeredMotors={registeredMotors}
-          onVesselInfoPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowBoatModal(true);
-          }}
-          onWarrantyPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("WarrantyRegistration");
-          }}
-          onAntiTheftPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("Passport");
-          }}
-          onRemoveMotor={handleRemoveMotor}
         />
+      ) : null}
+
+      {user && !isGuestMode ? (
+          <SettingsSection title="My Boat">
+            <SettingsRow
+              icon="anchor"
+              title={boatData ? boatData.boatType : "Add Boat Information"}
+              subtitle={boatData 
+                ? `${(boatData.lengthMeters * 3.28084).toFixed(1)} ft / ${boatData.weightKg.toFixed(0)} kg`
+                : "Enter your boat details for trip reports"
+              }
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowBoatModal(true);
+              }}
+              iconColor={boatData ? BladeColors.marine : "rgba(255,255,255,0.5)"}
+            />
+          </SettingsSection>
+      ) : null}
+
+      {user && !isGuestMode ? (
+          <SettingsSection title="Ownership">
+            <SettingsRow
+              icon="award"
+              title="Blade Outboard Passport"
+              subtitle="Digital proof of ownership, warranty & wallet pass"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("Passport");
+              }}
+              iconColor={BladeColors.gold}
+            />
+            <SettingsRow
+              icon="shield"
+              title="Warranty Registration"
+              subtitle="Register your motor for warranty coverage"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("WarrantyRegistration");
+              }}
+              iconColor={BladeColors.marine}
+            />
+          </SettingsSection>
+      ) : null}
+
+      {user && !isGuestMode ? (
+          <SettingsSection title="Anti-Theft Registered Devices">
+            {loadingMotors ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={BladeColors.accent} />
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.5)", marginLeft: Spacing.sm }}>
+                  Loading...
+                </ThemedText>
+              </View>
+            ) : registeredMotors.length > 0 ? (
+              registeredMotors.map((registeredMotor, index) => (
+                <SettingsRow
+                  key={`${registeredMotor.serialNumber}-${index}`}
+                  icon="lock"
+                  title={registeredMotor.name || registeredMotor.serialNumber}
+                  subtitle={registeredMotor.name ? `S/N: ${registeredMotor.serialNumber}` : "Protected"}
+                  onPress={() => handleRemoveMotor(registeredMotor.serialNumber)}
+                  iconColor={BladeColors.success}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyRegisteredContainer}>
+                <Feather name="shield-off" size={32} color={"rgba(255,255,255,0.35)"} />
+                <ThemedText type="small" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.sm, textAlign: 'center' }}>
+                  No outboards registered for anti-theft protection
+                </ThemedText>
+                <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.35)", marginTop: Spacing.xs, textAlign: 'center' }}>
+                  Connect an outboard via Bluetooth to enable protection
+                </ThemedText>
+              </View>
+            )}
+          </SettingsSection>
       ) : null}
 
       {motor?.isConnected ? (

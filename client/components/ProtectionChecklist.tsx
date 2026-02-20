@@ -1,121 +1,28 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Pressable, Platform } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import Animated, { FadeIn, FadeOut, Layout } from "react-native-reanimated";
+import Animated, { FadeIn, Layout } from "react-native-reanimated";
 import LottieView from "lottie-react-native";
 import { ThemedText } from "@/components/ThemedText";
-import { SettingsSection } from "@/components/SettingsRow";
-import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import type { BoatData, RegisteredMotor } from "@/lib/firebase";
-import * as Haptics from "expo-haptics";
 
-const DARK_TILE = "rgba(44,44,46,0.92)";
-const TILE_TEXT = "#FFFFFF";
-const TILE_TEXT_SECONDARY = "rgba(255,255,255,0.5)";
-const SUCCESS_GREEN = "#34C759";
+const DARK = "#1C1C1E";
+const DARK_SECONDARY = "#3A3A3C";
+const LIGHT_TEXT = "#8E8E93";
+const SUCCESS = "#34C759";
+const WARNING = "#FF9500";
 
 interface ProtectionChecklistProps {
   boatData: BoatData | null;
   hasWarranty: boolean;
   hasAntiTheft: boolean;
   registeredMotors: RegisteredMotor[];
-  onVesselInfoPress: () => void;
-  onWarrantyPress: () => void;
-  onAntiTheftPress: () => void;
-  onRemoveMotor: (serialNumber: string) => void;
 }
 
-interface StepConfig {
-  key: string;
-  title: string;
-  icon: keyof typeof Feather.glyphMap;
+interface StepStatus {
+  label: string;
   completed: boolean;
-  subtitle: string;
-  onPress: () => void;
-}
-
-function ChecklistStep({
-  step,
-  compact,
-}: {
-  step: StepConfig;
-  compact: boolean;
-}) {
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    step.onPress();
-  };
-
-  return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => [
-        compact ? styles.stepRowCompact : styles.stepRow,
-        pressed ? { opacity: 0.7 } : undefined,
-      ]}
-    >
-      <View
-        style={[
-          compact ? styles.statusCircleCompact : styles.statusCircle,
-          step.completed
-            ? { backgroundColor: SUCCESS_GREEN }
-            : { borderColor: TILE_TEXT_SECONDARY, borderWidth: 1.5 },
-        ]}
-      >
-        {step.completed ? (
-          <Feather
-            name="check"
-            size={compact ? 10 : 14}
-            color={TILE_TEXT}
-          />
-        ) : null}
-      </View>
-      <View
-        style={[
-          compact ? styles.iconContainerCompact : styles.iconContainer,
-          {
-            backgroundColor: step.completed
-              ? SUCCESS_GREEN + "18"
-              : "rgba(255,255,255,0.06)",
-          },
-        ]}
-      >
-        <Feather
-          name={step.icon}
-          size={compact ? 14 : 18}
-          color={step.completed ? SUCCESS_GREEN : TILE_TEXT_SECONDARY}
-        />
-      </View>
-      <View style={styles.stepContent}>
-        <ThemedText
-          type={compact ? "small" : "body"}
-          style={{
-            color: step.completed ? TILE_TEXT : TILE_TEXT_SECONDARY,
-          }}
-        >
-          {step.title}
-        </ThemedText>
-        {compact ? null : (
-          <ThemedText
-            type="caption"
-            style={{
-              color: step.completed
-                ? SUCCESS_GREEN
-                : TILE_TEXT_SECONDARY,
-              marginTop: 2,
-            }}
-          >
-            {step.subtitle}
-          </ThemedText>
-        )}
-      </View>
-      <Feather
-        name="chevron-right"
-        size={compact ? 14 : 18}
-        color={TILE_TEXT_SECONDARY}
-      />
-    </Pressable>
-  );
 }
 
 export function ProtectionChecklist({
@@ -123,42 +30,13 @@ export function ProtectionChecklist({
   hasWarranty,
   hasAntiTheft,
   registeredMotors,
-  onVesselInfoPress,
-  onWarrantyPress,
-  onAntiTheftPress,
-  onRemoveMotor,
 }: ProtectionChecklistProps) {
   const lottieRef = useRef<LottieView>(null);
 
-  const steps: StepConfig[] = [
-    {
-      key: "vessel",
-      title: "Vessel Information",
-      icon: "anchor",
-      completed: boatData !== null,
-      subtitle: boatData ? boatData.boatType : "Add your boat details",
-      onPress: onVesselInfoPress,
-    },
-    {
-      key: "warranty",
-      title: "Warranty Registration",
-      icon: "shield",
-      completed: hasWarranty,
-      subtitle: hasWarranty
-        ? "Registered"
-        : "Register your motor for warranty coverage",
-      onPress: onWarrantyPress,
-    },
-    {
-      key: "antitheft",
-      title: "Anti-Theft Registration",
-      icon: "lock",
-      completed: hasAntiTheft,
-      subtitle: hasAntiTheft
-        ? `${registeredMotors.length} motor${registeredMotors.length !== 1 ? "s" : ""} protected`
-        : "Link your outboard for GPS protection",
-      onPress: onAntiTheftPress,
-    },
+  const steps: StepStatus[] = [
+    { label: "Vessel Information", completed: boatData !== null },
+    { label: "Warranty Registration", completed: hasWarranty },
+    { label: "Anti-Theft Registration", completed: hasAntiTheft },
   ];
 
   const completedCount = steps.filter((s) => s.completed).length;
@@ -171,13 +49,14 @@ export function ProtectionChecklist({
   }, [allComplete]);
 
   return (
-    <SettingsSection title="Device Protection">
-      {allComplete ? (
-        <Animated.View
-          entering={FadeIn.duration(400)}
-          layout={Layout.springify()}
-        >
-          <View style={styles.completeHeader}>
+    <View style={styles.container}>
+      <Animated.View
+        entering={FadeIn.duration(400)}
+        layout={Layout.springify()}
+        style={styles.card}
+      >
+        {allComplete ? (
+          <View style={styles.completeLayout}>
             <LottieView
               ref={lottieRef}
               source={require("../../assets/animations/shield-check.json")}
@@ -185,78 +64,30 @@ export function ProtectionChecklist({
               autoPlay={false}
               loop={false}
             />
-            <ThemedText
-              type="h3"
-              style={[
-                styles.fullyProtectedText,
-                {
-                  textShadowColor: SUCCESS_GREEN + "60",
-                  textShadowOffset: { width: 0, height: 0 },
-                  textShadowRadius: 12,
-                },
-              ]}
-            >
-              {"Fully Protected"}
-            </ThemedText>
-          </View>
-
-          {steps.map((step) => (
-            <ChecklistStep key={step.key} step={step} compact />
-          ))}
-
-          {registeredMotors.length > 0 ? (
-            <View style={styles.motorsCompact}>
-              <ThemedText
-                type="caption"
-                style={{
-                  color: TILE_TEXT_SECONDARY,
-                  marginBottom: Spacing.xs,
-                  letterSpacing: 0.8,
-                }}
-              >
-                {"REGISTERED MOTORS"}
+            <View style={styles.completeTextArea}>
+              <ThemedText type="h3" style={styles.protectedTitle}>
+                {"Fully Protected"}
               </ThemedText>
-              {registeredMotors.map((m, i) => (
-                <Pressable
-                  key={`${m.serialNumber}-${i}`}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onRemoveMotor(m.serialNumber);
-                  }}
-                  style={({ pressed }) => [
-                    styles.motorCompactRow,
-                    pressed ? { opacity: 0.7 } : undefined,
-                  ]}
-                >
-                  <Feather
-                    name="lock"
-                    size={12}
-                    color={SUCCESS_GREEN}
-                    style={{ marginRight: Spacing.sm }}
-                  />
-                  <ThemedText
-                    type="caption"
-                    style={{ color: TILE_TEXT, flex: 1 }}
-                  >
-                    {m.name ? m.name : m.serialNumber}
-                  </ThemedText>
-                  <ThemedText
-                    type="caption"
-                    style={{ color: TILE_TEXT_SECONDARY }}
-                  >
-                    {m.name ? m.serialNumber : "Protected"}
-                  </ThemedText>
-                </Pressable>
-              ))}
+              <ThemedText type="caption" style={styles.protectedSubtitle}>
+                {"All steps complete"}
+              </ThemedText>
             </View>
-          ) : null}
-        </Animated.View>
-      ) : (
-        <Animated.View
-          entering={FadeIn.duration(300)}
-          layout={Layout.springify()}
-        >
-          <View style={styles.progressRow}>
+          </View>
+        ) : (
+          <View style={styles.incompleteLayout}>
+            <View style={styles.headerRow}>
+              <View style={styles.shieldIconContainer}>
+                <Feather name="shield" size={20} color={DARK} />
+              </View>
+              <View style={styles.headerText}>
+                <ThemedText type="body" style={styles.title}>
+                  {"Device Protection"}
+                </ThemedText>
+                <ThemedText type="caption" style={styles.subtitle}>
+                  {`${completedCount} of 3 steps complete`}
+                </ThemedText>
+              </View>
+            </View>
             <View style={styles.progressBar}>
               <View
                 style={[
@@ -265,111 +96,161 @@ export function ProtectionChecklist({
                 ]}
               />
             </View>
-            <ThemedText
-              type="caption"
-              style={{ color: TILE_TEXT_SECONDARY, marginLeft: Spacing.sm }}
-            >
-              {`${completedCount} of 3 steps complete`}
-            </ThemedText>
           </View>
+        )}
 
-          {steps.map((step) => (
-            <ChecklistStep key={step.key} step={step} compact={false} />
+        <View style={styles.stepsContainer}>
+          {steps.map((step, index) => (
+            <View
+              key={step.label}
+              style={[
+                styles.stepRow,
+                index < steps.length - 1 ? styles.stepBorder : undefined,
+              ]}
+            >
+              <View
+                style={[
+                  styles.stepCircle,
+                  step.completed
+                    ? { backgroundColor: SUCCESS }
+                    : { backgroundColor: "#E5E5EA" },
+                ]}
+              >
+                {step.completed ? (
+                  <Feather name="check" size={allComplete ? 10 : 12} color="#FFFFFF" />
+                ) : (
+                  <ThemedText type="caption" style={styles.stepNumber}>
+                    {`${index + 1}`}
+                  </ThemedText>
+                )}
+              </View>
+              <ThemedText
+                type={allComplete ? "caption" : "small"}
+                style={[
+                  styles.stepLabel,
+                  step.completed ? { color: DARK } : { color: LIGHT_TEXT },
+                ]}
+              >
+                {step.label}
+              </ThemedText>
+              {step.completed ? (
+                <Feather name="check-circle" size={allComplete ? 14 : 16} color={SUCCESS} />
+              ) : (
+                <Feather name="circle" size={allComplete ? 14 : 16} color="#D1D1D6" />
+              )}
+            </View>
           ))}
-        </Animated.View>
-      )}
-    </SettingsSection>
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  progressRow: {
+  container: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  incompleteLayout: {
+    marginBottom: Spacing.md,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  shieldIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#F2F2F7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  headerText: {
+    flex: 1,
+  },
+  title: {
+    color: DARK,
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  subtitle: {
+    color: LIGHT_TEXT,
+    marginTop: 2,
   },
   progressBar: {
-    flex: 1,
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#F2F2F7",
     borderRadius: 2,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: SUCCESS_GREEN,
+    backgroundColor: SUCCESS,
     borderRadius: 2,
   },
+  completeLayout: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E5EA",
+  },
+  lottie: {
+    width: 56,
+    height: 56,
+  },
+  completeTextArea: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  protectedTitle: {
+    color: DARK,
+    fontWeight: "700",
+    fontSize: 18,
+  },
+  protectedSubtitle: {
+    color: SUCCESS,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  stepsContainer: {},
   stepRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.sm + 2,
   },
-  stepRowCompact: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
+  stepBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#F2F2F7",
   },
-  statusCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  stepCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: Spacing.sm,
+    marginRight: Spacing.sm + 2,
   },
-  statusCircleCompact: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: Spacing.sm,
+  stepNumber: {
+    color: LIGHT_TEXT,
+    fontSize: 11,
+    fontWeight: "600",
   },
-  iconContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: Spacing.md,
-  },
-  iconContainerCompact: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: Spacing.sm,
-  },
-  stepContent: {
+  stepLabel: {
     flex: 1,
-  },
-  completeHeader: {
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-  },
-  lottie: {
-    width: 120,
-    height: 120,
-  },
-  fullyProtectedText: {
-    color: SUCCESS_GREEN,
-    marginTop: Spacing.xs,
-  },
-  motorsCompact: {
-    marginTop: Spacing.sm,
-    paddingTop: Spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: Spacing.xs,
-  },
-  motorCompactRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.xs,
   },
 });
