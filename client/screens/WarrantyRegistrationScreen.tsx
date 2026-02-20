@@ -14,7 +14,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
-import { saveWarrantyRegistration, getWarrantyData, getUserCountry, getBoatData, type WarrantyData, type BoatData } from "@/lib/firebase";
+import { saveWarrantyRegistration, getWarrantyData, getAllWarranties, getUserCountry, getBoatData, type WarrantyData, type BoatData } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
 
 const DARK_TILE = "rgba(44,44,46,0.92)";
@@ -37,6 +37,7 @@ export default function WarrantyRegistrationScreen() {
   const [boatData, setBoatData] = useState<BoatData | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [allWarranties, setAllWarranties] = useState<WarrantyData[]>([]);
 
   const [serialNumber, setSerialNumber] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date());
@@ -61,14 +62,16 @@ export default function WarrantyRegistrationScreen() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const [warranty, userCountry, boat] = await Promise.all([
+      const [warranty, userCountry, boat, warranties] = await Promise.all([
         getWarrantyData(user.id),
         getUserCountry(),
         getBoatData(user.id),
+        getAllWarranties(user.id),
       ]);
       setExistingWarranty(warranty);
       setCountry(userCountry);
       setBoatData(boat);
+      setAllWarranties(warranties);
     } catch (error) {
       console.error("[Warranty] Error loading data:", error);
     } finally {
@@ -208,18 +211,7 @@ export default function WarrantyRegistrationScreen() {
           const emailData = await emailRes.json();
           if (emailData.success && emailData.registrationNumber) {
             showSuccess("Confirmation email sent!");
-            try {
-              const { getFirestoreDb, getFirebaseAuth } = await import("@/lib/firebase");
-              const { doc, updateDoc } = await import("firebase/firestore");
-              const firestore = getFirestoreDb();
-              const authInstance = getFirebaseAuth();
-              if (firestore && authInstance?.currentUser) {
-                const warrantyRef = doc(firestore, "users", authInstance.currentUser.uid, "warranties", serialNumber.trim().toUpperCase());
-                await updateDoc(warrantyRef, { registrationNumber: emailData.registrationNumber });
-              }
-            } catch (updateErr) {
-              console.log("[Warranty] Failed to save registration number to Firestore:", updateErr);
-            }
+            // Registration number sent via email
           }
         } catch (emailError) {
           console.log("[Warranty] Email send failed (non-critical):", emailError);
@@ -234,6 +226,21 @@ export default function WarrantyRegistrationScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleRegisterAnother = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSubmitSuccess(false);
+    setExistingWarranty(null);
+    setSerialNumber("");
+    setPurchaseDate(new Date());
+    setDealerName("");
+    setFirstName("");
+    setLastName("");
+    setPhoneNumber("");
+    setReceiptBase64(null);
+    setReceiptUri(null);
+    setTermsAccepted(false);
   };
 
   const formatDate = (dateStr: string) => {
@@ -288,7 +295,6 @@ export default function WarrantyRegistrationScreen() {
   }
 
   if (existingWarranty || submitSuccess) {
-    const w = existingWarranty;
     return (
       <View style={{ flex: 1, backgroundColor: "#F2F2F7" }}>
         <View style={[styles.lottieHeader, { paddingTop: insets.top }]}>
@@ -324,85 +330,116 @@ export default function WarrantyRegistrationScreen() {
                 <Feather name="check-circle" size={40} color={BladeColors.accent} />
               </View>
               <ThemedText type="h2" style={styles.successTitle}>
-                {"Warranty Registered"}
+                {submitSuccess ? "Warranty Registered" : "Warranty Active"}
               </ThemedText>
               <ThemedText type="small" style={styles.successSubtitle}>
-                {"Your Blade outboard is covered under warranty"}
+                {submitSuccess
+                  ? "Your Blade outboard has been successfully registered"
+                  : "Your products are covered under warranty"}
               </ThemedText>
             </View>
           </Animated.View>
 
-          {w ? (
-            <Animated.View entering={FadeInUp.delay(200).duration(500)}>
-              <View style={styles.sectionHeader}>
-                <ThemedText type="caption" style={styles.sectionLabel}>
-                  {"WARRANTY DETAILS"}
+          <Animated.View entering={FadeInUp.delay(150).duration(500)}>
+            <View style={styles.disclaimerCard}>
+              <View style={styles.disclaimerIconWrap}>
+                <Feather name="info" size={18} color="#FF9F0A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="small" style={styles.disclaimerText}>
+                  {"Warranty registration and anti-theft tracking are independent features. Registering your product under warranty does not automatically enable anti-theft protection. To activate anti-theft, please link your motor via Bluetooth in the Dashboard."}
                 </ThemedText>
               </View>
-              <View style={styles.detailCard}>
-                {w.registrationNumber ? (
-                  <>
-                    <View style={styles.detailRow}>
-                      <View style={styles.detailIconWrap}>
-                        <Feather name="file-text" size={16} color={BladeColors.accent} />
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInUp.delay(300).duration(500)}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="caption" style={styles.sectionLabel}>
+                {"REGISTERED PRODUCTS"}
+              </ThemedText>
+            </View>
+
+            {allWarranties.length > 0 ? (
+              allWarranties.map((w, index) => (
+                <View key={w.serialNumber + index} style={[styles.detailCard, index > 0 ? { marginTop: Spacing.md } : null]}>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIconWrap}>
+                      <Feather name="hash" size={16} color={BladeColors.accent} />
+                    </View>
+                    <View style={styles.detailContent}>
+                      <ThemedText type="caption" style={styles.detailLabel}>{"Serial Number"}</ThemedText>
+                      <ThemedText type="body" style={styles.detailValue}>{w.serialNumber}</ThemedText>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: w.status === "approved" ? BladeColors.accent + "20" : "#FF9F0A20" }]}>
+                      <ThemedText type="caption" style={{ color: w.status === "approved" ? BladeColors.accent : "#FF9F0A", fontWeight: "600", fontSize: 11 }}>
+                        {w.status === "approved" ? "Active" : w.status.charAt(0).toUpperCase() + w.status.slice(1)}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.detailDivider} />
+                  {w.registrationNumber ? (
+                    <>
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailIconWrap}>
+                          <Feather name="file-text" size={16} color={BladeColors.accent} />
+                        </View>
+                        <View style={styles.detailContent}>
+                          <ThemedText type="caption" style={styles.detailLabel}>{"Registration Number"}</ThemedText>
+                          <ThemedText type="body" style={[styles.detailValue, { color: BladeColors.accent, fontWeight: "700", letterSpacing: 0.5 }]}>{w.registrationNumber}</ThemedText>
+                        </View>
                       </View>
-                      <View style={styles.detailContent}>
-                        <ThemedText type="caption" style={styles.detailLabel}>{"Registration Number"}</ThemedText>
-                        <ThemedText type="body" style={[styles.detailValue, { color: BladeColors.accent, fontWeight: "700", letterSpacing: 0.5 }]}>{w.registrationNumber}</ThemedText>
+                      <View style={styles.detailDivider} />
+                    </>
+                  ) : null}
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIconWrap}>
+                      <Feather name="user" size={16} color={BladeColors.accent} />
+                    </View>
+                    <View style={styles.detailContent}>
+                      <ThemedText type="caption" style={styles.detailLabel}>{"Registered To"}</ThemedText>
+                      <ThemedText type="body" style={styles.detailValue}>{w.firstName} {w.lastName}</ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.detailDivider} />
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIconWrap}>
+                      <Feather name="calendar" size={16} color={BladeColors.accent} />
+                    </View>
+                    <View style={styles.detailContent}>
+                      <ThemedText type="caption" style={styles.detailLabel}>{"Purchase Date"}</ThemedText>
+                      <ThemedText type="body" style={styles.detailValue}>{formatDate(w.purchaseDate)}</ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.detailDivider} />
+                  <View style={styles.warrantyDatesRow}>
+                    <View style={styles.warrantyDateItem}>
+                      <Feather name="shield" size={14} color={BladeColors.accent} />
+                      <View>
+                        <ThemedText type="caption" style={styles.detailLabel}>{"Start"}</ThemedText>
+                        <ThemedText type="small" style={styles.detailValue}>{formatDate(w.warrantyStartDate)}</ThemedText>
                       </View>
                     </View>
-                    <View style={styles.detailDivider} />
-                  </>
-                ) : null}
+                    <View style={styles.warrantyDateDivider} />
+                    <View style={styles.warrantyDateItem}>
+                      <Feather name="clock" size={14} color={BladeColors.accent} />
+                      <View>
+                        <ThemedText type="caption" style={styles.detailLabel}>{"Expires"}</ThemedText>
+                        <ThemedText type="small" style={styles.detailValue}>{formatDate(w.warrantyExpirationDate)}</ThemedText>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : existingWarranty ? (
+              <View style={styles.detailCard}>
                 <View style={styles.detailRow}>
                   <View style={styles.detailIconWrap}>
                     <Feather name="hash" size={16} color={BladeColors.accent} />
                   </View>
                   <View style={styles.detailContent}>
                     <ThemedText type="caption" style={styles.detailLabel}>{"Serial Number"}</ThemedText>
-                    <ThemedText type="body" style={styles.detailValue}>{w.serialNumber}</ThemedText>
-                  </View>
-                </View>
-                <View style={styles.detailDivider} />
-                <View style={styles.detailRow}>
-                  <View style={styles.detailIconWrap}>
-                    <Feather name="check-circle" size={16} color={w.status === "approved" ? BladeColors.accent : BladeColors.warning} />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <ThemedText type="caption" style={styles.detailLabel}>{"Status"}</ThemedText>
-                    <ThemedText type="body" style={[styles.detailValue, { color: w.status === "approved" ? BladeColors.accent : BladeColors.warning }]}>
-                      {w.status.charAt(0).toUpperCase() + w.status.slice(1)}
-                    </ThemedText>
-                  </View>
-                </View>
-                <View style={styles.detailDivider} />
-                <View style={styles.detailRow}>
-                  <View style={styles.detailIconWrap}>
-                    <Feather name="calendar" size={16} color={BladeColors.accent} />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <ThemedText type="caption" style={styles.detailLabel}>{"Purchase Date"}</ThemedText>
-                    <ThemedText type="body" style={styles.detailValue}>{formatDate(w.purchaseDate)}</ThemedText>
-                  </View>
-                </View>
-                <View style={styles.detailDivider} />
-                <View style={styles.detailRow}>
-                  <View style={styles.detailIconWrap}>
-                    <Feather name="shield" size={16} color={BladeColors.accent} />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <ThemedText type="caption" style={styles.detailLabel}>{"Warranty Start"}</ThemedText>
-                    <ThemedText type="body" style={styles.detailValue}>{formatDate(w.warrantyStartDate)}</ThemedText>
-                  </View>
-                </View>
-                <View style={styles.detailDivider} />
-                <View style={styles.detailRow}>
-                  <View style={styles.detailIconWrap}>
-                    <Feather name="clock" size={16} color={BladeColors.accent} />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <ThemedText type="caption" style={styles.detailLabel}>{"Warranty Expiration"}</ThemedText>
-                    <ThemedText type="body" style={styles.detailValue}>{formatDate(w.warrantyExpirationDate)}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{existingWarranty.serialNumber}</ThemedText>
                   </View>
                 </View>
                 <View style={styles.detailDivider} />
@@ -412,22 +449,25 @@ export default function WarrantyRegistrationScreen() {
                   </View>
                   <View style={styles.detailContent}>
                     <ThemedText type="caption" style={styles.detailLabel}>{"Registered To"}</ThemedText>
-                    <ThemedText type="body" style={styles.detailValue}>{w.firstName} {w.lastName}</ThemedText>
-                  </View>
-                </View>
-                <View style={styles.detailDivider} />
-                <View style={styles.detailRow}>
-                  <View style={styles.detailIconWrap}>
-                    <Feather name="mail" size={16} color={BladeColors.accent} />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <ThemedText type="caption" style={styles.detailLabel}>{"Email"}</ThemedText>
-                    <ThemedText type="body" style={styles.detailValue}>{w.email}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{existingWarranty.firstName} {existingWarranty.lastName}</ThemedText>
                   </View>
                 </View>
               </View>
-            </Animated.View>
-          ) : null}
+            ) : null}
+          </Animated.View>
+
+          <Animated.View entering={FadeInUp.delay(450).duration(500)}>
+            <Pressable
+              style={styles.registerAnotherButton}
+              onPress={handleRegisterAnother}
+              testID="button-register-another"
+            >
+              <Feather name="plus-circle" size={20} color={BladeColors.accent} />
+              <ThemedText type="body" style={styles.registerAnotherText}>
+                {"Register Another Product"}
+              </ThemedText>
+            </Pressable>
+          </Animated.View>
         </ScrollView>
       </View>
     );
@@ -1028,5 +1068,67 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  disclaimerCard: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,159,10,0.08)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,159,10,0.2)",
+    gap: Spacing.sm,
+    alignItems: "flex-start",
+  },
+  disclaimerIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,159,10,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  disclaimerText: {
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 20,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  warrantyDatesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  warrantyDateItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  warrantyDateDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    marginHorizontal: Spacing.sm,
+  },
+  registerAnotherButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: DARK_TILE,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.lg,
+    marginTop: Spacing["2xl"],
+    borderWidth: 1,
+    borderColor: BladeColors.accent + "30",
+    gap: Spacing.sm,
+  },
+  registerAnotherText: {
+    color: BladeColors.accent,
+    fontWeight: "600",
   },
 });
