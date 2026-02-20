@@ -434,7 +434,7 @@ export default function SettingsScreen() {
       ) : null}
 
       {user && !isGuestMode ? (
-          <SettingsSection title="Registered Outboards">
+          <SettingsSection title="Anti-Theft Registered Devices">
             {loadingMotors ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={BladeColors.accent} />
