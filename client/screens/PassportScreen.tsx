@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Modal,
 } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,7 +22,25 @@ import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import QRCode from "react-native-qrcode-svg";
+
+const HIDDEN_SERIALS_KEY = "@hidden_warranty_serials";
+
+async function getHiddenSerials(): Promise<string[]> {
+  try {
+    const data = await AsyncStorage.getItem(HIDDEN_SERIALS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+async function hideSerial(serial: string): Promise<void> {
+  const hidden = await getHiddenSerials();
+  if (!hidden.includes(serial.toUpperCase())) {
+    hidden.push(serial.toUpperCase());
+    await AsyncStorage.setItem(HIDDEN_SERIALS_KEY, JSON.stringify(hidden));
+  }
+}
 
 import { ThemedText } from "@/components/ThemedText";
 import { useUser } from "@/context/UserContext";
@@ -66,6 +85,8 @@ export default function PassportScreen() {
   const [addingToWallet, setAddingToWallet] = useState(false);
   const [allDeviceSerials, setAllDeviceSerials] = useState<string[]>([]);
   const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(0);
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [serialToRemove, setSerialToRemove] = useState<string | null>(null);
 
   const typedNavigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -99,12 +120,14 @@ export default function PassportScreen() {
         if (m.serialNumber) serialSet.add(m.serialNumber.toUpperCase());
       });
       const serials = Array.from(serialSet);
-      setAllDeviceSerials(serials);
+      const hidden = await getHiddenSerials();
+      const filteredSerials = serials.filter(s => !hidden.includes(s.toUpperCase()));
+      setAllDeviceSerials(filteredSerials);
 
-      if (serials.length > 0) {
-        const idx = selectedDeviceIndex < serials.length ? selectedDeviceIndex : 0;
+      if (filteredSerials.length > 0) {
+        const idx = selectedDeviceIndex < filteredSerials.length ? selectedDeviceIndex : 0;
         setSelectedDeviceIndex(idx);
-        const warranty = await getWarrantyBySerialNumber(serials[idx]);
+        const warranty = await getWarrantyBySerialNumber(filteredSerials[idx]);
         setWarrantyData(warranty);
       } else {
         setWarrantyData(null);
@@ -724,6 +747,18 @@ export default function PassportScreen() {
             Blade outboard motor. Keep this document safe for warranty and
             service purposes.
           </Text>
+          <Pressable
+            style={styles.removeDeviceButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSerialToRemove(serialNumber);
+              setRemoveModalVisible(true);
+            }}
+            testID="button-remove-passport-device"
+          >
+            <Feather name="eye-off" size={14} color="#9CA3AF" />
+            <Text style={styles.removeDeviceText}>Remove this device from view</Text>
+          </Pressable>
         </Animated.View>
 
         <Animated.View entering={FadeInUp.delay(150).duration(400).springify()} style={styles.buttonsContainer}>
@@ -778,6 +813,47 @@ export default function PassportScreen() {
           </Pressable>
         </Animated.View>
       </ScrollView>
+      <Modal
+        visible={removeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRemoveModalVisible(false)}
+      >
+        <View style={styles.removeModalOverlay}>
+          <View style={styles.removeModalContent}>
+            <Feather name="alert-triangle" size={40} color="#FF453A" />
+            <Text style={styles.removeModalTitle}>Remove Device from View?</Text>
+            <Text style={styles.removeModalDescription}>
+              This will hide serial number {serialToRemove} from your passport. This action cannot be undone from the app. You will need to contact Blade support to restore it.
+            </Text>
+            <Pressable
+              style={styles.removeModalConfirmButton}
+              onPress={async () => {
+                if (serialToRemove) {
+                  await hideSerial(serialToRemove);
+                  setRemoveModalVisible(false);
+                  setSerialToRemove(null);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  loadData();
+                }
+              }}
+              testID="button-confirm-remove-passport"
+            >
+              <Text style={styles.removeModalConfirmText}>Yes, Remove from View</Text>
+            </Pressable>
+            <Pressable
+              style={styles.removeModalCancelButton}
+              onPress={() => {
+                setRemoveModalVisible(false);
+                setSerialToRemove(null);
+              }}
+              testID="button-cancel-remove-passport"
+            >
+              <Text style={styles.removeModalCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1095,5 +1171,83 @@ const styles = StyleSheet.create({
   },
   deviceSelectorChipTextActive: {
     color: "#FFFFFF",
+  },
+  removeDeviceButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    marginTop: 8,
+    gap: 6,
+  },
+  removeDeviceText: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    fontWeight: "500",
+  },
+  removeModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  removeModalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 340,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  removeModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  removeModalDescription: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  removeModalConfirmButton: {
+    backgroundColor: "#FF453A",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  removeModalConfirmText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  removeModalCancelButton: {
+    paddingVertical: 12,
+    width: "100%",
+    alignItems: "center",
+  },
+  removeModalCancelText: {
+    fontSize: 16,
+    color: "#6B7280",
+    fontWeight: "500",
   },
 });

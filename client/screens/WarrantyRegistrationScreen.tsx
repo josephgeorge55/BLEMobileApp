@@ -17,8 +17,26 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { saveWarrantyRegistration, getWarrantyData, getAllWarranties, getUserCountry, getBoatData, type WarrantyData, type BoatData } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
+
+const HIDDEN_SERIALS_KEY = "@hidden_warranty_serials";
+
+async function getHiddenSerials(): Promise<string[]> {
+  try {
+    const data = await AsyncStorage.getItem(HIDDEN_SERIALS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+async function hideSerial(serial: string): Promise<void> {
+  const hidden = await getHiddenSerials();
+  if (!hidden.includes(serial.toUpperCase())) {
+    hidden.push(serial.toUpperCase());
+    await AsyncStorage.setItem(HIDDEN_SERIALS_KEY, JSON.stringify(hidden));
+  }
+}
 
 const DARK_TILE = "rgba(44,44,46,0.92)";
 const INPUT_BG = "rgba(255,255,255,0.08)";
@@ -41,6 +59,8 @@ export default function WarrantyRegistrationScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [allWarranties, setAllWarranties] = useState<WarrantyData[]>([]);
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [serialToRemove, setSerialToRemove] = useState<string | null>(null);
 
   const [serialNumber, setSerialNumber] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date());
@@ -89,7 +109,9 @@ export default function WarrantyRegistrationScreen() {
       setExistingWarranty(warranty);
       setCountry(userCountry);
       setBoatData(boat);
-      setAllWarranties(warranties);
+      const hidden = await getHiddenSerials();
+      const filtered = warranties.filter(w => !hidden.includes(w.serialNumber?.toUpperCase()));
+      setAllWarranties(filtered);
     } catch (error) {
       console.error("[Warranty] Error loading data:", error);
     } finally {
@@ -566,6 +588,18 @@ export default function WarrantyRegistrationScreen() {
                       </View>
                     </View>
                   </View>
+                  <Pressable
+                    style={styles.removeFromViewButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSerialToRemove(w.serialNumber);
+                      setRemoveModalVisible(true);
+                    }}
+                    testID={`button-remove-warranty-${index}`}
+                  >
+                    <Feather name="eye-off" size={14} color="#FF453A" />
+                    <Text style={styles.removeFromViewText}>Remove from view</Text>
+                  </Pressable>
                 </View>
               ))
             ) : existingWarranty ? (
@@ -606,6 +640,47 @@ export default function WarrantyRegistrationScreen() {
             </Pressable>
           </Animated.View>
         </ScrollView>
+        <Modal
+          visible={removeModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setRemoveModalVisible(false)}
+        >
+          <View style={styles.removeModalOverlay}>
+            <View style={styles.removeModalContent}>
+              <Feather name="alert-triangle" size={40} color="#FF453A" />
+              <Text style={styles.removeModalTitle}>Remove Device from View?</Text>
+              <Text style={styles.removeModalDescription}>
+                This will hide serial number {serialToRemove} from your warranty list. This action cannot be undone from the app. You will need to contact Blade support to restore it.
+              </Text>
+              <Pressable
+                style={styles.removeModalConfirmButton}
+                onPress={async () => {
+                  if (serialToRemove) {
+                    await hideSerial(serialToRemove);
+                    setRemoveModalVisible(false);
+                    setSerialToRemove(null);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    loadData();
+                  }
+                }}
+                testID="button-confirm-remove"
+              >
+                <Text style={styles.removeModalConfirmText}>Yes, Remove from View</Text>
+              </Pressable>
+              <Pressable
+                style={styles.removeModalCancelButton}
+                onPress={() => {
+                  setRemoveModalVisible(false);
+                  setSerialToRemove(null);
+                }}
+                testID="button-cancel-remove"
+              >
+                <Text style={styles.removeModalCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -1562,6 +1637,75 @@ const styles = StyleSheet.create({
   verificationCancelText: {
     color: "rgba(255,255,255,0.6)",
     fontSize: 15,
+    fontWeight: "500",
+  },
+  removeFromViewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+    gap: 6,
+  },
+  removeFromViewText: {
+    fontSize: 13,
+    color: "#FF453A",
+    fontWeight: "500",
+  },
+  removeModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  removeModalContent: {
+    backgroundColor: "#2C2C2E",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 340,
+  },
+  removeModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  removeModalDescription: {
+    fontSize: 14,
+    color: "#8E8E93",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  removeModalConfirmButton: {
+    backgroundColor: "#FF453A",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  removeModalConfirmText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  removeModalCancelButton: {
+    paddingVertical: 12,
+    width: "100%",
+    alignItems: "center",
+  },
+  removeModalCancelText: {
+    fontSize: 16,
+    color: "#8E8E93",
     fontWeight: "500",
   },
 });
