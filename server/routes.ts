@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { storage } from "./storage";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDocs, query, where, collection, serverTimestamp, updateDoc, addDoc, Timestamp } from "firebase/firestore";
 import {
   locationReportSchema,
   firmwareCheckSchema,
@@ -17,7 +17,6 @@ import {
   startTripSchema,
   endTripSchema,
   tripDataPointSchema,
-  warranties,
   warrantyRegistrationSchema,
 } from "@shared/schema";
 import { db } from "./db";
@@ -84,6 +83,19 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+function getWarrantyFirestore() {
+  const firebaseConfig = {
+    apiKey: "AIzaSyAOS_qrKCWdXAENEdrvO3cJ2V8nLmE3v1A",
+    authDomain: "bladeobapp.firebaseapp.com",
+    projectId: "bladeobapp",
+    storageBucket: "bladeobapp.firebasestorage.app",
+    messagingSenderId: "416634217131",
+    appId: "1:416634217131:web:c45427f52f10285e3d0dee"
+  };
+  let firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  return getFirestore(firebaseApp);
 }
 
 const THREE_YEAR_WARRANTY_COUNTRIES_SERVER = ["hungary", "hu"];
@@ -640,17 +652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Firmware Upload] Processing firmware upload for version ${version}`);
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyAOS_qrKCWdXAENEdrvO3cJ2V8nLmE3v1A",
-        authDomain: "bladeobapp.firebaseapp.com",
-        projectId: "bladeobapp",
-        storageBucket: "bladeobapp.firebasestorage.app",
-        messagingSenderId: "416634217131",
-        appId: "1:416634217131:web:c45427f52f10285e3d0dee"
-      };
-
-      let firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-      const db = getFirestore(firebaseApp);
+      const db = getWarrantyFirestore();
 
       const docId = `fw_v${version.replace(/\./g, '_')}`;
 
@@ -1312,37 +1314,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Warranty registration - save to PostgreSQL
+  // Warranty registration - save to Firestore
   app.post("/api/warranty/register", generalApiRateLimiter, async (req: Request, res: Response) => {
     try {
       const data = warrantyRegistrationSchema.parse(req.body);
+      const firestoreDb = getWarrantyFirestore();
+      const warrantiesCol = collection(firestoreDb, "warranties");
       
       // Check if warranty already exists for this serial + user
-      const existing = await db.select().from(warranties).where(
-        and(
-          eq(warranties.firebaseUid, data.firebaseUid),
-          eq(warranties.serialNumber, data.serialNumber.toUpperCase())
-        )
+      const existingQuery = query(
+        warrantiesCol,
+        where("firebaseUid", "==", data.firebaseUid),
+        where("serialNumber", "==", data.serialNumber.toUpperCase())
       );
+      const existingSnap = await getDocs(existingQuery);
       
-      if (existing.length > 0) {
-        // Update existing
-        const updated = await db.update(warranties)
-          .set({
-            ...data,
-            serialNumber: data.serialNumber.toUpperCase(),
-            status: "approved",
-            warrantyStartDate: data.purchaseDate,
-            warrantyExpirationDate: calculateWarrantyExpirationServer(data.purchaseDate, data.country || ""),
-            updatedAt: new Date(),
-          })
-          .where(eq(warranties.id, existing[0].id))
-          .returning();
-        return res.json({ success: true, warranty: updated[0] });
-      }
-      
-      // Create new
-      const [warranty] = await db.insert(warranties).values({
+      const warrantyData = {
         firebaseUid: data.firebaseUid,
         serialNumber: data.serialNumber.toUpperCase(),
         purchaseDate: data.purchaseDate,
@@ -1353,13 +1340,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: data.email,
         country: data.country || "",
         receiptPhotoBase64: data.receiptPhotoBase64 || null,
-        termsAccepted: data.termsAccepted,
+        termsAccepted: data.termsAccepted ?? true,
         status: "approved",
         warrantyStartDate: data.purchaseDate,
         warrantyExpirationDate: calculateWarrantyExpirationServer(data.purchaseDate, data.country || ""),
-      }).returning();
+      };
       
-      res.json({ success: true, warranty });
+      if (!existingSnap.empty) {
+        // Update existing
+        const existingDoc = existingSnap.docs[0];
+        await updateDoc(existingDoc.ref, {
+          ...warrantyData,
+          updatedAt: serverTimestamp(),
+        });
+        return res.json({ success: true, warranty: { id: existingDoc.id, ...warrantyData } });
+      }
+      
+      // Create new
+      const newDocRef = await addDoc(warrantiesCol, {
+        ...warrantyData,
+        registeredAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      
+      res.json({ success: true, warranty: { id: newDocRef.id, ...warrantyData } });
     } catch (error: any) {
       console.error("[Warranty API] Registration error:", error);
       if (error.name === "ZodError") {
@@ -1369,26 +1373,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/warranty/by-serial/:serialNumber", generalApiRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber as string;
+      const firestoreDb = getWarrantyFirestore();
+      const warrantiesCol = collection(firestoreDb, "warranties");
+      
+      const q = query(warrantiesCol, where("serialNumber", "==", serialNumber.toUpperCase()));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const w = { id: snap.docs[0].id, ...snap.docs[0].data() };
+        return res.json({ found: true, warranty: w });
+      }
+      return res.json({ found: false, warranty: null });
+    } catch (error) {
+      console.error("[Warranty API] Lookup by serial error:", error);
+      res.status(500).json({ found: false, warranty: null, error: "Failed to look up warranty." });
+    }
+  });
+
   // Get warranty data for a user
   app.get("/api/warranty/:firebaseUid", generalApiRateLimiter, async (req: Request, res: Response) => {
     try {
       const { firebaseUid } = req.params;
       const { serialNumber } = req.query;
+      const firestoreDb = getWarrantyFirestore();
+      const warrantiesCol = collection(firestoreDb, "warranties");
       
       if (serialNumber && typeof serialNumber === "string") {
-        const results = await db.select().from(warranties).where(
-          and(
-            eq(warranties.firebaseUid, firebaseUid),
-            eq(warranties.serialNumber, serialNumber.toUpperCase())
-          )
+        const q = query(
+          warrantiesCol,
+          where("firebaseUid", "==", firebaseUid),
+          where("serialNumber", "==", serialNumber.toUpperCase())
         );
-        return res.json({ warranty: results[0] || null });
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const docData = snap.docs[0];
+          return res.json({ warranty: { id: docData.id, ...docData.data() } });
+        }
+        return res.json({ warranty: null });
       }
       
-      const results = await db.select().from(warranties).where(
-        eq(warranties.firebaseUid, firebaseUid)
-      );
-      return res.json({ warranty: results[0] || null });
+      const q = query(warrantiesCol, where("firebaseUid", "==", firebaseUid));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const docData = snap.docs[0];
+        return res.json({ warranty: { id: docData.id, ...docData.data() } });
+      }
+      return res.json({ warranty: null });
     } catch (error) {
       console.error("[Warranty API] Get error:", error);
       res.status(500).json({ warranty: null, error: "Failed to get warranty data." });
@@ -1399,31 +1431,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/warranties/:firebaseUid", generalApiRateLimiter, async (req: Request, res: Response) => {
     try {
       const { firebaseUid } = req.params;
+      const firestoreDb = getWarrantyFirestore();
+      const warrantiesCol = collection(firestoreDb, "warranties");
       
-      const results = await db.select().from(warranties).where(
-        eq(warranties.firebaseUid, firebaseUid)
-      );
+      const q = query(warrantiesCol, where("firebaseUid", "==", firebaseUid));
+      const snap = await getDocs(q);
+      const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       return res.json({ warranties: results });
     } catch (error) {
       console.error("[Warranty API] Get all error:", error);
       res.status(500).json({ warranties: [], error: "Failed to get warranties." });
-    }
-  });
-
-  app.get("/api/warranty/by-serial/:serialNumber", generalApiRateLimiter, async (req: Request, res: Response) => {
-    try {
-      const { serialNumber } = req.params;
-      const results = await db.select().from(warranties).where(
-        eq(warranties.serialNumber, serialNumber.toUpperCase())
-      );
-      if (results.length > 0) {
-        const w = results[0];
-        return res.json({ found: true, warranty: w });
-      }
-      return res.json({ found: false, warranty: null });
-    } catch (error) {
-      console.error("[Warranty API] Lookup by serial error:", error);
-      res.status(500).json({ found: false, warranty: null, error: "Failed to look up warranty." });
     }
   });
 
