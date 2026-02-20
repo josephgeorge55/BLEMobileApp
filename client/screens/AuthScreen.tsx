@@ -528,6 +528,17 @@ export default function AuthScreen() {
                 {FIRMWARE_PROTOCOL}
               </ThemedText>
             </View>
+            <ThemedText type="caption" style={styles.privacyNotice}>
+              {"By signing up, logging in, or continuing as a guest, you agree to our "}
+              <ThemedText
+                type="caption"
+                style={styles.privacyLink}
+                onPress={() => WebBrowser.openBrowserAsync("https://www.bladeoutboards.com/privacy-policy")}
+              >
+                {"Privacy Policy"}
+              </ThemedText>
+              {"."}
+            </ThemedText>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -820,6 +831,19 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  privacyNotice: {
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: "center",
+    marginTop: 10,
+    paddingHorizontal: Spacing.lg,
+  },
+  privacyLink: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 10,
+    textDecorationLine: "underline" as const,
   },
   countrySelector: {
     flexDirection: "row",
