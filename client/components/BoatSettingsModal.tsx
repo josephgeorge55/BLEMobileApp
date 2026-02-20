@@ -7,7 +7,6 @@ import {
   Pressable,
   TextInput,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -68,6 +67,8 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
   const [existingData, setExistingData] = useState<BoatData | null>(null);
   const [vesselName, setVesselName] = useState("");
   const [vin, setVin] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   useEffect(() => {
     if (visible && userId) {
@@ -111,8 +112,9 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
   };
 
   const handleSave = async () => {
+    setValidationError("");
     if (!boatType) {
-      Alert.alert("Missing Information", "Please select a boat type.");
+      setValidationError("Please select a boat type.");
       return;
     }
     
@@ -120,17 +122,17 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
     const weightNum = parseFloat(weightValue);
     
     if (isNaN(lengthNum) || lengthNum <= 0) {
-      Alert.alert("Invalid Length", "Please enter a valid boat length.");
+      setValidationError("Please enter a valid boat length.");
       return;
     }
     
     if (isNaN(weightNum) || weightNum <= 0) {
-      Alert.alert("Invalid Weight", "Please enter a valid boat weight.");
+      setValidationError("Please enter a valid boat weight.");
       return;
     }
 
     if (vesselName && containsExplicitContent(vesselName)) {
-      Alert.alert("Invalid Name", "Please use appropriate language for the vessel name.");
+      setValidationError("Please use appropriate language for the vessel name.");
       return;
     }
 
@@ -160,51 +162,41 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onSaved?.();
         onClose();
-      } else {
-        Alert.alert("Error", result.error || "Failed to save boat data.");
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "An error occurred.");
+      // Silently handle error
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      "Delete Boat Information",
-      "Are you sure you want to remove your boat information?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setIsDeleting(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            
-            try {
-              const result = await deleteBoatData(userId);
-              if (result.success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setBoatType("");
-                setLengthValue("");
-                setWeightValue("");
-                setExistingData(null);
-                onSaved?.();
-                onClose();
-              } else {
-                Alert.alert("Error", result.error || "Failed to delete boat data.");
-              }
-            } catch (error: any) {
-              Alert.alert("Error", error.message || "An error occurred.");
-            } finally {
-              setIsDeleting(false);
-            }
-          },
-        },
-      ]
-    );
+    setShowDeleteConfirm(true);
+  };
+
+  const executeDelete = async () => {
+    setIsDeleting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    try {
+      const result = await deleteBoatData(userId);
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setBoatType("");
+        setLengthValue("");
+        setWeightValue("");
+        setExistingData(null);
+        setShowDeleteConfirm(false);
+        onSaved?.();
+        onClose();
+      } else {
+        // Silently handle error or show inline error state
+        setIsDeleting(false);
+      }
+    } catch (error: any) {
+      // Silently handle error or show inline error state
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -423,6 +415,10 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
               </Text>
             </View>
 
+            {validationError ? (
+              <Text style={styles.validationError}>{validationError}</Text>
+            ) : null}
+
             <Pressable
               style={[styles.saveButton, { backgroundColor: BOAT_COLORS.accent }]}
               onPress={handleSave}
@@ -441,22 +437,54 @@ export function BoatSettingsModal({ visible, onClose, userId, onSaved }: BoatSet
             </Pressable>
 
             {existingData ? (
-              <Pressable
-                style={[styles.deleteButton, { borderColor: BladeColors.error }]}
-                onPress={handleDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator color={BladeColors.error} />
-                ) : (
-                  <>
-                    <Feather name="trash-2" size={18} color={BladeColors.error} />
-                    <Text style={[styles.deleteButtonText, { color: BladeColors.error }]}>
-                      Delete Boat Information
-                    </Text>
-                  </>
-                )}
-              </Pressable>
+              showDeleteConfirm ? (
+                <View style={styles.confirmSection}>
+                  <Text style={[styles.warningText, { color: BladeColors.error }]}>
+                    Are you sure you want to delete your boat information?
+                  </Text>
+                  <View style={styles.confirmButtonRow}>
+                    <Pressable
+                      style={[styles.confirmCancelButton, { borderColor: BOAT_COLORS.border }]}
+                      onPress={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                    >
+                      <Text style={[styles.confirmCancelButtonText, { color: BOAT_COLORS.text }]}>
+                        Cancel
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.confirmDeleteButton, { backgroundColor: BladeColors.error }]}
+                      onPress={executeDelete}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.confirmDeleteButtonText}>
+                          Delete
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <Pressable
+                  style={[styles.deleteButton, { borderColor: BladeColors.error }]}
+                  onPress={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator color={BladeColors.error} />
+                  ) : (
+                    <>
+                      <Feather name="trash-2" size={18} color={BladeColors.error} />
+                      <Text style={[styles.deleteButtonText, { color: BladeColors.error }]}>
+                        Delete Boat Information
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              )
             ) : null}
           </ScrollView>
         )}
@@ -588,5 +616,53 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontWeight: "600",
     fontSize: 16,
+  },
+  validationError: {
+    color: "#FF453A",
+    fontSize: 14,
+    textAlign: "center" as const,
+    marginBottom: Spacing.sm,
+  },
+  confirmSection: {
+    marginTop: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: "rgba(44,44,46,0.5)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  warningText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: Spacing.lg,
+    lineHeight: 22,
+  },
+  confirmButtonRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  confirmCancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmCancelButtonText: {
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmDeleteButtonText: {
+    fontWeight: "600",
+    fontSize: 16,
+    color: "#FFFFFF",
   },
 });

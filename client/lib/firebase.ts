@@ -277,8 +277,16 @@ export async function getRegisteredMotors(userId: string): Promise<RegisteredMot
     return [];
   }
 
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    console.error("[Firebase] User not authenticated");
+    return [];
+  }
+
+  const effectiveUserId = currentUser.uid;
+
   try {
-    const userRef = doc(firestore, "users", userId);
+    const userRef = doc(firestore, "users", effectiveUserId);
     const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
@@ -304,8 +312,16 @@ export async function removeMotorForUser(
     return false;
   }
 
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    console.error("[Firebase] User not authenticated");
+    return false;
+  }
+
+  const effectiveUserId = currentUser.uid;
+
   try {
-    const userRef = doc(firestore, "users", userId);
+    const userRef = doc(firestore, "users", effectiveUserId);
     const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
@@ -482,8 +498,15 @@ export async function getBoatData(userId: string): Promise<BoatData | null> {
     return null;
   }
 
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    return null;
+  }
+
+  const effectiveUserId = currentUser.uid;
+
   try {
-    const userRef = doc(firestore, "users", userId);
+    const userRef = doc(firestore, "users", effectiveUserId);
     const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
