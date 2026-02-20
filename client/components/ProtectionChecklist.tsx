@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeIn, Layout } from "react-native-reanimated";
 import LottieView from "lottie-react-native";
@@ -57,13 +57,19 @@ export function ProtectionChecklist({
       >
         {allComplete ? (
           <View style={styles.completeLayout}>
-            <LottieView
-              ref={lottieRef}
-              source={require("../../assets/animations/shield-check.json")}
-              style={styles.lottie}
-              autoPlay={false}
-              loop={false}
-            />
+            {Platform.OS === "web" ? (
+              <View style={styles.shieldComplete}>
+                <Feather name="shield" size={28} color="#FFFFFF" />
+              </View>
+            ) : (
+              <LottieView
+                ref={lottieRef}
+                source={require("../../assets/animations/shield-check.json")}
+                style={styles.lottie}
+                autoPlay
+                loop={false}
+              />
+            )}
             <View style={styles.completeTextArea}>
               <ThemedText type="h3" style={styles.protectedTitle}>
                 {"Fully Protected"}
@@ -212,6 +218,14 @@ const styles = StyleSheet.create({
   lottie: {
     width: 56,
     height: 56,
+  },
+  shieldComplete: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: SUCCESS,
+    alignItems: "center",
+    justifyContent: "center",
   },
   completeTextArea: {
     flex: 1,
