@@ -30,6 +30,7 @@ import {
   getBoatData,
   getRegisteredMotors,
   getWarrantyBySerialNumber,
+  getAllWarranties,
   type BoatData,
   type RegisteredMotor,
   type WarrantyData,
@@ -63,6 +64,8 @@ export default function PassportScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [savingPDF, setSavingPDF] = useState(false);
   const [addingToWallet, setAddingToWallet] = useState(false);
+  const [allDeviceSerials, setAllDeviceSerials] = useState<string[]>([]);
+  const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(0);
 
   const typedNavigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -80,15 +83,28 @@ export default function PassportScreen() {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const [motors, boat] = await Promise.all([
+      const [motors, boat, warranties] = await Promise.all([
         getRegisteredMotors(user.id),
         getBoatData(user.id),
+        getAllWarranties(user.id),
       ]);
       setRegisteredMotors(motors);
       setBoatData(boat);
 
-      if (motors.length > 0 && motors[0].serialNumber) {
-        const warranty = await getWarrantyBySerialNumber(motors[0].serialNumber);
+      const serialSet = new Set<string>();
+      warranties.forEach(w => {
+        if (w.serialNumber) serialSet.add(w.serialNumber.toUpperCase());
+      });
+      motors.forEach(m => {
+        if (m.serialNumber) serialSet.add(m.serialNumber.toUpperCase());
+      });
+      const serials = Array.from(serialSet);
+      setAllDeviceSerials(serials);
+
+      if (serials.length > 0) {
+        const idx = selectedDeviceIndex < serials.length ? selectedDeviceIndex : 0;
+        setSelectedDeviceIndex(idx);
+        const warranty = await getWarrantyBySerialNumber(serials[idx]);
         setWarrantyData(warranty);
       } else {
         setWarrantyData(null);
@@ -100,16 +116,26 @@ export default function PassportScreen() {
     }
   };
 
-  const serialNumber =
-    registeredMotors.length > 0
-      ? registeredMotors[0].serialNumber
-      : "Not available";
+  const serialNumber = allDeviceSerials.length > 0
+    ? allDeviceSerials[selectedDeviceIndex] || allDeviceSerials[0]
+    : "Not available";
 
   const formatWarrantyDate = (dateStr: string | undefined) => {
     if (!dateStr) return "Not available";
     try {
       return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     } catch { return dateStr; }
+  };
+
+  const handleSwitchDevice = async (index: number) => {
+    if (index === selectedDeviceIndex || index < 0 || index >= allDeviceSerials.length) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDeviceIndex(index);
+    const serial = allDeviceSerials[index];
+    if (serial) {
+      const warranty = await getWarrantyBySerialNumber(serial);
+      setWarrantyData(warranty);
+    }
   };
 
   const getPassportData = () => ({
@@ -451,17 +477,27 @@ export default function PassportScreen() {
     );
   }
 
-  if (!isLoading && registeredMotors.length === 0) {
+  if (!isLoading && allDeviceSerials.length === 0) {
     return (
       <View style={[styles.screen, styles.centered, { paddingHorizontal: Spacing.xl }]}>
         <Animated.View entering={FadeIn.duration(400)} style={styles.lockedCard}>
           <Feather name="lock" size={48} color="#D1D5DB" />
           <Text style={styles.lockedTitle}>Passport Locked</Text>
           <Text style={styles.lockedDescription}>
-            Your outboard motor must be linked to your account via Anti-Theft
-            protection before you can access your digital passport. Connect your
-            motor via Bluetooth and enable Anti-Theft to register it.
+            Register your outboard motor under warranty or link it via Bluetooth
+            to access your digital passport.
           </Text>
+          <Pressable
+            style={[styles.lockedButton, { backgroundColor: BladeColors.marine, marginBottom: Spacing.sm }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              typedNavigation.navigate("WarrantyRegistration");
+            }}
+            testID="button-register-warranty"
+          >
+            <Feather name="shield" size={16} color="#FFFFFF" />
+            <Text style={styles.lockedButtonText}>Register Warranty</Text>
+          </Pressable>
           <Pressable
             style={styles.lockedButton}
             onPress={() => navigation.goBack()}
@@ -477,7 +513,7 @@ export default function PassportScreen() {
 
   const missingBoatData = !boatData;
 
-  if (!isLoading && registeredMotors.length > 0 && missingBoatData) {
+  if (!isLoading && allDeviceSerials.length > 0 && missingBoatData) {
     return (
       <View style={[styles.screen, styles.centered, { paddingHorizontal: Spacing.xl }]}>
         <Animated.View entering={FadeIn.duration(400)} style={styles.lockedCard}>
@@ -557,6 +593,36 @@ export default function PassportScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+          {allDeviceSerials.length > 1 ? (
+            <Animated.View entering={FadeInUp.duration(300)} style={styles.deviceSelectorContainer}>
+              <Text style={styles.deviceSelectorTitle}>{"Select Device"}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deviceSelectorScroll}>
+                {allDeviceSerials.map((serial, index) => (
+                  <Pressable
+                    key={serial}
+                    style={[
+                      styles.deviceSelectorChip,
+                      index === selectedDeviceIndex ? styles.deviceSelectorChipActive : null,
+                    ]}
+                    onPress={() => handleSwitchDevice(index)}
+                    testID={`button-device-${index}`}
+                  >
+                    <Feather
+                      name="anchor"
+                      size={14}
+                      color={index === selectedDeviceIndex ? "#FFFFFF" : "#6B7280"}
+                    />
+                    <Text style={[
+                      styles.deviceSelectorChipText,
+                      index === selectedDeviceIndex ? styles.deviceSelectorChipTextActive : null,
+                    ]}>
+                      {serial}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Animated.View>
+          ) : null}
         <Animated.View ref={cardRef} entering={FadeInUp.duration(500).springify()} style={styles.card}>
           <View style={styles.logoContainer}>
             <Image
@@ -991,5 +1057,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 8,
+  },
+  deviceSelectorContainer: {
+    marginBottom: Spacing.lg,
+  },
+  deviceSelectorTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+  },
+  deviceSelectorScroll: {
+    gap: Spacing.sm,
+  },
+  deviceSelectorChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E8ECF0",
+    gap: 6,
+  },
+  deviceSelectorChipActive: {
+    backgroundColor: BladeColors.primary,
+    borderColor: BladeColors.primary,
+  },
+  deviceSelectorChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+    letterSpacing: 0.3,
+  },
+  deviceSelectorChipTextActive: {
+    color: "#FFFFFF",
   },
 });
