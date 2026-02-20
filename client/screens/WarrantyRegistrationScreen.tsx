@@ -1100,7 +1100,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   disclaimerText: {
-    color: "rgba(255,255,255,0.7)",
+    color: "#78590A",
     lineHeight: 20,
   },
   statusBadge: {
