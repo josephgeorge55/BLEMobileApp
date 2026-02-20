@@ -1273,6 +1273,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }, 60000);
   });
 
+  // Warranty confirmation email endpoint
+  app.post("/api/warranty/send-confirmation", generalApiRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { generateWarrantyRegistrationNumber, sendWarrantyConfirmationEmail } = await import("./emailService");
+
+      const { recipientEmail, firstName, lastName, serialNumber, purchaseDate, dealerName, warrantyStartDate, warrantyExpirationDate, country } = req.body;
+
+      if (!recipientEmail || !firstName || !lastName || !serialNumber || !purchaseDate) {
+        return res.status(400).json({ error: "Missing required fields." });
+      }
+
+      const registrationNumber = generateWarrantyRegistrationNumber();
+
+      const result = await sendWarrantyConfirmationEmail({
+        recipientEmail,
+        firstName,
+        lastName,
+        serialNumber,
+        registrationNumber,
+        purchaseDate,
+        dealerName,
+        warrantyStartDate: warrantyStartDate || purchaseDate,
+        warrantyExpirationDate: warrantyExpirationDate || "",
+        country: country || "Unknown",
+      });
+
+      if (result.success) {
+        res.json({ success: true, registrationNumber });
+      } else {
+        console.error("[Warranty Email] Failed:", result.error);
+        res.status(500).json({ success: false, error: result.error, registrationNumber });
+      }
+    } catch (error: any) {
+      console.error("[Warranty Email] Error:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to send confirmation email." });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

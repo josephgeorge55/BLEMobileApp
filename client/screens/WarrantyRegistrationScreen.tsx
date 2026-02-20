@@ -15,6 +15,7 @@ import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 import { saveWarrantyRegistration, getWarrantyData, getUserCountry, getBoatData, type WarrantyData, type BoatData } from "@/lib/firebase";
+import { getApiUrl } from "@/lib/query-client";
 
 const DARK_TILE = "rgba(44,44,46,0.92)";
 const INPUT_BG = "rgba(255,255,255,0.08)";
@@ -158,6 +159,48 @@ export default function WarrantyRegistrationScreen() {
         showSuccess("Warranty registered successfully!");
         setSubmitSuccess(true);
         loadData();
+
+        try {
+          const warrantyStart = purchaseDate.toISOString();
+          const expirationDate = new Date(purchaseDate);
+          const normalizedCountry = (country || "").toLowerCase().trim();
+          const years = (normalizedCountry === "hungary" || normalizedCountry === "hu") ? 3 : 2;
+          expirationDate.setFullYear(expirationDate.getFullYear() + years);
+
+          const emailRes = await fetch(new URL("/api/warranty/send-confirmation", getApiUrl()).toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recipientEmail: user.email,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              serialNumber: serialNumber.trim(),
+              purchaseDate: warrantyStart,
+              dealerName: dealerName.trim() || undefined,
+              warrantyStartDate: warrantyStart,
+              warrantyExpirationDate: expirationDate.toISOString(),
+              country: country || "Unknown",
+            }),
+          });
+          const emailData = await emailRes.json();
+          if (emailData.success && emailData.registrationNumber) {
+            showSuccess("Confirmation email sent!");
+            try {
+              const { getFirestoreDb, getFirebaseAuth } = await import("@/lib/firebase");
+              const { doc, updateDoc } = await import("firebase/firestore");
+              const firestore = getFirestoreDb();
+              const authInstance = getFirebaseAuth();
+              if (firestore && authInstance?.currentUser) {
+                const warrantyRef = doc(firestore, "users", authInstance.currentUser.uid, "warranties", serialNumber.trim().toUpperCase());
+                await updateDoc(warrantyRef, { registrationNumber: emailData.registrationNumber });
+              }
+            } catch (updateErr) {
+              console.log("[Warranty] Failed to save registration number to Firestore:", updateErr);
+            }
+          }
+        } catch (emailError) {
+          console.log("[Warranty] Email send failed (non-critical):", emailError);
+        }
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         showError(result.error || "Failed to register warranty.");
@@ -274,6 +317,20 @@ export default function WarrantyRegistrationScreen() {
                 </ThemedText>
               </View>
               <View style={styles.detailCard}>
+                {w.registrationNumber ? (
+                  <>
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailIconWrap}>
+                        <Feather name="file-text" size={16} color={BladeColors.accent} />
+                      </View>
+                      <View style={styles.detailContent}>
+                        <ThemedText type="caption" style={styles.detailLabel}>{"Registration Number"}</ThemedText>
+                        <ThemedText type="body" style={[styles.detailValue, { color: BladeColors.accent, fontWeight: "700", letterSpacing: 0.5 }]}>{w.registrationNumber}</ThemedText>
+                      </View>
+                    </View>
+                    <View style={styles.detailDivider} />
+                  </>
+                ) : null}
                 <View style={styles.detailRow}>
                   <View style={styles.detailIconWrap}>
                     <Feather name="hash" size={16} color={BladeColors.accent} />

@@ -827,6 +827,7 @@ export interface WarrantyData {
   status: "approved" | "pending" | "rejected";
   warrantyStartDate: string;
   warrantyExpirationDate: string;
+  registrationNumber?: string;
   registeredAt: Date;
   updatedAt: Date;
 }

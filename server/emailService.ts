@@ -1,0 +1,236 @@
+import { Resend } from "resend";
+import { randomBytes } from "node:crypto";
+
+let connectionSettings: any;
+
+async function getCredentials() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? "repl " + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+      ? "depl " + process.env.WEB_REPL_RENEWAL
+      : null;
+
+  if (!xReplitToken) {
+    throw new Error("X_REPLIT_TOKEN not found for repl/depl");
+  }
+
+  connectionSettings = await fetch(
+    "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=resend",
+    {
+      headers: {
+        Accept: "application/json",
+        X_REPLIT_TOKEN: xReplitToken,
+      },
+    },
+  )
+    .then((res) => res.json())
+    .then((data) => data.items?.[0]);
+
+  if (!connectionSettings || !connectionSettings.settings.api_key) {
+    throw new Error("Resend not connected");
+  }
+  return {
+    apiKey: connectionSettings.settings.api_key,
+    fromEmail: connectionSettings.settings.from_email,
+  };
+}
+
+async function getResendClient() {
+  const { apiKey, fromEmail } = await getCredentials();
+  return {
+    client: new Resend(apiKey),
+    fromEmail,
+  };
+}
+
+export function generateWarrantyRegistrationNumber(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = randomBytes(5);
+  let random = "";
+  for (let i = 0; i < 5; i++) {
+    random += chars[bytes[i] % chars.length];
+  }
+  return `BLD-WR-${year}${month}-${random}`;
+}
+
+interface WarrantyEmailParams {
+  recipientEmail: string;
+  firstName: string;
+  lastName: string;
+  serialNumber: string;
+  registrationNumber: string;
+  purchaseDate: string;
+  dealerName?: string;
+  warrantyStartDate: string;
+  warrantyExpirationDate: string;
+  country: string;
+}
+
+function formatDate(isoString: string): string {
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return isoString;
+  }
+}
+
+function buildWarrantyEmailHtml(params: WarrantyEmailParams): string {
+  const {
+    firstName,
+    lastName,
+    serialNumber,
+    registrationNumber,
+    purchaseDate,
+    dealerName,
+    warrantyStartDate,
+    warrantyExpirationDate,
+    country,
+  } = params;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Warranty Registration Confirmed</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr>
+<td style="background-color:#1A2332;padding:32px 40px;text-align:center;">
+<h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">BLADE OUTBOARDS</h1>
+<p style="margin:8px 0 0;color:rgba(255,255,255,0.7);font-size:13px;letter-spacing:1px;text-transform:uppercase;">Warranty Registration</p>
+</td>
+</tr>
+
+<!-- Success Banner -->
+<tr>
+<td style="background-color:#34C759;padding:16px 40px;text-align:center;">
+<p style="margin:0;color:#ffffff;font-size:15px;font-weight:600;">&#10003; Registration Confirmed</p>
+</td>
+</tr>
+
+<!-- Body -->
+<tr>
+<td style="padding:32px 40px;">
+<p style="margin:0 0 16px;color:#1A2332;font-size:16px;line-height:1.5;">Dear ${firstName} ${lastName},</p>
+<p style="margin:0 0 24px;color:#4a5568;font-size:15px;line-height:1.6;">Thank you for registering your Blade Outboard motor. Your warranty has been successfully activated. Please keep this email for your records.</p>
+
+<!-- Registration Number Box -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+<tr>
+<td style="border:2px solid #34C759;border-radius:8px;padding:20px;text-align:center;background-color:#f0fdf4;">
+<p style="margin:0 0 4px;color:#4a5568;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Registration Number</p>
+<p style="margin:0;color:#1A2332;font-size:22px;font-weight:700;letter-spacing:1px;">${registrationNumber}</p>
+</td>
+</tr>
+</table>
+
+<!-- Details Table -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+<tr>
+<td style="background-color:#f8fafc;padding:12px 16px;border-bottom:1px solid #e2e8f0;">
+<p style="margin:0;color:#1A2332;font-size:14px;font-weight:600;">Warranty Details</p>
+</td>
+</tr>
+<tr>
+<td style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px;width:40%;">Serial Number</td>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#1A2332;font-size:13px;font-weight:600;">${serialNumber}</td>
+</tr>
+<tr>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px;">Purchase Date</td>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#1A2332;font-size:13px;font-weight:600;">${formatDate(purchaseDate)}</td>
+</tr>
+${dealerName ? `<tr>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px;">Dealer</td>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#1A2332;font-size:13px;font-weight:600;">${dealerName}</td>
+</tr>` : ""}
+<tr>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px;">Warranty Start</td>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#1A2332;font-size:13px;font-weight:600;">${formatDate(warrantyStartDate)}</td>
+</tr>
+<tr>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px;">Warranty Expiry</td>
+<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#1A2332;font-size:13px;font-weight:600;color:#34C759;">${formatDate(warrantyExpirationDate)}</td>
+</tr>
+<tr>
+<td style="padding:12px 16px;color:#64748b;font-size:13px;">Country</td>
+<td style="padding:12px 16px;color:#1A2332;font-size:13px;font-weight:600;">${country}</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+
+<p style="margin:0 0 8px;color:#4a5568;font-size:14px;line-height:1.6;">If you have any questions about your warranty coverage, please contact your authorised Blade dealer or visit our support channels.</p>
+</td>
+</tr>
+
+<!-- Footer -->
+<tr>
+<td style="background-color:#1A2332;padding:24px 40px;text-align:center;">
+<p style="margin:0 0 8px;color:#ffffff;font-size:14px;font-weight:600;">Blade Marine Technologies Limited</p>
+<p style="margin:0 0 16px;color:rgba(255,255,255,0.5);font-size:12px;line-height:1.5;">Please retain this email as proof of your warranty registration.</p>
+<p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">This is an automated email. Please do not reply directly to this message.</p>
+</td>
+</tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+export async function sendWarrantyConfirmationEmail(
+  params: WarrantyEmailParams,
+): Promise<{ success: boolean; error?: string; registrationNumber: string }> {
+  const { registrationNumber, recipientEmail } = params;
+
+  try {
+    console.log(`[Email] Sending warranty confirmation to ${recipientEmail} for ${registrationNumber}`);
+
+    const { client, fromEmail } = await getResendClient();
+    const sender = fromEmail || "noreply@resend.dev";
+
+    const html = buildWarrantyEmailHtml(params);
+
+    const { data, error } = await client.emails.send({
+      from: `Blade Outboards <${sender}>`,
+      to: [recipientEmail],
+      subject: `Warranty Registration Confirmed - ${registrationNumber}`,
+      html,
+    });
+
+    if (error) {
+      console.error(`[Email] Resend API error for ${registrationNumber}:`, error);
+      return { success: false, error: error.message, registrationNumber };
+    }
+
+    console.log(`[Email] Warranty confirmation sent successfully: ${registrationNumber} (id: ${data?.id})`);
+    return { success: true, registrationNumber };
+  } catch (err: any) {
+    console.error(`[Email] Failed to send warranty confirmation for ${registrationNumber}:`, err);
+    return {
+      success: false,
+      error: err.message || "Unknown email error",
+      registrationNumber,
+    };
+  }
+}
