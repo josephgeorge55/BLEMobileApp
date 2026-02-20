@@ -9,6 +9,8 @@ import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Checkbox from "expo-checkbox";
 import LottieView from "lottie-react-native";
@@ -45,6 +47,11 @@ const SECTION_LABEL_COLOR = "#8E8E93";
 const LOTTIE_HEADER_BG = "#1A2332";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const LOTTIE_HEADER_HEIGHT = SCREEN_HEIGHT * 0.30;
+const MAX_FILE_SIZE_MB = 20;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif', 'image/webp'];
+const ALLOWED_PDF_TYPES = ['application/pdf'];
+const ALLOWED_FILE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.pdf'];
 
 export default function WarrantyRegistrationScreen() {
   const insets = useSafeAreaInsets();
@@ -70,6 +77,8 @@ export default function WarrantyRegistrationScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [receiptBase64, setReceiptBase64] = useState<string | null>(null);
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
+  const [receiptFileType, setReceiptFileType] = useState<'image' | 'pdf' | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [showScanner, setShowScanner] = useState(false);
@@ -162,6 +171,25 @@ export default function WarrantyRegistrationScreen() {
   };
 
 
+  const validateFileSize = async (uri: string): Promise<{ valid: boolean; sizeMB: number }> => {
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (fileInfo.exists && 'size' in fileInfo && fileInfo.size) {
+        const sizeMB = fileInfo.size / (1024 * 1024);
+        return { valid: fileInfo.size <= MAX_FILE_SIZE_BYTES, sizeMB };
+      }
+      return { valid: true, sizeMB: 0 };
+    } catch {
+      return { valid: true, sizeMB: 0 };
+    }
+  };
+
+  const validateFileExtension = (fileName: string | null | undefined): boolean => {
+    if (!fileName) return false;
+    const ext = '.' + fileName.split('.').pop()?.toLowerCase();
+    return ALLOWED_FILE_EXTENSIONS.includes(ext);
+  };
+
   const handlePickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
@@ -172,11 +200,88 @@ export default function WarrantyRegistrationScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        setReceiptBase64(result.assets[0].base64 || null);
-        setReceiptUri(result.assets[0].uri);
+        const asset = result.assets[0];
+        const fileName = asset.fileName || asset.uri.split('/').pop() || 'photo.jpg';
+
+        if (!validateFileExtension(fileName)) {
+          showError("Only image files (JPG, PNG, HEIC, WebP) are allowed.");
+          return;
+        }
+
+        const sizeCheck = await validateFileSize(asset.uri);
+        if (!sizeCheck.valid) {
+          showError(`File is too large (${sizeCheck.sizeMB.toFixed(1)}MB). Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+          return;
+        }
+
+        if (asset.base64) {
+          const base64SizeMB = (asset.base64.length * 0.75) / (1024 * 1024);
+          if (base64SizeMB > MAX_FILE_SIZE_MB) {
+            showError(`File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+            return;
+          }
+        }
+
+        setReceiptBase64(asset.base64 || null);
+        setReceiptUri(asset.uri);
+        setReceiptFileName(fileName);
+        setReceiptFileType('image');
+        showSuccess("Receipt photo added successfully.");
       }
     } catch (error: any) {
-      showError("Failed to pick image.");
+      showError("Failed to pick image. Please try again.");
+    }
+  };
+
+  const handlePickDocument = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [...ALLOWED_IMAGE_TYPES, ...ALLOWED_PDF_TYPES],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        const fileName = asset.name || 'document';
+        const mimeType = asset.mimeType || '';
+
+        if (!validateFileExtension(fileName) && !ALLOWED_IMAGE_TYPES.includes(mimeType) && !ALLOWED_PDF_TYPES.includes(mimeType)) {
+          showError("Only image files (JPG, PNG, HEIC, WebP) and PDF documents are allowed.");
+          return;
+        }
+
+        const sizeCheck = await validateFileSize(asset.uri);
+        if (!sizeCheck.valid) {
+          showError(`File is too large (${sizeCheck.sizeMB.toFixed(1)}MB). Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+          return;
+        }
+
+        if (asset.size && asset.size > MAX_FILE_SIZE_BYTES) {
+          showError(`File is too large (${(asset.size / (1024 * 1024)).toFixed(1)}MB). Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+          return;
+        }
+
+        const base64Content = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: 'base64' as const,
+        });
+
+        const base64SizeMB = (base64Content.length * 0.75) / (1024 * 1024);
+        if (base64SizeMB > MAX_FILE_SIZE_MB) {
+          showError(`File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+          return;
+        }
+
+        const isPdf = ALLOWED_PDF_TYPES.includes(mimeType) || fileName.toLowerCase().endsWith('.pdf');
+
+        setReceiptBase64(base64Content);
+        setReceiptUri(asset.uri);
+        setReceiptFileName(fileName);
+        setReceiptFileType(isPdf ? 'pdf' : 'image');
+        showSuccess(isPdf ? "PDF document added successfully." : "Receipt image added successfully.");
+      }
+    } catch (error: any) {
+      showError("Failed to pick file. Please try again.");
     }
   };
 
@@ -406,6 +511,8 @@ export default function WarrantyRegistrationScreen() {
     setPhoneNumber("");
     setReceiptBase64(null);
     setReceiptUri(null);
+    setReceiptFileName(null);
+    setReceiptFileType(null);
     setTermsAccepted(false);
   };
 
@@ -903,26 +1010,50 @@ export default function WarrantyRegistrationScreen() {
             </ThemedText>
           </View>
           <View style={styles.formCard}>
-            <ThemedText type="caption" style={[styles.inputLabel, { marginBottom: Spacing.sm }]}>
-              {"Upload receipt or invoice photo"}
+            <ThemedText type="caption" style={[styles.inputLabel, { marginBottom: Spacing.xs }]}>
+              {"Upload receipt or invoice (image or PDF)"}
             </ThemedText>
-            <Pressable
-              style={styles.uploadReceiptButton}
-              onPress={handlePickImage}
-              testID="button-upload-receipt"
-            >
-              <Feather name="upload" size={18} color="#FFFFFF" />
-              <ThemedText type="caption" style={styles.photoButtonText}>{"Upload Receipt"}</ThemedText>
-            </Pressable>
+            <ThemedText type="small" style={{ color: "rgba(255,255,255,0.35)", marginBottom: Spacing.md, fontSize: 12 }}>
+              {`Accepted: JPG, PNG, HEIC, WebP, PDF \u00B7 Max ${MAX_FILE_SIZE_MB}MB`}
+            </ThemedText>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              <Pressable
+                style={[styles.uploadReceiptButton, { flex: 1 }]}
+                onPress={handlePickImage}
+                testID="button-upload-photo"
+              >
+                <Feather name="camera" size={18} color="#FFFFFF" />
+                <ThemedText type="caption" style={styles.photoButtonText}>{"Photo"}</ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.uploadReceiptButton, { flex: 1 }]}
+                onPress={handlePickDocument}
+                testID="button-upload-document"
+              >
+                <Feather name="file-text" size={18} color="#FFFFFF" />
+                <ThemedText type="caption" style={styles.photoButtonText}>{"Document"}</ThemedText>
+              </Pressable>
+            </View>
             {receiptUri ? (
               <View style={styles.receiptPreview}>
-                <Image source={{ uri: receiptUri }} style={styles.receiptImage} resizeMode="cover" />
+                {receiptFileType === 'pdf' ? (
+                  <View style={styles.pdfPreview}>
+                    <Feather name="file-text" size={40} color={BladeColors.accent} />
+                    <ThemedText type="small" style={styles.pdfFileName} numberOfLines={1}>
+                      {receiptFileName || "Document.pdf"}
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <Image source={{ uri: receiptUri }} style={styles.receiptImage} resizeMode="cover" />
+                )}
                 <Pressable
                   style={styles.receiptRemoveBtn}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setReceiptBase64(null);
                     setReceiptUri(null);
+                    setReceiptFileName(null);
+                    setReceiptFileType(null);
                   }}
                   testID="button-remove-receipt"
                 >
@@ -1306,6 +1437,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  pdfPreview: {
+    width: "100%",
+    height: 120,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: INPUT_BG,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  pdfFileName: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    paddingHorizontal: Spacing.lg,
+    textAlign: "center",
   },
   termsScroll: {
     maxHeight: 200,
