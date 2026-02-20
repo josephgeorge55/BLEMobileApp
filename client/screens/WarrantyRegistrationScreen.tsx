@@ -138,7 +138,30 @@ export default function WarrantyRegistrationScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!user?.id || !isFormValid) return;
+    if (!firstName.trim()) {
+      showError("Please enter your first name");
+      return;
+    }
+    if (!lastName.trim()) {
+      showError("Please enter your last name");
+      return;
+    }
+    if (!serialNumber.trim() || !serialNumberValid) {
+      showError("Please enter a valid serial number (format: JK followed by 6 digits)");
+      return;
+    }
+    if (!purchaseDate) {
+      showError("Please select your purchase date");
+      return;
+    }
+    if (!termsAccepted) {
+      showError("Please accept the terms and conditions");
+      return;
+    }
+    if (!user?.id) {
+      showError("You need to sign in to register a warranty");
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSubmitting(true);
     try {
@@ -683,10 +706,10 @@ export default function WarrantyRegistrationScreen() {
           <Pressable
             style={[
               styles.submitButton,
-              (!isFormValid || submitting) ? styles.submitButtonDisabled : null,
+              submitting ? styles.submitButtonDisabled : null,
             ]}
             onPress={handleSubmit}
-            disabled={!isFormValid || submitting}
+            disabled={submitting}
             testID="button-submit-warranty"
           >
             {submitting ? (

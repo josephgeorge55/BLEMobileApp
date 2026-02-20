@@ -412,6 +412,7 @@ const styles = StyleSheet.create({
   textContainer: {
     alignItems: "center",
     marginBottom: IS_SMALL_SCREEN ? 10 : 20,
+    overflow: 'visible',
   },
   labelText: {
     color: "rgba(255,255,255,0.45)",
@@ -428,6 +429,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -0.5,
     textAlign: "center",
+    paddingTop: 4,
   },
   divider: {
     width: 48,
