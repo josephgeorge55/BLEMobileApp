@@ -387,6 +387,15 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+      {user && !isGuestMode ? (
+        <ProtectionChecklist
+          boatData={boatData}
+          hasWarranty={hasWarranty}
+          hasAntiTheft={registeredMotors.length > 0}
+          registeredMotors={registeredMotors}
+        />
+      ) : null}
+
       {user ? (
           <SettingsSection title="Account">
             <SettingsRow
@@ -403,15 +412,6 @@ export default function SettingsScreen() {
               showChevron={false}
             />
           </SettingsSection>
-      ) : null}
-
-      {user && !isGuestMode ? (
-        <ProtectionChecklist
-          boatData={boatData}
-          hasWarranty={hasWarranty}
-          hasAntiTheft={registeredMotors.length > 0}
-          registeredMotors={registeredMotors}
-        />
       ) : null}
 
       {user && !isGuestMode ? (
