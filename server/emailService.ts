@@ -189,7 +189,7 @@ ${dealerName ? `<tr>
 <p style="margin:0 0 8px;color:#ffffff;font-size:14px;font-weight:600;">Blade Marine Technologies Limited</p>
 <p style="margin:0 0 4px;color:rgba(255,255,255,0.5);font-size:12px;">bladeoutboards.ch</p>
 <p style="margin:16px 0 0;color:rgba(255,255,255,0.35);font-size:11px;">This is an automated email. Please do not reply directly to this message.</p>
-<p style="margin:12px 0 0;color:rgba(255,255,255,0.35);font-size:11px;"><a href="https://www.bladeoutboards.com/tandc" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Terms &amp; Conditions</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="https://www.bladeoutboards.com/privacy-policy" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Privacy Policy</a></p>
+<p style="margin:12px 0 0;color:rgba(255,255,255,0.35);font-size:11px;"><a href="https://www.bladeoutboards.com/tandc" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Terms &amp; Conditions</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="https://www.bladeoutboards.com/warranty-policy" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Warranty Policy</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="https://www.bladeoutboards.com/privacy-policy" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Privacy Policy</a></p>
 </td>
 </tr>
 
