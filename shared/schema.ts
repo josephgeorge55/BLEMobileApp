@@ -161,6 +161,29 @@ export const tripDataPoints = pgTable("trip_data_points", {
   throttlePercent: integer("throttle_percent"),
 });
 
+export const warranties = pgTable("warranties", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  firebaseUid: varchar("firebase_uid", { length: 255 }).notNull(),
+  serialNumber: varchar("serial_number", { length: 50 }).notNull(),
+  purchaseDate: varchar("purchase_date", { length: 50 }).notNull(),
+  dealerName: varchar("dealer_name", { length: 200 }),
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  phoneNumber: varchar("phone_number", { length: 50 }),
+  email: varchar("email", { length: 255 }).notNull(),
+  country: varchar("country", { length: 100 }),
+  receiptPhotoBase64: text("receipt_photo_base64"),
+  termsAccepted: boolean("terms_accepted").default(true),
+  status: varchar("status", { length: 20 }).default("approved"),
+  warrantyStartDate: varchar("warranty_start_date", { length: 50 }),
+  warrantyExpirationDate: varchar("warranty_expiration_date", { length: 50 }),
+  registrationNumber: varchar("registration_number", { length: 50 }),
+  registeredAt: timestamp("registered_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -205,6 +228,11 @@ export const insertTripDataPointSchema = createInsertSchema(tripDataPoints);
 export const selectTripDataPointSchema = createSelectSchema(tripDataPoints);
 export type InsertTripDataPoint = z.infer<typeof insertTripDataPointSchema>;
 export type TripDataPoint = z.infer<typeof selectTripDataPointSchema>;
+
+export const insertWarrantySchema = createInsertSchema(warranties);
+export const selectWarrantySchema = createSelectSchema(warranties);
+export type InsertWarranty = z.infer<typeof insertWarrantySchema>;
+export type Warranty = z.infer<typeof selectWarrantySchema>;
 
 export const locationReportSchema = z.object({
   serialNumber: z.string().min(1),
@@ -314,6 +342,21 @@ export type LinkMotor = z.infer<typeof linkMotorSchema>;
 export type StartTrip = z.infer<typeof startTripSchema>;
 export type EndTrip = z.infer<typeof endTripSchema>;
 export type TripDataPointInput = z.infer<typeof tripDataPointSchema>;
+
+export const warrantyRegistrationSchema = z.object({
+  firebaseUid: z.string().min(1),
+  serialNumber: z.string().min(1),
+  purchaseDate: z.string().min(1),
+  dealerName: z.string().optional().default(""),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  phoneNumber: z.string().optional().default(""),
+  email: z.string().email(),
+  country: z.string().optional().default(""),
+  receiptPhotoBase64: z.string().nullable().optional(),
+  termsAccepted: z.boolean(),
+});
+export type WarrantyRegistration = z.infer<typeof warrantyRegistrationSchema>;
 
 // Boat data schema for user reporting
 export const boatTypes = [

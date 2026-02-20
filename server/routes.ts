@@ -17,7 +17,11 @@ import {
   startTripSchema,
   endTripSchema,
   tripDataPointSchema,
+  warranties,
+  warrantyRegistrationSchema,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { generateTripPDF } from "./pdfGenerator";
@@ -80,6 +84,18 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+const THREE_YEAR_WARRANTY_COUNTRIES_SERVER = ["hungary", "hu"];
+
+function calculateWarrantyExpirationServer(purchaseDate: string, country: string): string {
+  const date = new Date(purchaseDate);
+  const normalizedCountry = country.toLowerCase().trim();
+  const years = THREE_YEAR_WARRANTY_COUNTRIES_SERVER.some(
+    c => normalizedCountry === c || normalizedCountry.includes("hungary")
+  ) ? 3 : 2;
+  date.setFullYear(date.getFullYear() + years);
+  return date.toISOString();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1293,6 +1309,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Welcome Email] Error:", error);
       res.status(500).json({ success: false, error: error.message || "Failed to send welcome email." });
+    }
+  });
+
+  // Warranty registration - save to PostgreSQL
+  app.post("/api/warranty/register", generalApiRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const data = warrantyRegistrationSchema.parse(req.body);
+      
+      // Check if warranty already exists for this serial + user
+      const existing = await db.select().from(warranties).where(
+        and(
+          eq(warranties.firebaseUid, data.firebaseUid),
+          eq(warranties.serialNumber, data.serialNumber.toUpperCase())
+        )
+      );
+      
+      if (existing.length > 0) {
+        // Update existing
+        const updated = await db.update(warranties)
+          .set({
+            ...data,
+            serialNumber: data.serialNumber.toUpperCase(),
+            status: "approved",
+            warrantyStartDate: data.purchaseDate,
+            warrantyExpirationDate: calculateWarrantyExpirationServer(data.purchaseDate, data.country || ""),
+            updatedAt: new Date(),
+          })
+          .where(eq(warranties.id, existing[0].id))
+          .returning();
+        return res.json({ success: true, warranty: updated[0] });
+      }
+      
+      // Create new
+      const [warranty] = await db.insert(warranties).values({
+        firebaseUid: data.firebaseUid,
+        serialNumber: data.serialNumber.toUpperCase(),
+        purchaseDate: data.purchaseDate,
+        dealerName: data.dealerName || "",
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phoneNumber: data.phoneNumber || "",
+        email: data.email,
+        country: data.country || "",
+        receiptPhotoBase64: data.receiptPhotoBase64 || null,
+        termsAccepted: data.termsAccepted,
+        status: "approved",
+        warrantyStartDate: data.purchaseDate,
+        warrantyExpirationDate: calculateWarrantyExpirationServer(data.purchaseDate, data.country || ""),
+      }).returning();
+      
+      res.json({ success: true, warranty });
+    } catch (error: any) {
+      console.error("[Warranty API] Registration error:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ success: false, error: "Invalid warranty data." });
+      }
+      res.status(500).json({ success: false, error: "Failed to register warranty." });
+    }
+  });
+
+  // Get warranty data for a user
+  app.get("/api/warranty/:firebaseUid", generalApiRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { firebaseUid } = req.params;
+      const { serialNumber } = req.query;
+      
+      if (serialNumber && typeof serialNumber === "string") {
+        const results = await db.select().from(warranties).where(
+          and(
+            eq(warranties.firebaseUid, firebaseUid),
+            eq(warranties.serialNumber, serialNumber.toUpperCase())
+          )
+        );
+        return res.json({ warranty: results[0] || null });
+      }
+      
+      const results = await db.select().from(warranties).where(
+        eq(warranties.firebaseUid, firebaseUid)
+      );
+      return res.json({ warranty: results[0] || null });
+    } catch (error) {
+      console.error("[Warranty API] Get error:", error);
+      res.status(500).json({ warranty: null, error: "Failed to get warranty data." });
+    }
+  });
+
+  // Get all warranties for a user
+  app.get("/api/warranties/:firebaseUid", generalApiRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { firebaseUid } = req.params;
+      
+      const results = await db.select().from(warranties).where(
+        eq(warranties.firebaseUid, firebaseUid)
+      );
+      return res.json({ warranties: results });
+    } catch (error) {
+      console.error("[Warranty API] Get all error:", error);
+      res.status(500).json({ warranties: [], error: "Failed to get warranties." });
     }
   });
 

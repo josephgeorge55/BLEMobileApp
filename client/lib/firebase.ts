@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/query-client";
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { 
   getAuth,
@@ -858,50 +859,41 @@ export async function saveWarrantyRegistration(
     receiptPhotoBase64?: string | null;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const firestore = getFirestoreDb();
-  if (!firestore) {
-    return { success: false, error: "Database service unavailable." };
-  }
-
   const currentUser = await waitForAuthState(5000);
   if (!currentUser) {
     return { success: false, error: "You need to sign in first." };
   }
 
-  const effectiveUserId = currentUser.uid;
-
   try {
-    const warrantyDoc: WarrantyData = {
-      serialNumber: data.serialNumber.toUpperCase(),
-      purchaseDate: data.purchaseDate,
-      dealerName: data.dealerName,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      phoneNumber: data.phoneNumber,
-      email: data.email,
-      country: data.country,
-      receiptPhotoBase64: data.receiptPhotoBase64 || null,
-      termsAccepted: true,
-      status: "approved",
-      warrantyStartDate: data.purchaseDate,
-      warrantyExpirationDate: calculateWarrantyExpiration(data.purchaseDate, data.country),
-      registeredAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const baseUrl = getApiUrl();
+    const url = new URL("/api/warranty/register", baseUrl);
+    const response = await fetch(url.href, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firebaseUid: currentUser.uid,
+        serialNumber: data.serialNumber,
+        purchaseDate: data.purchaseDate,
+        dealerName: data.dealerName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phoneNumber: data.phoneNumber,
+        email: data.email,
+        country: data.country,
+        receiptPhotoBase64: data.receiptPhotoBase64 || null,
+        termsAccepted: true,
+      }),
+    });
 
-    const warrantyRef = doc(
-      firestore,
-      "users",
-      effectiveUserId,
-      "warranties",
-      data.serialNumber.toUpperCase()
-    );
-    await setDoc(warrantyRef, warrantyDoc);
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      return { success: false, error: result.error || "Failed to register warranty." };
+    }
 
-    console.log("[Firebase] Warranty registered successfully:", data.serialNumber);
+    console.log("[Warranty] Registered successfully via API:", data.serialNumber);
     return { success: true };
   } catch (error: any) {
-    console.error("[Firebase] Error saving warranty:", error);
+    console.error("[Warranty] Error saving warranty:", error);
     return { success: false, error: error.message || "Failed to register warranty." };
   }
 }
@@ -910,56 +902,80 @@ export async function getWarrantyData(
   userId: string,
   serialNumber?: string
 ): Promise<WarrantyData | null> {
-  const firestore = getFirestoreDb();
-  if (!firestore) return null;
-
   const currentUser = await waitForAuthState(5000);
   if (!currentUser) return null;
 
-  const effectiveUserId = currentUser.uid;
-
   try {
+    const baseUrl = getApiUrl();
+    let url: URL;
     if (serialNumber) {
-      const warrantyRef = doc(
-        firestore,
-        "users",
-        effectiveUserId,
-        "warranties",
-        serialNumber.toUpperCase()
-      );
-      const warrantyDoc = await getDoc(warrantyRef);
-      if (warrantyDoc.exists()) {
-        return warrantyDoc.data() as WarrantyData;
-      }
-      return null;
+      url = new URL(`/api/warranty/${currentUser.uid}?serialNumber=${encodeURIComponent(serialNumber)}`, baseUrl);
+    } else {
+      url = new URL(`/api/warranty/${currentUser.uid}`, baseUrl);
     }
-
-    const warrantiesRef = collection(firestore, "users", effectiveUserId, "warranties");
-    const snapshot = await getDocs(warrantiesRef);
-    if (snapshot.empty) return null;
-
-    return snapshot.docs[0].data() as WarrantyData;
+    
+    const response = await fetch(url.href);
+    const result = await response.json();
+    
+    if (!result.warranty) return null;
+    
+    const w = result.warranty;
+    return {
+      serialNumber: w.serialNumber || w.serial_number,
+      purchaseDate: w.purchaseDate || w.purchase_date,
+      dealerName: w.dealerName || w.dealer_name || "",
+      firstName: w.firstName || w.first_name,
+      lastName: w.lastName || w.last_name,
+      phoneNumber: w.phoneNumber || w.phone_number || "",
+      email: w.email,
+      country: w.country || "",
+      receiptPhotoBase64: w.receiptPhotoBase64 || w.receipt_photo_base64 || null,
+      termsAccepted: w.termsAccepted ?? w.terms_accepted ?? true,
+      status: w.status || "approved",
+      warrantyStartDate: w.warrantyStartDate || w.warranty_start_date || "",
+      warrantyExpirationDate: w.warrantyExpirationDate || w.warranty_expiration_date || "",
+      registrationNumber: w.registrationNumber || w.registration_number,
+      registeredAt: new Date(w.registeredAt || w.registered_at),
+      updatedAt: new Date(w.updatedAt || w.updated_at),
+    } as WarrantyData;
   } catch (error) {
-    console.error("[Firebase] Error getting warranty data:", error);
+    console.error("[Warranty] Error getting warranty data:", error);
     return null;
   }
 }
 
 export async function getAllWarranties(userId: string): Promise<WarrantyData[]> {
-  const firestore = getFirestoreDb();
-  if (!firestore) return [];
-
   const currentUser = await waitForAuthState(5000);
   if (!currentUser) return [];
 
-  const effectiveUserId = currentUser.uid;
-
   try {
-    const warrantiesRef = collection(firestore, "users", effectiveUserId, "warranties");
-    const snapshot = await getDocs(warrantiesRef);
-    return snapshot.docs.map(d => d.data() as WarrantyData);
+    const baseUrl = getApiUrl();
+    const url = new URL(`/api/warranties/${currentUser.uid}`, baseUrl);
+    const response = await fetch(url.href);
+    const result = await response.json();
+    
+    if (!result.warranties || !Array.isArray(result.warranties)) return [];
+    
+    return result.warranties.map((w: any) => ({
+      serialNumber: w.serialNumber || w.serial_number,
+      purchaseDate: w.purchaseDate || w.purchase_date,
+      dealerName: w.dealerName || w.dealer_name || "",
+      firstName: w.firstName || w.first_name,
+      lastName: w.lastName || w.last_name,
+      phoneNumber: w.phoneNumber || w.phone_number || "",
+      email: w.email,
+      country: w.country || "",
+      receiptPhotoBase64: w.receiptPhotoBase64 || w.receipt_photo_base64 || null,
+      termsAccepted: w.termsAccepted ?? w.terms_accepted ?? true,
+      status: w.status || "approved",
+      warrantyStartDate: w.warrantyStartDate || w.warranty_start_date || "",
+      warrantyExpirationDate: w.warrantyExpirationDate || w.warranty_expiration_date || "",
+      registrationNumber: w.registrationNumber || w.registration_number,
+      registeredAt: new Date(w.registeredAt || w.registered_at),
+      updatedAt: new Date(w.updatedAt || w.updated_at),
+    } as WarrantyData));
   } catch (error) {
-    console.error("[Firebase] Error getting warranties:", error);
+    console.error("[Warranty] Error getting warranties:", error);
     return [];
   }
 }
