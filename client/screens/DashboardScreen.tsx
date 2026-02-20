@@ -1132,10 +1132,10 @@ export default function DashboardScreen() {
                 Estimated Range
               </ThemedText>
             </View>
-            <StatusCardContainer style={{ borderWidth: 1, borderRadius: BorderRadius.xl, padding: Spacing.lg }}>
+            <StatusCardContainer style={{ borderWidth: 1, borderRadius: BorderRadius.xl, padding: Spacing.lg, overflow: "visible", minHeight: 120 }}>
               {rangeData ? (
                 <>
-                  <View style={{ flexDirection: "row", alignItems: "baseline", marginBottom: Spacing.sm }}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-end", marginBottom: Spacing.sm }}>
                     {rangeData.rangeKm !== null ? (
                       <>
                         <ThemedText type="mono" style={{ fontSize: 36, fontWeight: "700", color: BladeColors.accent }}>

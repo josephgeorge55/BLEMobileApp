@@ -18,7 +18,7 @@ import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { saveWarrantyRegistration, getWarrantyData, getAllWarranties, getUserCountry, getBoatData, type WarrantyData, type BoatData } from "@/lib/firebase";
+import { saveWarrantyRegistration, getWarrantyData, getAllWarranties, getUserCountry, getBoatData, getWarrantyBySerialNumber, type WarrantyData, type BoatData } from "@/lib/firebase";
 import { getApiUrl } from "@/lib/query-client";
 
 const HIDDEN_SERIALS_KEY = "@hidden_warranty_serials";
@@ -119,7 +119,7 @@ export default function WarrantyRegistrationScreen() {
     }
   };
 
-  const serialNumberValid = /^JK\d{6}$/.test(serialNumber.trim());
+  const serialNumberValid = /^JK\d{6,10}$/.test(serialNumber.trim());
 
   const isFormValid =
     serialNumberValid &&
@@ -134,8 +134,8 @@ export default function WarrantyRegistrationScreen() {
       const digitsOnly = value.replace(/[^0-9]/g, "");
       value = "JK" + digitsOnly;
     }
-    if (value.length > 8) {
-      value = value.substring(0, 8);
+    if (value.length > 12) {
+      value = value.substring(0, 12);
     }
     setSerialNumber(value);
   };
@@ -363,7 +363,7 @@ export default function WarrantyRegistrationScreen() {
       return;
     }
     if (!serialNumber.trim() || !serialNumberValid) {
-      showError("Please enter a valid serial number (format: JK followed by 6 digits)");
+      showError("Please enter a valid serial number (format: JK followed by 6-10 digits)");
       return;
     }
     if (!purchaseDate) {
@@ -376,6 +376,12 @@ export default function WarrantyRegistrationScreen() {
     }
     if (!user?.id) {
       showError("You need to sign in to register a warranty");
+      return;
+    }
+
+    const existingRegistration = await getWarrantyBySerialNumber(serialNumber.trim());
+    if (existingRegistration) {
+      showError("This serial number has already been registered. Each motor can only be registered once.");
       return;
     }
 

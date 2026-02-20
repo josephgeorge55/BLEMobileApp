@@ -308,7 +308,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
 
             <Animated.View style={subtitleAnimStyle}>
               <ThemedText style={styles.nameText}>
-                {isGuest ? "Guest" : "Captain"}
+                {isGuest ? "Guest" : (userEmail ? userEmail.split("@")[0] : "")}
               </ThemedText>
             </Animated.View>
 
