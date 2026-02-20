@@ -1,15 +1,14 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Dimensions, Platform, Text } from "react-native";
+import { View, StyleSheet, Dimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
+import { ThemedText } from "@/components/ThemedText";
 import { Spacing } from "@/constants/theme";
 import type { BoatData, RegisteredMotor } from "@/lib/firebase";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const LOTTIE_SIZE = Math.round(SCREEN_HEIGHT * 0.3);
 
-const DARK = "#1C1C1E";
-const LIGHT_TEXT = "#8E8E93";
 const SUCCESS = "#34C759";
 
 interface ProtectionChecklistProps {
@@ -49,30 +48,22 @@ export function ProtectionChecklist({
   return (
     <View style={styles.container}>
       <View style={styles.lottieContainer}>
-        {Platform.OS === "web" ? (
-          <View style={styles.webShield}>
-            <Feather name="shield" size={LOTTIE_SIZE * 0.45} color={allComplete ? SUCCESS : DARK} />
-          </View>
-        ) : (
-          <LottieView
-            ref={lottieRef}
-            source={require("../../assets/animations/shield-check.json")}
-            style={styles.lottie}
-            autoPlay={allComplete}
-            loop={false}
-          />
-        )}
+        <LottieView
+          ref={lottieRef}
+          source={require("../../assets/animations/shield-check.json")}
+          style={styles.lottie}
+          autoPlay={allComplete}
+          loop={false}
+        />
       </View>
 
-      {allComplete ? (
-        <Text style={styles.protectedTitle}>Fully Protected</Text>
-      ) : (
-        <Text style={styles.statusTitle}>Device Protection</Text>
-      )}
+      <ThemedText style={allComplete ? styles.protectedTitle : styles.statusTitle}>
+        {allComplete ? "Fully Protected" : "Device Protection"}
+      </ThemedText>
 
-      <Text style={allComplete ? styles.protectedSubtitle : styles.statusSubtitle}>
+      <ThemedText style={allComplete ? styles.protectedSubtitle : styles.statusSubtitle}>
         {allComplete ? "All steps complete" : `${completedCount} of 3 steps complete`}
-      </Text>
+      </ThemedText>
 
       {!allComplete ? (
         <View style={styles.progressBar}>
@@ -105,10 +96,10 @@ export function ProtectionChecklist({
               {step.completed ? (
                 <Feather name="check" size={12} color="#FFFFFF" />
               ) : (
-                <Text style={styles.stepNumber}>{`${index + 1}`}</Text>
+                <ThemedText style={styles.stepNumber}>{`${index + 1}`}</ThemedText>
               )}
             </View>
-            <Text
+            <ThemedText
               style={[
                 styles.stepLabel,
                 step.completed
@@ -117,7 +108,7 @@ export function ProtectionChecklist({
               ]}
             >
               {step.label}
-            </Text>
+            </ThemedText>
             {step.completed ? (
               <Feather name="check-circle" size={16} color={SUCCESS} />
             ) : (
@@ -144,12 +135,6 @@ const styles = StyleSheet.create({
   lottie: {
     width: LOTTIE_SIZE,
     height: LOTTIE_SIZE,
-  },
-  webShield: {
-    width: LOTTIE_SIZE,
-    height: LOTTIE_SIZE,
-    alignItems: "center",
-    justifyContent: "center",
   },
   protectedTitle: {
     color: "#FFFFFF",
