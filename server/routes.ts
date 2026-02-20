@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { storage } from "./storage";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
-import * as admin from "firebase-admin";
 import {
   locationReportSchema,
   firmwareCheckSchema,
@@ -18,7 +17,6 @@ import {
   startTripSchema,
   endTripSchema,
   tripDataPointSchema,
-  warrantyRegistrationSchema,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -84,43 +82,6 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
-}
-
-function getAdminFirestore() {
-  if (!admin.apps.length) {
-    const serviceAccountKey = process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_KEY;
-    if (serviceAccountKey) {
-      try {
-        const serviceAccount = JSON.parse(serviceAccountKey);
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-          projectId: serviceAccount.project_id || "bladeobapp",
-        });
-      } catch (e) {
-        console.error("[Firebase Admin] Failed to parse service account key, initializing with project ID only:", e);
-        admin.initializeApp({
-          projectId: "bladeobapp",
-        });
-      }
-    } else {
-      admin.initializeApp({
-        projectId: "bladeobapp",
-      });
-    }
-  }
-  return admin.firestore();
-}
-
-const THREE_YEAR_WARRANTY_COUNTRIES_SERVER = ["hungary", "hu"];
-
-function calculateWarrantyExpirationServer(purchaseDate: string, country: string): string {
-  const date = new Date(purchaseDate);
-  const normalizedCountry = country.toLowerCase().trim();
-  const years = THREE_YEAR_WARRANTY_COUNTRIES_SERVER.some(
-    c => normalizedCountry === c || normalizedCountry.includes("hungary")
-  ) ? 3 : 2;
-  date.setFullYear(date.getFullYear() + years);
-  return date.toISOString();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1333,130 +1294,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Welcome Email] Error:", error);
       res.status(500).json({ success: false, error: error.message || "Failed to send welcome email." });
-    }
-  });
-
-  // Warranty registration - save to Firestore (Admin SDK)
-  app.post("/api/warranty/register", generalApiRateLimiter, async (req: Request, res: Response) => {
-    try {
-      const data = warrantyRegistrationSchema.parse(req.body);
-      const adminDb = getAdminFirestore();
-      const warrantiesCol = adminDb.collection("warranties");
-      
-      const existingSnap = await warrantiesCol
-        .where("firebaseUid", "==", data.firebaseUid)
-        .where("serialNumber", "==", data.serialNumber.toUpperCase())
-        .get();
-      
-      const warrantyData = {
-        firebaseUid: data.firebaseUid,
-        serialNumber: data.serialNumber.toUpperCase(),
-        purchaseDate: data.purchaseDate,
-        dealerName: data.dealerName || "",
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phoneNumber: data.phoneNumber || "",
-        email: data.email,
-        country: data.country || "",
-        receiptPhotoBase64: data.receiptPhotoBase64 || null,
-        termsAccepted: data.termsAccepted ?? true,
-        status: "approved",
-        warrantyStartDate: data.purchaseDate,
-        warrantyExpirationDate: calculateWarrantyExpirationServer(data.purchaseDate, data.country || ""),
-      };
-      
-      if (!existingSnap.empty) {
-        const existingDoc = existingSnap.docs[0];
-        await existingDoc.ref.update({
-          ...warrantyData,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        return res.json({ success: true, warranty: { id: existingDoc.id, ...warrantyData } });
-      }
-      
-      const newDocRef = await warrantiesCol.add({
-        ...warrantyData,
-        registeredAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      
-      res.json({ success: true, warranty: { id: newDocRef.id, ...warrantyData } });
-    } catch (error: any) {
-      console.error("[Warranty API] Registration error:", error);
-      if (error.name === "ZodError") {
-        return res.status(400).json({ success: false, error: "Invalid warranty data." });
-      }
-      res.status(500).json({ success: false, error: "Failed to register warranty." });
-    }
-  });
-
-  app.get("/api/warranty/by-serial/:serialNumber", generalApiRateLimiter, async (req: Request, res: Response) => {
-    try {
-      const serialNumber = req.params.serialNumber as string;
-      const adminDb = getAdminFirestore();
-      
-      const snap = await adminDb.collection("warranties")
-        .where("serialNumber", "==", serialNumber.toUpperCase())
-        .get();
-      if (!snap.empty) {
-        const w = { id: snap.docs[0].id, ...snap.docs[0].data() };
-        return res.json({ found: true, warranty: w });
-      }
-      return res.json({ found: false, warranty: null });
-    } catch (error) {
-      console.error("[Warranty API] Lookup by serial error:", error);
-      res.status(500).json({ found: false, warranty: null, error: "Failed to look up warranty." });
-    }
-  });
-
-  // Get warranty data for a user
-  app.get("/api/warranty/:firebaseUid", generalApiRateLimiter, async (req: Request, res: Response) => {
-    try {
-      const { firebaseUid } = req.params;
-      const { serialNumber } = req.query;
-      const adminDb = getAdminFirestore();
-      const warrantiesCol = adminDb.collection("warranties");
-      
-      if (serialNumber && typeof serialNumber === "string") {
-        const snap = await warrantiesCol
-          .where("firebaseUid", "==", firebaseUid)
-          .where("serialNumber", "==", serialNumber.toUpperCase())
-          .get();
-        if (!snap.empty) {
-          const docData = snap.docs[0];
-          return res.json({ warranty: { id: docData.id, ...docData.data() } });
-        }
-        return res.json({ warranty: null });
-      }
-      
-      const snap = await warrantiesCol
-        .where("firebaseUid", "==", firebaseUid)
-        .get();
-      if (!snap.empty) {
-        const docData = snap.docs[0];
-        return res.json({ warranty: { id: docData.id, ...docData.data() } });
-      }
-      return res.json({ warranty: null });
-    } catch (error) {
-      console.error("[Warranty API] Get error:", error);
-      res.status(500).json({ warranty: null, error: "Failed to get warranty data." });
-    }
-  });
-
-  // Get all warranties for a user
-  app.get("/api/warranties/:firebaseUid", generalApiRateLimiter, async (req: Request, res: Response) => {
-    try {
-      const { firebaseUid } = req.params;
-      const adminDb = getAdminFirestore();
-      
-      const snap = await adminDb.collection("warranties")
-        .where("firebaseUid", "==", firebaseUid)
-        .get();
-      const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      return res.json({ warranties: results });
-    } catch (error) {
-      console.error("[Warranty API] Get all error:", error);
-      res.status(500).json({ warranties: [], error: "Failed to get warranties." });
     }
   });
 

@@ -865,37 +865,87 @@ export async function saveWarrantyRegistration(
   }
 
   try {
-    const baseUrl = getApiUrl();
-    const url = new URL("/api/warranty/register", baseUrl);
-    const response = await fetch(url.href, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        firebaseUid: currentUser.uid,
-        serialNumber: data.serialNumber,
-        purchaseDate: data.purchaseDate,
-        dealerName: data.dealerName,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phoneNumber: data.phoneNumber,
-        email: data.email,
-        country: data.country,
-        receiptPhotoBase64: data.receiptPhotoBase64 || null,
-        termsAccepted: true,
-      }),
-    });
+    const db = getFirestoreDb()!;
+    const serialUpper = data.serialNumber.toUpperCase();
 
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      return { success: false, error: result.error || "Failed to register warranty." };
+    const THREE_YEAR_COUNTRIES = ["hungary", "hu"];
+    const normalizedCountry = (data.country || "").toLowerCase().trim();
+    const years = THREE_YEAR_COUNTRIES.some(c => normalizedCountry === c || normalizedCountry.includes("hungary")) ? 3 : 2;
+    const expiryDate = new Date(data.purchaseDate);
+    expiryDate.setFullYear(expiryDate.getFullYear() + years);
+    const warrantyExpirationDate = expiryDate.toISOString().split("T")[0];
+
+    const existingQuery = query(
+      collection(db, "warranties"),
+      where("firebaseUid", "==", currentUser.uid),
+      where("serialNumber", "==", serialUpper)
+    );
+    const existingSnap = await getDocs(existingQuery);
+
+    const warrantyData = {
+      firebaseUid: currentUser.uid,
+      serialNumber: serialUpper,
+      purchaseDate: data.purchaseDate,
+      dealerName: data.dealerName || "",
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phoneNumber: data.phoneNumber || "",
+      email: data.email,
+      country: data.country || "",
+      receiptPhotoBase64: data.receiptPhotoBase64 || null,
+      termsAccepted: true,
+      status: "approved",
+      warrantyStartDate: data.purchaseDate,
+      warrantyExpirationDate,
+    };
+
+    if (!existingSnap.empty) {
+      const existingDoc = existingSnap.docs[0];
+      await updateDoc(existingDoc.ref, {
+        ...warrantyData,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await addDoc(collection(db, "warranties"), {
+        ...warrantyData,
+        registeredAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
     }
 
-    console.log("[Warranty] Registered successfully via API:", data.serialNumber);
+    console.log("[Warranty] Registered successfully via Firestore:", serialUpper);
     return { success: true };
   } catch (error: any) {
     console.error("[Warranty] Error saving warranty:", error);
     return { success: false, error: error.message || "Failed to register warranty." };
   }
+}
+
+function parseFirestoreWarranty(w: any): WarrantyData {
+  const parseTs = (val: any) => {
+    if (!val) return new Date();
+    if (val.toDate) return val.toDate();
+    if (val.seconds) return new Date(val.seconds * 1000);
+    return new Date(val);
+  };
+  return {
+    serialNumber: w.serialNumber || "",
+    purchaseDate: w.purchaseDate || "",
+    dealerName: w.dealerName || "",
+    firstName: w.firstName || "",
+    lastName: w.lastName || "",
+    phoneNumber: w.phoneNumber || "",
+    email: w.email || "",
+    country: w.country || "",
+    receiptPhotoBase64: w.receiptPhotoBase64 || null,
+    termsAccepted: w.termsAccepted ?? true,
+    status: w.status || "approved",
+    warrantyStartDate: w.warrantyStartDate || "",
+    warrantyExpirationDate: w.warrantyExpirationDate || "",
+    registrationNumber: w.registrationNumber || undefined,
+    registeredAt: parseTs(w.registeredAt),
+    updatedAt: parseTs(w.updatedAt),
+  } as WarrantyData;
 }
 
 export async function getWarrantyData(
@@ -906,38 +956,21 @@ export async function getWarrantyData(
   if (!currentUser) return null;
 
   try {
-    const baseUrl = getApiUrl();
-    let url: URL;
+    const db = getFirestoreDb()!;
+    const warrantiesCol = collection(db, "warranties");
+    let q;
     if (serialNumber) {
-      url = new URL(`/api/warranty/${currentUser.uid}?serialNumber=${encodeURIComponent(serialNumber)}`, baseUrl);
+      q = query(
+        warrantiesCol,
+        where("firebaseUid", "==", currentUser.uid),
+        where("serialNumber", "==", serialNumber.toUpperCase())
+      );
     } else {
-      url = new URL(`/api/warranty/${currentUser.uid}`, baseUrl);
+      q = query(warrantiesCol, where("firebaseUid", "==", currentUser.uid));
     }
-    
-    const response = await fetch(url.href);
-    const result = await response.json();
-    
-    if (!result.warranty) return null;
-    
-    const w = result.warranty;
-    return {
-      serialNumber: w.serialNumber || w.serial_number,
-      purchaseDate: w.purchaseDate || w.purchase_date,
-      dealerName: w.dealerName || w.dealer_name || "",
-      firstName: w.firstName || w.first_name,
-      lastName: w.lastName || w.last_name,
-      phoneNumber: w.phoneNumber || w.phone_number || "",
-      email: w.email,
-      country: w.country || "",
-      receiptPhotoBase64: w.receiptPhotoBase64 || w.receipt_photo_base64 || null,
-      termsAccepted: w.termsAccepted ?? w.terms_accepted ?? true,
-      status: w.status || "approved",
-      warrantyStartDate: w.warrantyStartDate || w.warranty_start_date || "",
-      warrantyExpirationDate: w.warrantyExpirationDate || w.warranty_expiration_date || "",
-      registrationNumber: w.registrationNumber || w.registration_number,
-      registeredAt: new Date(w.registeredAt || w.registered_at),
-      updatedAt: new Date(w.updatedAt || w.updated_at),
-    } as WarrantyData;
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    return parseFirestoreWarranty(snap.docs[0].data());
   } catch (error) {
     console.error("[Warranty] Error getting warranty data:", error);
     return null;
@@ -949,31 +982,13 @@ export async function getAllWarranties(userId: string): Promise<WarrantyData[]> 
   if (!currentUser) return [];
 
   try {
-    const baseUrl = getApiUrl();
-    const url = new URL(`/api/warranties/${currentUser.uid}`, baseUrl);
-    const response = await fetch(url.href);
-    const result = await response.json();
-    
-    if (!result.warranties || !Array.isArray(result.warranties)) return [];
-    
-    return result.warranties.map((w: any) => ({
-      serialNumber: w.serialNumber || w.serial_number,
-      purchaseDate: w.purchaseDate || w.purchase_date,
-      dealerName: w.dealerName || w.dealer_name || "",
-      firstName: w.firstName || w.first_name,
-      lastName: w.lastName || w.last_name,
-      phoneNumber: w.phoneNumber || w.phone_number || "",
-      email: w.email,
-      country: w.country || "",
-      receiptPhotoBase64: w.receiptPhotoBase64 || w.receipt_photo_base64 || null,
-      termsAccepted: w.termsAccepted ?? w.terms_accepted ?? true,
-      status: w.status || "approved",
-      warrantyStartDate: w.warrantyStartDate || w.warranty_start_date || "",
-      warrantyExpirationDate: w.warrantyExpirationDate || w.warranty_expiration_date || "",
-      registrationNumber: w.registrationNumber || w.registration_number,
-      registeredAt: new Date(w.registeredAt || w.registered_at),
-      updatedAt: new Date(w.updatedAt || w.updated_at),
-    } as WarrantyData));
+    const db = getFirestoreDb()!;
+    const q = query(
+      collection(db, "warranties"),
+      where("firebaseUid", "==", currentUser.uid)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => parseFirestoreWarranty(d.data()));
   } catch (error) {
     console.error("[Warranty] Error getting warranties:", error);
     return [];
@@ -982,32 +997,14 @@ export async function getAllWarranties(userId: string): Promise<WarrantyData[]> 
 
 export async function getWarrantyBySerialNumber(serialNumber: string): Promise<WarrantyData | null> {
   try {
-    const baseUrl = getApiUrl();
-    const url = new URL(`/api/warranty/by-serial/${encodeURIComponent(serialNumber.toUpperCase())}`, baseUrl);
-    const response = await fetch(url.href);
-    const result = await response.json();
-
-    if (!result.found || !result.warranty) return null;
-
-    const w = result.warranty;
-    return {
-      serialNumber: w.serialNumber || w.serial_number,
-      purchaseDate: w.purchaseDate || w.purchase_date,
-      dealerName: w.dealerName || w.dealer_name || "",
-      firstName: w.firstName || w.first_name,
-      lastName: w.lastName || w.last_name,
-      phoneNumber: w.phoneNumber || w.phone_number || "",
-      email: w.email,
-      country: w.country || "",
-      receiptPhotoBase64: null,
-      termsAccepted: true,
-      status: w.status || "approved",
-      warrantyStartDate: w.warrantyStartDate || w.warranty_start_date || "",
-      warrantyExpirationDate: w.warrantyExpirationDate || w.warranty_expiration_date || "",
-      registrationNumber: w.registrationNumber || w.registration_number,
-      registeredAt: new Date(w.registeredAt || w.registered_at),
-      updatedAt: new Date(w.updatedAt || w.updated_at),
-    } as WarrantyData;
+    const db = getFirestoreDb()!;
+    const q = query(
+      collection(db, "warranties"),
+      where("serialNumber", "==", serialNumber.toUpperCase())
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    return parseFirestoreWarranty(snap.docs[0].data());
   } catch (error) {
     console.error("[Warranty] Error looking up warranty by serial:", error);
     return null;
