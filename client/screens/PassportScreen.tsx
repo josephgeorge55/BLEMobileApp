@@ -29,9 +29,13 @@ import { useMotor } from "@/context/MotorContext";
 import {
   getBoatData,
   getRegisteredMotors,
+  getWarrantyData,
   type BoatData,
   type RegisteredMotor,
+  type WarrantyData,
 } from "@/lib/firebase";
+import { NavigationProp } from "@react-navigation/native";
+import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
 import BladeWalletPassModule, { isNativeWalletAvailable, getWalletModuleLoadError } from "../../modules/blade-wallet-pass";
@@ -55,9 +59,12 @@ export default function PassportScreen() {
 
   const [registeredMotors, setRegisteredMotors] = useState<RegisteredMotor[]>([]);
   const [boatData, setBoatData] = useState<BoatData | null>(null);
+  const [warrantyData, setWarrantyData] = useState<WarrantyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [savingPDF, setSavingPDF] = useState(false);
   const [addingToWallet, setAddingToWallet] = useState(false);
+
+  const typedNavigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   useEffect(() => {
     if (user?.id && isFirebaseReady) {
@@ -73,12 +80,14 @@ export default function PassportScreen() {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const [motors, boat] = await Promise.all([
+      const [motors, boat, warranty] = await Promise.all([
         getRegisteredMotors(user.id),
         getBoatData(user.id),
+        getWarrantyData(user.id),
       ]);
       setRegisteredMotors(motors);
       setBoatData(boat);
+      setWarrantyData(warranty);
     } catch (error) {
       console.error("[Passport] Failed to load data:", error);
     } finally {
@@ -91,6 +100,13 @@ export default function PassportScreen() {
       ? registeredMotors[0].serialNumber
       : "Not available";
 
+  const formatWarrantyDate = (dateStr: string | undefined) => {
+    if (!dateStr) return "Not available";
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    } catch { return dateStr; }
+  };
+
   const getPassportData = () => ({
     ownerEmail: user?.email || "",
     ownerId: user?.id || "",
@@ -98,8 +114,8 @@ export default function PassportScreen() {
     productName: "Blade Halo 6",
     maxPower: "3000W Continuous",
     batteryCapacity: "1700Wh",
-    purchaseDate: "February 1, 2026",
-    warrantyExpires: "February 1, 2028",
+    purchaseDate: warrantyData ? formatWarrantyDate(warrantyData.purchaseDate) : "Not registered",
+    warrantyExpires: warrantyData ? formatWarrantyDate(warrantyData.warrantyExpirationDate) : "Not registered",
     vesselName: boatData?.vesselName || "Not available",
     vesselType: boatData?.boatType || "Not available",
     vesselLength: boatData?.lengthMeters
@@ -449,6 +465,63 @@ export default function PassportScreen() {
             <Feather name="arrow-left" size={16} color="#FFFFFF" />
             <Text style={styles.lockedButtonText}>Go Back</Text>
           </Pressable>
+        </Animated.View>
+      </View>
+    );
+  }
+
+  const missingWarranty = !warrantyData;
+  const missingBoatData = !boatData;
+
+  if (!isLoading && registeredMotors.length > 0 && (missingWarranty || missingBoatData)) {
+    return (
+      <View style={[styles.screen, styles.centered, { paddingHorizontal: Spacing.xl }]}>
+        <Animated.View entering={FadeIn.duration(400)} style={styles.lockedCard}>
+          <Feather name="alert-circle" size={48} color={BladeColors.warning} />
+          <Text style={styles.lockedTitle}>Complete Your Registration</Text>
+          <Text style={styles.lockedDescription}>
+            Your passport requires both warranty registration and vessel information before it can be generated. Please complete the steps below.
+          </Text>
+          {missingWarranty ? (
+            <Pressable
+              style={[styles.lockedButton, { backgroundColor: BladeColors.marine, marginBottom: Spacing.sm }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                typedNavigation.navigate("WarrantyRegistration");
+              }}
+              testID="button-register-warranty"
+            >
+              <Feather name="shield" size={16} color="#FFFFFF" />
+              <Text style={styles.lockedButtonText}>Register Warranty</Text>
+            </Pressable>
+          ) : (
+            <View style={[styles.completedStepRow, { marginBottom: Spacing.sm }]}>
+              <Feather name="check-circle" size={18} color={BladeColors.success} />
+              <Text style={[styles.lockedDescription, { marginTop: 0, marginLeft: 8, color: BladeColors.success }]}>
+                Warranty registered
+              </Text>
+            </View>
+          )}
+          {missingBoatData ? (
+            <Pressable
+              style={[styles.lockedButton, { backgroundColor: BladeColors.accent }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.goBack();
+              }}
+              testID="button-add-boat-info"
+            >
+              <Feather name="anchor" size={16} color="#FFFFFF" />
+              <Text style={styles.lockedButtonText}>Add Vessel Information</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.completedStepRow}>
+              <Feather name="check-circle" size={18} color={BladeColors.success} />
+              <Text style={[styles.lockedDescription, { marginTop: 0, marginLeft: 8, color: BladeColors.success }]}>
+                Vessel information added
+              </Text>
+            </View>
+          )}
         </Animated.View>
       </View>
     );
@@ -928,5 +1001,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#FFFFFF",
+  },
+  completedStepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
   },
 });
