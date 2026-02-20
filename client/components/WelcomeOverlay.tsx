@@ -19,7 +19,8 @@ import { useUser } from "@/context/UserContext";
 import { getUserCountry } from "@/lib/firebase";
 import { Spacing } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const IS_SMALL_SCREEN = SCREEN_HEIGHT < 700;
 
 const COUNTRY_FLAGS: Record<string, string> = {
   "Afghanistan": "\u{1F1E6}\u{1F1EB}", "Albania": "\u{1F1E6}\u{1F1F1}", "Algeria": "\u{1F1E9}\u{1F1FF}",
@@ -289,11 +290,11 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
           ))}
         </View>
 
-        <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
+        <View style={[styles.content, { paddingTop: insets.top + (IS_SMALL_SCREEN ? 16 : 40) }]}>
           <Animated.View style={logoAnimStyle}>
             <Image
               source={require("../../assets/images/blade-icon-green.png")}
-              style={styles.logo}
+              style={IS_SMALL_SCREEN ? styles.logoSmall : styles.logo}
               resizeMode="contain"
             />
           </Animated.View>
@@ -337,7 +338,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
               source={require("../../assets/lottie/gps.json")}
               autoPlay
               loop
-              style={styles.lottie}
+              style={IS_SMALL_SCREEN ? styles.lottieSmall : styles.lottie}
             />
           </Animated.View>
 
@@ -403,9 +404,14 @@ const styles = StyleSheet.create({
     height: 72,
     marginBottom: 28,
   },
+  logoSmall: {
+    width: 56,
+    height: 56,
+    marginBottom: 16,
+  },
   textContainer: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: IS_SMALL_SCREEN ? 10 : 20,
   },
   labelText: {
     color: "rgba(255,255,255,0.45)",
@@ -418,7 +424,7 @@ const styles = StyleSheet.create({
   },
   nameText: {
     color: "#FFFFFF",
-    fontSize: 38,
+    fontSize: IS_SMALL_SCREEN ? 32 : 38,
     fontWeight: "700",
     letterSpacing: -0.5,
     textAlign: "center",
@@ -428,7 +434,7 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     backgroundColor: "rgba(164,208,139,0.4)",
-    marginVertical: 16,
+    marginVertical: IS_SMALL_SCREEN ? 10 : 16,
   },
   detailRow: {
     flexDirection: "row",
@@ -445,11 +451,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   lottieContainer: {
-    marginVertical: 16,
+    marginVertical: IS_SMALL_SCREEN ? 8 : 16,
   },
   lottie: {
     width: 180,
     height: 180,
+  },
+  lottieSmall: {
+    width: 120,
+    height: 120,
   },
   hintContainer: {
     width: "100%",
