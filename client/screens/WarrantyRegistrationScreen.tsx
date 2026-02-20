@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Image, KeyboardAvoidingView, Dimensions, Linking } from "react-native";
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Image, KeyboardAvoidingView, Dimensions, Linking, Modal } from "react-native";
 import Animated, { FadeIn, FadeInUp, FadeOut } from "react-native-reanimated";
+import { initializeBle, startScan, stopScan, connectToDevice, disconnect as disconnectDevice } from "@/lib/ble-service";
+import type { BleDevice, BleServiceCallbacks } from "@/lib/ble-service";
+import type { INFORG1Data } from "@/lib/ble-parser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
@@ -53,10 +56,25 @@ export default function WarrantyRegistrationScreen() {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const scannerLockRef = useRef(false);
 
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationStep, setVerificationStep] = useState<"scanning" | "connecting" | "reading" | "verifying" | "success" | "error" | "timeout" | "mismatch">("scanning");
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [foundDevice, setFoundDevice] = useState<BleDevice | null>(null);
+  const [motorSerial, setMotorSerial] = useState<string | null>(null);
+  const verificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!user?.id || !isFirebaseReady) return;
     loadData();
   }, [user?.id, isFirebaseReady]);
+
+  useEffect(() => {
+    return () => {
+      if (verificationTimeoutRef.current) {
+        clearTimeout(verificationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -140,6 +158,179 @@ export default function WarrantyRegistrationScreen() {
     }
   };
 
+  const startBluetoothVerification = async () => {
+    setShowVerificationModal(true);
+    setVerificationStep("scanning");
+    setVerificationMessage("Searching for your outboard motor...");
+    setFoundDevice(null);
+    setMotorSerial(null);
+
+    if (verificationTimeoutRef.current) {
+      clearTimeout(verificationTimeoutRef.current);
+    }
+
+    verificationTimeoutRef.current = setTimeout(() => {
+      stopScan();
+      try { disconnectDevice(); } catch (e) {}
+      setVerificationStep("timeout");
+      setVerificationMessage("Could not connect to motor within 20 seconds. Ensure your outboard is powered on and nearby.");
+    }, 20000);
+
+    try {
+      const bleReady = await initializeBle();
+      if (!bleReady) {
+        clearTimeout(verificationTimeoutRef.current!);
+        setVerificationStep("error");
+        setVerificationMessage("Bluetooth is not available. Please enable Bluetooth and try again.");
+        return;
+      }
+
+      let deviceConnected = false;
+
+      const callbacks: BleServiceCallbacks = {
+        onDeviceFound: (device: BleDevice) => {
+          if (deviceConnected) return;
+          const name = device.name || "";
+          if (name.toLowerCase().startsWith("blade") || name.toLowerCase().startsWith("halo")) {
+            deviceConnected = true;
+            stopScan();
+            setFoundDevice(device);
+            setVerificationStep("connecting");
+            setVerificationMessage(`Found ${device.name}. Connecting...`);
+            connectToDevice(device.id, callbacks);
+          }
+        },
+        onConnected: (device: BleDevice) => {
+          setVerificationStep("reading");
+          setVerificationMessage("Connected. Reading serial number from motor...");
+        },
+        onDisconnected: (_deviceId: string) => {
+        },
+        onDataReceived: (data) => {
+          if (data.type === "INFOR" && data.group === "G1") {
+            const inforData = data.data as INFORG1Data;
+            if (inforData.serialNumber) {
+              if (verificationTimeoutRef.current) {
+                clearTimeout(verificationTimeoutRef.current);
+              }
+              setMotorSerial(inforData.serialNumber);
+              const enteredSerial = serialNumber.trim().toUpperCase();
+              const motorSerialUpper = inforData.serialNumber.toUpperCase();
+              if (enteredSerial === motorSerialUpper) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setVerificationStep("success");
+                setVerificationMessage("Serial number verified successfully!");
+                try { disconnectDevice(); } catch (e) {}
+                setTimeout(() => {
+                  setShowVerificationModal(false);
+                  proceedWithSubmission();
+                }, 1500);
+              } else {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                setVerificationStep("mismatch");
+                setVerificationMessage(`Serial number mismatch. Form: ${enteredSerial}, Motor: ${motorSerialUpper}`);
+                try { disconnectDevice(); } catch (e) {}
+              }
+            }
+          }
+        },
+        onError: (error: Error) => {
+          console.error("[Warranty BLE Verify] Error:", error.message);
+          if (verificationTimeoutRef.current) {
+            clearTimeout(verificationTimeoutRef.current);
+          }
+          setVerificationStep("error");
+          setVerificationMessage(`Bluetooth error: ${error.message}`);
+          try { disconnectDevice(); } catch (e) {}
+        },
+      };
+
+      startScan({ onDeviceFound: callbacks.onDeviceFound, onError: callbacks.onError });
+    } catch (error: any) {
+      if (verificationTimeoutRef.current) {
+        clearTimeout(verificationTimeoutRef.current);
+      }
+      setVerificationStep("error");
+      setVerificationMessage(error.message || "An unexpected error occurred.");
+    }
+  };
+
+  const handleCloseVerification = () => {
+    if (verificationTimeoutRef.current) {
+      clearTimeout(verificationTimeoutRef.current);
+    }
+    stopScan();
+    try { disconnectDevice(); } catch (e) {}
+    setShowVerificationModal(false);
+  };
+
+  const handleRetryVerification = () => {
+    startBluetoothVerification();
+  };
+
+  const proceedWithSubmission = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSubmitting(true);
+    try {
+      const result = await saveWarrantyRegistration(user!.id, {
+        serialNumber: serialNumber.trim(),
+        purchaseDate: purchaseDate.toISOString(),
+        dealerName: dealerName.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        email: user!.email,
+        country: country || "Unknown",
+        receiptPhotoBase64: receiptBase64 || null,
+      });
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showSuccess("Warranty registered successfully!");
+        setSubmitSuccess(true);
+        loadData();
+
+        try {
+          const warrantyStart = purchaseDate.toISOString();
+          const expirationDate = new Date(purchaseDate);
+          const normalizedCountry = (country || "").toLowerCase().trim();
+          const years = (normalizedCountry === "hungary" || normalizedCountry === "hu") ? 3 : 2;
+          expirationDate.setFullYear(expirationDate.getFullYear() + years);
+
+          const emailRes = await fetch(new URL("/api/warranty/send-confirmation", getApiUrl()).toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recipientEmail: user!.email,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              serialNumber: serialNumber.trim(),
+              purchaseDate: warrantyStart,
+              dealerName: dealerName.trim() || undefined,
+              warrantyStartDate: warrantyStart,
+              warrantyExpirationDate: expirationDate.toISOString(),
+              country: country || "Unknown",
+            }),
+          });
+          const emailData = await emailRes.json();
+          if (emailData.success && emailData.registrationNumber) {
+            showSuccess("Confirmation email sent!");
+          }
+        } catch (emailError) {
+          console.log("[Warranty] Email send failed (non-critical):", emailError);
+        }
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        showError(result.error || "Failed to register warranty.");
+      }
+    } catch (error: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showError(error.message || "An error occurred.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!firstName.trim()) {
       showError("Please enter your first name");
@@ -165,66 +356,12 @@ export default function WarrantyRegistrationScreen() {
       showError("You need to sign in to register a warranty");
       return;
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSubmitting(true);
-    try {
-      const result = await saveWarrantyRegistration(user.id, {
-        serialNumber: serialNumber.trim(),
-        purchaseDate: purchaseDate.toISOString(),
-        dealerName: dealerName.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phoneNumber: phoneNumber.trim(),
-        email: user.email,
-        country: country || "Unknown",
-        receiptPhotoBase64: receiptBase64 || null,
-      });
 
-      if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showSuccess("Warranty registered successfully!");
-        setSubmitSuccess(true);
-        loadData();
-
-        try {
-          const warrantyStart = purchaseDate.toISOString();
-          const expirationDate = new Date(purchaseDate);
-          const normalizedCountry = (country || "").toLowerCase().trim();
-          const years = (normalizedCountry === "hungary" || normalizedCountry === "hu") ? 3 : 2;
-          expirationDate.setFullYear(expirationDate.getFullYear() + years);
-
-          const emailRes = await fetch(new URL("/api/warranty/send-confirmation", getApiUrl()).toString(), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              recipientEmail: user.email,
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              serialNumber: serialNumber.trim(),
-              purchaseDate: warrantyStart,
-              dealerName: dealerName.trim() || undefined,
-              warrantyStartDate: warrantyStart,
-              warrantyExpirationDate: expirationDate.toISOString(),
-              country: country || "Unknown",
-            }),
-          });
-          const emailData = await emailRes.json();
-          if (emailData.success && emailData.registrationNumber) {
-            showSuccess("Confirmation email sent!");
-            // Registration number sent via email
-          }
-        } catch (emailError) {
-          console.log("[Warranty] Email send failed (non-critical):", emailError);
-        }
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        showError(result.error || "Failed to register warranty.");
-      }
-    } catch (error: any) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showError(error.message || "An error occurred.");
-    } finally {
-      setSubmitting(false);
+    if (Platform.OS === "web") {
+      proceedWithSubmission();
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      startBluetoothVerification();
     }
   };
 
@@ -509,6 +646,19 @@ export default function WarrantyRegistrationScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <Animated.View entering={FadeIn.duration(400)}>
+            <View style={styles.powerOnBanner}>
+              <View style={styles.powerOnIconWrap}>
+                <Feather name="zap" size={18} color={BladeColors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="small" style={styles.powerOnText}>
+                  {"Ensure your outboard motor is powered on and nearby before submitting."}
+                </ThemedText>
+              </View>
+            </View>
+          </Animated.View>
+
           {!boatData ? (
             <Animated.View entering={FadeIn.duration(400)}>
               <Pressable
@@ -775,9 +925,155 @@ export default function WarrantyRegistrationScreen() {
           </Pressable>
         </ScrollView>
       </View>
+      <Modal
+        visible={showVerificationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseVerification}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View entering={FadeInUp.duration(400).springify()} style={styles.verificationModal}>
+            <Text style={styles.verificationTitle}>{"Bluetooth Verification"}</Text>
+            <Text style={styles.verificationSubtitle}>{"Authenticating serial number with motor"}</Text>
+
+            <View style={styles.verificationSteps}>
+              <VerificationStepRow
+                label="Scanning for motor"
+                status={
+                  verificationStep === "scanning" ? "active" :
+                  (verificationStep === "connecting" || verificationStep === "reading" || verificationStep === "verifying" || verificationStep === "success") ? "done" :
+                  "pending"
+                }
+              />
+              <VerificationStepRow
+                label="Connecting to device"
+                status={
+                  verificationStep === "connecting" ? "active" :
+                  (verificationStep === "reading" || verificationStep === "verifying" || verificationStep === "success") ? "done" :
+                  "pending"
+                }
+              />
+              <VerificationStepRow
+                label="Reading serial number"
+                status={
+                  verificationStep === "reading" ? "active" :
+                  (verificationStep === "verifying" || verificationStep === "success" || verificationStep === "mismatch") ? "done" :
+                  "pending"
+                }
+              />
+              <VerificationStepRow
+                label="Verifying serial match"
+                status={
+                  verificationStep === "success" ? "done" :
+                  verificationStep === "mismatch" ? "error" :
+                  (verificationStep === "verifying") ? "active" :
+                  "pending"
+                }
+              />
+            </View>
+
+            {(verificationStep === "error" || verificationStep === "timeout" || verificationStep === "mismatch") ? (
+              <View style={styles.verificationErrorContainer}>
+                <Feather
+                  name={verificationStep === "timeout" ? "clock" : "alert-circle"}
+                  size={20}
+                  color={BladeColors.error}
+                />
+                <Text style={styles.verificationErrorText}>{verificationMessage}</Text>
+              </View>
+            ) : null}
+
+            {verificationStep === "success" ? (
+              <View style={styles.verificationSuccessContainer}>
+                <Feather name="check-circle" size={20} color={BladeColors.success} />
+                <Text style={styles.verificationSuccessText}>{verificationMessage}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.verificationButtons}>
+              {(verificationStep === "error" || verificationStep === "timeout" || verificationStep === "mismatch") ? (
+                <Pressable
+                  style={styles.verificationRetryButton}
+                  onPress={handleRetryVerification}
+                  testID="button-retry-verification"
+                >
+                  <Feather name="refresh-cw" size={16} color="#FFFFFF" />
+                  <Text style={styles.verificationRetryText}>{"Retry"}</Text>
+                </Pressable>
+              ) : null}
+              {verificationStep !== "success" ? (
+                <Pressable
+                  style={styles.verificationCancelButton}
+                  onPress={handleCloseVerification}
+                  testID="button-cancel-verification"
+                >
+                  <Text style={styles.verificationCancelText}>{"Cancel"}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
+
+function VerificationStepRow({ label, status }: { label: string; status: "pending" | "active" | "done" | "error" }) {
+  return (
+    <View style={vstyles.row}>
+      <View style={vstyles.iconContainer}>
+        {status === "done" ? (
+          <Feather name="check-circle" size={20} color={BladeColors.success} />
+        ) : status === "active" ? (
+          <ActivityIndicator size="small" color={BladeColors.accent} />
+        ) : status === "error" ? (
+          <Feather name="x-circle" size={20} color={BladeColors.error} />
+        ) : (
+          <View style={vstyles.pendingDot} />
+        )}
+      </View>
+      <Text style={[
+        vstyles.label,
+        status === "done" ? vstyles.labelDone : null,
+        status === "active" ? vstyles.labelActive : null,
+        status === "error" ? vstyles.labelError : null,
+      ]}>{label}</Text>
+    </View>
+  );
+}
+
+const vstyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 12,
+  },
+  iconContainer: {
+    width: 24,
+    alignItems: "center",
+  },
+  pendingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  label: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.4)",
+    fontWeight: "500",
+  },
+  labelDone: {
+    color: BladeColors.success,
+  },
+  labelActive: {
+    color: "#FFFFFF",
+  },
+  labelError: {
+    color: BladeColors.error,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -1151,5 +1447,121 @@ const styles = StyleSheet.create({
   warrantyPolicyLinkText: {
     color: BladeColors.accent,
     textDecorationLine: "underline",
+  },
+  powerOnBanner: {
+    flexDirection: "row",
+    backgroundColor: "rgba(52,199,89,0.08)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(52,199,89,0.2)",
+    gap: Spacing.sm,
+    alignItems: "center",
+  },
+  powerOnIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(52,199,89,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  powerOnText: {
+    color: "#2D6A3F",
+    lineHeight: 20,
+    fontWeight: "500",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  verificationModal: {
+    backgroundColor: DARK_TILE,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: TILE_BORDER,
+  },
+  verificationTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  verificationSubtitle: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  verificationSteps: {
+    marginBottom: Spacing.lg,
+  },
+  verificationErrorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,69,58,0.1)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  verificationErrorText: {
+    color: BladeColors.error,
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  verificationSuccessContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(52,199,89,0.1)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  verificationSuccessText: {
+    color: BladeColors.success,
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  verificationButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
+  verificationRetryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: BladeColors.accent,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  verificationRetryText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  verificationCancelButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+  },
+  verificationCancelText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 15,
+    fontWeight: "500",
   },
 });
