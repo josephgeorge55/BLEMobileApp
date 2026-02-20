@@ -8,7 +8,6 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
 import { ThemedText } from "@/components/ThemedText";
 import { useUser } from "@/context/UserContext";
@@ -39,6 +38,7 @@ export default function WarrantyRegistrationScreen() {
   const [serialNumber, setSerialNumber] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateInputText, setDateInputText] = useState("");
   const [dealerName, setDealerName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -114,6 +114,24 @@ export default function WarrantyRegistrationScreen() {
     }
     if (selectedDate) {
       setPurchaseDate(selectedDate);
+    }
+  };
+
+  const handleDateInputChange = (text: string) => {
+    let cleaned = text.replace(/[^0-9]/g, "");
+    if (cleaned.length > 8) cleaned = cleaned.substring(0, 8);
+    let formatted = cleaned;
+    if (cleaned.length > 2) formatted = cleaned.substring(0, 2) + "/" + cleaned.substring(2);
+    if (cleaned.length > 4) formatted = cleaned.substring(0, 2) + "/" + cleaned.substring(2, 4) + "/" + cleaned.substring(4);
+    setDateInputText(formatted);
+    if (cleaned.length === 8) {
+      const day = parseInt(cleaned.substring(0, 2));
+      const month = parseInt(cleaned.substring(2, 4)) - 1;
+      const year = parseInt(cleaned.substring(4, 8));
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime()) && d <= new Date()) {
+        setPurchaseDate(d);
+      }
     }
   };
 
@@ -492,23 +510,22 @@ export default function WarrantyRegistrationScreen() {
           </Pressable>
           {showDatePicker ? (
             <View style={styles.datePickerWrap}>
-              <DateTimePicker
-                value={purchaseDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-                themeVariant="dark"
-                textColor="#FFFFFF"
+              <TextInput
+                style={[styles.input, { textAlign: "center", fontSize: 18 }]}
+                value={dateInputText}
+                onChangeText={handleDateInputChange}
+                placeholder="DD/MM/YYYY"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                keyboardType="number-pad"
+                maxLength={10}
+                testID="input-purchase-date"
               />
-              {Platform.OS === "ios" ? (
-                <Pressable
-                  style={styles.datePickerDone}
-                  onPress={() => setShowDatePicker(false)}
-                >
-                  <ThemedText type="button" style={{ color: BladeColors.accent }}>{"Done"}</ThemedText>
-                </Pressable>
-              ) : null}
+              <Pressable
+                style={styles.datePickerDone}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <ThemedText type="button" style={{ color: BladeColors.accent }}>{"Done"}</ThemedText>
+              </Pressable>
             </View>
           ) : null}
 
