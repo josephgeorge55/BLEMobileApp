@@ -243,7 +243,7 @@ function buildWelcomeEmailHtml(params: WelcomeEmailParams): string {
 <!-- Header -->
 <tr>
 <td style="background-color:#1A2332;padding:40px 40px 32px;text-align:center;">
-${logoB64 ? `<img src="data:image/png;base64,${logoB64}" alt="Blade Outboards" width="48" height="48" style="display:inline-block;width:48px;height:48px;margin:0 0 12px;" />` : ""}
+${logoB64 ? `<img src="data:image/png;base64,${logoB64}" alt="Blade Outboards" width="40" style="display:inline-block;width:40px;height:auto;margin:0 0 12px;" />` : ""}
 <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:0.5px;">BLADE OUTBOARDS</h1>
 <p style="margin:12px 0 0;color:rgba(255,255,255,0.6);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;">Electric Marine Propulsion</p>
 </td>
