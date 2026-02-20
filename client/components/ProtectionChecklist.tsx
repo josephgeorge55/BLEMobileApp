@@ -1,14 +1,16 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
-import { ThemedText } from "@/components/ThemedText";
 import { Spacing } from "@/constants/theme";
 import type { BoatData, RegisteredMotor } from "@/lib/firebase";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const LOTTIE_SIZE = Math.round(SCREEN_HEIGHT * 0.3);
 
+const BLACK = "#000000";
+const BLACK_SECONDARY = "rgba(0,0,0,0.55)";
+const BLACK_TERTIARY = "rgba(0,0,0,0.35)";
 const SUCCESS = "#34C759";
 
 interface ProtectionChecklistProps {
@@ -57,13 +59,13 @@ export function ProtectionChecklist({
         />
       </View>
 
-      <ThemedText style={allComplete ? styles.protectedTitle : styles.statusTitle}>
+      <Text style={allComplete ? styles.protectedTitle : styles.statusTitle}>
         {allComplete ? "Fully Protected" : "Device Protection"}
-      </ThemedText>
+      </Text>
 
-      <ThemedText style={allComplete ? styles.protectedSubtitle : styles.statusSubtitle}>
+      <Text style={allComplete ? styles.protectedSubtitle : styles.statusSubtitle}>
         {allComplete ? "All steps complete" : `${completedCount} of 3 steps complete`}
-      </ThemedText>
+      </Text>
 
       {!allComplete ? (
         <View style={styles.progressBar}>
@@ -90,29 +92,29 @@ export function ProtectionChecklist({
                 styles.stepCircle,
                 step.completed
                   ? { backgroundColor: SUCCESS }
-                  : { backgroundColor: "rgba(255,255,255,0.15)" },
+                  : { backgroundColor: "rgba(0,0,0,0.08)" },
               ]}
             >
               {step.completed ? (
                 <Feather name="check" size={12} color="#FFFFFF" />
               ) : (
-                <ThemedText style={styles.stepNumber}>{`${index + 1}`}</ThemedText>
+                <Text style={styles.stepNumber}>{`${index + 1}`}</Text>
               )}
             </View>
-            <ThemedText
+            <Text
               style={[
                 styles.stepLabel,
                 step.completed
-                  ? { color: "rgba(255,255,255,0.85)" }
-                  : { color: "rgba(255,255,255,0.4)" },
+                  ? { color: BLACK }
+                  : { color: BLACK_TERTIARY },
               ]}
             >
               {step.label}
-            </ThemedText>
+            </Text>
             {step.completed ? (
               <Feather name="check-circle" size={16} color={SUCCESS} />
             ) : (
-              <Feather name="circle" size={16} color="rgba(255,255,255,0.2)" />
+              <Feather name="circle" size={16} color="rgba(0,0,0,0.15)" />
             )}
           </View>
         ))}
@@ -137,14 +139,14 @@ const styles = StyleSheet.create({
     height: LOTTIE_SIZE,
   },
   protectedTitle: {
-    color: "#FFFFFF",
+    color: BLACK,
     fontSize: 22,
     fontWeight: "700",
     letterSpacing: 0.3,
     textAlign: "center",
   },
   statusTitle: {
-    color: "#FFFFFF",
+    color: BLACK,
     fontSize: 20,
     fontWeight: "600",
     letterSpacing: 0.2,
@@ -158,7 +160,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   statusSubtitle: {
-    color: "rgba(255,255,255,0.5)",
+    color: BLACK_SECONDARY,
     fontSize: 14,
     fontWeight: "400",
     marginTop: 4,
@@ -167,7 +169,7 @@ const styles = StyleSheet.create({
   progressBar: {
     height: 3,
     width: "60%",
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(0,0,0,0.08)",
     borderRadius: 2,
     overflow: "hidden",
     marginTop: Spacing.md,
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
   },
   stepBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: "rgba(0,0,0,0.06)",
   },
   stepCircle: {
     width: 22,
@@ -199,7 +201,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm + 2,
   },
   stepNumber: {
-    color: "rgba(255,255,255,0.5)",
+    color: BLACK_TERTIARY,
     fontSize: 11,
     fontWeight: "600",
   },
