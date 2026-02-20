@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Image, KeyboardAvoidingView, Dimensions } from "react-native";
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Image, KeyboardAvoidingView, Dimensions, Linking } from "react-native";
 import Animated, { FadeIn, FadeInUp, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -726,6 +726,16 @@ export default function WarrantyRegistrationScreen() {
                 {"6. Any disputes arising from this warranty shall be resolved through binding arbitration in accordance with the laws of England and Wales, with proceedings conducted in London, United Kingdom."}
               </ThemedText>
             </ScrollView>
+            <Pressable
+              onPress={() => Linking.openURL("https://www.bladeoutboards.com/warranty-policy")}
+              style={styles.warrantyPolicyLink}
+              testID="button-warranty-policy"
+            >
+              <Feather name="external-link" size={14} color={BladeColors.accent} />
+              <ThemedText type="small" style={styles.warrantyPolicyLinkText}>
+                {"Full terms and conditions can be found here"}
+              </ThemedText>
+            </Pressable>
             <View style={styles.checkboxRow}>
               <Checkbox
                 value={termsAccepted}
@@ -1130,5 +1140,16 @@ const styles = StyleSheet.create({
   registerAnotherText: {
     color: BladeColors.accent,
     fontWeight: "600",
+  },
+  warrantyPolicyLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.xs,
+  },
+  warrantyPolicyLinkText: {
+    color: BladeColors.accent,
+    textDecorationLine: "underline",
   },
 });
