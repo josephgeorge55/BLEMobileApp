@@ -1410,6 +1410,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/warranty/by-serial/:serialNumber", generalApiRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const results = await db.select().from(warranties).where(
+        eq(warranties.serialNumber, serialNumber.toUpperCase())
+      );
+      if (results.length > 0) {
+        const w = results[0];
+        return res.json({ found: true, warranty: w });
+      }
+      return res.json({ found: false, warranty: null });
+    } catch (error) {
+      console.error("[Warranty API] Lookup by serial error:", error);
+      res.status(500).json({ found: false, warranty: null, error: "Failed to look up warranty." });
+    }
+  });
+
   // Warranty confirmation email endpoint
   app.post("/api/warranty/send-confirmation", generalApiRateLimiter, async (req: Request, res: Response) => {
     try {

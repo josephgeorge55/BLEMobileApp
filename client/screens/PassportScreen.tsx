@@ -29,7 +29,7 @@ import { useMotor } from "@/context/MotorContext";
 import {
   getBoatData,
   getRegisteredMotors,
-  getWarrantyData,
+  getWarrantyBySerialNumber,
   type BoatData,
   type RegisteredMotor,
   type WarrantyData,
@@ -80,14 +80,19 @@ export default function PassportScreen() {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const [motors, boat, warranty] = await Promise.all([
+      const [motors, boat] = await Promise.all([
         getRegisteredMotors(user.id),
         getBoatData(user.id),
-        getWarrantyData(user.id),
       ]);
       setRegisteredMotors(motors);
       setBoatData(boat);
-      setWarrantyData(warranty);
+
+      if (motors.length > 0 && motors[0].serialNumber) {
+        const warranty = await getWarrantyBySerialNumber(motors[0].serialNumber);
+        setWarrantyData(warranty);
+      } else {
+        setWarrantyData(null);
+      }
     } catch (error) {
       console.error("[Passport] Failed to load data:", error);
     } finally {
@@ -470,38 +475,17 @@ export default function PassportScreen() {
     );
   }
 
-  const missingWarranty = !warrantyData;
   const missingBoatData = !boatData;
 
-  if (!isLoading && registeredMotors.length > 0 && (missingWarranty || missingBoatData)) {
+  if (!isLoading && registeredMotors.length > 0 && missingBoatData) {
     return (
       <View style={[styles.screen, styles.centered, { paddingHorizontal: Spacing.xl }]}>
         <Animated.View entering={FadeIn.duration(400)} style={styles.lockedCard}>
           <Feather name="alert-circle" size={48} color={BladeColors.warning} />
           <Text style={styles.lockedTitle}>Complete Your Registration</Text>
           <Text style={styles.lockedDescription}>
-            Your passport requires both warranty registration and vessel information before it can be generated. Please complete the steps below.
+            Your passport requires vessel information before it can be generated. Please complete the step below.
           </Text>
-          {missingWarranty ? (
-            <Pressable
-              style={[styles.lockedButton, { backgroundColor: BladeColors.marine, marginBottom: Spacing.sm }]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                typedNavigation.navigate("WarrantyRegistration");
-              }}
-              testID="button-register-warranty"
-            >
-              <Feather name="shield" size={16} color="#FFFFFF" />
-              <Text style={styles.lockedButtonText}>Register Warranty</Text>
-            </Pressable>
-          ) : (
-            <View style={[styles.completedStepRow, { marginBottom: Spacing.sm }]}>
-              <Feather name="check-circle" size={18} color={BladeColors.success} />
-              <Text style={[styles.lockedDescription, { marginTop: 0, marginLeft: 8, color: BladeColors.success }]}>
-                Warranty registered
-              </Text>
-            </View>
-          )}
           {missingBoatData ? (
             <Pressable
               style={[styles.lockedButton, { backgroundColor: BladeColors.accent }]}
@@ -610,8 +594,8 @@ export default function PassportScreen() {
           <View style={styles.sectionContainer}>
             {renderSectionHeader("MOTOR INFORMATION")}
             {renderInfoRow("Serial Number", serialNumber)}
-            {renderInfoRow("Purchase Date", "February 1, 2026")}
-            {renderInfoRow("Warranty Expires", "February 1, 2028")}
+            {renderInfoRow("Purchase Date", warrantyData ? formatWarrantyDate(warrantyData.purchaseDate) : "Not registered")}
+            {renderInfoRow("Warranty Expires", warrantyData ? formatWarrantyDate(warrantyData.warrantyExpirationDate) : "Not registered")}
           </View>
 
           <View style={styles.sectionContainer}>

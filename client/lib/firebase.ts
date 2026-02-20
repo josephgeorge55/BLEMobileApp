@@ -980,6 +980,40 @@ export async function getAllWarranties(userId: string): Promise<WarrantyData[]> 
   }
 }
 
+export async function getWarrantyBySerialNumber(serialNumber: string): Promise<WarrantyData | null> {
+  try {
+    const baseUrl = getApiUrl();
+    const url = new URL(`/api/warranty/by-serial/${encodeURIComponent(serialNumber.toUpperCase())}`, baseUrl);
+    const response = await fetch(url.href);
+    const result = await response.json();
+
+    if (!result.found || !result.warranty) return null;
+
+    const w = result.warranty;
+    return {
+      serialNumber: w.serialNumber || w.serial_number,
+      purchaseDate: w.purchaseDate || w.purchase_date,
+      dealerName: w.dealerName || w.dealer_name || "",
+      firstName: w.firstName || w.first_name,
+      lastName: w.lastName || w.last_name,
+      phoneNumber: w.phoneNumber || w.phone_number || "",
+      email: w.email,
+      country: w.country || "",
+      receiptPhotoBase64: null,
+      termsAccepted: true,
+      status: w.status || "approved",
+      warrantyStartDate: w.warrantyStartDate || w.warranty_start_date || "",
+      warrantyExpirationDate: w.warrantyExpirationDate || w.warranty_expiration_date || "",
+      registrationNumber: w.registrationNumber || w.registration_number,
+      registeredAt: new Date(w.registeredAt || w.registered_at),
+      updatedAt: new Date(w.updatedAt || w.updated_at),
+    } as WarrantyData;
+  } catch (error) {
+    console.error("[Warranty] Error looking up warranty by serial:", error);
+    return null;
+  }
+}
+
 export { 
   auth,
   db,
