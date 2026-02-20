@@ -799,7 +799,7 @@ export interface WarrantyData {
   phoneNumber: string;
   email: string;
   country: string;
-  receiptPhotoBase64?: string;
+  receiptPhotoBase64?: string | null;
   termsAccepted: boolean;
   status: "approved" | "pending" | "rejected";
   warrantyStartDate: string;
@@ -831,7 +831,7 @@ export async function saveWarrantyRegistration(
     phoneNumber: string;
     email: string;
     country: string;
-    receiptPhotoBase64?: string;
+    receiptPhotoBase64?: string | null;
   }
 ): Promise<{ success: boolean; error?: string }> {
   const firestore = getFirestoreDb();
@@ -856,7 +856,7 @@ export async function saveWarrantyRegistration(
       phoneNumber: data.phoneNumber,
       email: data.email,
       country: data.country,
-      receiptPhotoBase64: data.receiptPhotoBase64 || undefined,
+      receiptPhotoBase64: data.receiptPhotoBase64 || null,
       termsAccepted: true,
       status: "approved",
       warrantyStartDate: data.purchaseDate,

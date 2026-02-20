@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Image, KeyboardAvoidingView } from "react-native";
-import Animated, { FadeIn, FadeInUp, SlideInUp, FadeOut } from "react-native-reanimated";
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Image, KeyboardAvoidingView, Dimensions } from "react-native";
+import Animated, { FadeIn, FadeInUp, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Checkbox from "expo-checkbox";
+import LottieView from "lottie-react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
@@ -19,15 +19,16 @@ const DARK_TILE = "rgba(44,44,46,0.92)";
 const INPUT_BG = "rgba(255,255,255,0.08)";
 const TILE_BORDER = "rgba(255,255,255,0.08)";
 const SECTION_LABEL_COLOR = "#8E8E93";
+const LOTTIE_HEADER_BG = "#1A2332";
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const LOTTIE_HEADER_HEIGHT = SCREEN_HEIGHT * 0.30;
 
 export default function WarrantyRegistrationScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
   const { user, isFirebaseReady } = useUser();
   const { showSuccess, showError } = useToast();
 
-  const [showIntro, setShowIntro] = useState(true);
   const [loading, setLoading] = useState(true);
   const [existingWarranty, setExistingWarranty] = useState<WarrantyData | null>(null);
   const [country, setCountry] = useState<string | null>(null);
@@ -50,11 +51,7 @@ export default function WarrantyRegistrationScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const scannerLockRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowIntro(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
+  const webDateInputRef = useRef<any>(null);
 
   useEffect(() => {
     if (!user?.id || !isFirebaseReady) return;
@@ -80,12 +77,26 @@ export default function WarrantyRegistrationScreen() {
     }
   };
 
+  const serialNumberValid = /^JK\d{6}$/.test(serialNumber.trim());
+
   const isFormValid =
-    serialNumber.trim().length > 0 &&
+    serialNumberValid &&
     firstName.trim().length > 0 &&
     lastName.trim().length > 0 &&
     phoneNumber.trim().length > 0 &&
     termsAccepted;
+
+  const handleSerialNumberChange = (text: string) => {
+    let value = text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!value.startsWith("JK")) {
+      const digitsOnly = value.replace(/[^0-9]/g, "");
+      value = "JK" + digitsOnly;
+    }
+    if (value.length > 8) {
+      value = value.substring(0, 8);
+    }
+    setSerialNumber(value);
+  };
 
   const handleOpenScanner = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -135,28 +146,23 @@ export default function WarrantyRegistrationScreen() {
     }
   };
 
-  const handlePickImage = async (source: "camera" | "gallery") => {
+  const handleWebDateChange = (dateString: string) => {
+    if (dateString) {
+      const d = new Date(dateString + "T00:00:00");
+      if (!isNaN(d.getTime()) && d <= new Date()) {
+        setPurchaseDate(d);
+      }
+    }
+  };
+
+  const handlePickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      let result: ImagePicker.ImagePickerResult;
-      if (source === "camera") {
-        const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) {
-          showError("Camera permission is required.");
-          return;
-        }
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ["images"],
-          quality: 0.7,
-          base64: true,
-        });
-      } else {
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          quality: 0.7,
-          base64: true,
-        });
-      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.7,
+        base64: true,
+      });
 
       if (!result.canceled && result.assets[0]) {
         setReceiptBase64(result.assets[0].base64 || null);
@@ -181,7 +187,7 @@ export default function WarrantyRegistrationScreen() {
         phoneNumber: phoneNumber.trim(),
         email: user.email,
         country: country || "Unknown",
-        receiptPhotoBase64: receiptBase64 || undefined,
+        receiptPhotoBase64: receiptBase64 || null,
       });
 
       if (result.success) {
@@ -213,6 +219,13 @@ export default function WarrantyRegistrationScreen() {
     }
   };
 
+  const formatDateForInput = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
   if (showScanner) {
     return (
       <View style={styles.scannerContainer}>
@@ -241,36 +254,9 @@ export default function WarrantyRegistrationScreen() {
     );
   }
 
-  if (showIntro) {
-    return (
-      <View style={[styles.introContainer, { backgroundColor: "#F2F2F7" }]}>
-        <Animated.View entering={FadeIn.duration(500)} style={styles.introContent}>
-          <Animated.View entering={SlideInUp.delay(200).duration(600)} style={styles.introShield}>
-            <View style={styles.introShieldCircle}>
-              <Feather name="shield" size={48} color={BladeColors.accent} />
-            </View>
-          </Animated.View>
-          <Animated.View entering={FadeInUp.delay(600).duration(500)}>
-            <ThemedText type="h2" style={styles.introTitle}>
-              {"Warranty Registration"}
-            </ThemedText>
-          </Animated.View>
-          <Animated.View entering={FadeInUp.delay(900).duration(500)}>
-            <ThemedText type="small" style={styles.introSubtitle}>
-              {"Protecting your Blade outboard motor"}
-            </ThemedText>
-          </Animated.View>
-          <Animated.View entering={FadeIn.delay(1200).duration(400)} style={styles.introCheck}>
-            <Feather name="check-circle" size={24} color={BladeColors.accent} />
-          </Animated.View>
-        </Animated.View>
-      </View>
-    );
-  }
-
   if (loading) {
     return (
-      <View style={[styles.centeredContainer, { backgroundColor: "#F2F2F7", paddingTop: headerHeight }]}>
+      <View style={[styles.centeredContainer, { backgroundColor: "#F2F2F7", paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={BladeColors.accent} />
         <ThemedText type="small" style={{ color: SECTION_LABEL_COLOR, marginTop: Spacing.md }}>
           {"Loading warranty information..."}
@@ -282,113 +268,132 @@ export default function WarrantyRegistrationScreen() {
   if (existingWarranty || submitSuccess) {
     const w = existingWarranty;
     return (
-      <ScrollView
-        style={[styles.container, { backgroundColor: "#F2F2F7" }]}
-        contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.xl,
-          paddingBottom: insets.bottom + Spacing["4xl"],
-          paddingHorizontal: Spacing.screenPadding,
-        }}
-        scrollIndicatorInsets={{ bottom: insets.bottom }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeInUp.duration(500)}>
-          <View style={styles.successCard}>
-            <View style={styles.successIconCircle}>
-              <Feather name="check-circle" size={40} color={BladeColors.accent} />
-            </View>
-            <ThemedText type="h2" style={styles.successTitle}>
-              {"Warranty Registered"}
-            </ThemedText>
-            <ThemedText type="small" style={styles.successSubtitle}>
-              {"Your Blade outboard is covered under warranty"}
-            </ThemedText>
-          </View>
-        </Animated.View>
-
-        {w ? (
-          <Animated.View entering={FadeInUp.delay(200).duration(500)}>
-            <View style={styles.sectionHeader}>
-              <ThemedText type="caption" style={styles.sectionLabel}>
-                {"WARRANTY DETAILS"}
+      <View style={{ flex: 1, backgroundColor: "#F2F2F7" }}>
+        <View style={[styles.lottieHeader, { paddingTop: insets.top }]}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            testID="button-back"
+          >
+            <Feather name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <LottieView
+            source={require("../../assets/lottie/warranty.json")}
+            autoPlay
+            loop
+            style={styles.lottieAnimation}
+          />
+          <Text style={styles.lottieTitle}>{"Warranty Registration"}</Text>
+          <Text style={styles.lottieSubtitle}>{"Protect your Blade outboard"}</Text>
+        </View>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={{
+            paddingTop: Spacing.xl,
+            paddingBottom: insets.bottom + Spacing["4xl"],
+            paddingHorizontal: Spacing.screenPadding,
+          }}
+          scrollIndicatorInsets={{ bottom: insets.bottom }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeInUp.duration(500)}>
+            <View style={styles.successCard}>
+              <View style={styles.successIconCircle}>
+                <Feather name="check-circle" size={40} color={BladeColors.accent} />
+              </View>
+              <ThemedText type="h2" style={styles.successTitle}>
+                {"Warranty Registered"}
+              </ThemedText>
+              <ThemedText type="small" style={styles.successSubtitle}>
+                {"Your Blade outboard is covered under warranty"}
               </ThemedText>
             </View>
-            <View style={styles.detailCard}>
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrap}>
-                  <Feather name="hash" size={16} color={BladeColors.accent} />
-                </View>
-                <View style={styles.detailContent}>
-                  <ThemedText type="caption" style={styles.detailLabel}>{"Serial Number"}</ThemedText>
-                  <ThemedText type="body" style={styles.detailValue}>{w.serialNumber}</ThemedText>
-                </View>
-              </View>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrap}>
-                  <Feather name="check-circle" size={16} color={w.status === "approved" ? BladeColors.accent : BladeColors.warning} />
-                </View>
-                <View style={styles.detailContent}>
-                  <ThemedText type="caption" style={styles.detailLabel}>{"Status"}</ThemedText>
-                  <ThemedText type="body" style={[styles.detailValue, { color: w.status === "approved" ? BladeColors.accent : BladeColors.warning }]}>
-                    {w.status.charAt(0).toUpperCase() + w.status.slice(1)}
-                  </ThemedText>
-                </View>
-              </View>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrap}>
-                  <Feather name="calendar" size={16} color={BladeColors.accent} />
-                </View>
-                <View style={styles.detailContent}>
-                  <ThemedText type="caption" style={styles.detailLabel}>{"Purchase Date"}</ThemedText>
-                  <ThemedText type="body" style={styles.detailValue}>{formatDate(w.purchaseDate)}</ThemedText>
-                </View>
-              </View>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrap}>
-                  <Feather name="shield" size={16} color={BladeColors.accent} />
-                </View>
-                <View style={styles.detailContent}>
-                  <ThemedText type="caption" style={styles.detailLabel}>{"Warranty Start"}</ThemedText>
-                  <ThemedText type="body" style={styles.detailValue}>{formatDate(w.warrantyStartDate)}</ThemedText>
-                </View>
-              </View>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrap}>
-                  <Feather name="clock" size={16} color={BladeColors.accent} />
-                </View>
-                <View style={styles.detailContent}>
-                  <ThemedText type="caption" style={styles.detailLabel}>{"Warranty Expiration"}</ThemedText>
-                  <ThemedText type="body" style={styles.detailValue}>{formatDate(w.warrantyExpirationDate)}</ThemedText>
-                </View>
-              </View>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrap}>
-                  <Feather name="user" size={16} color={BladeColors.accent} />
-                </View>
-                <View style={styles.detailContent}>
-                  <ThemedText type="caption" style={styles.detailLabel}>{"Registered To"}</ThemedText>
-                  <ThemedText type="body" style={styles.detailValue}>{w.firstName} {w.lastName}</ThemedText>
-                </View>
-              </View>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrap}>
-                  <Feather name="mail" size={16} color={BladeColors.accent} />
-                </View>
-                <View style={styles.detailContent}>
-                  <ThemedText type="caption" style={styles.detailLabel}>{"Email"}</ThemedText>
-                  <ThemedText type="body" style={styles.detailValue}>{w.email}</ThemedText>
-                </View>
-              </View>
-            </View>
           </Animated.View>
-        ) : null}
-      </ScrollView>
+
+          {w ? (
+            <Animated.View entering={FadeInUp.delay(200).duration(500)}>
+              <View style={styles.sectionHeader}>
+                <ThemedText type="caption" style={styles.sectionLabel}>
+                  {"WARRANTY DETAILS"}
+                </ThemedText>
+              </View>
+              <View style={styles.detailCard}>
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconWrap}>
+                    <Feather name="hash" size={16} color={BladeColors.accent} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <ThemedText type="caption" style={styles.detailLabel}>{"Serial Number"}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{w.serialNumber}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconWrap}>
+                    <Feather name="check-circle" size={16} color={w.status === "approved" ? BladeColors.accent : BladeColors.warning} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <ThemedText type="caption" style={styles.detailLabel}>{"Status"}</ThemedText>
+                    <ThemedText type="body" style={[styles.detailValue, { color: w.status === "approved" ? BladeColors.accent : BladeColors.warning }]}>
+                      {w.status.charAt(0).toUpperCase() + w.status.slice(1)}
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconWrap}>
+                    <Feather name="calendar" size={16} color={BladeColors.accent} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <ThemedText type="caption" style={styles.detailLabel}>{"Purchase Date"}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{formatDate(w.purchaseDate)}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconWrap}>
+                    <Feather name="shield" size={16} color={BladeColors.accent} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <ThemedText type="caption" style={styles.detailLabel}>{"Warranty Start"}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{formatDate(w.warrantyStartDate)}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconWrap}>
+                    <Feather name="clock" size={16} color={BladeColors.accent} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <ThemedText type="caption" style={styles.detailLabel}>{"Warranty Expiration"}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{formatDate(w.warrantyExpirationDate)}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconWrap}>
+                    <Feather name="user" size={16} color={BladeColors.accent} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <ThemedText type="caption" style={styles.detailLabel}>{"Registered To"}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{w.firstName} {w.lastName}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIconWrap}>
+                    <Feather name="mail" size={16} color={BladeColors.accent} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <ThemedText type="caption" style={styles.detailLabel}>{"Email"}</ThemedText>
+                    <ThemedText type="body" style={styles.detailValue}>{w.email}</ThemedText>
+                  </View>
+                </View>
+              </View>
+            </Animated.View>
+          ) : null}
+        </ScrollView>
+      </View>
     );
   }
 
@@ -398,315 +403,334 @@ export default function WarrantyRegistrationScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
-      <ScrollView
-        style={[styles.container, { backgroundColor: "#F2F2F7" }]}
-        contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.xl,
-          paddingBottom: insets.bottom + Spacing["4xl"],
-          paddingHorizontal: Spacing.screenPadding,
-        }}
-        scrollIndicatorInsets={{ bottom: insets.bottom }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {!boatData ? (
-          <Animated.View entering={FadeIn.duration(400)}>
-            <Pressable
-              style={styles.boatPromptCard}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.goBack();
-              }}
-              testID="button-boat-prompt"
-            >
-              <View style={styles.boatPromptIcon}>
-                <Feather name="anchor" size={20} color={BladeColors.warning} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={{ color: "#FFFFFF" }}>
-                  {"Complete Your Boat Information"}
-                </ThemedText>
-                <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
-                  {"Adding boat details in Settings improves your warranty record. Tap to go back."}
-                </ThemedText>
-              </View>
-              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.5)" />
-            </Pressable>
-          </Animated.View>
-        ) : null}
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="caption" style={styles.sectionLabel}>
-            {"ACCOUNT INFORMATION"}
-          </ThemedText>
-        </View>
-        <View style={styles.formCard}>
-          <View style={styles.readOnlyRow}>
-            <View style={styles.readOnlyIconWrap}>
-              <Feather name="mail" size={16} color={BladeColors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="caption" style={styles.readOnlyLabel}>{"Email (bound to warranty)"}</ThemedText>
-              <ThemedText type="body" style={styles.readOnlyValue}>{user?.email || "Not available"}</ThemedText>
-            </View>
-            <Feather name="lock" size={14} color="rgba(255,255,255,0.3)" />
-          </View>
-          <View style={styles.formDivider} />
-          <View style={styles.readOnlyRow}>
-            <View style={styles.readOnlyIconWrap}>
-              <Feather name="globe" size={16} color={BladeColors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="caption" style={styles.readOnlyLabel}>{"Country (bound to warranty)"}</ThemedText>
-              <ThemedText type="body" style={styles.readOnlyValue}>{country || "Not set"}</ThemedText>
-            </View>
-            <Feather name="lock" size={14} color="rgba(255,255,255,0.3)" />
-          </View>
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="caption" style={styles.sectionLabel}>
-            {"MOTOR INFORMATION"}
-          </ThemedText>
-        </View>
-        <View style={styles.formCard}>
-          <ThemedText type="caption" style={styles.inputLabel}>{"Serial Number *"}</ThemedText>
-          <View style={styles.serialRow}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              value={serialNumber}
-              onChangeText={setSerialNumber}
-              placeholder="e.g. BLD-2025-001234"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              autoCapitalize="characters"
-              returnKeyType="next"
-              testID="input-serial-number"
-            />
-            <Pressable
-              style={styles.scanButton}
-              onPress={handleOpenScanner}
-              testID="button-scan-qr"
-            >
-              <Feather name="camera" size={20} color="#FFFFFF" />
-            </Pressable>
-          </View>
-
-          <View style={styles.formDivider} />
-
-          <ThemedText type="caption" style={styles.inputLabel}>{"Date of Purchase *"}</ThemedText>
+      <View style={{ flex: 1, backgroundColor: "#F2F2F7" }}>
+        <View style={[styles.lottieHeader, { paddingTop: insets.top }]}>
           <Pressable
-            style={styles.dateRow}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowDatePicker(true);
-            }}
-            testID="button-date-picker"
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            testID="button-back"
           >
-            <Feather name="calendar" size={18} color={BladeColors.accent} />
-            <ThemedText type="body" style={styles.dateText}>
-              {purchaseDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-            </ThemedText>
-            <Feather name="chevron-down" size={18} color="rgba(255,255,255,0.5)" />
+            <Feather name="chevron-left" size={28} color="#FFFFFF" />
           </Pressable>
-          {showDatePicker ? (
-            <View style={styles.datePickerWrap}>
-              <TextInput
-                style={[styles.input, { textAlign: "center", fontSize: 18 }]}
-                value={dateInputText}
-                onChangeText={handleDateInputChange}
-                placeholder="DD/MM/YYYY"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                keyboardType="number-pad"
-                maxLength={10}
-                testID="input-purchase-date"
-              />
+          <LottieView
+            source={require("../../assets/lottie/warranty.json")}
+            autoPlay
+            loop
+            style={styles.lottieAnimation}
+          />
+          <Text style={styles.lottieTitle}>{"Warranty Registration"}</Text>
+          <Text style={styles.lottieSubtitle}>{"Protect your Blade outboard"}</Text>
+        </View>
+
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={{
+            paddingTop: Spacing.xl,
+            paddingBottom: insets.bottom + Spacing["4xl"],
+            paddingHorizontal: Spacing.screenPadding,
+          }}
+          scrollIndicatorInsets={{ bottom: insets.bottom }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {!boatData ? (
+            <Animated.View entering={FadeIn.duration(400)}>
               <Pressable
-                style={styles.datePickerDone}
-                onPress={() => setShowDatePicker(false)}
-              >
-                <ThemedText type="button" style={{ color: BladeColors.accent }}>{"Done"}</ThemedText>
-              </Pressable>
-            </View>
-          ) : null}
-
-          <View style={styles.formDivider} />
-
-          <ThemedText type="caption" style={styles.inputLabel}>{"Dealer/Reseller Name (if applicable)"}</ThemedText>
-          <TextInput
-            style={styles.input}
-            value={dealerName}
-            onChangeText={setDealerName}
-            placeholder="Enter dealer or reseller name"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            returnKeyType="next"
-            testID="input-dealer-name"
-          />
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="caption" style={styles.sectionLabel}>
-            {"PERSONAL DETAILS"}
-          </ThemedText>
-        </View>
-        <View style={styles.formCard}>
-          <ThemedText type="caption" style={styles.inputLabel}>{"First Name *"}</ThemedText>
-          <TextInput
-            style={styles.input}
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder="Enter your first name"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            autoCapitalize="words"
-            returnKeyType="next"
-            testID="input-first-name"
-          />
-
-          <View style={styles.formDivider} />
-
-          <ThemedText type="caption" style={styles.inputLabel}>{"Last Name *"}</ThemedText>
-          <TextInput
-            style={styles.input}
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder="Enter your last name"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            autoCapitalize="words"
-            returnKeyType="next"
-            testID="input-last-name"
-          />
-
-          <View style={styles.formDivider} />
-
-          <ThemedText type="caption" style={styles.inputLabel}>{"Phone Number *"}</ThemedText>
-          <TextInput
-            style={styles.input}
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            placeholder="+44 7700 900000"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            keyboardType="phone-pad"
-            returnKeyType="done"
-            testID="input-phone-number"
-          />
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="caption" style={styles.sectionLabel}>
-            {"PROOF OF PURCHASE"}
-          </ThemedText>
-        </View>
-        <View style={styles.formCard}>
-          <ThemedText type="caption" style={[styles.inputLabel, { marginBottom: Spacing.sm }]}>
-            {"Upload receipt or invoice photo"}
-          </ThemedText>
-          <View style={styles.photoButtonsRow}>
-            <Pressable
-              style={styles.photoButton}
-              onPress={() => handlePickImage("camera")}
-              testID="button-receipt-camera"
-            >
-              <Feather name="camera" size={18} color="#FFFFFF" />
-              <ThemedText type="caption" style={styles.photoButtonText}>{"Camera"}</ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.photoButton}
-              onPress={() => handlePickImage("gallery")}
-              testID="button-receipt-gallery"
-            >
-              <Feather name="image" size={18} color="#FFFFFF" />
-              <ThemedText type="caption" style={styles.photoButtonText}>{"Gallery"}</ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.photoButton}
-              onPress={() => handlePickImage("gallery")}
-              testID="button-receipt-file"
-            >
-              <Feather name="file" size={18} color="#FFFFFF" />
-              <ThemedText type="caption" style={styles.photoButtonText}>{"File"}</ThemedText>
-            </Pressable>
-          </View>
-          {receiptUri ? (
-            <View style={styles.receiptPreview}>
-              <Image source={{ uri: receiptUri }} style={styles.receiptImage} resizeMode="cover" />
-              <Pressable
-                style={styles.receiptRemoveBtn}
+                style={styles.boatPromptCard}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setReceiptBase64(null);
-                  setReceiptUri(null);
+                  navigation.goBack();
                 }}
-                testID="button-remove-receipt"
+                testID="button-boat-prompt"
               >
-                <Feather name="x-circle" size={22} color={BladeColors.error} />
+                <View style={styles.boatPromptIcon}>
+                  <Feather name="anchor" size={20} color={BladeColors.warning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="body" style={{ color: "#FFFFFF" }}>
+                    {"Complete Your Boat Information"}
+                  </ThemedText>
+                  <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
+                    {"Adding boat details in Settings improves your warranty record. Tap to go back."}
+                  </ThemedText>
+                </View>
+                <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.5)" />
               </Pressable>
-            </View>
+            </Animated.View>
           ) : null}
-        </View>
 
-        <View style={styles.sectionHeader}>
-          <ThemedText type="caption" style={styles.sectionLabel}>
-            {"TERMS & CONDITIONS"}
-          </ThemedText>
-        </View>
-        <View style={styles.formCard}>
-          <ScrollView style={styles.termsScroll} nestedScrollEnabled>
-            <ThemedText type="small" style={styles.termsText}>
-              {"1. This warranty covers manufacturing defects in materials and workmanship of your Blade electric outboard motor for a period of two years (or three years in applicable jurisdictions) from the date of purchase."}
-            </ThemedText>
-            <ThemedText type="small" style={styles.termsText}>
-              {"2. This warranty does not cover damage resulting from misuse, unauthorised modifications, improper installation, neglect, accident, or use contrary to the product instructions and guidelines."}
-            </ThemedText>
-            <ThemedText type="small" style={styles.termsText}>
-              {"3. To be eligible for warranty coverage, the product must be registered within 30 days of the original purchase date through this application with valid proof of purchase."}
-            </ThemedText>
-            <ThemedText type="small" style={styles.termsText}>
-              {"4. This warranty is transferable to subsequent owners of the product, provided that the original warranty registration remains valid and the transfer is notified to Blade Marine Technologies Limited in writing."}
-            </ThemedText>
-            <ThemedText type="small" style={styles.termsText}>
-              {"5. Blade Marine Technologies Limited's liability under this warranty is limited to the repair or replacement of the defective product at our sole discretion. In no event shall we be liable for any indirect, incidental, or consequential damages."}
-            </ThemedText>
-            <ThemedText type="small" style={styles.termsText}>
-              {"6. Any disputes arising from this warranty shall be resolved through binding arbitration in accordance with the laws of England and Wales, with proceedings conducted in London, United Kingdom."}
-            </ThemedText>
-          </ScrollView>
-          <View style={styles.checkboxRow}>
-            <Checkbox
-              value={termsAccepted}
-              onValueChange={(val: boolean) => {
-                Haptics.selectionAsync();
-                setTermsAccepted(val);
-              }}
-              color={termsAccepted ? BladeColors.accent : undefined}
-              style={styles.checkbox}
-              testID="checkbox-terms"
-            />
-            <ThemedText type="small" style={styles.checkboxLabel}>
-              {"I have read and accept the terms and conditions"}
+          <View style={styles.sectionHeader}>
+            <ThemedText type="caption" style={styles.sectionLabel}>
+              {"ACCOUNT INFORMATION"}
             </ThemedText>
           </View>
-        </View>
+          <View style={styles.formCard}>
+            <View style={styles.readOnlyRow}>
+              <View style={styles.readOnlyIconWrap}>
+                <Feather name="mail" size={16} color={BladeColors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="caption" style={styles.readOnlyLabel}>{"Email (bound to warranty)"}</ThemedText>
+                <ThemedText type="body" style={styles.readOnlyValue}>{user?.email || "Not available"}</ThemedText>
+              </View>
+              <Feather name="lock" size={14} color="rgba(255,255,255,0.3)" />
+            </View>
+            <View style={styles.formDivider} />
+            <View style={styles.readOnlyRow}>
+              <View style={styles.readOnlyIconWrap}>
+                <Feather name="globe" size={16} color={BladeColors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="caption" style={styles.readOnlyLabel}>{"Country (bound to warranty)"}</ThemedText>
+                <ThemedText type="body" style={styles.readOnlyValue}>{country || "Not set"}</ThemedText>
+              </View>
+              <Feather name="lock" size={14} color="rgba(255,255,255,0.3)" />
+            </View>
+          </View>
 
-        <Pressable
-          style={[
-            styles.submitButton,
-            (!isFormValid || submitting) ? styles.submitButtonDisabled : null,
-          ]}
-          onPress={handleSubmit}
-          disabled={!isFormValid || submitting}
-          testID="button-submit-warranty"
-        >
-          {submitting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Feather name="shield" size={20} color="#FFFFFF" style={{ marginRight: Spacing.sm }} />
-              <ThemedText type="button" style={{ color: "#FFFFFF" }}>
-                {"Register Warranty"}
+          <View style={styles.sectionHeader}>
+            <ThemedText type="caption" style={styles.sectionLabel}>
+              {"MOTOR INFORMATION"}
+            </ThemedText>
+          </View>
+          <View style={styles.formCard}>
+            <ThemedText type="caption" style={styles.inputLabel}>{"Serial Number *"}</ThemedText>
+            <View style={styles.serialRow}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={serialNumber}
+                onChangeText={handleSerialNumberChange}
+                placeholder="JK000000"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                autoCapitalize="characters"
+                maxLength={8}
+                returnKeyType="next"
+                testID="input-serial-number"
+              />
+              <Pressable
+                style={styles.scanButton}
+                onPress={handleOpenScanner}
+                testID="button-scan-qr"
+              >
+                <Feather name="camera" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            <View style={styles.formDivider} />
+
+            <ThemedText type="caption" style={styles.inputLabel}>{"Date of Purchase *"}</ThemedText>
+            <Pressable
+              style={styles.dateRow}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (Platform.OS === "web" && webDateInputRef.current) {
+                  webDateInputRef.current.click();
+                } else {
+                  setShowDatePicker(true);
+                }
+              }}
+              testID="button-date-picker"
+            >
+              <Feather name="calendar" size={18} color={BladeColors.accent} />
+              <ThemedText type="body" style={styles.dateText}>
+                {purchaseDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
               </ThemedText>
-            </>
-          )}
-        </Pressable>
-      </ScrollView>
+              <Feather name="chevron-down" size={18} color="rgba(255,255,255,0.5)" />
+            </Pressable>
+            {Platform.OS === "web" ? (
+              <View style={{ height: 0, overflow: "hidden" }}>
+                <input
+                  ref={webDateInputRef}
+                  type="date"
+                  value={formatDateForInput(purchaseDate)}
+                  max={formatDateForInput(new Date())}
+                  onChange={(e: any) => handleWebDateChange(e.target.value)}
+                  style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                />
+              </View>
+            ) : null}
+            {Platform.OS !== "web" && showDatePicker ? (
+              <View style={styles.datePickerWrap}>
+                <TextInput
+                  style={[styles.input, { textAlign: "center", fontSize: 18 }]}
+                  value={dateInputText}
+                  onChangeText={handleDateInputChange}
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  testID="input-purchase-date"
+                />
+                <Pressable
+                  style={styles.datePickerDone}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <ThemedText type="button" style={{ color: BladeColors.accent }}>{"Done"}</ThemedText>
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View style={styles.formDivider} />
+
+            <ThemedText type="caption" style={styles.inputLabel}>{"Dealer/Reseller Name (if applicable)"}</ThemedText>
+            <TextInput
+              style={styles.input}
+              value={dealerName}
+              onChangeText={setDealerName}
+              placeholder="Enter dealer or reseller name"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              returnKeyType="next"
+              testID="input-dealer-name"
+            />
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <ThemedText type="caption" style={styles.sectionLabel}>
+              {"PERSONAL DETAILS"}
+            </ThemedText>
+          </View>
+          <View style={styles.formCard}>
+            <ThemedText type="caption" style={styles.inputLabel}>{"First Name *"}</ThemedText>
+            <TextInput
+              style={styles.input}
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="Enter your first name"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              autoCapitalize="words"
+              returnKeyType="next"
+              testID="input-first-name"
+            />
+
+            <View style={styles.formDivider} />
+
+            <ThemedText type="caption" style={styles.inputLabel}>{"Last Name *"}</ThemedText>
+            <TextInput
+              style={styles.input}
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Enter your last name"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              autoCapitalize="words"
+              returnKeyType="next"
+              testID="input-last-name"
+            />
+
+            <View style={styles.formDivider} />
+
+            <ThemedText type="caption" style={styles.inputLabel}>{"Phone Number *"}</ThemedText>
+            <TextInput
+              style={styles.input}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="+44 7700 900000"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              keyboardType="phone-pad"
+              returnKeyType="done"
+              testID="input-phone-number"
+            />
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <ThemedText type="caption" style={styles.sectionLabel}>
+              {"PROOF OF PURCHASE"}
+            </ThemedText>
+          </View>
+          <View style={styles.formCard}>
+            <ThemedText type="caption" style={[styles.inputLabel, { marginBottom: Spacing.sm }]}>
+              {"Upload receipt or invoice photo"}
+            </ThemedText>
+            <Pressable
+              style={styles.uploadReceiptButton}
+              onPress={handlePickImage}
+              testID="button-upload-receipt"
+            >
+              <Feather name="upload" size={18} color="#FFFFFF" />
+              <ThemedText type="caption" style={styles.photoButtonText}>{"Upload Receipt"}</ThemedText>
+            </Pressable>
+            {receiptUri ? (
+              <View style={styles.receiptPreview}>
+                <Image source={{ uri: receiptUri }} style={styles.receiptImage} resizeMode="cover" />
+                <Pressable
+                  style={styles.receiptRemoveBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setReceiptBase64(null);
+                    setReceiptUri(null);
+                  }}
+                  testID="button-remove-receipt"
+                >
+                  <Feather name="x-circle" size={22} color={BladeColors.error} />
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <ThemedText type="caption" style={styles.sectionLabel}>
+              {"TERMS & CONDITIONS"}
+            </ThemedText>
+          </View>
+          <View style={styles.formCard}>
+            <ScrollView style={styles.termsScroll} nestedScrollEnabled>
+              <ThemedText type="small" style={styles.termsText}>
+                {"1. This warranty covers manufacturing defects in materials and workmanship of your Blade electric outboard motor for a period of two years (or three years in applicable jurisdictions) from the date of purchase."}
+              </ThemedText>
+              <ThemedText type="small" style={styles.termsText}>
+                {"2. This warranty does not cover damage resulting from misuse, unauthorised modifications, improper installation, neglect, accident, or use contrary to the product instructions and guidelines."}
+              </ThemedText>
+              <ThemedText type="small" style={styles.termsText}>
+                {"3. To be eligible for warranty coverage, the product must be registered within 30 days of the original purchase date through this application with valid proof of purchase."}
+              </ThemedText>
+              <ThemedText type="small" style={styles.termsText}>
+                {"4. This warranty is transferable to subsequent owners of the product, provided that the original warranty registration remains valid and the transfer is notified to Blade Marine Technologies Limited in writing."}
+              </ThemedText>
+              <ThemedText type="small" style={styles.termsText}>
+                {"5. Blade Marine Technologies Limited's liability under this warranty is limited to the repair or replacement of the defective product at our sole discretion. In no event shall we be liable for any indirect, incidental, or consequential damages."}
+              </ThemedText>
+              <ThemedText type="small" style={styles.termsText}>
+                {"6. Any disputes arising from this warranty shall be resolved through binding arbitration in accordance with the laws of England and Wales, with proceedings conducted in London, United Kingdom."}
+              </ThemedText>
+            </ScrollView>
+            <View style={styles.checkboxRow}>
+              <Checkbox
+                value={termsAccepted}
+                onValueChange={(val: boolean) => {
+                  Haptics.selectionAsync();
+                  setTermsAccepted(val);
+                }}
+                color={termsAccepted ? BladeColors.accent : undefined}
+                style={styles.checkbox}
+                testID="checkbox-terms"
+              />
+              <ThemedText type="small" style={styles.checkboxLabel}>
+                {"I have read and accept the terms and conditions"}
+              </ThemedText>
+            </View>
+          </View>
+
+          <Pressable
+            style={[
+              styles.submitButton,
+              (!isFormValid || submitting) ? styles.submitButtonDisabled : null,
+            ]}
+            onPress={handleSubmit}
+            disabled={!isFormValid || submitting}
+            testID="button-submit-warranty"
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Feather name="shield" size={20} color="#FFFFFF" style={{ marginRight: Spacing.sm }} />
+                <ThemedText type="button" style={{ color: "#FFFFFF" }}>
+                  {"Register Warranty"}
+                </ThemedText>
+              </>
+            )}
+          </Pressable>
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -720,38 +744,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  introContainer: {
-    flex: 1,
+  lottieHeader: {
+    backgroundColor: LOTTIE_HEADER_BG,
+    alignItems: "center",
+    paddingBottom: Spacing.xl,
+    minHeight: LOTTIE_HEADER_HEIGHT,
+    justifyContent: "flex-end",
+  },
+  backButton: {
+    position: "absolute",
+    top: 0,
+    left: Spacing.md,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: Spacing.sm,
   },
-  introContent: {
-    alignItems: "center",
+  lottieAnimation: {
+    width: 140,
+    height: 140,
   },
-  introShield: {
-    marginBottom: Spacing["2xl"],
-  },
-  introShieldCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: DARK_TILE,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: BladeColors.accent + "40",
-  },
-  introTitle: {
-    color: "#1C1C1E",
+  lottieTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
     textAlign: "center",
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
   },
-  introSubtitle: {
-    color: SECTION_LABEL_COLOR,
+  lottieSubtitle: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 14,
     textAlign: "center",
-  },
-  introCheck: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.xs,
   },
   sectionHeader: {
     marginTop: Spacing["2xl"],
@@ -849,19 +876,14 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     marginTop: 2,
   },
-  photoButtonsRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  photoButton: {
-    flex: 1,
+  uploadReceiptButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: INPUT_BG,
     borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.md,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   photoButtonText: {
     color: "#FFFFFF",

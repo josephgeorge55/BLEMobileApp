@@ -247,8 +247,7 @@ export default function RootStackNavigator() {
               name="WarrantyRegistration"
               component={WarrantyRegistrationScreen}
               options={{
-                headerTitle: "Warranty Registration",
-                headerBackTitle: "Back",
+                headerShown: false,
                 animation: "fade_from_bottom",
                 animationDuration: 350,
               }}
