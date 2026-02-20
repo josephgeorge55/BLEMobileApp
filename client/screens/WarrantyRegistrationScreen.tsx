@@ -380,7 +380,8 @@ export default function WarrantyRegistrationScreen() {
     }
 
     if (Platform.OS === "web") {
-      proceedWithSubmission();
+      showError("Bluetooth verification is required to register a warranty. Please use the Blade Halo Connect app on your phone (iOS or Android) to register while near your outboard motor.");
+      return;
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       startBluetoothVerification();
