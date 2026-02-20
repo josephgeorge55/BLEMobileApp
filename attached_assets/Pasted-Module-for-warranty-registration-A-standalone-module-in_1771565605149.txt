@@ -1,0 +1,23 @@
+Module for warranty registration
+
+
+A standalone module in the settings/more tab called warranty registration.
+
+Upon first use of the passport it should ask if the motor has been registered for warranty, if not it should have a button to access the warranty registration, it should also make sure the boat details have been filled in the boat information fields in the other tab. It should only generate a pass if warranty data exists in the database firestone and if the vessel information has also been registered in the database. Handle these all gracefully and ensure it is a good setup.
+
+The warranty registration should be a button on the settings tab called warranty registration; it should be the following:
+
+Enter serial number (or use QR code scanner on camera)
+Enter date of purchase (date purchased from dealer), should be precise calendar date
+Enter name of dealer/reseller (if applicable): should be name of dealer
+Enter first and last name
+Enter phone number (international support required)
+Upload photo of receipt showing payment (optional) using camera or upload from file or upload from gallery
+
+<accept terms and conditions> put standard basic terms and conditions for now about 6 sentences, we will edit these later.
+
+Once registered it should send all these including the photo to firestone, for now it should be all auto-approved,  and the standard warranty start date should be date of purchase, expiration date should be 2 years later. Make sure you also pass the country and email of the user that was registered upon app login, and make sure its clear that email is binded to the warranty and the country. In some countries (such as hungary) will be 3 years not 2 years so make sure we get the country data in the logic. In the future, it will be reviewed and checked, make sure theres a disclaimer of processing on the warranty registration that it may take up to 2 weeks to verify details and that any information displayed on the warranty pass is subject to processing
+
+Make sure this works with IOS and Android, and add appropriate lottie animations upon starting the module.
+
+Make sure the module doesn’t break anything else

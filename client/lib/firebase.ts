@@ -790,6 +790,156 @@ export async function downloadFirmwareData(
   }
 }
 
+export interface WarrantyData {
+  serialNumber: string;
+  purchaseDate: string;
+  dealerName: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  email: string;
+  country: string;
+  receiptPhotoBase64?: string;
+  termsAccepted: boolean;
+  status: "approved" | "pending" | "rejected";
+  warrantyStartDate: string;
+  warrantyExpirationDate: string;
+  registeredAt: Date;
+  updatedAt: Date;
+}
+
+const THREE_YEAR_WARRANTY_COUNTRIES = ["hungary", "hu"];
+
+function calculateWarrantyExpiration(purchaseDate: string, country: string): string {
+  const date = new Date(purchaseDate);
+  const normalizedCountry = country.toLowerCase().trim();
+  const years = THREE_YEAR_WARRANTY_COUNTRIES.some(
+    c => normalizedCountry === c || normalizedCountry.includes("hungary")
+  ) ? 3 : 2;
+  date.setFullYear(date.getFullYear() + years);
+  return date.toISOString();
+}
+
+export async function saveWarrantyRegistration(
+  userId: string,
+  data: {
+    serialNumber: string;
+    purchaseDate: string;
+    dealerName: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email: string;
+    country: string;
+    receiptPhotoBase64?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const firestore = getFirestoreDb();
+  if (!firestore) {
+    return { success: false, error: "Database service unavailable." };
+  }
+
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) {
+    return { success: false, error: "You need to sign in first." };
+  }
+
+  const effectiveUserId = currentUser.uid;
+
+  try {
+    const warrantyDoc: WarrantyData = {
+      serialNumber: data.serialNumber.toUpperCase(),
+      purchaseDate: data.purchaseDate,
+      dealerName: data.dealerName,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phoneNumber: data.phoneNumber,
+      email: data.email,
+      country: data.country,
+      receiptPhotoBase64: data.receiptPhotoBase64 || undefined,
+      termsAccepted: true,
+      status: "approved",
+      warrantyStartDate: data.purchaseDate,
+      warrantyExpirationDate: calculateWarrantyExpiration(data.purchaseDate, data.country),
+      registeredAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const warrantyRef = doc(
+      firestore,
+      "users",
+      effectiveUserId,
+      "warranties",
+      data.serialNumber.toUpperCase()
+    );
+    await setDoc(warrantyRef, warrantyDoc);
+
+    console.log("[Firebase] Warranty registered successfully:", data.serialNumber);
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Firebase] Error saving warranty:", error);
+    return { success: false, error: error.message || "Failed to register warranty." };
+  }
+}
+
+export async function getWarrantyData(
+  userId: string,
+  serialNumber?: string
+): Promise<WarrantyData | null> {
+  const firestore = getFirestoreDb();
+  if (!firestore) return null;
+
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) return null;
+
+  const effectiveUserId = currentUser.uid;
+
+  try {
+    if (serialNumber) {
+      const warrantyRef = doc(
+        firestore,
+        "users",
+        effectiveUserId,
+        "warranties",
+        serialNumber.toUpperCase()
+      );
+      const warrantyDoc = await getDoc(warrantyRef);
+      if (warrantyDoc.exists()) {
+        return warrantyDoc.data() as WarrantyData;
+      }
+      return null;
+    }
+
+    const warrantiesRef = collection(firestore, "users", effectiveUserId, "warranties");
+    const snapshot = await getDocs(warrantiesRef);
+    if (snapshot.empty) return null;
+
+    return snapshot.docs[0].data() as WarrantyData;
+  } catch (error) {
+    console.error("[Firebase] Error getting warranty data:", error);
+    return null;
+  }
+}
+
+export async function getAllWarranties(userId: string): Promise<WarrantyData[]> {
+  const firestore = getFirestoreDb();
+  if (!firestore) return [];
+
+  const currentUser = await waitForAuthState(5000);
+  if (!currentUser) return [];
+
+  const effectiveUserId = currentUser.uid;
+
+  try {
+    const warrantiesRef = collection(firestore, "users", effectiveUserId, "warranties");
+    const snapshot = await getDocs(warrantiesRef);
+    return snapshot.docs.map(d => d.data() as WarrantyData);
+  } catch (error) {
+    console.error("[Firebase] Error getting warranties:", error);
+    return [];
+  }
+}
+
 export { 
   auth,
   db,
