@@ -202,7 +202,19 @@ interface WelcomeEmailParams {
   recipientEmail: string;
 }
 
+function getLogoBase64(): string {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const logoPath = path.join(process.cwd(), "attached_assets", "ICON_Only_Green_1771572436008.png");
+    return fs.readFileSync(logoPath, { encoding: "base64" });
+  } catch {
+    return "";
+  }
+}
+
 function buildWelcomeEmailHtml(params: WelcomeEmailParams): string {
+  const logoB64 = getLogoBase64();
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-GB", {
     weekday: "long",
@@ -231,6 +243,7 @@ function buildWelcomeEmailHtml(params: WelcomeEmailParams): string {
 <!-- Header -->
 <tr>
 <td style="background-color:#1A2332;padding:40px 40px 32px;text-align:center;">
+${logoB64 ? `<img src="data:image/png;base64,${logoB64}" alt="Blade Outboards" width="48" height="48" style="display:inline-block;width:48px;height:48px;margin:0 0 12px;" />` : ""}
 <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:0.5px;">BLADE OUTBOARDS</h1>
 <p style="margin:12px 0 0;color:rgba(255,255,255,0.6);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;">Electric Marine Propulsion</p>
 </td>
@@ -322,7 +335,17 @@ function buildWelcomeEmailHtml(params: WelcomeEmailParams): string {
 </tr>
 </table>
 
-<p style="margin:0 0 8px;color:#4a5568;font-size:14px;line-height:1.6;">We are committed to delivering the best electric marine experience. If you need assistance at any time, please do not hesitate to reach out to your authorised Blade dealer.</p>
+<p style="margin:0 0 8px;color:#4a5568;font-size:14px;line-height:1.6;">We are committed to delivering the best electric marine experience. If you need assistance at any time, visit our <a href="https://support.bladeoutboards.com" style="color:#34C759;text-decoration:underline;font-weight:600;">Support Portal</a> or reach out to your authorised Blade dealer.</p>
+
+<!-- Device Requirements -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0;">
+<tr>
+<td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 20px;">
+<p style="margin:0 0 4px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Optimal App Experience</p>
+<p style="margin:0;color:#4a5568;font-size:12px;line-height:1.5;">iOS 16 or later &nbsp;&#8226;&nbsp; Android 10 (API 29) or later</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 
@@ -331,6 +354,7 @@ function buildWelcomeEmailHtml(params: WelcomeEmailParams): string {
 <td style="background-color:#1A2332;padding:28px 40px;text-align:center;">
 <p style="margin:0 0 8px;color:#ffffff;font-size:14px;font-weight:600;">Blade Marine Technologies Limited</p>
 <p style="margin:0 0 4px;color:rgba(255,255,255,0.5);font-size:12px;">bladeoutboards.ch</p>
+<p style="margin:12px 0 0;color:rgba(255,255,255,0.4);font-size:11px;">Need help? Visit <a href="https://support.bladeoutboards.com" style="color:rgba(255,255,255,0.55);text-decoration:underline;">support.bladeoutboards.com</a></p>
 <p style="margin:16px 0 0;color:rgba(255,255,255,0.35);font-size:11px;">This is an automated message from Blade Outboards. Please do not reply to this email.</p>
 <p style="margin:12px 0 0;color:rgba(255,255,255,0.35);font-size:11px;"><a href="https://www.bladeoutboards.com/tandc" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Terms &amp; Conditions</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="https://www.bladeoutboards.com/privacy-policy" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Privacy Policy</a></p>
 <p style="margin:12px 0 0;color:rgba(255,255,255,0.35);font-size:10px;line-height:1.5;">If you did not create this account, please contact <a href="mailto:IT@bladetcg.com" style="color:rgba(255,255,255,0.5);text-decoration:underline;">IT@bladetcg.com</a> immediately.</p>
