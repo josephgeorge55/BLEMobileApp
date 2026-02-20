@@ -119,7 +119,7 @@ function buildWarrantyEmailHtml(params: WarrantyEmailParams): string {
 <!-- Success Banner -->
 <tr>
 <td style="background-color:#34C759;padding:16px 40px;text-align:center;">
-<p style="margin:0;color:#ffffff;font-size:15px;font-weight:600;">&#10003; Registration Confirmed</p>
+<p style="margin:0;color:#ffffff;font-size:15px;font-weight:600;">&#10003; Submission Successful</p>
 </td>
 </tr>
 
@@ -127,7 +127,7 @@ function buildWarrantyEmailHtml(params: WarrantyEmailParams): string {
 <tr>
 <td style="padding:32px 40px;">
 <p style="margin:0 0 16px;color:#1A2332;font-size:16px;line-height:1.5;">Dear ${firstName} ${lastName},</p>
-<p style="margin:0 0 24px;color:#4a5568;font-size:15px;line-height:1.6;">Thank you for registering your Blade Outboard motor. Your warranty has been successfully activated. Please keep this email for your records.</p>
+<p style="margin:0 0 24px;color:#4a5568;font-size:15px;line-height:1.6;">Your warranty registration submission has been successful. Provided all information is accurate and complete, please allow up to 2 business weeks for processing. No further email will be sent unless an issue arises with your submission.</p>
 
 <!-- Registration Number Box -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
@@ -178,7 +178,8 @@ ${dealerName ? `<tr>
 </tr>
 </table>
 
-<p style="margin:0 0 8px;color:#4a5568;font-size:14px;line-height:1.6;">If you have any questions about your warranty coverage, please contact your authorised Blade dealer or visit our support channels.</p>
+<p style="margin:0 0 20px;color:#4a5568;font-size:14px;line-height:1.6;">You can view your Digital Outboard Passport in the Blade Halo Connect app. From there, add it to your Apple Wallet or Google Wallet for quick access, and save the PDF for your personal records.</p>
+<p style="margin:0 0 8px;color:#4a5568;font-size:14px;line-height:1.6;">If you have any questions about your warranty coverage, please contact your authorised Blade dealer or visit <a href="https://support.bladeoutboards.com" style="color:#34C759;text-decoration:underline;font-weight:600;">support.bladeoutboards.com</a>.</p>
 </td>
 </tr>
 
@@ -186,8 +187,9 @@ ${dealerName ? `<tr>
 <tr>
 <td style="background-color:#1A2332;padding:24px 40px;text-align:center;">
 <p style="margin:0 0 8px;color:#ffffff;font-size:14px;font-weight:600;">Blade Marine Technologies Limited</p>
-<p style="margin:0 0 16px;color:rgba(255,255,255,0.5);font-size:12px;line-height:1.5;">Please retain this email as proof of your warranty registration.</p>
-<p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">This is an automated email. Please do not reply directly to this message.</p>
+<p style="margin:0 0 4px;color:rgba(255,255,255,0.5);font-size:12px;">bladeoutboards.ch</p>
+<p style="margin:16px 0 0;color:rgba(255,255,255,0.35);font-size:11px;">This is an automated email. Please do not reply directly to this message.</p>
+<p style="margin:12px 0 0;color:rgba(255,255,255,0.35);font-size:11px;"><a href="https://www.bladeoutboards.com/tandc" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Terms &amp; Conditions</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="https://www.bladeoutboards.com/privacy-policy" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Privacy Policy</a></p>
 </td>
 </tr>
 
