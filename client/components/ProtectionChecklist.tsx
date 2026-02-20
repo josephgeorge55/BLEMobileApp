@@ -54,8 +54,8 @@ export function ProtectionChecklist({
           ref={lottieRef}
           source={require("../../assets/animations/shield-check.json")}
           style={styles.lottie}
-          autoPlay={allComplete}
-          loop={false}
+          autoPlay
+          loop
         />
       </View>
 
