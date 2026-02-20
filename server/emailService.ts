@@ -332,6 +332,8 @@ function buildWelcomeEmailHtml(params: WelcomeEmailParams): string {
 <p style="margin:0 0 8px;color:#ffffff;font-size:14px;font-weight:600;">Blade Marine Technologies Limited</p>
 <p style="margin:0 0 4px;color:rgba(255,255,255,0.5);font-size:12px;">bladeoutboards.ch</p>
 <p style="margin:16px 0 0;color:rgba(255,255,255,0.35);font-size:11px;">This is an automated message from Blade Outboards. Please do not reply to this email.</p>
+<p style="margin:12px 0 0;color:rgba(255,255,255,0.35);font-size:11px;"><a href="https://www.bladeoutboards.com/tandc" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Terms &amp; Conditions</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="https://www.bladeoutboards.com/privacy-policy" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Privacy Policy</a></p>
+<p style="margin:12px 0 0;color:rgba(255,255,255,0.35);font-size:10px;line-height:1.5;">If you did not create this account, please contact <a href="mailto:IT@bladetcg.com" style="color:rgba(255,255,255,0.5);text-decoration:underline;">IT@bladetcg.com</a> immediately.</p>
 </td>
 </tr>
 
