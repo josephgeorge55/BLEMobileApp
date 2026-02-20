@@ -436,7 +436,7 @@ export default function SettingsScreen() {
           <SettingsSection title="Ownership">
             <SettingsRow
               icon="award"
-              title="Blade Outboard Passport"
+              title="Digital Outboard Passport"
               subtitle="Digital proof of ownership, warranty & wallet pass"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
