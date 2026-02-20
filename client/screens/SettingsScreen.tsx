@@ -420,6 +420,16 @@ export default function SettingsScreen() {
               }}
               iconColor={BladeColors.gold}
             />
+            <SettingsRow
+              icon="shield"
+              title="Warranty Registration"
+              subtitle="Register your motor for warranty coverage"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("WarrantyRegistration");
+              }}
+              iconColor={BladeColors.marine}
+            />
           </SettingsSection>
       ) : null}
 

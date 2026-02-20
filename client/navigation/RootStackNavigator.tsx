@@ -9,6 +9,7 @@ import AuthScreen from "@/screens/AuthScreen";
 import OnboardingScreen, { ONBOARDING_KEY } from "@/screens/OnboardingScreen";
 import TripDetailScreen from "@/screens/TripDetailScreen";
 import PassportScreen from "@/screens/PassportScreen";
+import WarrantyRegistrationScreen from "@/screens/WarrantyRegistrationScreen";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { DataSharingPrompt } from "@/components/DataSharingPrompt";
@@ -28,6 +29,7 @@ export type RootStackParamList = {
   BleScanner: undefined;
   TripDetail: { tripId: string };
   Passport: undefined;
+  WarrantyRegistration: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -236,6 +238,16 @@ export default function RootStackNavigator() {
               component={PassportScreen}
               options={{
                 headerTitle: "Outboard Passport",
+                headerBackTitle: "Back",
+                animation: "fade_from_bottom",
+                animationDuration: 350,
+              }}
+            />
+            <Stack.Screen
+              name="WarrantyRegistration"
+              component={WarrantyRegistrationScreen}
+              options={{
+                headerTitle: "Warranty Registration",
                 headerBackTitle: "Back",
                 animation: "fade_from_bottom",
                 animationDuration: 350,
