@@ -223,6 +223,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           console.error("[Auth] Error saving country after registration:", err)
         );
       }
+
+      try {
+        const { getApiUrl } = await import("@/lib/query-client");
+        fetch(new URL("/api/auth/welcome-email", getApiUrl()).toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: firebaseUser.email || email }),
+        }).catch((err) => console.log("[Auth] Welcome email send failed (non-critical):", err));
+      } catch (e) {
+        console.log("[Auth] Welcome email error (non-critical):", e);
+      }
       
       return { success: true };
     } catch (error: any) {

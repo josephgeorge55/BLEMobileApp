@@ -198,6 +198,182 @@ ${dealerName ? `<tr>
 </html>`;
 }
 
+interface WelcomeEmailParams {
+  recipientEmail: string;
+}
+
+function buildWelcomeEmailHtml(params: WelcomeEmailParams): string {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const timeStr = now.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Welcome to Blade Outboards</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr>
+<td style="background-color:#1A2332;padding:40px 40px 32px;text-align:center;">
+<h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:0.5px;">BLADE OUTBOARDS</h1>
+<p style="margin:12px 0 0;color:rgba(255,255,255,0.6);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;">Electric Marine Propulsion</p>
+</td>
+</tr>
+
+<!-- Welcome Banner -->
+<tr>
+<td style="background:linear-gradient(135deg,#34C759 0%,#30B350 100%);padding:20px 40px;text-align:center;">
+<p style="margin:0;color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.3px;">Welcome to Blade Outboards</p>
+</td>
+</tr>
+
+<!-- Body -->
+<tr>
+<td style="padding:36px 40px 20px;">
+<p style="margin:0 0 20px;color:#1A2332;font-size:16px;line-height:1.6;font-weight:500;">Thank you for creating your account.</p>
+<p style="margin:0 0 28px;color:#4a5568;font-size:15px;line-height:1.7;">We are delighted to have you on board. Your Blade Outboards account gives you access to advanced motor monitoring, trip recording, anti-theft protection, and much more &mdash; all from the palm of your hand.</p>
+
+<!-- Account Created Info -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+<tr>
+<td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;padding-bottom:6px;">Account Created</td>
+</tr>
+<tr>
+<td style="color:#1A2332;font-size:14px;font-weight:600;">${dateStr} at ${timeStr}</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+
+<!-- Getting Started -->
+<p style="margin:0 0 16px;color:#1A2332;font-size:15px;font-weight:700;">Get started with your Blade experience:</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+<tr>
+<td style="padding:14px 0;border-bottom:1px solid #f1f5f9;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td width="36" valign="top" style="padding-right:14px;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="background-color:#34C759;color:#ffffff;font-size:13px;font-weight:700;width:28px;height:28px;text-align:center;line-height:28px;border-radius:14px;">1</td>
+</tr></table>
+</td>
+<td valign="top">
+<p style="margin:0 0 2px;color:#1A2332;font-size:14px;font-weight:600;">Explore the Blade Halo Connect App</p>
+<p style="margin:0;color:#64748b;font-size:13px;line-height:1.5;">Pair your motor, monitor real-time telemetry, and track your trips on the water.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td style="padding:14px 0;border-bottom:1px solid #f1f5f9;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td width="36" valign="top" style="padding-right:14px;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="background-color:#34C759;color:#ffffff;font-size:13px;font-weight:700;width:28px;height:28px;text-align:center;line-height:28px;border-radius:14px;">2</td>
+</tr></table>
+</td>
+<td valign="top">
+<p style="margin:0 0 2px;color:#1A2332;font-size:14px;font-weight:600;">Register Your Warranty</p>
+<p style="margin:0;color:#64748b;font-size:13px;line-height:1.5;">Protect your investment by registering your motor warranty directly through the app.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td style="padding:14px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td width="36" valign="top" style="padding-right:14px;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="background-color:#34C759;color:#ffffff;font-size:13px;font-weight:700;width:28px;height:28px;text-align:center;line-height:28px;border-radius:14px;">3</td>
+</tr></table>
+</td>
+<td valign="top">
+<p style="margin:0 0 2px;color:#1A2332;font-size:14px;font-weight:600;">Enter Your Vessel Information</p>
+<p style="margin:0;color:#64748b;font-size:13px;line-height:1.5;">Add your boat details to unlock your Digital Outboard Passport and personalised features.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+
+<p style="margin:0 0 8px;color:#4a5568;font-size:14px;line-height:1.6;">We are committed to delivering the best electric marine experience. If you need assistance at any time, please do not hesitate to reach out to your authorised Blade dealer.</p>
+</td>
+</tr>
+
+<!-- Footer -->
+<tr>
+<td style="background-color:#1A2332;padding:28px 40px;text-align:center;">
+<p style="margin:0 0 8px;color:#ffffff;font-size:14px;font-weight:600;">Blade Marine Technologies Limited</p>
+<p style="margin:0 0 4px;color:rgba(255,255,255,0.5);font-size:12px;">bladeoutboards.ch</p>
+<p style="margin:16px 0 0;color:rgba(255,255,255,0.35);font-size:11px;">This is an automated message from Blade Outboards. Please do not reply to this email.</p>
+</td>
+</tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+export async function sendWelcomeEmail(
+  params: WelcomeEmailParams,
+): Promise<{ success: boolean; error?: string }> {
+  const { recipientEmail } = params;
+
+  try {
+    console.log(`[Email] Sending welcome email to ${recipientEmail}`);
+
+    const { client } = await getResendClient();
+
+    const html = buildWelcomeEmailHtml(params);
+
+    const { data, error } = await client.emails.send({
+      from: "Blade Outboards <notifications@bladeoutboards.ch>",
+      to: [recipientEmail],
+      subject: "Welcome to Blade Outboards",
+      html,
+    });
+
+    if (error) {
+      console.error(`[Email] Resend API error for welcome email (${recipientEmail}):`, error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`[Email] Welcome email sent successfully to ${recipientEmail} (id: ${data?.id})`);
+    return { success: true };
+  } catch (err: any) {
+    console.error(`[Email] Failed to send welcome email to ${recipientEmail}:`, err);
+    return { success: false, error: err.message || "Unknown email error" };
+  }
+}
+
 export async function sendWarrantyConfirmationEmail(
   params: WarrantyEmailParams,
 ): Promise<{ success: boolean; error?: string; registrationNumber: string }> {

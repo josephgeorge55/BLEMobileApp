@@ -1273,6 +1273,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }, 60000);
   });
 
+  app.post("/api/auth/welcome-email", generalApiRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { sendWelcomeEmail } = await import("./emailService");
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: "Missing email address." });
+      }
+
+      const result = await sendWelcomeEmail({ recipientEmail: email });
+
+      if (result.success) {
+        res.json({ success: true });
+      } else {
+        console.error("[Welcome Email] Failed:", result.error);
+        res.status(500).json({ success: false, error: result.error });
+      }
+    } catch (error: any) {
+      console.error("[Welcome Email] Error:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to send welcome email." });
+    }
+  });
+
   // Warranty confirmation email endpoint
   app.post("/api/warranty/send-confirmation", generalApiRateLimiter, async (req: Request, res: Response) => {
     try {
