@@ -10,6 +10,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import Checkbox from "expo-checkbox";
 import LottieView from "lottie-react-native";
 import { ThemedText } from "@/components/ThemedText";
+import { DatePickerField } from "@/components/DatePickerField";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { Spacing, BladeColors, BorderRadius } from "@/constants/theme";
@@ -38,8 +39,6 @@ export default function WarrantyRegistrationScreen() {
 
   const [serialNumber, setSerialNumber] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dateInputText, setDateInputText] = useState("");
   const [dealerName, setDealerName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -51,7 +50,6 @@ export default function WarrantyRegistrationScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const scannerLockRef = useRef(false);
-  const webDateInputRef = useRef<any>(null);
 
   useEffect(() => {
     if (!user?.id || !isFirebaseReady) return;
@@ -119,41 +117,6 @@ export default function WarrantyRegistrationScreen() {
     setShowScanner(false);
   };
 
-  const handleDateChange = (_event: any, selectedDate?: Date) => {
-    if (Platform.OS === "android") {
-      setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      setPurchaseDate(selectedDate);
-    }
-  };
-
-  const handleDateInputChange = (text: string) => {
-    let cleaned = text.replace(/[^0-9]/g, "");
-    if (cleaned.length > 8) cleaned = cleaned.substring(0, 8);
-    let formatted = cleaned;
-    if (cleaned.length > 2) formatted = cleaned.substring(0, 2) + "/" + cleaned.substring(2);
-    if (cleaned.length > 4) formatted = cleaned.substring(0, 2) + "/" + cleaned.substring(2, 4) + "/" + cleaned.substring(4);
-    setDateInputText(formatted);
-    if (cleaned.length === 8) {
-      const day = parseInt(cleaned.substring(0, 2));
-      const month = parseInt(cleaned.substring(2, 4)) - 1;
-      const year = parseInt(cleaned.substring(4, 8));
-      const d = new Date(year, month, day);
-      if (!isNaN(d.getTime()) && d <= new Date()) {
-        setPurchaseDate(d);
-      }
-    }
-  };
-
-  const handleWebDateChange = (dateString: string) => {
-    if (dateString) {
-      const d = new Date(dateString + "T00:00:00");
-      if (!isNaN(d.getTime()) && d <= new Date()) {
-        setPurchaseDate(d);
-      }
-    }
-  };
 
   const handlePickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -217,13 +180,6 @@ export default function WarrantyRegistrationScreen() {
     } catch {
       return dateStr;
     }
-  };
-
-  const formatDateForInput = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
   };
 
   if (showScanner) {
@@ -519,56 +475,14 @@ export default function WarrantyRegistrationScreen() {
             <View style={styles.formDivider} />
 
             <ThemedText type="caption" style={styles.inputLabel}>{"Date of Purchase *"}</ThemedText>
-            <Pressable
-              style={styles.dateRow}
-              onPress={() => {
+            <DatePickerField
+              value={purchaseDate}
+              onChange={(date: Date) => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                if (Platform.OS === "web" && webDateInputRef.current) {
-                  webDateInputRef.current.click();
-                } else {
-                  setShowDatePicker(true);
-                }
+                setPurchaseDate(date);
               }}
-              testID="button-date-picker"
-            >
-              <Feather name="calendar" size={18} color={BladeColors.accent} />
-              <ThemedText type="body" style={styles.dateText}>
-                {purchaseDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-              </ThemedText>
-              <Feather name="chevron-down" size={18} color="rgba(255,255,255,0.5)" />
-            </Pressable>
-            {Platform.OS === "web" ? (
-              <View style={{ height: 0, overflow: "hidden" }}>
-                <input
-                  ref={webDateInputRef}
-                  type="date"
-                  value={formatDateForInput(purchaseDate)}
-                  max={formatDateForInput(new Date())}
-                  onChange={(e: any) => handleWebDateChange(e.target.value)}
-                  style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
-                />
-              </View>
-            ) : null}
-            {Platform.OS !== "web" && showDatePicker ? (
-              <View style={styles.datePickerWrap}>
-                <TextInput
-                  style={[styles.input, { textAlign: "center", fontSize: 18 }]}
-                  value={dateInputText}
-                  onChangeText={handleDateInputChange}
-                  placeholder="DD/MM/YYYY"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  testID="input-purchase-date"
-                />
-                <Pressable
-                  style={styles.datePickerDone}
-                  onPress={() => setShowDatePicker(false)}
-                >
-                  <ThemedText type="button" style={{ color: BladeColors.accent }}>{"Done"}</ThemedText>
-                </Pressable>
-              </View>
-            ) : null}
+              maximumDate={new Date()}
+            />
 
             <View style={styles.formDivider} />
 
@@ -823,31 +737,6 @@ const styles = StyleSheet.create({
     backgroundColor: BladeColors.accent,
     justifyContent: "center",
     alignItems: "center",
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: INPUT_BG,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-  },
-  dateText: {
-    flex: 1,
-    color: "#FFFFFF",
-  },
-  datePickerWrap: {
-    marginTop: Spacing.sm,
-    backgroundColor: INPUT_BG,
-    borderRadius: BorderRadius.sm,
-    overflow: "hidden",
-  },
-  datePickerDone: {
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.08)",
   },
   formDivider: {
     height: 1,
