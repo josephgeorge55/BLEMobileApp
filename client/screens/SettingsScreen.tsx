@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Pressable, Platform } from "react-native";
+import { StyleSheet, View, ScrollView, Image, Alert, ActivityIndicator, Pressable, Platform, TextInput, Modal } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -44,7 +44,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
   const { motor, telemetry, disconnectMotor, startScan, debugLogs, sendCommand } = useMotor();
-  const { user, logout, isFirebaseReady, isGuestMode } = useUser();
+  const { user, logout, isFirebaseReady, isGuestMode, deleteAccount } = useUser();
   const { showSuccess, showError } = useToast();
   const {
     anonymousDataSharing,
@@ -68,6 +68,11 @@ export default function SettingsScreen() {
   const [throttleCooldown, setThrottleCooldown] = useState(0);
   const [isSendingThrottle, setIsSendingThrottle] = useState(false);
   const lastThrottleSentRef = useRef(0);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const isConnectedMotorRegistered = motor?.isConnected && registeredMotors.some(
     rm => rm.serialNumber === motor.serialNumber || rm.serialNumber === telemetry?.tillerSerialNumber
@@ -292,6 +297,36 @@ export default function SettingsScreen() {
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     showSuccess("Motor disconnected");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "DELETE") return;
+    if (!deletePassword.trim()) {
+      showError("Please enter your password.");
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    try {
+      const result = await deleteAccount(deletePassword);
+      if (result.success) {
+        setShowDeleteModal(false);
+        setDeletePassword("");
+        setDeleteConfirmText("");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showSuccess("Account deleted successfully");
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        showError(result.error || "Failed to delete account.");
+      }
+    } catch (error: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showError("An unexpected error occurred.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -772,6 +807,25 @@ export default function SettingsScreen() {
         />
       </SettingsSection>
 
+      {user && !isGuestMode ? (
+        <SettingsSection title="Danger Zone">
+          <SettingsRow
+            icon="trash-2"
+            title="Delete Account"
+            subtitle="Permanently remove your account and all data"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              setDeletePassword("");
+              setDeleteConfirmText("");
+              setShowDeleteModal(true);
+            }}
+            destructive
+            showChevron={false}
+            iconColor="#FF3B30"
+          />
+        </SettingsSection>
+      ) : null}
+
       <SettingsSection title="System Information">
         <SettingsRow
           icon="smartphone"
@@ -862,6 +916,105 @@ export default function SettingsScreen() {
         onSaved={loadBoatData}
       />
     ) : null}
+
+    <Modal
+      visible={showDeleteModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        if (!isDeletingAccount) {
+          setShowDeleteModal(false);
+        }
+      }}
+    >
+      <View style={styles.deleteModalOverlay}>
+        <View style={styles.deleteModalContent}>
+          <View style={styles.deleteModalIconContainer}>
+            <Feather name="alert-triangle" size={32} color="#FF3B30" />
+          </View>
+          <ThemedText type="h3" style={styles.deleteModalTitle}>
+            Delete Account
+          </ThemedText>
+          <ThemedText type="small" style={styles.deleteModalWarning}>
+            This action is permanent and cannot be undone. Deleting your account will:
+          </ThemedText>
+          <View style={styles.deleteModalList}>
+            <ThemedText type="small" style={styles.deleteModalListItem}>
+              {"\u2022"} Remove your login credentials
+            </ThemedText>
+            <ThemedText type="small" style={styles.deleteModalListItem}>
+              {"\u2022"} Unlink all registered motors
+            </ThemedText>
+            <ThemedText type="small" style={styles.deleteModalListItem}>
+              {"\u2022"} Delete warranty registrations
+            </ThemedText>
+            <ThemedText type="small" style={styles.deleteModalListItem}>
+              {"\u2022"} Remove boat and trip data
+            </ThemedText>
+            <ThemedText type="small" style={styles.deleteModalListItem}>
+              {"\u2022"} Disable anti-theft protection
+            </ThemedText>
+          </View>
+          <ThemedText type="small" style={styles.deleteModalLabel}>
+            Enter your password to confirm:
+          </ThemedText>
+          <TextInput
+            style={styles.deleteModalInput}
+            placeholder="Password"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            secureTextEntry
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            editable={!isDeletingAccount}
+            autoCapitalize="none"
+            testID="input-delete-password"
+          />
+          <ThemedText type="small" style={styles.deleteModalLabel}>
+            Type DELETE to confirm:
+          </ThemedText>
+          <TextInput
+            style={styles.deleteModalInput}
+            placeholder="DELETE"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            value={deleteConfirmText}
+            onChangeText={setDeleteConfirmText}
+            editable={!isDeletingAccount}
+            autoCapitalize="characters"
+            testID="input-delete-confirm"
+          />
+          <View style={styles.deleteModalButtons}>
+            <Pressable
+              style={styles.deleteModalCancelButton}
+              onPress={() => setShowDeleteModal(false)}
+              disabled={isDeletingAccount}
+            >
+              <ThemedText type="button" style={{ color: "#FFFFFF" }}>
+                Cancel
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.deleteModalDeleteButton,
+                {
+                  opacity: deleteConfirmText === "DELETE" && deletePassword.trim() ? 1 : 0.4,
+                },
+              ]}
+              onPress={handleDeleteAccount}
+              disabled={isDeletingAccount || deleteConfirmText !== "DELETE" || !deletePassword.trim()}
+              testID="button-confirm-delete"
+            >
+              {isDeletingAccount ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <ThemedText type="button" style={{ color: "#FFFFFF" }}>
+                  Delete Account
+                </ThemedText>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
         </>
   );
 }
@@ -1116,5 +1269,80 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
     backgroundColor: "rgba(255,255,255,0.2)",
     marginHorizontal: Spacing.sm,
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  deleteModalContent: {
+    backgroundColor: "rgba(44,44,46,0.98)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 400,
+  },
+  deleteModalIconContainer: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  deleteModalTitle: {
+    color: "#FF3B30",
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  deleteModalWarning: {
+    color: "rgba(255,255,255,0.7)",
+    textAlign: "center",
+    marginBottom: Spacing.md,
+    lineHeight: 20,
+  },
+  deleteModalList: {
+    marginBottom: Spacing.lg,
+    paddingLeft: Spacing.sm,
+  },
+  deleteModalListItem: {
+    color: "rgba(255,255,255,0.6)",
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  deleteModalLabel: {
+    color: "rgba(255,255,255,0.5)",
+    marginBottom: Spacing.xs,
+    fontSize: 13,
+  },
+  deleteModalInput: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    color: "#FFFFFF",
+    fontSize: 16,
+    marginBottom: Spacing.md,
+  },
+  deleteModalButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+  },
+  deleteModalDeleteButton: {
+    flex: 1,
+    backgroundColor: "#FF3B30",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
   },
 });

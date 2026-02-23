@@ -8,6 +8,9 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   getFirebaseAuth,
   isFirebaseInitialized,
   saveUserCountry,
@@ -32,6 +35,7 @@ interface UserContextType {
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  deleteAccount: (password: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -346,6 +350,53 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setIsGuestMode(false);
   };
 
+  const deleteAccount = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    const currentAuth = getFirebaseAuth();
+    if (!currentAuth || !currentAuth.currentUser) {
+      return { success: false, error: "You must be signed in to delete your account." };
+    }
+
+    try {
+      const currentUser = currentAuth.currentUser;
+      const email = currentUser.email;
+      if (!email) {
+        return { success: false, error: "Unable to verify account. Please sign out and sign back in." };
+      }
+
+      const credential = EmailAuthProvider.credential(email, password);
+      await reauthenticateWithCredential(currentUser, credential);
+
+      await deleteUser(currentUser);
+
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      await AsyncStorage.removeItem(GUEST_STORAGE_KEY);
+      setUser(null);
+      setIsGuestMode(false);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Account deletion error:", error);
+
+      let errorMessage = "Failed to delete account.";
+      switch (error.code) {
+        case "auth/wrong-password":
+        case "auth/invalid-credential":
+          errorMessage = "Incorrect password. Please try again.";
+          break;
+        case "auth/too-many-requests":
+          errorMessage = "Too many attempts. Please wait and try again.";
+          break;
+        case "auth/requires-recent-login":
+          errorMessage = "Please sign out, sign back in, and try again.";
+          break;
+        default:
+          errorMessage = error.message || "Failed to delete account.";
+      }
+
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
     const currentAuth = getFirebaseAuth();
     if (!currentAuth) {
@@ -387,6 +438,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         loginAsGuest,
         logout,
         resetPassword,
+        deleteAccount,
       }}
     >
       {children}

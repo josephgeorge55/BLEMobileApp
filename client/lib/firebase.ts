@@ -10,6 +10,9 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   type User,
   type Auth
 } from "firebase/auth";
@@ -1019,6 +1022,9 @@ export {
   signOut, 
   onAuthStateChanged,
   sendPasswordResetEmail,
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   type User 
 };
 export default app;
