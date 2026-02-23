@@ -2,13 +2,14 @@
   "expo": {
     "name": "Blade Outboards",
     "slug": "blade-outboards",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bladeoutboards",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "buildNumber": "5",
       "supportsTablet": true,
       "bundleIdentifier": "app.replit.bladeoutboards",
       "infoPlist": {
@@ -19,7 +20,7 @@
       }
     },
     "android": {
-      "versionCode": 4,
+      "versionCode": 5,
       "package": "com.bladeoutboards.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A4D6E",
