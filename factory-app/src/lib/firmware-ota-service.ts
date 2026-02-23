@@ -41,6 +41,7 @@ const BOOTLOADER_RESET_DELAY_MS = 2500;
 const BOOTLOADER_INIT_DELAY_MS = 1500;
 const HELLO_RETRY_DELAY_MS = 1500;
 const INTER_STEP_DELAY_MS = 50;
+const INTER_BLOCK_DELAY_MS = 200;
 const MAX_HELLO_RETRIES = 5;
 const MAX_CMD_RETRIES = 3;
 
@@ -415,6 +416,10 @@ export class FirmwareOTAService {
       
       if ((i + 1) % 50 === 0 || i === totalBlocks - 1) {
         this.log('info', `Written ${i + 1}/${totalBlocks} blocks (${bytesWritten} bytes)`);
+      }
+
+      if (i < totalBlocks - 1) {
+        await this.delay(INTER_BLOCK_DELAY_MS);
       }
     }
     
