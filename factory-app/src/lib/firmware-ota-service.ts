@@ -15,7 +15,7 @@
  *   ACK  (0x79) - Success
  *   NACK (0x1F) - Failure / abort
  * 
- * Enter bootloader via software command: $APP_CONFIG,UPDATE_FW
+ * Enter bootloader via software command: $APP_CONFIG,UPDATE_FW,1
  * Start address fixed to 0x08004000
  */
 
@@ -236,10 +236,10 @@ export class FirmwareOTAService {
     try {
       await this.drainRxBuffer();
 
-      const cmd = '$APP_CONFIG,UPDATE_FW\n';
+      const cmd = '$APP_CONFIG,UPDATE_FW,1\n';
       const encoder = new TextEncoder();
 
-      this.log('info', 'Sending $APP_CONFIG,UPDATE_FW command...');
+      this.log('info', 'Sending $APP_CONFIG,UPDATE_FW,1 command...');
       await this.sendData(encoder.encode(cmd));
 
       this.log('info', `Waiting ${BOOTLOADER_RESET_DELAY_MS}ms for board to reset into bootloader...`);
@@ -281,9 +281,9 @@ export class FirmwareOTAService {
       
       if (attempt < MAX_HELLO_RETRIES) {
         if (attempt === 3) {
-          this.log('warning', 'No response after 3 attempts, re-sending $APP_CONFIG,UPDATE_FW...');
+          this.log('warning', 'No response after 3 attempts, re-sending $APP_CONFIG,UPDATE_FW,1...');
           try {
-            const cmd = '$APP_CONFIG,UPDATE_FW\n';
+            const cmd = '$APP_CONFIG,UPDATE_FW,1\n';
             const encoder = new TextEncoder();
             await this.sendData(encoder.encode(cmd));
             this.log('info', `Waiting ${BOOTLOADER_RESET_DELAY_MS}ms for board to reset...`);
@@ -303,7 +303,7 @@ export class FirmwareOTAService {
     }
     
     this.log('error', 'HELLO command failed after all retries. Is the board in bootloader mode?');
-    this.log('info', 'Ensure $APP_CONFIG,UPDATE_FW was sent to enter bootloader mode');
+    this.log('info', 'Ensure $APP_CONFIG,UPDATE_FW,1 was sent to enter bootloader mode');
     this.updateProgress('error', 0, 'Bootloader connection failed');
     return false;
   }
