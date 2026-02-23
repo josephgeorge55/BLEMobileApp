@@ -126,8 +126,6 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   const logoOpacity = useSharedValue(0);
   const titleOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(30);
-  const subtitleOpacity = useSharedValue(0);
-  const subtitleTranslateY = useSharedValue(20);
   const detailOpacity = useSharedValue(0);
   const detailTranslateY = useSharedValue(15);
   const lottieScale = useSharedValue(0);
@@ -187,10 +185,7 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
       titleOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
       titleTranslateY.value = withDelay(500, withSpring(0, { damping: 14 }));
 
-      subtitleOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
-      subtitleTranslateY.value = withDelay(800, withSpring(0, { damping: 14 }));
-
-      dividerWidth.value = withDelay(1000, withTiming(1, { duration: 600 }));
+      dividerWidth.value = withDelay(800, withTiming(1, { duration: 600 }));
 
       detailOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
       detailTranslateY.value = withDelay(1200, withSpring(0, { damping: 14 }));
@@ -237,11 +232,6 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
   const titleAnimStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
     transform: [{ translateY: titleTranslateY.value }],
-  }));
-
-  const subtitleAnimStyle = useAnimatedStyle(() => ({
-    opacity: subtitleOpacity.value,
-    transform: [{ translateY: subtitleTranslateY.value }],
   }));
 
   const dividerAnimStyle = useAnimatedStyle(() => ({
@@ -303,12 +293,6 @@ export default function WelcomeOverlay({ onDismiss }: { onDismiss?: () => void }
             <Animated.View style={titleAnimStyle}>
               <ThemedText style={styles.labelText}>
                 {isGuest ? "Welcome" : "Welcome Back"}
-              </ThemedText>
-            </Animated.View>
-
-            <Animated.View style={subtitleAnimStyle}>
-              <ThemedText style={styles.nameText}>
-                {isGuest ? "Guest" : (userEmail ? userEmail.split("@")[0] : "")}
               </ThemedText>
             </Animated.View>
 
@@ -422,14 +406,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     textAlign: "center",
     marginBottom: 6,
-  },
-  nameText: {
-    color: "#FFFFFF",
-    fontSize: IS_SMALL_SCREEN ? 32 : 38,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-    textAlign: "center",
-    paddingTop: 4,
   },
   divider: {
     width: 48,
