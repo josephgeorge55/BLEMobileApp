@@ -35,8 +35,8 @@ const CMD = {
 const FIRMWARE_START_ADDRESS = 0x08004000;
 const BLOCK_SIZE = 256;
 const TIMEOUT_MS = 1000;
-const ERASE_TIMEOUT_MS = 15000;
-const WRITE_BLOCK_TIMEOUT_MS = 1500;
+const ERASE_TIMEOUT_MS = 30000;
+const WRITE_BLOCK_TIMEOUT_MS = 5000;
 const BOOTLOADER_RESET_DELAY_MS = 2500;
 const BOOTLOADER_INIT_DELAY_MS = 1500;
 const HELLO_RETRY_DELAY_MS = 1500;
@@ -170,10 +170,15 @@ export class FirmwareOTAService {
   private async waitForAck(timeout: number = TIMEOUT_MS): Promise<boolean> {
     const startTime = Date.now();
     while (Date.now() - startTime < timeout) {
-      const remaining = Math.max(50, timeout - (Date.now() - startTime));
-      const response = await this.receiveData(remaining);
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(100, timeout - elapsed);
+      const listenChunk = Math.min(remaining, 500);
+      const response = await this.receiveData(listenChunk);
       if (!response || response.length === 0) {
-        return false;
+        if (Date.now() - startTime >= timeout) {
+          break;
+        }
+        continue;
       }
       
       if (response.length > 1) {
@@ -192,7 +197,7 @@ export class FirmwareOTAService {
       }
       this.log('debug', `No ACK/NACK in ${response.length} bytes, continuing to listen...`);
     }
-    this.log('debug', 'RX: timeout waiting for ACK');
+    this.log('debug', `RX: timeout waiting for ACK after ${Date.now() - startTime}ms`);
     return false;
   }
 
@@ -404,10 +409,24 @@ export class FirmwareOTAService {
         firmwareData.length
       );
       
-      await this.sendBytes(block);
+      let blockSuccess = false;
+      for (let attempt = 1; attempt <= MAX_CMD_RETRIES; attempt++) {
+        await this.sendBytes(block);
+        
+        if (await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
+          blockSuccess = true;
+          break;
+        }
+        
+        if (attempt < MAX_CMD_RETRIES) {
+          this.log('warning', `Block ${i + 1}/${totalBlocks} ACK timeout on attempt ${attempt}/${MAX_CMD_RETRIES}, retrying after ${INTER_BLOCK_DELAY_MS}ms...`);
+          await this.drainRxBuffer();
+          await this.delay(INTER_BLOCK_DELAY_MS);
+        }
+      }
       
-      if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
-        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged - NACK or timeout`);
+      if (!blockSuccess) {
+        this.log('error', `Block ${i + 1}/${totalBlocks} failed after ${MAX_CMD_RETRIES} attempts`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }
