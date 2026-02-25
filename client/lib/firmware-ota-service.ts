@@ -42,6 +42,9 @@ const BOOTLOADER_INIT_DELAY_MS = 1500;
 const HELLO_RETRY_DELAY_MS = 1500;
 const INTER_STEP_DELAY_MS = 50;
 const INTER_BLOCK_DELAY_MS = 1000;
+const POST_ERASE_SETTLE_MS = 3000;
+const POST_WRITE_CMD_DELAY_MS = 2000;
+const NACK_RETRY_DELAY_MS = 3000;
 const MAX_HELLO_RETRIES = 5;
 const MAX_CMD_RETRIES = 3;
 
@@ -361,6 +364,12 @@ export class FirmwareOTAService {
     }
     
     this.log('success', 'Flash memory erased successfully');
+    this.updateProgress('erasing', 18, 'Flash erased, settling...');
+
+    this.log('info', `Waiting ${POST_ERASE_SETTLE_MS}ms for flash to settle after erase...`);
+    await this.delay(POST_ERASE_SETTLE_MS);
+    await this.drainRxBuffer();
+
     this.updateProgress('erasing', 20, 'Erase complete');
     
     return true;
@@ -384,6 +393,10 @@ export class FirmwareOTAService {
     }
     
     this.log('success', 'WRITE command acknowledged - beginning data transfer');
+
+    this.log('info', `Waiting ${POST_WRITE_CMD_DELAY_MS}ms for bootloader to prepare for data reception...`);
+    await this.delay(POST_WRITE_CMD_DELAY_MS);
+    await this.drainRxBuffer();
     
     let bytesWritten = 0;
     
@@ -410,6 +423,7 @@ export class FirmwareOTAService {
       );
       
       let blockSuccess = false;
+      let gotNack = false;
       for (let attempt = 1; attempt <= MAX_CMD_RETRIES; attempt++) {
         await this.sendBytes(block);
         
@@ -418,10 +432,12 @@ export class FirmwareOTAService {
           break;
         }
         
+        gotNack = true;
         if (attempt < MAX_CMD_RETRIES) {
-          this.log('warning', `Block ${i + 1}/${totalBlocks} ACK timeout on attempt ${attempt}/${MAX_CMD_RETRIES}, retrying after ${INTER_BLOCK_DELAY_MS}ms...`);
+          this.log('warning', `Block ${i + 1}/${totalBlocks} NACK/timeout on attempt ${attempt}/${MAX_CMD_RETRIES}, waiting ${NACK_RETRY_DELAY_MS}ms before retry...`);
           await this.drainRxBuffer();
-          await this.delay(INTER_BLOCK_DELAY_MS);
+          await this.delay(NACK_RETRY_DELAY_MS);
+          await this.drainRxBuffer();
         }
       }
       
