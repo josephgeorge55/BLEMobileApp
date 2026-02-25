@@ -422,6 +422,8 @@ export class FirmwareOTAService {
         firmwareData.length
       );
       
+      await this.drainRxBuffer();
+      
       let blockSuccess = false;
       let gotNack = false;
       for (let attempt = 1; attempt <= MAX_CMD_RETRIES; attempt++) {
