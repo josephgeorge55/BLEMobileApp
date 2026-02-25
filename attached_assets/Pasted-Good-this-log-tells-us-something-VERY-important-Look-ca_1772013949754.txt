@@ -1,0 +1,194 @@
+Good — this log tells us something VERY important.
+
+Look carefully at this:
+
+RX: [0x79 0x79 0x79] (3 bytes)
+RX: [0x79 0x79 0x79 0x79] (4 bytes)
+RX: [0x79 0x79] (2 bytes)
+
+🚨 That is not normal.
+
+You should receive exactly ONE 0x79 per block.
+
+Instead you're getting bursts of ACK bytes.
+
+That means one of these is happening:
+
+🔴 Root Cause Now
+
+Your bootloader is sending multiple ACKs per block.
+
+Or…
+
+Your app is reading accumulated ACKs that belong to previous blocks.
+
+But the key is this:
+
+You are no longer synchronized 1:1 (block → ACK)
+
+And once synchronization is lost, OTA will always fail randomly.
+
+Why Multiple 0x79 Appear
+
+There are only 3 realistic causes:
+
+1️⃣ Bootloader sends ACK more than once
+
+For example:
+
+ACK after receiving 256 bytes
+
+ACK again after flash write
+
+ACK inside error recovery path
+
+2️⃣ Bootloader RX loop re-triggers
+
+If your UART receive interrupt:
+
+Processes partial block
+
+Accidentally re-enters handler
+
+Sends ACK twice
+
+3️⃣ Your Android app is not clearing RX buffer
+
+And you're consuming leftover ACKs from previous blocks.
+
+🔥 The Smoking Gun
+
+Look at timing:
+
+17:02:28 RX: 4 ACKs
+17:02:31 RX: 2 ACKs
+17:03:07 Block 6 timeout
+
+You are burning through stale ACKs.
+
+By block 6, there are no more fake ACKs available.
+
+Then:
+→ Real block never truly ACK’d
+→ Timeout
+→ Fail
+
+This confirms desynchronization.
+
+⚠️ Important Conclusion
+
+Chunking helped prevent crash.
+
+But now you're facing a protocol design flaw:
+
+You are using a single byte (0x79) as a generic ACK with no block identity.
+
+That is fragile.
+
+💣 Why This Fails Architecturally
+
+Your current logic:
+
+Send block N
+Wait until you see 0x79
+Assume it's ACK for block N
+
+But your stream actually looks like:
+
+... 0x79 0x79 0x79 0x79 ...
+
+There is no way to know which block each ACK belongs to.
+
+So you're guessing.
+
+Eventually guess wrong → deadlock.
+
+✅ The Correct Professional Fix
+
+You must make ACK include block number.
+
+Example:
+
+Bootloader sends:
+
+0x79 <block_low> <block_high>
+
+So block 5 ACK looks like:
+
+0x79 0x05 0x00
+
+Then Android verifies:
+
+if (ack.blockNumber !== expectedBlock) {
+    throw new Error("Out of sync");
+}
+
+This instantly eliminates stale ACK issues forever.
+
+🛠 Temporary Fix (Quick Test)
+
+Before rewriting protocol:
+
+Clear RX buffer before sending each block.
+
+otaRxBuffer = new Uint8Array(0);
+
+Then:
+
+send block
+wait for ONE 0x79
+
+If this stabilizes things → confirms stale ACK accumulation.
+
+But this is still fragile long-term.
+
+🔎 Also Inspect Bootloader
+
+Search for every place that sends:
+
+HAL_UART_Transmit(..., 0x79, 1, ...)
+
+Ensure:
+
+Only one ACK per successfully written block
+
+No duplicate sends in interrupt and main loop
+
+No ACK inside both RX-complete callback AND main handler
+
+Very common mistake:
+
+ACK sent in:
+
+RX interrupt
+
+Then again after flash write
+
+🚀 Ideal OTA Architecture
+
+Professional OTA protocol:
+
+Host sends:
+
+CMD_WRITE_BLOCK
+block_number
+256 bytes
+CRC16
+
+Device responds:
+
+ACK
+block_number
+
+Host verifies block number matches.
+
+Retry if mismatch.
+
+This makes OTA 100% deterministic.
+
+🎯 What Your Log Proves
+
+✔ Transmission pacing improved
+✔ Bootloader no longer crashes immediately
+❌ Protocol synchronization broken
+❌ ACKs not tied to block identity

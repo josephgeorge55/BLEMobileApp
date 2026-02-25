@@ -420,6 +420,16 @@ export class FirmwareOTAService {
       }
       
       bytesWritten += blockLength;
+
+      let stale = 0;
+      while (true) {
+        const extra = await this.receiveData(50);
+        if (!extra || extra.length === 0) break;
+        stale += extra.length;
+      }
+      if (stale > 0) {
+        this.log('debug', `Drained ${stale} stale bytes after block ${i + 1} ACK`);
+      }
       
       if ((i + 1) % 50 === 0 || i === totalBlocks - 1) {
         this.log('info', `Written ${i + 1}/${totalBlocks} blocks (${bytesWritten} bytes)`);

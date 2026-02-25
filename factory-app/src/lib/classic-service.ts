@@ -263,17 +263,8 @@ export async function sendClassicBinaryData(data: Uint8Array): Promise<void> {
   }
 
   try {
-    const CHUNK_SIZE = 64;
-    const CHUNK_DELAY_MS = 25;
-    
-    for (let offset = 0; offset < data.length; offset += CHUNK_SIZE) {
-      const chunk = data.slice(offset, Math.min(offset + CHUNK_SIZE, data.length));
-      const base64 = arrayBufferToBase64Classic(chunk);
-      await connectedDevice.write(base64, "base64");
-      if (offset + CHUNK_SIZE < data.length) {
-        await new Promise(r => setTimeout(r, CHUNK_DELAY_MS));
-      }
-    }
+    const base64 = arrayBufferToBase64Classic(data);
+    await connectedDevice.write(base64, "base64");
   } catch (error) {
     console.error("[Classic-OTA] Error sending binary data:", error);
     throw error;
