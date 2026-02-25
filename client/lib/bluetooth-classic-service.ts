@@ -435,8 +435,17 @@ export async function sendBinaryData(data: Uint8Array): Promise<void> {
     const hexPreview = Array.from(data.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
     console.log(`[BT-OTA] TX (${data.length} bytes): ${hexPreview}${data.length > 16 ? '...' : ''}`);
     
-    const base64 = arrayBufferToBase64(data);
-    await connectedDevice.write(base64, "base64");
+    const CHUNK_SIZE = 64;
+    const CHUNK_DELAY_MS = 25;
+    
+    for (let offset = 0; offset < data.length; offset += CHUNK_SIZE) {
+      const chunk = data.slice(offset, Math.min(offset + CHUNK_SIZE, data.length));
+      const base64 = arrayBufferToBase64(chunk);
+      await connectedDevice.write(base64, "base64");
+      if (offset + CHUNK_SIZE < data.length) {
+        await new Promise(r => setTimeout(r, CHUNK_DELAY_MS));
+      }
+    }
     
   } catch (error) {
     console.error("[BT-OTA] Error sending binary data:", error);

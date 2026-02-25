@@ -1,0 +1,151 @@
+The Real Architectural Issue
+
+You said:
+
+otaRxResolve only handles one data event — after it fires once, subsequent messages have nowhere to go.
+
+That is the problem.
+
+Classic Bluetooth does not guarantee packet boundaries.
+
+When you send 256 bytes, Android may deliver:
+
+256 bytes in one event
+
+120 + 136
+
+64 + 64 + 128
+
+200 + 56
+
+etc.
+
+If your receive logic:
+
+receiveData(timeout)
+
+Registers one listener
+
+Resolves once
+
+Then clears listener
+
+You are guaranteed to lose fragments eventually.
+
+Small 10KB file works because:
+
+Fewer packets
+
+Less fragmentation probability
+
+Less timing stress
+
+At 130KB:
+
+Hundreds of packets
+
+Fragmentation becomes inevitable
+
+One fragment lost → block CRC wrong → bootloader NACK → timeout
+
+🔎 Critical Question
+
+Does your OTA receiver:
+
+A) Accumulate bytes into a buffer?
+
+OR
+
+B) Assume each Bluetooth event = one full protocol packet?
+
+If it's B → that's the bug.
+
+💥 Why It Fails Around Block 9
+
+At some point:
+
+Android splits 256B into 2 chunks
+
+First chunk triggers otaRxResolve
+
+Promise resolves
+
+Listener removed
+
+Second chunk arrives → discarded
+
+Bootloader now sees corrupted packet
+
+No ACK
+
+Timeout
+
+Exactly what your log shows:
+
+Block 9/190 not acknowledged NACK or timeout
+🧠 The Fundamental Rule of OTA Over Bluetooth
+
+You NEVER structure receive logic as:
+
+"Wait for one event and resolve"
+
+Instead you must:
+
+Maintain a persistent RX buffer
+
+Append all incoming bytes
+
+Parse protocol from the buffer
+
+Only resolve when full expected message is assembled
+
+✅ Correct Architecture
+
+You need:
+
+let otaRxBuffer = new Uint8Array(0);
+
+onDataReceived(data) {
+    otaRxBuffer = concat(otaRxBuffer, data);
+}
+
+Then your waitForAck() becomes:
+
+async function waitForAck(timeoutMs) {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+        if (otaRxBuffer.length > 0) {
+            const byte = otaRxBuffer[0];
+            otaRxBuffer = otaRxBuffer.slice(1);
+            return byte === 0x79;
+        }
+        await sleep(5);
+    }
+
+    return false;
+}
+
+No per-call listener.
+No single resolve.
+No event removal.
+
+Just one persistent OTA RX stream.
+
+🔥 About Your 30-Second Timeout
+
+You said:
+
+if timeout expires it immediately returns false
+
+That’s fine.
+
+The real issue is not retry logic.
+
+It’s that the data might have arrived but:
+
+Was fragmented
+
+Was dropped because no listener existed
+
+Arrived after resolve but before next receive setup

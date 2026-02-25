@@ -1,0 +1,170 @@
+Since it works with 10KB but fails around block 9/190 (~130KB total), this is almost never a “file size limit” issue. It’s almost always one of these:
+
+Flow control / timing problem
+
+Flash erase timing
+
+Android Bluetooth buffer throttling
+
+CRC / checksum mismatch on one block
+
+Receiver not ready (flash still busy)
+
+Packet fragmentation on Android classic SPP
+
+Your log shows:
+
+TX: 256 bytes
+RX: 0x79 (ACK)
+...
+Block 9/190 not acknowledged NACK or timeout
+
+That means:
+
+Bootloader is alive
+
+Protocol is correct
+
+It fails mid-stream under sustained transfer
+
+🔎 Most Likely Cause (90% probability)
+❗ You are sending next 256B block before flash write completes
+
+On STM32 (I’m assuming STM32 since your earlier work uses STM32F407), flash programming takes time.
+
+If your bootloader:
+
+Receives 256 bytes
+
+Starts writing to flash
+
+Sends ACK too early
+
+Or does not block until flash write finishes
+
+The next packet can corrupt flash timing → NACK or no response.
+
+Small files don’t expose this because:
+
+Total erase area is small
+
+Timing window is short
+
+✅ What To Check First (Critical)
+1️⃣ After each 256B block:
+
+Inside bootloader:
+
+HAL_FLASH_Program(...)
+
+You must ensure:
+
+while (__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY)) { }
+
+OR verify HAL already blocks until complete.
+
+If you're not waiting for flash ready before sending ACK → this is your bug.
+
+2️⃣ Increase Inter-Packet Delay (Test This Immediately)
+
+On Android side, add:
+
+await sleep(50);  // try 30–100ms
+
+after receiving ACK before sending next block.
+
+If it suddenly works → it is timing.
+
+Classic Bluetooth on Android is not deterministic at high burst speed.
+
+⚡ Another Common Android Classic Problem
+
+Classic SPP can silently fragment large writes.
+
+If you're doing:
+
+outputStream.write(256_bytes);
+
+Android might split it into smaller chunks.
+
+On STM32 side, if you're assuming full 256 bytes arrive in one read → that can break.
+
+Make sure your bootloader:
+
+Buffers incoming data
+
+Only processes after full 256 bytes received
+
+Does NOT assume HAL_UART_Receive() gives exactly 256
+
+🧪 Why It Fails Around Block 9
+
+Block 9 = 9 × 256 = 2304 bytes.
+
+If you erase flash sector-by-sector:
+
+Sector boundary may occur around that address.
+
+Erase of next sector takes much longer.
+
+If you didn't pre-erase whole firmware region → boom.
+
+✅ Proper OTA Flow (Recommended)
+
+Receive full firmware size
+
+Erase entire target flash area first
+
+Then start writing blocks
+
+ACK only after flash write completes
+
+Optional: verify each block checksum
+
+If you're erasing per-block → that's risky.
+
+🔥 Important Question
+
+Are you:
+
+Pre-erasing full firmware region before writing?
+
+Or erasing sector on-demand while streaming?
+
+If second → that’s probably your failure.
+
+📊 Things To Try Immediately
+Quick Debug Checklist
+
+✔ Add 50ms delay between blocks
+✔ Print flash address when failing
+✔ Pre-erase full firmware region
+✔ Increase Android socket write timeout
+✔ Reduce block size from 256 → 128 temporarily
+✔ Add block CRC verification logging
+
+🎯 Clean Diagnosis Trick
+
+Try:
+
+Keep 256 block size
+
+Add 80ms delay between blocks
+
+If it works → timing issue confirmed.
+
+If still fails at same block → flash sector boundary issue.
+
+If fails randomly at different block → Android buffer issue.
+
+🧠 My Strong Guess
+
+Because:
+
+Works small file
+
+Fails mid-transfer
+
+Consistent block failure
+
+👉 It’s flash timing or erase timing.
