@@ -36,7 +36,7 @@ const FIRMWARE_START_ADDRESS = 0x08004000;
 const BLOCK_SIZE = 256;
 const TIMEOUT_MS = 1000;
 const ERASE_TIMEOUT_MS = 30000;
-const WRITE_BLOCK_TIMEOUT_MS = 10000;
+const WRITE_BLOCK_TIMEOUT_MS = 30000;
 const BOOTLOADER_RESET_DELAY_MS = 2500;
 const BOOTLOADER_INIT_DELAY_MS = 1500;
 const HELLO_RETRY_DELAY_MS = 1500;
@@ -441,27 +441,10 @@ export class FirmwareOTAService {
         firmwareData.length
       );
       
-      let blockSuccess = false;
-      let gotNack = false;
-      for (let attempt = 1; attempt <= MAX_CMD_RETRIES; attempt++) {
-        await this.sendBytes(block);
-        
-        if (await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS, true)) {
-          blockSuccess = true;
-          break;
-        }
-        
-        gotNack = true;
-        if (attempt < MAX_CMD_RETRIES) {
-          this.log('warning', `Block ${i + 1}/${totalBlocks} NACK/timeout on attempt ${attempt}/${MAX_CMD_RETRIES}, waiting ${NACK_RETRY_DELAY_MS}ms before retry...`);
-          await this.drainRxBuffer();
-          await this.delay(NACK_RETRY_DELAY_MS);
-          await this.drainRxBuffer();
-        }
-      }
+      await this.sendBytes(block);
       
-      if (!blockSuccess) {
-        this.log('error', `Block ${i + 1}/${totalBlocks} failed after ${MAX_CMD_RETRIES} attempts`);
+      if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS, true)) {
+        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged after ${WRITE_BLOCK_TIMEOUT_MS / 1000}s`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }
