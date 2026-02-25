@@ -43,10 +43,8 @@ const HELLO_RETRY_DELAY_MS = 1500;
 const INTER_STEP_DELAY_MS = 50;
 const INTER_BLOCK_DELAY_MS = 2500;
 const POST_ERASE_SETTLE_MS = 3000;
-const POST_WRITE_CMD_DELAY_MS = 500;
-const NACK_RETRY_DELAY_MS = 3000;
 const MAX_HELLO_RETRIES = 5;
-const MAX_CMD_RETRIES = 5;
+const MAX_CMD_RETRIES = 3;
 
 
 export type OTAState = 
@@ -173,15 +171,10 @@ export class FirmwareOTAService {
   private async waitForAck(timeout: number = TIMEOUT_MS): Promise<boolean> {
     const startTime = Date.now();
     while (Date.now() - startTime < timeout) {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(100, timeout - elapsed);
-      const listenChunk = Math.min(remaining, 500);
-      const response = await this.receiveData(listenChunk);
+      const remaining = Math.max(50, timeout - (Date.now() - startTime));
+      const response = await this.receiveData(remaining);
       if (!response || response.length === 0) {
-        if (Date.now() - startTime >= timeout) {
-          break;
-        }
-        continue;
+        return false;
       }
       
       if (response.length > 1) {
@@ -200,7 +193,7 @@ export class FirmwareOTAService {
       }
       this.log('debug', `No ACK/NACK in ${response.length} bytes, continuing to listen...`);
     }
-    this.log('debug', `RX: timeout waiting for ACK after ${Date.now() - startTime}ms`);
+    this.log('debug', 'RX: timeout waiting for ACK');
     return false;
   }
 
@@ -393,10 +386,6 @@ export class FirmwareOTAService {
     }
     
     this.log('success', 'WRITE command acknowledged - beginning data transfer');
-
-    this.log('info', `Waiting ${POST_WRITE_CMD_DELAY_MS}ms for bootloader to prepare for data reception...`);
-    await this.delay(POST_WRITE_CMD_DELAY_MS);
-    await this.drainRxBuffer();
     
     let bytesWritten = 0;
     
@@ -425,7 +414,7 @@ export class FirmwareOTAService {
       await this.sendBytes(block);
       
       if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
-        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged after ${WRITE_BLOCK_TIMEOUT_MS / 1000}s`);
+        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged - NACK or timeout`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }
