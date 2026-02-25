@@ -41,7 +41,7 @@ const BOOTLOADER_RESET_DELAY_MS = 2500;
 const BOOTLOADER_INIT_DELAY_MS = 1500;
 const HELLO_RETRY_DELAY_MS = 1500;
 const INTER_STEP_DELAY_MS = 50;
-const INTER_BLOCK_DELAY_MS = 1500;
+const INTER_BLOCK_DELAY_MS = 2500;
 const POST_ERASE_SETTLE_MS = 3000;
 const POST_WRITE_CMD_DELAY_MS = 500;
 const NACK_RETRY_DELAY_MS = 3000;
@@ -421,8 +421,6 @@ export class FirmwareOTAService {
         bytesWritten,
         firmwareData.length
       );
-      
-      await this.drainRxBuffer();
       
       let blockSuccess = false;
       let gotNack = false;
