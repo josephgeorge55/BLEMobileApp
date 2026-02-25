@@ -170,18 +170,14 @@ export class FirmwareOTAService {
     return response;
   }
   
-  private async waitForAck(timeout: number = TIMEOUT_MS, consumeEcho: boolean = false): Promise<boolean> {
+  private async waitForAck(timeout: number = TIMEOUT_MS): Promise<boolean> {
     const startTime = Date.now();
-    let foundAck = false;
     while (Date.now() - startTime < timeout) {
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(100, timeout - elapsed);
       const listenChunk = Math.min(remaining, 500);
       const response = await this.receiveData(listenChunk);
       if (!response || response.length === 0) {
-        if (foundAck) {
-          return true;
-        }
         if (Date.now() - startTime >= timeout) {
           break;
         }
@@ -196,26 +192,11 @@ export class FirmwareOTAService {
       
       for (let i = 0; i < response.length; i++) {
         if (response[i] === ACK) {
-          if (!consumeEcho) {
-            return true;
-          }
-          foundAck = true;
+          return true;
         } else if (response[i] === NACK) {
-          if (foundAck) {
-            this.log('debug', 'NACK after ACK - ignoring (echo artifact)');
-            return true;
-          }
           this.log('error', 'NACK (0x1F) received from bootloader');
           return false;
         }
-      }
-      
-      if (foundAck) {
-        const echoData = await this.receiveData(300);
-        if (echoData && echoData.length > 0) {
-          this.log('debug', `Consumed ${echoData.length} echo bytes after ACK`);
-        }
-        return true;
       }
       this.log('debug', `No ACK/NACK in ${response.length} bytes, continuing to listen...`);
     }
@@ -443,7 +424,7 @@ export class FirmwareOTAService {
       
       await this.sendBytes(block);
       
-      if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS, true)) {
+      if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
         this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged after ${WRITE_BLOCK_TIMEOUT_MS / 1000}s`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
