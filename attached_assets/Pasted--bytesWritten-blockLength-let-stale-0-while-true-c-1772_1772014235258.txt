@@ -1,0 +1,216 @@
+}
+      
+      bytesWritten += blockLength;
+      let stale = 0;
+      while (true) {
+        const extra = await this.receiveData(50);
+        if (!extra || extra.length === 0) break;
+        stale += extra.length;
+      }
+      if (stale > 0) {
+        this.log('debug', Drained ${stale} stale bytes after block ${i + 1} ACK);
+      }
+      
+      if ((i + 1) % 50 === 0 || i === totalBlocks - 1) {
+        this.log('info', Written ${i + 1}/${totalBlocks} blocks (${bytesWritten} bytes));
+
+This snippet is actually exposing the real bug.
+
+The problem is not Bluetooth anymore.
+
+The problem is this:
+
+while (true) {
+  const extra = await this.receiveData(50);
+  if (!extra || extra.length === 0) break;
+  stale += extra.length;
+}
+
+🚨 You are blindly draining bytes after each ACK.
+
+And those bytes are very likely the ACK for the NEXT block.
+
+Why This Breaks OTA
+
+Your flow right now:
+
+Send Block N
+
+Wait for ACK
+
+Then you drain everything that arrives within 50ms windows
+
+But Classic Bluetooth + UART timing is not deterministic.
+
+Very realistic timing:
+
+T=0ms   You send block
+T=8ms   Bootloader finishes flash write
+T=9ms   Bootloader sends ACK
+T=10ms  ACK arrives
+T=12ms  You read it
+
+T=13ms  Bootloader already processed next block header
+T=15ms  Bootloader sends next ACK
+T=16ms  You enter "drain stale loop"
+T=18ms  You delete the next ACK
+
+Now you just destroyed synchronization.
+
+Then when you send the next block:
+
+→ You wait for ACK
+→ But you already deleted it
+→ 30 second timeout
+→ Fail
+
+Your Log Confirms This
+
+Earlier we saw:
+
+RX: [0x79 0x79 0x79]
+RX: [0x79 0x79 0x79 0x79]
+
+That means ACKs are batching together.
+
+Instead of fixing synchronization, you're discarding them.
+
+🚫 Draining RX Is the Wrong Fix
+
+OTA is a strict state machine.
+
+You never:
+
+“Drain random bytes”
+
+“Clear the buffer blindly”
+
+“Discard anything unexpected”
+
+You only:
+
+Parse exactly what you expect
+
+Leave remaining bytes in buffer
+
+The Correct Way To Handle ACKs
+
+You need a persistent RX buffer.
+
+Then:
+
+function extractAckFromBuffer() {
+  const index = otaRxBuffer.indexOf(0x79);
+  if (index === -1) return null;
+
+  // Remove everything before and including ACK
+  otaRxBuffer = otaRxBuffer.slice(index + 1);
+  return true;
+}
+
+Then waitForAck():
+
+async function waitForAck(timeoutMs) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const ack = extractAckFromBuffer();
+    if (ack) return true;
+    await sleep(5);
+  }
+
+  return false;
+}
+
+No draining loop.
+No deleting unknown bytes.
+No multiple receiveData() calls.
+
+🔴 Why Your Current Approach Guarantees Failure
+
+Because this logic:
+
+receiveData(50)
+
+creates micro timing windows where:
+
+ACK arrives
+
+But your promise is not armed
+
+Or you're inside drain loop
+
+Or buffer was just cleared
+
+So ACK disappears.
+
+OTA must be stream-based, not request-based.
+
+🎯 The Core Rule
+
+Bluetooth = stream
+UART = stream
+
+OTA must treat it as a continuous byte stream.
+
+Not as discrete “responses”.
+
+💥 Right Now You Have Three Problems
+
+ACKs batching together
+
+No block-number verification
+
+Drain loop deleting valid future ACKs
+
+The drain loop is making it worse.
+
+Immediate Action
+
+Delete this entire block:
+
+while (true) {
+  const extra = await this.receiveData(50);
+  if (!extra || extra.length === 0) break;
+  stale += extra.length;
+}
+
+It is harmful.
+
+Then Do This Instead
+
+After receiving ACK for block N:
+
+Do nothing.
+
+Send block N+1.
+
+Let buffer accumulate naturally.
+
+Never clear it.
+
+Never drain it.
+
+Only parse from it.
+
+Why It Fails at Block 6 Now
+
+Because:
+
+You likely drained ACK for block 6 during block 5 cleanup.
+
+So block 6 waits forever.
+
+Perfectly consistent with your log.
+
+🚀 The Proper Long-Term Fix
+
+Professional OTA must include:
+
+Block number in ACK
+
+CRC per block
+
+Strict state machine
+
+No “best effort” byte draining
