@@ -1,0 +1,157 @@
+What’s Really Happening
+
+You said:
+
+device.write() resolves when data is queued, not transmitted.
+
+Correct.
+
+On Android Classic Bluetooth:
+
+write() = copied into OS buffer
+NOT = delivered to STM32
+
+So what happens:
+
+You send Block 7 → queued
+
+You send Block 8 → queued immediately
+
+OS sends both rapidly over UART
+
+Bootloader receives them back-to-back
+
+Bootloader is still programming flash for Block 7
+
+Block 8 arrives before flash finished
+
+Buffer overrun or protocol desync
+
+CPU crashes or state machine breaks
+
+No ACK for Block 9
+
+🚨 Why The ACKs Look Instant
+
+Because they are not for the block you just sent.
+
+They are:
+
+Delayed ACKs from previous blocks
+
+Still sitting in Android RX buffer
+
+Your app consumes them immediately
+
+So timing looks like:
+
+TX Block 7
+RX ACK (really for Block 6)
+
+TX Block 8
+RX ACK (really for Block 7)
+
+You’re now one block ahead.
+
+By Block 9, you're out of fake ACKs → silence.
+
+Perfectly matches your 37-second timeout.
+
+🧠 Important: This Is Not Just a Chunking Problem
+
+Even if you split 256 bytes into 64-byte chunks…
+
+If you send them back-to-back without pacing, you can still overflow:
+
+STM32 UART RX FIFO
+
+Bootloader receive buffer
+
+Flash programming timing window
+
+🎯 The Real Fix (Professional OTA Strategy)
+Rule #1
+
+Never send next block until you receive ACK for current block.
+
+But critically:
+
+ACK must be tied to block index.
+
+Rule #2
+
+Throttle transmission speed.
+
+Classic SPP safe sustained rate ≠ theoretical baud rate.
+
+Especially if using:
+
+115200 UART behind BT module
+
+HAL_UART_Receive polling
+
+No DMA
+
+✅ Correct Send Strategy
+
+Instead of:
+
+await device.write(block256);
+
+Do:
+
+async function sendBlock(block) {
+    const CHUNK = 64;
+
+    for (let i = 0; i < block.length; i += CHUNK) {
+        const slice = block.slice(i, i + CHUNK);
+        await device.write(slice);
+        await sleep(5); // 3–10ms sweet spot
+    }
+}
+
+Then:
+
+await sendBlock(block);
+const ack = await waitForAck(5000);
+🔬 Why 64 Bytes?
+
+Because:
+
+Most BT Classic stacks use ~128–512 byte internal buffers
+
+STM32 UART RX often 64–128 byte ring buffers
+
+64B avoids burst overflow
+
+5ms delay prevents OS queue stacking
+
+⚡ Even Better: Add Bootloader Flow Control
+
+If possible:
+
+After bootloader receives full 256 bytes:
+
+Program flash
+
+Only THEN send ACK
+
+That guarantees pacing.
+
+🔥 Ultimate Fix (Industrial Grade)
+
+Add block number to ACK.
+
+Instead of:
+
+0x79
+
+Send:
+
+0x79 + block_index_low + block_index_high
+
+Then Android verifies:
+
+if (ack.block != expectedBlock) reject();
+
+Now you eliminate stale ACK issues forever.
