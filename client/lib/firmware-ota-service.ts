@@ -414,10 +414,18 @@ export class FirmwareOTAService {
       );
       
       const txTime = Date.now();
-      await this.sendBytes(block);
+      try {
+        await this.sendBytes(block);
+      } catch (sendError: any) {
+        this.log('error', `Block ${i + 1}/${totalBlocks} send failed after ${Date.now() - txTime}ms: ${sendError.message}`);
+        this.updateProgress('error', progress, `Send failed at block ${i + 1}`);
+        return false;
+      }
+      const sendTime = Date.now() - txTime;
       
+      const ackWaitStart = Date.now();
       if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
-        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged - NACK or timeout (waited ${Date.now() - txTime}ms)`);
+        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged (send=${sendTime}ms, ack_wait=${Date.now() - ackWaitStart}ms)`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }

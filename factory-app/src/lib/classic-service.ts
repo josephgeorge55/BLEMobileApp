@@ -264,7 +264,12 @@ export async function sendClassicBinaryData(data: Uint8Array): Promise<void> {
 
   try {
     const base64 = arrayBufferToBase64Classic(data);
-    await connectedDevice.write(base64, "base64");
+    const SEND_TIMEOUT_MS = 10000;
+    const writePromise = connectedDevice.write(base64, "base64");
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`BT write hung for ${SEND_TIMEOUT_MS}ms - connection may be lost`)), SEND_TIMEOUT_MS)
+    );
+    await Promise.race([writePromise, timeoutPromise]);
   } catch (error) {
     console.error("[Classic-OTA] Error sending binary data:", error);
     throw error;
