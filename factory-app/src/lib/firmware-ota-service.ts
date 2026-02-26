@@ -41,9 +41,7 @@ const BOOTLOADER_RESET_DELAY_MS = 2500;
 const BOOTLOADER_INIT_DELAY_MS = 1500;
 const HELLO_RETRY_DELAY_MS = 1500;
 const INTER_STEP_DELAY_MS = 50;
-const INTER_BLOCK_DELAY_MS = 300;
-const CHECKPOINT_INTERVAL = 25;
-const CHECKPOINT_PAUSE_MS = 2000;
+const INTER_BLOCK_DELAY_MS = 200;
 const POST_ERASE_SETTLE_MS = 3000;
 const MAX_HELLO_RETRIES = 5;
 const MAX_CMD_RETRIES = 3;
@@ -449,14 +447,7 @@ export class FirmwareOTAService {
       this.log('info', `B${i + 1}/${totalBlocks} OK send=${sendTime}ms ack=${ackTime}ms${stale > 0 ? ` stale=${stale}` : ''} @${formatAddress(blockAddr)}`);
 
       if (i < totalBlocks - 1) {
-        if ((i + 1) % CHECKPOINT_INTERVAL === 0) {
-          this.log('info', `Checkpoint pause at block ${i + 1} (${CHECKPOINT_PAUSE_MS}ms breather)`);
-          await this.drainRxBuffer();
-          await this.delay(CHECKPOINT_PAUSE_MS);
-          await this.drainRxBuffer();
-        } else {
-          await this.delay(INTER_BLOCK_DELAY_MS);
-        }
+        await this.delay(INTER_BLOCK_DELAY_MS);
       }
     }
     
