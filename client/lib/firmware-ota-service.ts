@@ -386,6 +386,8 @@ export class FirmwareOTAService {
     }
     
     this.log('success', 'WRITE command acknowledged - beginning data transfer');
+
+    await this.drainRxBuffer();
     
     let bytesWritten = 0;
     
@@ -411,14 +413,16 @@ export class FirmwareOTAService {
         firmwareData.length
       );
       
+      const txTime = Date.now();
       await this.sendBytes(block);
       
       if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
-        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged - NACK or timeout`);
+        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged - NACK or timeout (waited ${Date.now() - txTime}ms)`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }
       
+      const ackTime = Date.now() - txTime;
       bytesWritten += blockLength;
 
       let stale = 0;
@@ -427,12 +431,9 @@ export class FirmwareOTAService {
         if (!extra || extra.length === 0) break;
         stale += extra.length;
       }
-      if (stale > 0) {
-        this.log('debug', `Drained ${stale} stale bytes after block ${i + 1} ACK`);
-      }
       
-      if ((i + 1) % 50 === 0 || i === totalBlocks - 1) {
-        this.log('info', `Written ${i + 1}/${totalBlocks} blocks (${bytesWritten} bytes)`);
+      if ((i + 1) % 10 === 0 || i < 5 || i === totalBlocks - 1 || stale > 0) {
+        this.log('info', `Block ${i + 1}/${totalBlocks} ACK in ${ackTime}ms${stale > 0 ? ` (drained ${stale} stale)` : ''}`);
       }
 
       if (i < totalBlocks - 1) {
