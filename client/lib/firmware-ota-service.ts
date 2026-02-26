@@ -191,7 +191,8 @@ export class FirmwareOTAService {
           return false;
         }
       }
-      this.log('debug', `No ACK/NACK in ${response.length} bytes, continuing to listen...`);
+      const unknownHex = Array.from(response).map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+      this.log('warning', `Unknown RX data (not ACK/NACK): [${unknownHex}] - continuing to listen...`);
     }
     this.log('debug', 'RX: timeout waiting for ACK');
     return false;
@@ -389,6 +390,7 @@ export class FirmwareOTAService {
 
     await this.drainRxBuffer();
     
+    const writeStartTime = Date.now();
     let bytesWritten = 0;
     
     for (let i = 0; i < totalBlocks; i++) {
@@ -413,11 +415,13 @@ export class FirmwareOTAService {
         firmwareData.length
       );
       
+      const blockAddr = FIRMWARE_START_ADDRESS + offset;
       const txTime = Date.now();
+      const elapsedTotal = txTime - writeStartTime;
       try {
         await this.sendBytes(block);
       } catch (sendError: any) {
-        this.log('error', `Block ${i + 1}/${totalBlocks} send failed after ${Date.now() - txTime}ms: ${sendError.message}`);
+        this.log('error', `B${i + 1}/${totalBlocks} SEND FAILED @${elapsedTotal}ms: ${sendError.message} (send took ${Date.now() - txTime}ms)`);
         this.updateProgress('error', progress, `Send failed at block ${i + 1}`);
         return false;
       }
@@ -425,12 +429,12 @@ export class FirmwareOTAService {
       
       const ackWaitStart = Date.now();
       if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
-        this.log('error', `Block ${i + 1}/${totalBlocks} not acknowledged (send=${sendTime}ms, ack_wait=${Date.now() - ackWaitStart}ms)`);
+        this.log('error', `B${i + 1}/${totalBlocks} NO ACK @${elapsedTotal}ms addr=${formatAddress(blockAddr)} send=${sendTime}ms ack_wait=${Date.now() - ackWaitStart}ms`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }
       
-      const ackTime = Date.now() - txTime;
+      const ackTime = Date.now() - ackWaitStart;
       bytesWritten += blockLength;
 
       let stale = 0;
@@ -440,9 +444,7 @@ export class FirmwareOTAService {
         stale += extra.length;
       }
       
-      if ((i + 1) % 10 === 0 || i < 5 || i === totalBlocks - 1 || stale > 0) {
-        this.log('info', `Block ${i + 1}/${totalBlocks} ACK in ${ackTime}ms${stale > 0 ? ` (drained ${stale} stale)` : ''}`);
-      }
+      this.log('info', `B${i + 1}/${totalBlocks} OK send=${sendTime}ms ack=${ackTime}ms${stale > 0 ? ` stale=${stale}` : ''} @${formatAddress(blockAddr)}`);
 
       if (i < totalBlocks - 1) {
         await this.delay(INTER_BLOCK_DELAY_MS);
