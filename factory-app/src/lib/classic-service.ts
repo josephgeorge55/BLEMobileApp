@@ -146,7 +146,7 @@ export async function connectToClassicDevice(address: string, callbacks: Classic
   try {
     await cancelDiscovery();
     callbacks.onDebugLog?.("INFO", `Connecting to ${address}...`);
-    const device = await RNBluetoothClassic.connectToDevice(address, { delimiter: "", charset: "utf-8" });
+    const device = await RNBluetoothClassic.connectToDevice(address, { delimiter: "", charset: "latin" });
     if (!device) {
       callbacks.onError(new Error("Failed to connect"));
       return false;
@@ -263,9 +263,9 @@ export async function sendClassicBinaryData(data: Uint8Array): Promise<void> {
   }
 
   try {
-    const base64 = arrayBufferToBase64Classic(data);
+    const raw = String.fromCharCode(...data);
     const SEND_TIMEOUT_MS = 10000;
-    const writePromise = connectedDevice.write(base64, "base64");
+    const writePromise = connectedDevice.write(raw);
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`BT write hung for ${SEND_TIMEOUT_MS}ms - connection may be lost`)), SEND_TIMEOUT_MS)
     );
