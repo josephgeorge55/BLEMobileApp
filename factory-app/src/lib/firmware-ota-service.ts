@@ -418,6 +418,8 @@ export class FirmwareOTAService {
       );
       
       const blockAddr = FIRMWARE_START_ADDRESS + offset;
+      const dataPreview = Array.from(block.slice(0, 16)).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+
       const txTime = Date.now();
       const elapsedTotal = txTime - writeStartTime;
       try {
@@ -431,7 +433,7 @@ export class FirmwareOTAService {
       
       const ackWaitStart = Date.now();
       if (!await this.waitForAck(WRITE_BLOCK_TIMEOUT_MS)) {
-        this.log('error', `B${i + 1}/${totalBlocks} NO ACK @${elapsedTotal}ms addr=${formatAddress(blockAddr)} send=${sendTime}ms ack_wait=${Date.now() - ackWaitStart}ms`);
+        this.log('error', `B${i + 1}/${totalBlocks} NO ACK @${elapsedTotal}ms addr=${formatAddress(blockAddr)} send=${sendTime}ms ack_wait=${Date.now() - ackWaitStart}ms data=[${dataPreview}]`);
         this.updateProgress('error', progress, `Write failed at block ${i + 1}`);
         return false;
       }
@@ -446,7 +448,7 @@ export class FirmwareOTAService {
         stale += extra.length;
       }
       
-      this.log('info', `B${i + 1}/${totalBlocks} OK send=${sendTime}ms ack=${ackTime}ms${stale > 0 ? ` stale=${stale}` : ''} @${formatAddress(blockAddr)}`);
+      this.log('info', `B${i + 1}/${totalBlocks} OK send=${sendTime}ms ack=${ackTime}ms${stale > 0 ? ` stale=${stale}` : ''} @${formatAddress(blockAddr)} [${dataPreview}]`);
 
       if (i < totalBlocks - 1) {
         await this.delay(INTER_BLOCK_DELAY_MS);
