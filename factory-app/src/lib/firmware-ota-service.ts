@@ -101,13 +101,26 @@ export function prepareFirmwareData(content: string, isBinary: boolean): Uint8Ar
     throw new Error('No valid data found in HEX file');
   }
 
-  const totalSize = parsed.blocks.reduce((sum, b) => sum + b.data.length, 0);
-  const firmwareData = new Uint8Array(totalSize);
-  let offset = 0;
+  const imageStart = FIRMWARE_START_ADDRESS;
+  const imageEnd = Math.ceil((parsed.maxAddress + 1) / BLOCK_SIZE) * BLOCK_SIZE;
+  const imageSize = imageEnd - imageStart;
+
+  console.log(`[FW] HEX data range: ${formatAddress(parsed.minAddress)} - ${formatAddress(parsed.maxAddress)}`);
+  console.log(`[FW] Flash image: ${formatAddress(imageStart)} - ${formatAddress(imageEnd)} (${imageSize} bytes)`);
+  console.log(`[FW] Parsed ${parsed.blocks.length} data blocks, ${parsed.totalBytes} data bytes`);
+
+  const firmwareData = new Uint8Array(imageSize);
+  firmwareData.fill(0xFF);
+
   for (const block of parsed.blocks) {
-    firmwareData.set(block.data, offset);
-    offset += block.data.length;
+    const destOffset = block.address - imageStart;
+    if (destOffset < 0 || destOffset + block.data.length > imageSize) {
+      console.warn(`[FW] Block at ${formatAddress(block.address)} outside image range, skipping`);
+      continue;
+    }
+    firmwareData.set(block.data, destOffset);
   }
+
   return firmwareData;
 }
 
