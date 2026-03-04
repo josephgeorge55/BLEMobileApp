@@ -85,6 +85,25 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/api/health", async (_req, res) => {
+    try {
+      const dbCheck = await db.execute(new (await import("drizzle-orm")).SQL(["SELECT 1"]));
+      res.status(200).json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: "connected",
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: "degraded",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: "disconnected",
+      });
+    }
+  });
+
   app.post("/api/auth/register", registerRateLimiter, async (req, res) => {
     try {
       const body = createAccountSchema.parse(req.body);
