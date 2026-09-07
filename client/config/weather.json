@@ -1,5 +1,5 @@
 {
-  "apiKey": "c34859af1d840c9591d604249eb7da86",
+  "apiKey": "",
   "baseUrl": "https://api.openweathermap.org/data/3.0/onecall",
   "units": "metric",
   "refreshIntervalMinutes": 15
